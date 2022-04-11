@@ -1,5 +1,5 @@
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 5701
 
 cluster:
@@ -15,11 +15,11 @@ cluster:
       maxWaitSeconds: 60
     resources:
       requests:
-        cpu: "2"
-        memory: "4G"
+        cpu: "1"
+        memory: "3G"
       limits:
-        cpu: "2"
-        memory: "4G"
+        cpu: "1"
+        memory: "3G"
     liveness:
       initialDelaySeconds: 15
       periodSeconds: 10
