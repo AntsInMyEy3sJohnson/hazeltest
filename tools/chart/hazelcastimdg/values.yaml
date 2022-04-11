@@ -21,19 +21,25 @@ cluster:
         cpu: "2"
         memory: "4G"
     liveness:
-      initialDelaySeconds: 30
+      initialDelaySeconds: 15
       periodSeconds: 10
     readiness:
-      initialDelaySeconds: 60
+      initialDelaySeconds: 30
       periodSeconds: 10
 
 config:
   hazelcast:
+    cluster-name: "hazelcastimdg"
     properties:
       hazelcast.heartbeat.interval.seconds: 10
       hazelcast.jmx: true
       hazelcast.logging.type: log4j2
     network:
+      rest-api:
+        enabled: true
+        endpoint-groups:
+          HEALTH_CHECK:
+            enabled: true
       join:
         multicast:
           enabled: false
