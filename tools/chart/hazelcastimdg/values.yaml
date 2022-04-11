@@ -1,0 +1,43 @@
+service:
+  type: ClusterIP
+  port: 5701
+
+cluster:
+  logging:
+    level: INFO
+  members:
+    image: hazelcast/hazelcast:5.1.1
+    count: 1
+    ports:
+      member: 5701
+      metrics: 8080
+    gracefulShutDown:
+      maxWaitSeconds: 60
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4G"
+      limits:
+        cpu: "2"
+        memory: "4G"
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readiness:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+
+config:
+  hazelcast:
+    properties:
+      hazelcast.heartbeat.interval.seconds: 10
+      hazelcast.jmx: true
+      hazelcast.logging.type: log4j2
+    network:
+      join:
+        multicast:
+          enabled: false
+        kubernetes:
+          enabled: true
+          service-port: 5701
+  

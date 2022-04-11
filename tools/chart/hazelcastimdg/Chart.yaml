@@ -1,0 +1,13 @@
+apiVersion: v2
+name: hazelcastimdg
+description: A Helm chart for deploying a simple Hazelcast cluster on Kubernetes.
+
+type: application
+
+version: 1.0.0
+
+appVersion: "5.1.1"
+
+# Install: 
+# helm install hazelcastimdg . --namespace=hazelcastimdg --create-namespace
+# helm uninstall hazelcastimdg --namespace=hazelcastimdg
