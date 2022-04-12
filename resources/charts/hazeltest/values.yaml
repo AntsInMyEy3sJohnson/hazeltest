@@ -1,5 +1,7 @@
 replicaCount: 1
 
+image: antsinmyey3sjohnson/hazeltest@sha256:8e1e9c30b0d8bdf53ddcc5b0769876f33d41c547a7de5de5eff4a53a0de8f600
+
 resources:
   requests: 
     cpu: "100m"
@@ -10,4 +12,4 @@ resources:
 
 env:
   hzCluster: "hazelcastimdg"
-  hzMembers: "10.42.0.70"
+  hzMembers: "10.43.163.233"
