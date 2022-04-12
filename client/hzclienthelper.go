@@ -26,6 +26,11 @@ func InitHazelcastClient(ctx context.Context, clientName string, hzCluster strin
 	}
 	hzConfig.Cluster.Unisocket = useUniSocketClient
 
+	log.WithFields(log.Fields{
+		"kind": "internal state information",
+		"client": ClientID(),
+	}).Infof("hazelcast client config: %+v", hzConfig)
+
 	hzConfig.Cluster.Network.SetAddresses(hzMemberAddresses...)
 
 	return hazelcast.StartNewClientWithConfig(ctx, *hzConfig)
