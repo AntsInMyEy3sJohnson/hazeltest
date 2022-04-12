@@ -3,30 +3,62 @@ package main
 import (
 	"hazeltest/maps"
 	_ "hazeltest/maps/pokedex"
-	"log"
+	"io"
 	"os"
 	"strings"
-)
 
-var (
-	errLogger *log.Logger
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
-	flags := log.Ldate | log.Ltime | log.Lshortfile
-	errLogger = log.New(os.Stderr, "ERROR: ", flags)
+	log.SetFormatter(&log.JSONFormatter{})
+
+	definedLogLevel := os.Getenv("LOG_LEVEL")
+
+	var logLevel log.Level
+	var out io.Writer
+
+	switch strings.ToLower(definedLogLevel) {
+	case "trace":
+		logLevel = log.TraceLevel
+		out = os.Stdout
+	case "debug":
+		logLevel = log.DebugLevel
+		out = os.Stdout
+	case "info":
+		logLevel = log.InfoLevel
+		out = os.Stdout
+	case "warn":
+		logLevel = log.WarnLevel
+		out = os.Stderr
+	case "error":
+		logLevel = log.ErrorLevel
+		out = os.Stderr
+	default:
+		logLevel = log.InfoLevel
+		out = os.Stdout
+	}
+
+	log.SetLevel(logLevel)
+	log.SetOutput(out)
+	log.SetReportCaller(true)
+
 }
 
 func main() {
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
-		errLogger.Fatal("HZ_CLUSTER environment variable must be provided")
+		log.WithFields(log.Fields{
+			"kind": "invalid or incomplete configuration",
+		}).Fatal("HZ_CLUSTER environment variable must be provided")
 	}
 
 	hzMembers := os.Getenv("HZ_MEMBERS")
 	if hzMembers == "" {
-		errLogger.Fatal("HZ_MEMBERS environment variable must be provided")
+		log.WithFields(log.Fields{
+			"kind": "invalid or incomplete configuration",
+		}).Fatal("HZ_MEMBERS environment variable must be provided")
 	}
 
 	mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: strings.Split(hzMembers, ",")}

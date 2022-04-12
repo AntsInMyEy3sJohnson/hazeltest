@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/maps"
-	"log"
 	"math/rand"
-	"os"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/hazelcast/hazelcast-go-client"
 )
@@ -49,29 +49,22 @@ type nextEvolution struct {
 
 const runs = 10000
 const numMaps = 1
+const internalStateInfo = "internal state info"
+const ioError = "io error"
+const hzError = "hazelcast error"
 
 //go:embed pokedex.json
 var pokedexFile embed.FS
-
-var (
-	traceLogger   *log.Logger
-	infoLogger    *log.Logger
-	warnLogger *log.Logger
-	errLogger   *log.Logger
-)
 
 func init() {
 	maps.Register(PokedexRunner{})
 	gob.Register(pokemon{})
 
-	flags := log.Ldate | log.Ltime | log.Lshortfile
+	log.WithFields(log.Fields{
+		"kind":   internalStateInfo,
+		"client": client.ClientID(),
+	}).Trace("pokedexrunner finished initialization")
 
-	traceLogger = log.New(os.Stdout, "TRACE: ", flags)
-	infoLogger = log.New(os.Stdout, "INFO: ", flags)
-	warnLogger = log.New(os.Stderr, "WARN: ", flags)
-	errLogger = log.New(os.Stderr, "ERROR: ", flags)
-
-	logTrace("pokedexrunner initialization complete")
 }
 
 func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
@@ -80,21 +73,30 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
 	clientID := client.ClientID()
 	if err != nil {
-		logErr(fmt.Sprintf("unable to parse pokedex json file: %s", err))
+		log.WithFields(log.Fields{
+			"kind":   ioError,
+			"client": client.ClientID(),
+		}).Tracef("unable to parse pokedex json file: %s", err)
 	}
 
 	ctx := context.TODO()
 
-	logTrace("initializing hazelcast client")
-
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		logErr(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
+		log.WithFields(log.Fields{
+			"kind":   hzError,
+			"client": client.ClientID(),
+		}).Fatalf("unable to initialize hazelcast client: %s", err)
 	}
 	defer hzClient.Shutdown(ctx)
 
-	logTrace("starting maps loop")
+	log.WithFields(log.Fields{
+		"kind":   internalStateInfo,
+		"client": client.ClientID(),
+	}).Trace("initializing hazelcast client")
+
+	log.WithField("kind", internalStateInfo).Trace("starting maps loop")
 	var wg sync.WaitGroup
 	for i := 0; i < numMaps; i++ {
 		wg.Add(1)
@@ -102,10 +104,13 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 			defer wg.Done()
 			mapName := fmt.Sprintf("%s-pokedex-%d", client.ClientID(), i)
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
-			defer hzPokedexMap.Destroy(ctx)
 			if err != nil {
-				logErr(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
+				log.WithFields(log.Fields{
+					"kind":   hzError,
+					"client": client.ClientID(),
+				}).Fatalf("unable to retrieve map '%s' from hazelcast: %s", mapName, err)
 			}
+			defer hzPokedexMap.Destroy(ctx)
 			doTestLoop(ctx, hzPokedexMap, pokedex, mapName)
 		}(i)
 	}
@@ -116,22 +121,31 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
 
 	for i := 0; i < runs; i++ {
-		logTrace(fmt.Sprintf("in run %d on map %s", i, mapName))
+		log.WithFields(log.Fields{
+			"kind": internalStateInfo,
+			"client": client.ClientID(),
+		}).Tracef("in run %d on map %s", i, mapName)
 		err := ingestAll(ctx, m, p)
 		if err != nil {
-			logWarn(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
+
 			continue
 		}
 
 		err = readAll(ctx, m, p)
 		if err != nil {
-			logWarn(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
+			log.WithFields(log.Fields{
+				"kind": hzError,
+				"client": client.ClientID(),
+			}).Warnf("failed to read data from map '%s' in run %d: %s", mapName, i, err)
 			continue
 		}
 
 		err = deleteSome(ctx, m, p)
 		if err != nil {
-			logWarn(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
+			log.WithFields(log.Fields{
+				"kind": hzError,
+				"client": client.ClientID(),
+			}).Warnf("failed to delete data from map '%s' in run %d: %s", mapName, i, err)
 			continue
 		}
 	}
@@ -157,7 +171,10 @@ func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	logInfo(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete))
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Tracef("deleted %d elements from pokedex map", numElementsToDelete)
 
 	return nil
 
@@ -176,7 +193,10 @@ func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	logInfo(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)))
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Tracef("retrieved %d items from hazelcast map", len(p.Pokemon))
 
 	return nil
 
@@ -184,6 +204,7 @@ func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 
 func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 
+	numNewlyIngested := 0
 	for _, v := range p.Pokemon {
 		containsKey, err := m.ContainsKey(ctx, v.ID)
 		if err != nil {
@@ -191,10 +212,14 @@ func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 		if !containsKey {
 			m.Set(ctx, v.ID, v)
+			numNewlyIngested++
 		}
 	}
 
-	logInfo(fmt.Sprintf("stored %d items in hazelcast map", len(p.Pokemon)))
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Tracef("(re-)stored %d items in hazelcast map", numNewlyIngested)
 
 	return nil
 
@@ -216,32 +241,11 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	logTrace("parsed pokedex file")
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Trace("parsed pokedex file")
 
 	return &pokedex, nil
-
-}
-
-func logTrace(msg string) {
-
-	traceLogger.Printf("%s: %s", client.ClientID(), msg)
-
-}
-
-func logInfo(msg string) {
-
-	infoLogger.Printf("%s: %s", client.ClientID(), msg)
-
-}
-
-func logWarn(msg string) {
-
-	warnLogger.Printf("%s: %s", client.ClientID(), msg)
-
-}
-
-func logErr(msg string) {
-
-	errLogger.Fatalf("%s: %s", client.ClientID(), msg)
 
 }
