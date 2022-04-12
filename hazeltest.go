@@ -2,6 +2,7 @@ package main
 
 import (
 	"hazeltest/client"
+	clientConfig "hazeltest/client/config"
 	"hazeltest/maps"
 	_ "hazeltest/maps/pokedex"
 	"io"
@@ -48,10 +49,14 @@ func init() {
 
 func main() {
 
+	clientConfig.ParseCommandLineArgs()
+
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
 		log.WithFields(log.Fields{
-			"kind": "invalid or incomplete configuration",
+			"kind":   "invalid or incomplete configuration",
+			"value": "HZ_CLUSTER",
+			"source": "environment variables",
 			"client": client.ClientID(),
 		}).Fatal("HZ_CLUSTER environment variable must be provided")
 	}
@@ -59,7 +64,9 @@ func main() {
 	hzMembers := os.Getenv("HZ_MEMBERS")
 	if hzMembers == "" {
 		log.WithFields(log.Fields{
-			"kind": "invalid or incomplete configuration",
+			"kind":   "invalid or incomplete configuration",
+			"value": "HZ_MEMBERS",
+			"source": "environment variables",
 			"client": client.ClientID(),
 		}).Fatal("HZ_MEMBERS environment variable must be provided")
 	}
