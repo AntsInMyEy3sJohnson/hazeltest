@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"hazeltest/client"
+	"hazeltest/maps"
 	"log"
 	"math/rand"
 	"os"
@@ -47,49 +48,53 @@ type nextEvolution struct {
 }
 
 const runs = 10000
-const numMaps = 100
+const numMaps = 1
 
 //go:embed pokedex.json
 var pokedexFile embed.FS
 
 var (
-	trace *log.Logger
-	info  *log.Logger
-	warn  *log.Logger
-	err   *log.Logger
+	traceLogger   *log.Logger
+	infoLogger    *log.Logger
+	warnLogger *log.Logger
+	errLogger   *log.Logger
 )
 
 func init() {
-	Register(PokedexRunner{})
+	maps.Register(PokedexRunner{})
 	gob.Register(pokemon{})
 
-	flags := log.Ldate|log.Ltime|log.Lshortfile
-	trace = log.New(os.Stdout, "TRACE: ", flags)
-	info = log.New(os.Stdout, "INFO: ", flags)
-	warn = log.New(os.Stderr, "WARN: ", flags)
-	err = log.New(os.Stderr, "ERROR: ", flags)
+	flags := log.Ldate | log.Ltime | log.Lshortfile
+
+	traceLogger = log.New(os.Stdout, "TRACE: ", flags)
+	infoLogger = log.New(os.Stdout, "INFO: ", flags)
+	warnLogger = log.New(os.Stderr, "WARN: ", flags)
+	errLogger = log.New(os.Stderr, "ERROR: ", flags)
+
+	logTrace("pokedexrunner initialization complete")
 }
 
 func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
 	pokedex, err := parsePokedexFile()
 
+	clientID := client.ClientID()
 	if err != nil {
-		panic(err)
+		logErr(fmt.Sprintf("unable to parse pokedex json file: %s", err))
 	}
 
 	ctx := context.TODO()
 
-	clientID := client.ClientID()
-	trace.Printf("pokedexrunner initializing hazelcast client using client id %s", clientID)
+	logTrace("initializing hazelcast client")
+
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		panic(err)
+		logErr(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
 	}
 	defer hzClient.Shutdown(ctx)
 
-	trace.Printf("starting maps loop in pokedexrunner with client id %s", clientID)
+	logTrace("starting maps loop")
 	var wg sync.WaitGroup
 	for i := 0; i < numMaps; i++ {
 		wg.Add(1)
@@ -98,7 +103,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 			mapName := fmt.Sprintf("pokedex-%d", i)
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
 			if err != nil {
-				panic(err)
+				logErr(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			doTestLoop(ctx, hzPokedexMap, pokedex, mapName)
 		}(i)
@@ -110,22 +115,22 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
 
 	for i := 0; i < runs; i++ {
-		trace.Printf("%s: in run %d on map %s", clientID, i, mapName)
+		logTrace(fmt.Sprintf("in run %d on map %s", i, mapName))
 		err := ingestAll(ctx, m, p)
 		if err != nil {
-			warn.Printf("%s: failed to ingest data into map '%s' in run %d: %s", clientID, mapName, i, err)
+			logWarn(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
 		err = readAll(ctx, m, p)
 		if err != nil {
-			warn.Printf("%s: failed to read data from map '%s' in run %d: %s", clientID, mapName, i, err)
+			logWarn(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
 		err = deleteSome(ctx, m, p)
 		if err != nil {
-			warn.Printf("%s: failed to delete data from map '%s' in run %d: %s", clientID, mapName, i, err)
+			logWarn(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 	}
@@ -151,7 +156,7 @@ func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	trace.Printf("deleted %d elements from pokedex map\n", numElementsToDelete)
+	logInfo(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete))
 
 	return nil
 
@@ -170,7 +175,7 @@ func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	fmt.Printf("retrieved %d items from hazelcast map\n", len(p.Pokemon))
+	logInfo(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)))
 
 	return nil
 
@@ -188,7 +193,7 @@ func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	fmt.Printf("stored %d items in hazelcast map\n", len(p.Pokemon))
+	logInfo(fmt.Sprintf("stored %d items in hazelcast map", len(p.Pokemon)))
 
 	return nil
 
@@ -210,6 +215,32 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
+	logTrace("parsed pokedex file")
+
 	return &pokedex, nil
+
+}
+
+func logTrace(msg string) {
+
+	traceLogger.Printf("%s: %s", client.ClientID(), msg)
+
+}
+
+func logInfo(msg string) {
+
+	infoLogger.Printf("%s: %s", client.ClientID(), msg)
+
+}
+
+func logWarn(msg string) {
+
+	warnLogger.Printf("%s: %s", client.ClientID(), msg)
+
+}
+
+func logErr(msg string) {
+
+	errLogger.Fatalf("%s: %s", client.ClientID(), msg)
 
 }
