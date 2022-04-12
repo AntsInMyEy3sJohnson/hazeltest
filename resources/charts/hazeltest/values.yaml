@@ -1,0 +1,13 @@
+replicaCount: 1
+
+resources:
+  requests: 
+    cpu: "100m"
+    memory: "64M"
+  limits:
+    cpu: "200m"
+    memory: "128M"
+
+env:
+  hzCluster: "hazelcastimdg"
+  hzMembers: "10.211.55.6"
