@@ -104,11 +104,12 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 			mapName := fmt.Sprintf("%s-pokedex-%d", client.ClientID(), i)
 			start := time.Now()
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
-			elapsed := time.Since(start)
+			elapsed := time.Since(start).Milliseconds()
 			log.WithFields(log.Fields{
 				"kind": timingInfo,
 				"client": client.ClientID(),
-			}).Infof("getMap() took: %s", elapsed)
+				"tookMs": elapsed ,
+			}).Infof("getMap() took %d ms", elapsed)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"kind":   hzError,
