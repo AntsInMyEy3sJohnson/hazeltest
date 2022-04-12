@@ -10,4 +10,4 @@ resources:
 
 env:
   hzCluster: "hazelcastimdg"
-  hzMembers: "10.211.55.6"
+  hzMembers: "10.42.0.70"

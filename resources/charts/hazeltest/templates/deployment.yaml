@@ -20,7 +20,8 @@ spec:
     spec:
       containers:
       - name: hazeltest
-        image: antsinmyey3sjohnson/hazeltest:0.0.1
+        image: antsinmyey3sjohnson/hazeltest@sha256:0e12e4d753288518524ee0ab3c0842f1ea0f4c0ad571d99906742f5b4683e311
+        imagePullPolicy: Always
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu }}
