@@ -17,3 +17,5 @@
 # Exclude directories IDEs might introduce
 *.vscode
 *.idea
+
+__debug_bin

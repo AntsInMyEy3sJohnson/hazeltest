@@ -1,6 +1,9 @@
 package maps
 
 import (
+	"hazeltest/client"
+	"log"
+	"os"
 	"sync"
 )
 
@@ -9,7 +12,16 @@ type MapTester struct {
 	HzMembers []string
 }
 
-func (tester *MapTester) TestMaps() {
+var trace *log.Logger
+
+func init() {
+	trace = log.New(os.Stdout, "TRACE: ", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
+func (t *MapTester) TestMaps() {
+
+	clientID := client.ClientID()
+	trace.Printf("%s: maptester starting %d runners", clientID, len(MapRunners))
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(MapRunners); i++ {
@@ -17,7 +29,7 @@ func (tester *MapTester) TestMaps() {
 		go func(i int) {
 			defer wg.Done()
 			runner := MapRunners[i]
-			runner.Run(tester.HzCluster, tester.HzMembers)
+			runner.Run(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 
