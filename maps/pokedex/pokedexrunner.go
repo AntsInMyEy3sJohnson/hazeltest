@@ -11,6 +11,7 @@ import (
 	"hazeltest/maps"
 	"math/rand"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -48,10 +49,11 @@ type nextEvolution struct {
 }
 
 const runs = 10000
-const numMaps = 1
+const numMaps = 4
 const internalStateInfo = "internal state info"
 const ioError = "io error"
 const hzError = "hazelcast error"
+const timingInfo = "timing info"
 
 //go:embed pokedex.json
 var pokedexFile embed.FS
@@ -59,12 +61,6 @@ var pokedexFile embed.FS
 func init() {
 	maps.Register(PokedexRunner{})
 	gob.Register(pokemon{})
-
-	log.WithFields(log.Fields{
-		"kind":   internalStateInfo,
-		"client": client.ClientID(),
-	}).Trace("pokedexrunner finished initialization")
-
 }
 
 func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
@@ -96,14 +92,23 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 		"client": client.ClientID(),
 	}).Trace("initializing hazelcast client")
 
-	log.WithField("kind", internalStateInfo).Trace("starting maps loop")
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Info("starting pokedex maps loop")
 	var wg sync.WaitGroup
 	for i := 0; i < numMaps; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			mapName := fmt.Sprintf("%s-pokedex-%d", client.ClientID(), i)
+			start := time.Now()
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
+			elapsed := time.Since(start)
+			log.WithFields(log.Fields{
+				"kind": timingInfo,
+				"client": client.ClientID(),
+			}).Infof("getMap() took: %s", elapsed)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"kind":   hzError,
@@ -116,6 +121,11 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	}
 	wg.Wait()
 
+	log.WithFields(log.Fields{
+		"kind": internalStateInfo,
+		"client": client.ClientID(),
+	}).Info("finished pokedex maps loop")
+
 }
 
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
@@ -127,7 +137,10 @@ func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName strin
 		}).Tracef("in run %d on map %s", i, mapName)
 		err := ingestAll(ctx, m, p)
 		if err != nil {
-
+			log.WithFields(log.Fields{
+				"kind": hzError,
+				"client": client.ClientID(),
+			}).Warnf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err)
 			continue
 		}
 

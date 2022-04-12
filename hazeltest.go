@@ -1,6 +1,7 @@
 package main
 
 import (
+	"hazeltest/client"
 	"hazeltest/maps"
 	_ "hazeltest/maps/pokedex"
 	"io"
@@ -51,6 +52,7 @@ func main() {
 	if hzCluster == "" {
 		log.WithFields(log.Fields{
 			"kind": "invalid or incomplete configuration",
+			"client": client.ClientID(),
 		}).Fatal("HZ_CLUSTER environment variable must be provided")
 	}
 
@@ -58,6 +60,7 @@ func main() {
 	if hzMembers == "" {
 		log.WithFields(log.Fields{
 			"kind": "invalid or incomplete configuration",
+			"client": client.ClientID(),
 		}).Fatal("HZ_MEMBERS environment variable must be provided")
 	}
 
