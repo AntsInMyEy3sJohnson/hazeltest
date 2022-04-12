@@ -100,8 +100,9 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mapName := fmt.Sprintf("pokedex-%d", i)
+			mapName := fmt.Sprintf("%s-pokedex-%d", client.ClientID(), i)
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
+			defer hzPokedexMap.Destroy(ctx)
 			if err != nil {
 				logErr(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
