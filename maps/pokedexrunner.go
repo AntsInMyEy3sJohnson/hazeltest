@@ -3,11 +3,13 @@ package maps
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hazeltest/client"
+	"math/rand"
+	"sync"
 
 	"github.com/hazelcast/hazelcast-go-client"
 )
@@ -47,6 +49,9 @@ func init() {
 	gob.Register(pokemon{})
 }
 
+const runs = 10000
+const numMaps = 100
+
 //go:embed pokedex.json
 var pokedexFile embed.FS
 
@@ -67,21 +72,70 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	}
 	defer hzClient.Shutdown(ctx)
 
-	hzPokedexMap, err := hzClient.GetMap(ctx, "pokedex")
+	var wg sync.WaitGroup
+	for i := 0; i < numMaps; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			mapName := fmt.Sprintf("pokedex-%d", i)
+			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
+			if err != nil {
+				panic(err)
+			}
+			doTestLoop(ctx, hzPokedexMap, pokedex, mapName)
+		}(i)
+	}
+	wg.Wait()
 
-	if err != nil {
-		panic(err)
+}
+
+func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
+
+	for i := 0; i < runs; i++ {
+		fmt.Printf("in run %d on map %s\n", i, mapName)
+		err := ingestAll(ctx, m, p)
+		if err != nil {
+			// TODO logging
+			continue
+		}
+
+		err = readAll(ctx, m, p)
+		if err != nil {
+			// TODO logging
+			continue
+		}
+
+		err = deleteSome(ctx, m, p)
+		if err != nil {
+			// TODO logging
+			continue
+		}
 	}
 
-	err = ingestAll(ctx, hzPokedexMap, pokedex)
-	if err != nil {
-		panic(err)
+}
+
+func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
+
+	numElementsToDelete := rand.Intn(len(p.Pokemon))
+
+	for i := 0; i < numElementsToDelete; i++ {
+		pokemonToDelete := p.Pokemon[i]
+		containsKey, err := m.ContainsKey(ctx, pokemonToDelete.ID)
+		if err != nil {
+			return err
+		}
+		if !containsKey {
+			continue
+		}
+		_, err = m.Remove(ctx, pokemonToDelete.ID)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = readAll(ctx, hzPokedexMap, pokedex)
-	if err != nil {
-		panic(err)
-	}
+	fmt.Printf("deleted %d elements from pokedex map\n", numElementsToDelete)
+
+	return nil
 
 }
 
