@@ -14,7 +14,7 @@ maptests:
     # If so to 'true', the PokedexRunner will append to ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast; 
     # if set to 'false', then this PokedexRunner will share its maps with the maps created by PokedexRunners in other Hazeltest instances
     # Set this to 'false' if you would like to make all Hazeltest instances access the same map
-    appendClientIdToMapName: true
+    appendClientIdToMapName: false
     # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
     numRuns: 10000
     

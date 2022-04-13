@@ -153,23 +153,25 @@ func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName strin
 func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(p.Pokemon))
+	deleted := 0
 
 	for i := 0; i < numElementsToDelete; i++ {
-		pokemonToDelete := p.Pokemon[i]
-		containsKey, err := m.ContainsKey(ctx, assembleMapKey(pokemonToDelete.ID, mapNumber))
+		key := assembleMapKey(p.Pokemon[i].ID, mapNumber)
+		containsKey, err := m.ContainsKey(ctx, key)
 		if err != nil {
 			return err
 		}
 		if !containsKey {
 			continue
 		}
-		_, err = m.Remove(ctx, pokemonToDelete.ID)
+		_, err = m.Remove(ctx, key)
 		if err != nil {
 			return err
 		}
+		deleted++
 	}
 
-	logInternalStateEvent(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("deleted %d elements from pokedex map", deleted), log.TraceLevel)
 
 	return nil
 
