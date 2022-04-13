@@ -1,6 +1,6 @@
 replicaCount: 1
 
-image: antsinmyey3sjohnson/hazeltest@sha256:7480024da890456498af39a3584cfdec9d58705dec980baf1739afcd946e9c9a
+image: antsinmyey3sjohnson/hazeltest@sha256:5f97402f515cf25c6daf093be9b79f5155b77e3476ca5df7b3ffc4ea456295d3
 
 resources:
   requests: 

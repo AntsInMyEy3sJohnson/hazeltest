@@ -132,6 +132,12 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
 
 	for i := 0; i < runs; i++ {
+		if i % 100 == 0 {
+			log.WithFields(log.Fields{
+				"kind": internalStateInfo,
+				"client": client.ClientID(),
+			}).Infof("finished %d runs for map %s", i, mapName)
+		}
 		log.WithFields(log.Fields{
 			"kind": internalStateInfo,
 			"client": client.ClientID(),

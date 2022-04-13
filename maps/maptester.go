@@ -21,7 +21,7 @@ func init() {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ClientID()
-	trace.Printf("%s: maptester starting %d runners", clientID, len(MapRunners))
+	trace.Printf("%s: maptester starting %d runner/-s", clientID, len(MapRunners))
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(MapRunners); i++ {
