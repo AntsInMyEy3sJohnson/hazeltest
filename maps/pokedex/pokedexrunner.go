@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"hazeltest/client"
+	"hazeltest/logging"
 	"hazeltest/maps"
 	"math/rand"
 	"sync"
@@ -50,10 +51,6 @@ type nextEvolution struct {
 
 const runs = 10000
 const numMaps = 4
-const internalStateInfo = "internal state info"
-const ioError = "io error"
-const hzError = "hazelcast error"
-const timingInfo = "timing info"
 
 //go:embed pokedex.json
 var pokedexFile embed.FS
@@ -69,10 +66,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
 	clientID := client.ClientID()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"kind":   ioError,
-			"client": client.ClientID(),
-		}).Tracef("unable to parse pokedex json file: %s", err)
+		logIoError(fmt.Sprintf("unable to parse pokedex json file: %s", err))
 	}
 
 	ctx := context.TODO()
@@ -80,22 +74,13 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"kind":   hzError,
-			"client": client.ClientID(),
-		}).Fatalf("unable to initialize hazelcast client: %s", err)
+		logHzError(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
 	}
 	defer hzClient.Shutdown(ctx)
 
-	log.WithFields(log.Fields{
-		"kind":   internalStateInfo,
-		"client": client.ClientID(),
-	}).Trace("initializing hazelcast client")
+	logInternalStateInfo("initialized hazelcast client", log.InfoLevel)
+	logInternalStateInfo("starting pokedex maps loop", log.InfoLevel)
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Info("starting pokedex maps loop")
 	var wg sync.WaitGroup
 	for i := 0; i < numMaps; i++ {
 		wg.Add(1)
@@ -105,16 +90,9 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 			start := time.Now()
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
 			elapsed := time.Since(start).Milliseconds()
-			log.WithFields(log.Fields{
-				"kind": timingInfo,
-				"client": client.ClientID(),
-				"tookMs": elapsed ,
-			}).Infof("getMap() took %d ms", elapsed)
+			logTimingInfo("getMap()", int(elapsed))
 			if err != nil {
-				log.WithFields(log.Fields{
-					"kind":   hzError,
-					"client": client.ClientID(),
-				}).Fatalf("unable to retrieve map '%s' from hazelcast: %s", mapName, err)
+				logHzError(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzPokedexMap.Destroy(ctx)
 			doTestLoop(ctx, hzPokedexMap, pokedex, mapName)
@@ -122,50 +100,32 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	}
 	wg.Wait()
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Info("finished pokedex maps loop")
+	logInternalStateInfo("finished pokedex maps loop", log.InfoLevel)
 
 }
 
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
 
 	for i := 0; i < runs; i++ {
-		if i % 100 == 0 {
-			log.WithFields(log.Fields{
-				"kind": internalStateInfo,
-				"client": client.ClientID(),
-			}).Infof("finished %d runs for map %s", i, mapName)
+		if i > 0 && i % 100 == 0 {
+			logInternalStateInfo(fmt.Sprintf("finished %d runs for map %s", i, mapName), log.InfoLevel)
 		}
-		log.WithFields(log.Fields{
-			"kind": internalStateInfo,
-			"client": client.ClientID(),
-		}).Tracef("in run %d on map %s", i, mapName)
+		logInternalStateInfo(fmt.Sprintf("in run %d on map %s", i, mapName), log.TraceLevel)
 		err := ingestAll(ctx, m, p)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"kind": hzError,
-				"client": client.ClientID(),
-			}).Warnf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err)
+			logHzError(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
 		err = readAll(ctx, m, p)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"kind": hzError,
-				"client": client.ClientID(),
-			}).Warnf("failed to read data from map '%s' in run %d: %s", mapName, i, err)
+			logHzError(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
 		err = deleteSome(ctx, m, p)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"kind": hzError,
-				"client": client.ClientID(),
-			}).Warnf("failed to delete data from map '%s' in run %d: %s", mapName, i, err)
+			logHzError(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 	}
@@ -191,10 +151,7 @@ func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Tracef("deleted %d elements from pokedex map", numElementsToDelete)
+	logInternalStateInfo(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete), log.TraceLevel)
 
 	return nil
 
@@ -213,10 +170,7 @@ func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Tracef("retrieved %d items from hazelcast map", len(p.Pokemon))
+	logInternalStateInfo(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)), log.TraceLevel)
 
 	return nil
 
@@ -236,10 +190,7 @@ func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Tracef("(re-)stored %d items in hazelcast map", numNewlyIngested)
+	logInternalStateInfo(fmt.Sprintf("(re-)stored %d items in hazelcast map", numNewlyIngested), log.TraceLevel)
 
 	return nil
 
@@ -261,11 +212,51 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	log.WithFields(log.Fields{
-		"kind": internalStateInfo,
-		"client": client.ClientID(),
-	}).Trace("parsed pokedex file")
+	logInternalStateInfo("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
+
+}
+
+func logIoError(msg string) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.IoError,
+		"client": client.ClientID(),
+	}).Trace(msg)
+
+}
+
+func logTimingInfo(operation string, tookMs int) {
+
+	log.WithFields(log.Fields{
+		"kind": logging.TimingInfo,
+		"client": client.ClientID(),
+		"tookMs": tookMs ,
+	}).Infof("'%s' took %d ms", operation, tookMs)
+
+}
+
+func logInternalStateInfo(msg string, logLevel log.Level) {
+
+	fields := log.Fields{
+		"kind": logging.InternalStateInfo,
+		"client": client.ClientID(),
+	}
+
+	if logLevel == log.TraceLevel {
+		log.WithFields(fields).Trace(msg)
+	} else {
+		log.WithFields(fields).Info(msg)
+	}
+
+}
+
+func logHzError(msg string) {
+
+	log.WithFields(log.Fields{
+		"kind": logging.HzError,
+		"client": client.ClientID(),
+	}).Warn(msg)
 
 }
