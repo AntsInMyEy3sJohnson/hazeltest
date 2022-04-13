@@ -17,6 +17,9 @@ func main() {
 
 	clientConfig.ParseCommandLineArgs()
 
+	fileParser := clientConfig.FileParser{ClientID: client.ClientID()}
+	fileParser.ParseConfigFile()
+
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
 		logConfigurationError("HZ_CLUSTER", "environment variables", "HZ_CLUSTER environment variable must be provided")

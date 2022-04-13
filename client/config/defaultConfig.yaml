@@ -1,0 +1,20 @@
+maptests:
+  pokedex:
+    # If set to 'false', the PokedexRunner will not be executed
+    enabled: true
+    # The runner will spawn one goroutine for each map
+    numMaps: 5
+    # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
+    # In other words, if this is set to 'true', this PokedexRunner will use <numMaps> distinct maps in Hazelcast; if it is set
+    # to 'false', the <numMaps> goroutines will access the same map
+    # For the PokedexRunner, this will result in a higher number of maps, each containing a smaller number of keys
+    # Note: Both the client ID and the currently active goroutine/number are still part of the map keys, so no matter how 
+    # the following two properties are set, different clients and goroutines within clients will not act on each other's keys
+    appendMapIndexToMapName: true
+    # If so to 'true', the PokedexRunner will append to ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast; 
+    # if set to 'false', then this PokedexRunner will share its maps with the maps created by PokedexRunners in other Hazeltest instances
+    # Set this to 'false' if you would like to make all Hazeltest instances access the same map
+    appendClientIdToMapName: true
+    # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
+    numRuns: 10000
+    

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"hazeltest/client"
+	"hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"math/rand"
@@ -49,11 +50,14 @@ type nextEvolution struct {
 	Name string `json:"name"`
 }
 
-const runs = 10000
-const numMaps = 4
-
 //go:embed pokedex.json
 var pokedexFile embed.FS
+
+var enabled bool
+var numMaps int
+var appendMapIndexToMapName bool
+var appendClientIdToMapName bool
+var numRuns int
 
 func init() {
 	maps.Register(PokedexRunner{})
@@ -62,11 +66,18 @@ func init() {
 
 func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
+	populateConfig()
+
+	if !enabled {
+		logInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
+		return
+	}
+
 	pokedex, err := parsePokedexFile()
 
 	clientID := client.ClientID()
 	if err != nil {
-		logIoError(fmt.Sprintf("unable to parse pokedex json file: %s", err))
+		logIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err))
 	}
 
 	ctx := context.TODO()
@@ -74,71 +85,78 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		logHzError(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
+		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
 	}
 	defer hzClient.Shutdown(ctx)
 
-	logInternalStateInfo("initialized hazelcast client", log.InfoLevel)
-	logInternalStateInfo("starting pokedex maps loop", log.InfoLevel)
+	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
+	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < numMaps; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mapName := fmt.Sprintf("%s-pokedex-%d", client.ClientID(), i)
+			mapName := "pokedex"
+			if appendMapIndexToMapName {
+				mapName = fmt.Sprintf("%s-%d", mapName, i)
+			}
+			if appendClientIdToMapName {
+				mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
+			}
+			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
 			elapsed := time.Since(start).Milliseconds()
-			logTimingInfo("getMap()", int(elapsed))
+			logTimingEvent("getMap()", int(elapsed))
 			if err != nil {
-				logHzError(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
+				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzPokedexMap.Destroy(ctx)
-			doTestLoop(ctx, hzPokedexMap, pokedex, mapName)
+			doTestLoop(ctx, hzPokedexMap, pokedex, mapName, i)
 		}(i)
 	}
 	wg.Wait()
 
-	logInternalStateInfo("finished pokedex maps loop", log.InfoLevel)
+	logInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
 
 }
 
-func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string) {
+func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
 
-	for i := 0; i < runs; i++ {
+	for i := 0; i < numRuns; i++ {
 		if i > 0 && i % 100 == 0 {
-			logInternalStateInfo(fmt.Sprintf("finished %d runs for map %s", i, mapName), log.InfoLevel)
+			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
-		logInternalStateInfo(fmt.Sprintf("in run %d on map %s", i, mapName), log.TraceLevel)
-		err := ingestAll(ctx, m, p)
+		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
+		err := ingestAll(ctx, m, p, mapNumber)
 		if err != nil {
-			logHzError(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
+			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
-		err = readAll(ctx, m, p)
+		err = readAll(ctx, m, p, mapNumber)
 		if err != nil {
-			logHzError(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
+			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 
-		err = deleteSome(ctx, m, p)
+		err = deleteSome(ctx, m, p, mapNumber)
 		if err != nil {
-			logHzError(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
+			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 	}
 
 }
 
-func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
+func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(p.Pokemon))
 
 	for i := 0; i < numElementsToDelete; i++ {
 		pokemonToDelete := p.Pokemon[i]
-		containsKey, err := m.ContainsKey(ctx, pokemonToDelete.ID)
+		containsKey, err := m.ContainsKey(ctx, assembleMapKey(pokemonToDelete.ID, mapNumber))
 		if err != nil {
 			return err
 		}
@@ -151,16 +169,16 @@ func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	logInternalStateInfo(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("deleted %d elements from pokedex map", numElementsToDelete), log.TraceLevel)
 
 	return nil
 
 }
 
-func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
+func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
 
 	for _, v := range p.Pokemon {
-		valueFromHZ, err := m.Get(ctx, v.ID)
+		valueFromHZ, err := m.Get(ctx, assembleMapKey(v.ID, mapNumber))
 		if err != nil {
 			return err
 		}
@@ -170,29 +188,81 @@ func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
 		}
 	}
 
-	logInternalStateInfo(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)), log.TraceLevel)
 
 	return nil
 
 }
 
-func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex) error {
+func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
 
 	numNewlyIngested := 0
 	for _, v := range p.Pokemon {
-		containsKey, err := m.ContainsKey(ctx, v.ID)
+		key := assembleMapKey(v.ID, mapNumber)
+		containsKey, err := m.ContainsKey(ctx, key)
 		if err != nil {
 			return err
 		}
-		if !containsKey {
-			m.Set(ctx, v.ID, v)
-			numNewlyIngested++
+		if containsKey {
+			continue
 		}
+		if err = m.Set(ctx, key, v); err != nil {
+			return err
+		}
+		numNewlyIngested++
 	}
 
-	logInternalStateInfo(fmt.Sprintf("(re-)stored %d items in hazelcast map", numNewlyIngested), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("(re-)stored %d items in hazelcast map", numNewlyIngested), log.TraceLevel)
 
 	return nil
+
+}
+
+func assembleMapKey(id int, mapNumber int) string {
+
+	return fmt.Sprintf("%s-%d", client.ClientID(), id)
+
+}
+
+func populateConfig() {
+
+	mapTestsConfig, ok := config.RetrieveConfig("maptests").(map[string]interface{})
+
+	if !ok {
+		logConfigEvent("maptests", "config file", "unable to read 'maptests' object into map for further processing")
+	}
+
+	pokedexConfig, ok := mapTestsConfig["pokedex"].(map[string]interface{})
+	if !ok {
+		logConfigEvent("maptests.pokedex", "config file", "unable to read 'maptests.pokedex' object into map for further processing")
+	}
+
+	logInternalStateEvent(fmt.Sprintf("using config: %v", pokedexConfig), log.InfoLevel)
+
+	enabled, ok = pokedexConfig["enabled"].(bool)
+	if !ok {
+		logConfigEvent("maptests.pokedex.enabled", "config file", "unable to parse 'maptests.pokedex.enabled' into bool")
+	}
+
+	numMaps, ok = pokedexConfig["numMaps"].(int)
+	if !ok {
+		logConfigEvent("maptests.pokedex.numMaps", "config file", "unable to parse 'maptests.pokedex.numMaps' into int")
+	}
+
+	appendMapIndexToMapName, ok = pokedexConfig["appendMapIndexToMapName"].(bool)
+	if !ok {
+		logConfigEvent("maptests.pokedex.appendMapIndexToMapName", "config file", "unable to parse 'maptests.pokedex.appendMapIndexToMapName' into bool")
+	}
+
+	appendClientIdToMapName, ok = pokedexConfig["appendClientIdToMapName"].(bool)
+	if !ok {
+		logConfigEvent("maptests.pokedex.appendClientIdToMapName", "config file", "unable to parse 'maptests.pokedex.appendClientIdToMapName' into bool")
+	}
+
+	numRuns, ok = pokedexConfig["numRuns"].(int)
+	if !ok {
+		logConfigEvent("maptests.pokedex.numRuns", "config file", "unable to parse 'maptests.pokedex.numRuns' into int")
+	}
 
 }
 
@@ -212,22 +282,33 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	logInternalStateInfo("parsed pokedex file", log.TraceLevel)
+	logInternalStateEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
 
 }
 
-func logIoError(msg string) {
+func logConfigEvent(configValue string, source string, msg string) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.ConfigurationError,
+		"value": configValue,
+		"source": source,
+		"client": client.ClientID(),
+	}).Fatal(msg)
+
+}
+
+func logIoEvent(msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.IoError,
 		"client": client.ClientID(),
-	}).Trace(msg)
+	}).Fatal(msg)
 
 }
 
-func logTimingInfo(operation string, tookMs int) {
+func logTimingEvent(operation string, tookMs int) {
 
 	log.WithFields(log.Fields{
 		"kind": logging.TimingInfo,
@@ -237,7 +318,7 @@ func logTimingInfo(operation string, tookMs int) {
 
 }
 
-func logInternalStateInfo(msg string, logLevel log.Level) {
+func logInternalStateEvent(msg string, logLevel log.Level) {
 
 	fields := log.Fields{
 		"kind": logging.InternalStateInfo,
@@ -252,7 +333,7 @@ func logInternalStateInfo(msg string, logLevel log.Level) {
 
 }
 
-func logHzError(msg string) {
+func logHzEvent(msg string) {
 
 	log.WithFields(log.Fields{
 		"kind": logging.HzError,

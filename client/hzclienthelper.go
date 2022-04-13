@@ -18,7 +18,7 @@ func InitHazelcastClient(ctx context.Context, clientName string, hzCluster strin
 
 	useUniSocketClient, ok := config.RetrieveArgValue(config.ArgUseUniSocketClient).(bool)
 	if !ok {
-		logConfigurationError("use-unisocket-client", "command line", "unable to convert value into bool -- using default instead")
+		logConfigurationError(config.ArgUseUniSocketClient, "command line", "unable to convert value into bool -- using default instead")
 		useUniSocketClient = false
 	}
 	hzConfig.Cluster.Unisocket = useUniSocketClient
@@ -47,6 +47,6 @@ func logConfigurationError(configValue string, source string, msg string) {
 		"value": configValue,
 		"source": source,
 		"client": ClientID(),
-	}).Fatal(msg)
+	}).Warn(msg)
 
 }
