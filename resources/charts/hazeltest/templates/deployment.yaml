@@ -18,9 +18,14 @@ spec:
         app.kubernetes.io/name: {{ template "hazeltest.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      volumes:
+      - name: hazeltest-config
+        configMap:
+          name: {{ template "hazeltest.fullname" . }}-config
       containers:
       - name: hazeltest
         image: {{ .Values.image }}
+        args: ["-config-file=/data/config/custom-config.yaml"]
         imagePullPolicy: Always
         resources:
           requests:
@@ -34,4 +39,7 @@ spec:
           value: {{ .Values.env.hzCluster }}
         - name: HZ_MEMBERS
           value: {{ .Values.env.hzMembers }}
+        volumeMounts:
+        - name: hazeltest-config
+          mountPath: /data/config
 

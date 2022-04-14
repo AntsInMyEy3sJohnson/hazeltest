@@ -23,7 +23,7 @@ spec:
       volumes:
       - name: hzconfig
         configMap:
-          name: {{ template "hazelcastimdg.fullname" . }}-configuration
+          name: {{ template "hazelcastimdg.fullname" . }}-config
       containers:
       - name: {{ template "hazelcastimdg.fullname" . }}
         image: {{ .Values.cluster.members.image }}

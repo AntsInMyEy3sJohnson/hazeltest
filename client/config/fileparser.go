@@ -31,7 +31,7 @@ func (f *FileParser) ParseConfigFile() {
 	var err error
 
 	if configFilePath == defaultConfigFilePath {
-		logConfigEvent(ArgConfigFilePath, "command line", fmt.Sprintf("'%s' unspecified, using default embedded configuration file", ArgConfigFilePath), f.ClientID)
+		logConfigEvent(ArgConfigFilePath, "command line", "using default embedded configuration file", f.ClientID)
 		fileToRead, err = defaultConfigFile.Open("defaultConfig.yaml")
 	} else {
 		fileToRead, err = os.Open(configFilePath)
