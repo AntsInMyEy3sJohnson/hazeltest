@@ -17,4 +17,9 @@ maptests:
     appendClientIdToMapName: false
     # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
     numRuns: 10000
+    mapPrefix:
+      enabled: true
+      # The prefix will be put in front of the map name as-is, so no additional underscores or other 
+      # characters will be added
+      prefix: "ht_"
     

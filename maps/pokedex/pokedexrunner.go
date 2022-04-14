@@ -58,6 +58,8 @@ var numMaps int
 var appendMapIndexToMapName bool
 var appendClientIdToMapName bool
 var numRuns int
+var useMapPrefix bool
+var mapPrefix string
 
 func init() {
 	maps.Register(PokedexRunner{})
@@ -97,13 +99,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mapName := "pokedex"
-			if appendMapIndexToMapName {
-				mapName = fmt.Sprintf("%s-%d", mapName, i)
-			}
-			if appendClientIdToMapName {
-				mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
-			}
+			mapName := assembleMapName(i)
 			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
 			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
@@ -122,10 +118,27 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
 }
 
+func assembleMapName(mapIndex int) string {
+
+	mapName := "pokedex"
+	if useMapPrefix && mapPrefix != ""{
+		mapName = fmt.Sprintf("%s%s", mapPrefix, mapName)
+	}
+	if appendMapIndexToMapName {
+		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
+	}
+	if appendClientIdToMapName {
+		mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
+	}
+
+	return mapName
+
+}
+
 func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
 
 	for i := 0; i < numRuns; i++ {
-		if i > 0 && i % 100 == 0 {
+		if i > 0 && i%100 == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
@@ -266,6 +279,21 @@ func populateConfig() {
 		logConfigEvent("maptests.pokedex.numRuns", "config file", "unable to parse 'maptests.pokedex.numRuns' into int")
 	}
 
+	prefixConfig, ok := pokedexConfig["mapPrefix"].(map[string]interface{})
+	if !ok {
+		logConfigEvent("maptests.pokedex.mapPrefix", "config file", "unable to parse 'maptests.pokedex.mapPrefix' into map")
+	}
+
+	useMapPrefix, ok = prefixConfig["enabled"].(bool)
+	if !ok {
+		logConfigEvent("maptests.pokedex.mapPrefix.enabled", "config file", "unable to parse 'maptests.pokedex.mapPrefix.enabled' into bool")
+	}
+
+	mapPrefix, ok = prefixConfig["prefix"].(string)
+	if !ok {
+		logConfigEvent("maptests.pokedex.mapPrefix.prefix", "config file", "unable to parse 'maptests.pokedex.mapPrefix.prefix' into string")
+	}
+
 }
 
 func parsePokedexFile() (*pokedex, error) {
@@ -294,7 +322,7 @@ func logConfigEvent(configValue string, source string, msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.ConfigurationError,
-		"value": configValue,
+		"value":  configValue,
 		"source": source,
 		"client": client.ClientID(),
 	}).Fatal(msg)
@@ -313,9 +341,9 @@ func logIoEvent(msg string) {
 func logTimingEvent(operation string, tookMs int) {
 
 	log.WithFields(log.Fields{
-		"kind": logging.TimingInfo,
+		"kind":   logging.TimingInfo,
 		"client": client.ClientID(),
-		"tookMs": tookMs ,
+		"tookMs": tookMs,
 	}).Infof("'%s' took %d ms", operation, tookMs)
 
 }
@@ -323,7 +351,7 @@ func logTimingEvent(operation string, tookMs int) {
 func logInternalStateEvent(msg string, logLevel log.Level) {
 
 	fields := log.Fields{
-		"kind": logging.InternalStateInfo,
+		"kind":   logging.InternalStateInfo,
 		"client": client.ClientID(),
 	}
 
@@ -338,7 +366,7 @@ func logInternalStateEvent(msg string, logLevel log.Level) {
 func logHzEvent(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind": logging.HzError,
+		"kind":   logging.HzError,
 		"client": client.ClientID(),
 	}).Warn(msg)
 
