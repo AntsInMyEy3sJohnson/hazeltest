@@ -1,4 +1,4 @@
-package maps
+package pokedex
 
 import (
 	"context"
@@ -52,6 +52,14 @@ type nextEvolution struct {
 
 //go:embed pokedex.json
 var pokedexFile embed.FS
+
+const defaultEnabled = true
+const defaultNumMaps = 10
+const defaultAppendMapIndexToMapName = true
+const defaultAppendClientIdToMapName = false
+const defaultNumRuns = 10000
+const defaultUseMapPrefix = true
+const defaultMapPrefix = "ht_"
 
 var enabled bool
 var numMaps int
@@ -109,7 +117,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzPokedexMap.Destroy(ctx)
-			doTestLoop(ctx, hzPokedexMap, pokedex, mapName, i)
+			runTestLoop(ctx, hzPokedexMap, pokedex, mapName, i)
 		}(i)
 	}
 	wg.Wait()
@@ -135,7 +143,7 @@ func assembleMapName(mapIndex int) string {
 
 }
 
-func doTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
+func runTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
 
 	for i := 0; i < numRuns; i++ {
 		if i > 0 && i%100 == 0 {
@@ -241,60 +249,80 @@ func assembleMapKey(id int, mapNumber int) string {
 
 func populateConfig() {
 
-	mapTestsConfig, ok := config.RetrieveConfig("maptests").(map[string]interface{})
+	parsedConfig := config.GetParsedConfig()
 
-	if !ok {
-		logConfigEvent("maptests", "config file", "unable to read 'maptests' object into map for further processing")
+	// TODO All of the following is very ugly indeed -- simply parse Yaml into new struct type instead?
+	keyPath := "maptests.pokedex.enabled"
+	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		enabled = defaultEnabled
+	} else {
+		enabled = valueFromConfig.(bool)
 	}
 
-	pokedexConfig, ok := mapTestsConfig["pokedex"].(map[string]interface{})
-	if !ok {
-		logConfigEvent("maptests.pokedex", "config file", "unable to read 'maptests.pokedex' object into map for further processing")
+	keyPath = "maptests.pokedex.numMaps"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		numMaps = defaultNumMaps
+	} else {
+		numMaps = valueFromConfig.(int)
 	}
 
-	logInternalStateEvent(fmt.Sprintf("using config: %v", pokedexConfig), log.InfoLevel)
-
-	enabled, ok = pokedexConfig["enabled"].(bool)
-	if !ok {
-		logConfigEvent("maptests.pokedex.enabled", "config file", "unable to parse 'maptests.pokedex.enabled' into bool")
+	keyPath = "maptests.pokedex.appendMapIndexToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendMapIndexToMapName = defaultAppendMapIndexToMapName
+	} else {
+		appendMapIndexToMapName = valueFromConfig.(bool)
 	}
 
-	numMaps, ok = pokedexConfig["numMaps"].(int)
-	if !ok {
-		logConfigEvent("maptests.pokedex.numMaps", "config file", "unable to parse 'maptests.pokedex.numMaps' into int")
+	keyPath = "maptests.pokedex.appendClientIdToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendClientIdToMapName = defaultAppendClientIdToMapName
+	} else {
+		appendClientIdToMapName = valueFromConfig.(bool)
 	}
 
-	appendMapIndexToMapName, ok = pokedexConfig["appendMapIndexToMapName"].(bool)
-	if !ok {
-		logConfigEvent("maptests.pokedex.appendMapIndexToMapName", "config file", "unable to parse 'maptests.pokedex.appendMapIndexToMapName' into bool")
+	keyPath = "maptests.pokedex.numRuns"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		numRuns = defaultNumRuns
+	} else {
+		numRuns = valueFromConfig.(int)
 	}
 
-	appendClientIdToMapName, ok = pokedexConfig["appendClientIdToMapName"].(bool)
-	if !ok {
-		logConfigEvent("maptests.pokedex.appendClientIdToMapName", "config file", "unable to parse 'maptests.pokedex.appendClientIdToMapName' into bool")
+	keyPath = "maptests.pokedex.mapPrefix.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		useMapPrefix = defaultUseMapPrefix
+	} else {
+		useMapPrefix = valueFromConfig.(bool)
 	}
 
-	numRuns, ok = pokedexConfig["numRuns"].(int)
-	if !ok {
-		logConfigEvent("maptests.pokedex.numRuns", "config file", "unable to parse 'maptests.pokedex.numRuns' into int")
-	}
-
-	prefixConfig, ok := pokedexConfig["mapPrefix"].(map[string]interface{})
-	if !ok {
-		logConfigEvent("maptests.pokedex.mapPrefix", "config file", "unable to parse 'maptests.pokedex.mapPrefix' into map")
-	}
-
-	useMapPrefix, ok = prefixConfig["enabled"].(bool)
-	if !ok {
-		logConfigEvent("maptests.pokedex.mapPrefix.enabled", "config file", "unable to parse 'maptests.pokedex.mapPrefix.enabled' into bool")
-	}
-
-	mapPrefix, ok = prefixConfig["prefix"].(string)
-	if !ok {
-		logConfigEvent("maptests.pokedex.mapPrefix.prefix", "config file", "unable to parse 'maptests.pokedex.mapPrefix.prefix' into string")
+	keyPath = "maptests.pokedex.mapPrefix.prefix"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		mapPrefix = defaultMapPrefix
+	} else {
+		mapPrefix = valueFromConfig.(string)
 	}
 
 }
+
+func logErrUponConfigExtraction(keyPath string, err error) {
+
+	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
+
+}
+
 
 func parsePokedexFile() (*pokedex, error) {
 
@@ -318,14 +346,19 @@ func parsePokedexFile() (*pokedex, error) {
 
 }
 
-func logConfigEvent(configValue string, source string, msg string) {
+func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
 
-	log.WithFields(log.Fields{
+	fields := log.Fields{
 		"kind":   logging.ConfigurationError,
 		"value":  configValue,
 		"source": source,
 		"client": client.ClientID(),
-	}).Fatal(msg)
+	}
+	if logLevel == log.WarnLevel {
+		log.WithFields(fields).Warn(msg)
+	} else {
+		log.WithFields(fields).Fatal(msg)
+	}
 
 }
 
@@ -368,6 +401,6 @@ func logHzEvent(msg string) {
 	log.WithFields(log.Fields{
 		"kind":   logging.HzError,
 		"client": client.ClientID(),
-	}).Warn(msg)
+	}).Fatal(msg)
 
 }

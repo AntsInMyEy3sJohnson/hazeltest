@@ -19,7 +19,7 @@ type FileParser struct {
 //go:embed defaultConfig.yaml
 var defaultConfigFile embed.FS
 
-var decodedConfigFile map[string]interface{}
+var configMap map[string]interface{}
 
 const defaultConfigFilePath = "defaultConfig.yaml"
 
@@ -42,7 +42,7 @@ func (f *FileParser) ParseConfigFile() {
 	}
 	defer fileToRead.Close()
 
-	err = yaml.NewDecoder(fileToRead).Decode(&decodedConfigFile)
+	err = yaml.NewDecoder(fileToRead).Decode(&configMap)
 
 	if err != nil {
 		logIoEvent("unable to parse configuration file -- aborting", f.ClientID, log.FatalLevel)
@@ -50,9 +50,9 @@ func (f *FileParser) ParseConfigFile() {
 
 }
 
-func RetrieveConfig(key string) interface{} {
+func GetParsedConfig() map[string]interface{} {
 
-	return decodedConfigFile[key]
+	return configMap
 
 }
 
@@ -68,8 +68,6 @@ func logIoEvent(msg string, clientID uuid.UUID, level log.Level) {
 	} else {
 		log.WithFields(fields).Fatal(msg)
 	}
-
-	
 
 }
 

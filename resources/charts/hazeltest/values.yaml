@@ -12,7 +12,7 @@ resources:
 
 env:
   hzCluster: "hazelcastimdg"
-  hzMembers: "10.43.228.42"
+  hzMembers: "10.43.147.83"
 
 config:
   maptests:
