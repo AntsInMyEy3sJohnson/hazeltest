@@ -3,9 +3,9 @@ package maps
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"hazeltest/client"
 	"hazeltest/logging"
+	"math/rand"
 
 	log "github.com/sirupsen/logrus"
 
@@ -16,19 +16,27 @@ type GetElementID func(element interface{}) string
 
 type DeserializeElement func(element interface{}) error
 
-func IngestAll[T any](ctx context.Context, m *hazelcast.Map, elements []T, mapName string, mapNumber int, getElementIdFunc GetElementID) error {
+type TestLoop[T any] struct {
+	Elements               []T
+	Ctx                    context.Context
+	HzMap                  *hazelcast.Map
+	GetElementIdFunc       GetElementID
+	DeserializeElementFunc DeserializeElement
+}
+
+func (l TestLoop[T]) IngestAll(mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
-	for _, v := range elements {
-		key := assembleMapKey(getElementIdFunc(v), mapNumber)
-		containsKey, err := m.ContainsKey(ctx, key)
+	for _, v := range l.Elements {
+		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
+		containsKey, err := l.HzMap.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
 		}
 		if containsKey {
 			continue
 		}
-		if err = m.Set(ctx, key, v); err != nil {
+		if err = l.HzMap.Set(l.Ctx, key, v); err != nil {
 			return err
 		}
 		numNewlyIngested++
@@ -40,41 +48,40 @@ func IngestAll[T any](ctx context.Context, m *hazelcast.Map, elements []T, mapNa
 
 }
 
-func ReadAll[T any](ctx context.Context, m *hazelcast.Map, elements []T, mapName string, mapNumber int,
-	getElementIdFunc GetElementID, deserializeElementFunc DeserializeElement) error {
+func (l TestLoop[T]) ReadAll(mapName string, mapNumber int) error {
 
-	for _, v := range elements {
-		valueFromHZ, err := m.Get(ctx, assembleMapKey(getElementIdFunc(v), mapNumber))
+	for _, v := range l.Elements {
+		valueFromHZ, err := l.HzMap.Get(l.Ctx, assembleMapKey(l.GetElementIdFunc(v), mapNumber))
 		if err != nil {
 			return err
 		}
-		err = deserializeElementFunc(valueFromHZ)
+		err = l.DeserializeElementFunc(valueFromHZ)
 		if err != nil {
 			return err
 		}
 	}
 
-	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(elements), mapName), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.Elements), mapName), log.TraceLevel)
 
 	return nil
 
 }
 
-func DeleteSome[T any](ctx context.Context, m *hazelcast.Map, elements []T, mapName string, mapNumber int, getElementIdFunc GetElementID) error {
+func (l TestLoop[T]) DeleteSome(mapName string, mapNumber int) error {
 
-	numElementsToDelete := rand.Intn(len(elements))
+	numElementsToDelete := rand.Intn(len(l.Elements))
 	deleted := 0
 
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(getElementIdFunc(elements[i]), mapNumber)
-		containsKey, err := m.ContainsKey(ctx, key)
+		key := assembleMapKey(l.GetElementIdFunc(l.Elements[i]), mapNumber)
+		containsKey, err := l.HzMap.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
 		}
 		if !containsKey {
 			continue
 		}
-		_, err = m.Remove(ctx, key)
+		_, err = l.HzMap.Remove(l.Ctx, key)
 		if err != nil {
 			return err
 		}

@@ -162,22 +162,24 @@ func deserializeElement(elementFromHZ interface{}) error {
 
 func runTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
 
+	testLoop := maps.TestLoop[pokemon]{Elements: p.Pokemon, Ctx: ctx, HzMap: m, GetElementIdFunc: getElementID, DeserializeElementFunc: deserializeElement}
+
 	for i := 0; i < numRuns; i++ {
 		if i > 0 && i%100 == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := maps.IngestAll[pokemon](ctx, m, p.Pokemon, mapName, mapNumber, getElementID)
+		err := testLoop.IngestAll(mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = maps.ReadAll[pokemon](ctx, m, p.Pokemon, mapName, mapNumber, getElementID, deserializeElement)
+		err = testLoop.ReadAll(mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = maps.DeleteSome(ctx, m, p.Pokemon, mapName, mapNumber, getElementID)
+		err = testLoop.DeleteSome(mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
