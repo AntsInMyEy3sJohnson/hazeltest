@@ -11,8 +11,6 @@ import (
 	"hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
-	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -99,26 +97,18 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	var wg sync.WaitGroup
-	for i := 0; i < numMaps; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			mapName := assembleMapName(i)
-			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
-			start := time.Now()
-			hzPokedexMap, err := hzClient.GetMap(ctx, mapName)
-			elapsed := time.Since(start).Milliseconds()
-			logTimingEvent("getMap()", int(elapsed))
-			if err != nil {
-				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
-			}
-			defer hzPokedexMap.Destroy(ctx)
-			testLoop := maps.TestLoop[pokemon]{Elements: pokedex.Pokemon, Ctx: ctx, HzMap: hzPokedexMap, GetElementIdFunc: getElementID, DeserializeElementFunc: deserializeElement}
-			testLoop.Run(numRuns, mapName, i)
-		}(i)
+	testLoop := maps.TestLoop[pokemon]{
+		HzClient:               hzClient,
+		NumMaps:                numMaps,
+		NumRuns:                numRuns,
+		Elements:               pokedex.Pokemon,
+		Ctx:                    ctx,
+		GetElementIdFunc:       getElementID,
+		DeserializeElementFunc: deserializeElement,
+		AssembleMapNameFunc:    assembleMapName,
 	}
-	wg.Wait()
+
+	testLoop.Run()
 
 	logInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
 
@@ -279,16 +269,6 @@ func logIoEvent(msg string) {
 		"kind":   logging.IoError,
 		"client": client.ClientID(),
 	}).Fatal(msg)
-
-}
-
-func logTimingEvent(operation string, tookMs int) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.TimingInfo,
-		"client": client.ClientID(),
-		"tookMs": tookMs,
-	}).Infof("'%s' took %d ms", operation, tookMs)
 
 }
 

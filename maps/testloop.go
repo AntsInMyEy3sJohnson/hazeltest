@@ -6,6 +6,8 @@ import (
 	"hazeltest/client"
 	"hazeltest/logging"
 	"math/rand"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -16,32 +18,61 @@ type GetElementID func(element interface{}) string
 
 type DeserializeElement func(element interface{}) error
 
+type AssembleMapName func(mapNumber int) string
+
 type TestLoop[T any] struct {
+	HzClient               *hazelcast.Client
+	NumMaps                int
+	NumRuns                int
 	Elements               []T
 	Ctx                    context.Context
-	HzMap                  *hazelcast.Map
 	GetElementIdFunc       GetElementID
 	DeserializeElementFunc DeserializeElement
+	AssembleMapNameFunc    AssembleMapName
 }
 
-func (l TestLoop[T]) Run(numRuns int, mapName string, mapNumber int) {
+func (l TestLoop[T]) Run() {
+
+	var wg sync.WaitGroup
+	for i := 0; i < l.NumMaps; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			mapName := l.AssembleMapNameFunc(i)
+			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
+			start := time.Now()
+			hzMap, err := l.HzClient.GetMap(l.Ctx, mapName)
+			elapsed := time.Since(start).Milliseconds()
+			logTimingEvent("getMap()", int(elapsed))
+			if err != nil {
+				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
+			}
+			defer hzMap.Destroy(l.Ctx)
+			l.runForMap(hzMap, l.NumRuns, mapName, i)
+		}(i)
+	}
+	wg.Wait()
+
+}
+
+func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, mapNumber int) {
 
 	for i := 0; i < numRuns; i++ {
 		if i > 0 && i%100 == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := l.IngestAll(mapName, mapNumber)
+		err := l.IngestAll(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = l.ReadAll(mapName, mapNumber)
+		err = l.ReadAll(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = l.DeleteSome(mapName, mapNumber)
+		err = l.DeleteSome(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
@@ -50,19 +81,19 @@ func (l TestLoop[T]) Run(numRuns int, mapName string, mapNumber int) {
 
 }
 
-func (l TestLoop[T]) IngestAll(mapName string, mapNumber int) error {
+func (l TestLoop[T]) IngestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.Elements {
 		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
-		containsKey, err := l.HzMap.ContainsKey(l.Ctx, key)
+		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
 		}
 		if containsKey {
 			continue
 		}
-		if err = l.HzMap.Set(l.Ctx, key, v); err != nil {
+		if err = m.Set(l.Ctx, key, v); err != nil {
 			return err
 		}
 		numNewlyIngested++
@@ -74,10 +105,10 @@ func (l TestLoop[T]) IngestAll(mapName string, mapNumber int) error {
 
 }
 
-func (l TestLoop[T]) ReadAll(mapName string, mapNumber int) error {
+func (l TestLoop[T]) ReadAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	for _, v := range l.Elements {
-		valueFromHZ, err := l.HzMap.Get(l.Ctx, assembleMapKey(l.GetElementIdFunc(v), mapNumber))
+		valueFromHZ, err := m.Get(l.Ctx, assembleMapKey(l.GetElementIdFunc(v), mapNumber))
 		if err != nil {
 			return err
 		}
@@ -93,21 +124,21 @@ func (l TestLoop[T]) ReadAll(mapName string, mapNumber int) error {
 
 }
 
-func (l TestLoop[T]) DeleteSome(mapName string, mapNumber int) error {
+func (l TestLoop[T]) DeleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(l.Elements))
 	deleted := 0
 
 	for i := 0; i < numElementsToDelete; i++ {
 		key := assembleMapKey(l.GetElementIdFunc(l.Elements[i]), mapNumber)
-		containsKey, err := l.HzMap.ContainsKey(l.Ctx, key)
+		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
 		}
 		if !containsKey {
 			continue
 		}
-		_, err = l.HzMap.Remove(l.Ctx, key)
+		_, err = m.Remove(l.Ctx, key)
 		if err != nil {
 			return err
 		}
@@ -123,6 +154,16 @@ func (l TestLoop[T]) DeleteSome(mapName string, mapNumber int) error {
 func assembleMapKey(id string, mapNumber int) string {
 
 	return fmt.Sprintf("%s-%s", client.ClientID(), id)
+
+}
+
+func logTimingEvent(operation string, tookMs int) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.TimingInfo,
+		"client": client.ClientID(),
+		"tookMs": tookMs,
+	}).Infof("'%s' took %d ms", operation, tookMs)
 
 }
 
