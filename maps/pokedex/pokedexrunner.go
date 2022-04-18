@@ -11,7 +11,6 @@ import (
 	"hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -129,7 +128,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 func assembleMapName(mapIndex int) string {
 
 	mapName := "pokedex"
-	if useMapPrefix && mapPrefix != ""{
+	if useMapPrefix && mapPrefix != "" {
 		mapName = fmt.Sprintf("%s%s", mapPrefix, mapName)
 	}
 	if appendMapIndexToMapName {
@@ -143,6 +142,24 @@ func assembleMapName(mapIndex int) string {
 
 }
 
+func getElementID(element interface{}) string {
+
+	pokemon := element.(pokemon)
+	return fmt.Sprintf("%d", pokemon.ID)
+
+}
+
+func deserializeElement(elementFromHZ interface{}) error {
+
+	_, ok := elementFromHZ.(pokemon)
+	if !ok {
+		return errors.New("unable to serialize value retrieved from hazelcast map into pokemon instance")
+	}
+
+	return nil
+
+}
+
 func runTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
 
 	for i := 0; i < numRuns; i++ {
@@ -150,100 +167,22 @@ func runTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName stri
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := ingestAll(ctx, m, p, mapNumber)
+		err := maps.IngestAll[pokemon](ctx, m, p.Pokemon, mapName, mapNumber, getElementID)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-
-		err = readAll(ctx, m, p, mapNumber)
+		err = maps.ReadAll[pokemon](ctx, m, p.Pokemon, mapName, mapNumber, getElementID, deserializeElement)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-
-		err = deleteSome(ctx, m, p, mapNumber)
+		err = maps.DeleteSome(ctx, m, p.Pokemon, mapName, mapNumber, getElementID)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
 	}
-
-}
-
-func deleteSome(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
-
-	numElementsToDelete := rand.Intn(len(p.Pokemon))
-	deleted := 0
-
-	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(p.Pokemon[i].ID, mapNumber)
-		containsKey, err := m.ContainsKey(ctx, key)
-		if err != nil {
-			return err
-		}
-		if !containsKey {
-			continue
-		}
-		_, err = m.Remove(ctx, key)
-		if err != nil {
-			return err
-		}
-		deleted++
-	}
-
-	logInternalStateEvent(fmt.Sprintf("deleted %d elements from pokedex map", deleted), log.TraceLevel)
-
-	return nil
-
-}
-
-func readAll(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
-
-	for _, v := range p.Pokemon {
-		valueFromHZ, err := m.Get(ctx, assembleMapKey(v.ID, mapNumber))
-		if err != nil {
-			return err
-		}
-		_, ok := valueFromHZ.(pokemon)
-		if !ok {
-			return errors.New("unable to serialize value retrieved from hazelcast map into pokemon instance")
-		}
-	}
-
-	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map", len(p.Pokemon)), log.TraceLevel)
-
-	return nil
-
-}
-
-func ingestAll(ctx context.Context, m *hazelcast.Map, p *pokedex, mapNumber int) error {
-
-	numNewlyIngested := 0
-	for _, v := range p.Pokemon {
-		key := assembleMapKey(v.ID, mapNumber)
-		containsKey, err := m.ContainsKey(ctx, key)
-		if err != nil {
-			return err
-		}
-		if containsKey {
-			continue
-		}
-		if err = m.Set(ctx, key, v); err != nil {
-			return err
-		}
-		numNewlyIngested++
-	}
-
-	logInternalStateEvent(fmt.Sprintf("(re-)stored %d items in hazelcast map", numNewlyIngested), log.TraceLevel)
-
-	return nil
-
-}
-
-func assembleMapKey(id int, mapNumber int) string {
-
-	return fmt.Sprintf("%s-%d", client.ClientID(), id)
 
 }
 
@@ -323,7 +262,6 @@ func logErrUponConfigExtraction(keyPath string, err error) {
 
 }
 
-
 func parsePokedexFile() (*pokedex, error) {
 
 	pokedexJson, err := pokedexFile.Open("pokedex.json")
@@ -381,6 +319,15 @@ func logTimingEvent(operation string, tookMs int) {
 
 }
 
+func logHzEvent(msg string) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.HzError,
+		"client": client.ClientID(),
+	}).Fatal(msg)
+
+}
+
 func logInternalStateEvent(msg string, logLevel log.Level) {
 
 	fields := log.Fields{
@@ -393,14 +340,5 @@ func logInternalStateEvent(msg string, logLevel log.Level) {
 	} else {
 		log.WithFields(fields).Info(msg)
 	}
-
-}
-
-func logHzEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.HzError,
-		"client": client.ClientID(),
-	}).Fatal(msg)
 
 }

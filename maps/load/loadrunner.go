@@ -109,7 +109,6 @@ func populateConfig() {
 		logConfigEvent("maptests.load.enabled", "config file", "unable to parse 'maptests.load.enabled' into bool")
 	}
 
-
 }
 
 func logConfigEvent(configValue string, source string, msg string) {
