@@ -24,6 +24,32 @@ type TestLoop[T any] struct {
 	DeserializeElementFunc DeserializeElement
 }
 
+func (l TestLoop[T]) Run(numRuns int, mapName string, mapNumber int) {
+
+	for i := 0; i < numRuns; i++ {
+		if i > 0 && i%100 == 0 {
+			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
+		}
+		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
+		err := l.IngestAll(mapName, mapNumber)
+		if err != nil {
+			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
+			continue
+		}
+		err = l.ReadAll(mapName, mapNumber)
+		if err != nil {
+			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
+			continue
+		}
+		err = l.DeleteSome(mapName, mapNumber)
+		if err != nil {
+			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
+			continue
+		}
+	}
+
+}
+
 func (l TestLoop[T]) IngestAll(mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
@@ -112,5 +138,14 @@ func logInternalStateEvent(msg string, logLevel log.Level) {
 	} else {
 		log.WithFields(fields).Info(msg)
 	}
+
+}
+
+func logHzEvent(msg string) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.HzError,
+		"client": client.ClientID(),
+	}).Fatal(msg)
 
 }

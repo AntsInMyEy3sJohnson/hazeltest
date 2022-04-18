@@ -15,8 +15,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/hazelcast/hazelcast-go-client"
 )
 
 type PokedexRunner struct{}
@@ -116,7 +114,8 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzPokedexMap.Destroy(ctx)
-			runTestLoop(ctx, hzPokedexMap, pokedex, mapName, i)
+			testLoop := maps.TestLoop[pokemon]{Elements: pokedex.Pokemon, Ctx: ctx, HzMap: hzPokedexMap, GetElementIdFunc: getElementID, DeserializeElementFunc: deserializeElement}
+			testLoop.Run(numRuns, mapName, i)
 		}(i)
 	}
 	wg.Wait()
@@ -157,34 +156,6 @@ func deserializeElement(elementFromHZ interface{}) error {
 	}
 
 	return nil
-
-}
-
-func runTestLoop(ctx context.Context, m *hazelcast.Map, p *pokedex, mapName string, mapNumber int) {
-
-	testLoop := maps.TestLoop[pokemon]{Elements: p.Pokemon, Ctx: ctx, HzMap: m, GetElementIdFunc: getElementID, DeserializeElementFunc: deserializeElement}
-
-	for i := 0; i < numRuns; i++ {
-		if i > 0 && i%100 == 0 {
-			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
-		}
-		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := testLoop.IngestAll(mapName, mapNumber)
-		if err != nil {
-			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
-			continue
-		}
-		err = testLoop.ReadAll(mapName, mapNumber)
-		if err != nil {
-			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
-			continue
-		}
-		err = testLoop.DeleteSome(mapName, mapNumber)
-		if err != nil {
-			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
-			continue
-		}
-	}
 
 }
 
