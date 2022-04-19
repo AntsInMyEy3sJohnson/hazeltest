@@ -48,21 +48,25 @@ type nextEvolution struct {
 //go:embed pokedex.json
 var pokedexFile embed.FS
 
-const defaultEnabled = true
-const defaultNumMaps = 10
-const defaultAppendMapIndexToMapName = true
-const defaultAppendClientIdToMapName = false
-const defaultNumRuns = 10000
-const defaultUseMapPrefix = true
-const defaultMapPrefix = "ht_"
+const (
+	defaultEnabled = true
+	defaultNumMaps = 10
+	defaultAppendMapIndexToMapName = true
+	defaultAppendClientIdToMapName = false
+	defaultNumRuns = 10000
+	defaultUseMapPrefix = true
+	defaultMapPrefix = "ht_"
+)
 
-var enabled bool
-var numMaps int
-var appendMapIndexToMapName bool
-var appendClientIdToMapName bool
-var numRuns int
-var useMapPrefix bool
-var mapPrefix string
+var (
+	enabled bool
+	numMaps int
+	appendMapIndexToMapName bool
+	appendClientIdToMapName bool
+	numRuns int
+	useMapPrefix bool
+	mapPrefix string
+)
 
 func init() {
 	maps.Register(PokedexRunner{})

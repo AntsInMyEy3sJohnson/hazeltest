@@ -58,7 +58,7 @@ func (l TestLoop[T]) Run() {
 func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, mapNumber int) {
 
 	for i := 0; i < numRuns; i++ {
-		if i > 0 && i%100 == 0 {
+		if i > 0 && i%50 == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)

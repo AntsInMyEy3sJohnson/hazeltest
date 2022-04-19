@@ -34,7 +34,7 @@ const (
 const (
 	defaultEnabled                 = true
 	defaultNumMaps                 = 10
-	defaultNumLoadElementsPerMap   = 10000
+	defaultNumEntriesPerMap        = 10000
 	defaultPayloadSizeBytes        = 1000
 	defaultAppendMapIndexToMapName = true
 	defaultAppendClientIdToMapName = false
@@ -46,7 +46,7 @@ const (
 var (
 	enabled                 bool
 	numMaps                 int
-	numLoadElementsPerMap   int
+	numEntriesPerMap        int
 	payloadSizeBytes        int
 	appendMapIndexToMapName bool
 	appendClientIdToMapName bool
@@ -112,9 +112,9 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 
 func populateLoadElements() *[]loadElement {
 
-	elements := make([]loadElement, numLoadElementsPerMap)
+	elements := make([]loadElement, numEntriesPerMap)
 
-	for i := 0; i < numLoadElementsPerMap; i++ {
+	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
 			Payload: generateRandomPayload(payloadSizeBytes),
@@ -182,15 +182,77 @@ func populateConfig() {
 		enabled = valueFromConfig.(bool)
 	}
 
-	// TODO Populate those correctly once new mechanism for parsing config is in place
-	numMaps = defaultNumMaps
-	appendClientIdToMapName = defaultAppendClientIdToMapName
-	appendMapIndexToMapName = defaultAppendMapIndexToMapName
-	numRuns = defaultNumRuns
-	numLoadElementsPerMap = defaultNumLoadElementsPerMap
-	payloadSizeBytes = defaultPayloadSizeBytes
-	useMapPrefix = defaultUseMapPrefix
-	mapPrefix = defaultMapPrefix
+	keyPath = "maptests.load.numMaps"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		numMaps = defaultNumMaps
+	} else {
+		numMaps = valueFromConfig.(int)
+	}
+
+	keyPath = "maptests.load.numEntriesPerMap"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		numEntriesPerMap = defaultNumEntriesPerMap
+	} else {
+		numEntriesPerMap = valueFromConfig.(int)
+	}
+
+	keyPath = "maptests.load.payloadSizeBytes"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		payloadSizeBytes = defaultPayloadSizeBytes
+	} else {
+		payloadSizeBytes = valueFromConfig.(int)
+	}
+
+	keyPath = "maptests.load.appendMapIndexToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendMapIndexToMapName = defaultAppendMapIndexToMapName
+	} else {
+		appendMapIndexToMapName = valueFromConfig.(bool)
+	}
+
+	keyPath = "maptests.load.appendClientIdToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendClientIdToMapName = defaultAppendClientIdToMapName
+	} else {
+		appendClientIdToMapName = valueFromConfig.(bool)
+	}
+
+	keyPath = "maptests.load.numRuns"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		numRuns = defaultNumRuns
+	} else {
+		numRuns = valueFromConfig.(int)
+	}
+
+	keyPath = "maptests.load.mapPrefix.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		useMapPrefix = defaultUseMapPrefix
+	} else {
+		useMapPrefix = valueFromConfig.(bool)
+	}
+
+	keyPath = "maptests.load.mapPrefix.prefix"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		mapPrefix = defaultMapPrefix
+	} else {
+		mapPrefix = valueFromConfig.(string)
+	}
 
 }
 

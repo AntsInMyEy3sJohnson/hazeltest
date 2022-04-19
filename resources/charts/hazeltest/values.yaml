@@ -1,13 +1,13 @@
 replicaCount: 1
 
-image: antsinmyey3sjohnson/hazeltest:0.0.5
+image: antsinmyey3sjohnson/hazeltest:0.0.6
 
 resources:
   requests: 
-    cpu: "100m"
+    cpu: "500m"
     memory: "64M"
   limits:
-    cpu: "200m"
+    cpu: "1"
     memory: "128M"
 
 env:
