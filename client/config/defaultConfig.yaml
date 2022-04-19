@@ -22,4 +22,6 @@ maptests:
       # The prefix will be put in front of the map name as-is, so no additional underscores or other 
       # characters will be added
       prefix: "ht_"
+  load:
+    enabled: true
     

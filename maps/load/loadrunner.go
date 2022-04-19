@@ -2,30 +2,62 @@ package load
 
 import (
 	"context"
+	"encoding/gob"
+	"errors"
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
-	"sync"
+	"math/rand"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type LoadRunner struct {}
+type LoadRunner struct{}
 
-var enabled bool
-// TODO Read from config
-const numMaps = 100
-const appendMapIndexToMapName = true
-const appendClientIdToMapName = true
-const numRuns = 10
-const useMapPrefix = true
-const mapPrefix = "ht_"
+type loadElement struct {
+	Key     string
+	Payload string
+}
+
+// Copied from: https://stackoverflow.com/a/31832326
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+const (
+	defaultEnabled                 = true
+	defaultNumMaps                 = 10
+	defaultNumLoadElementsPerMap   = 10000
+	defaultPayloadSizeBytes        = 1000
+	defaultAppendMapIndexToMapName = true
+	defaultAppendClientIdToMapName = false
+	defaultNumRuns                 = 10000
+	defaultUseMapPrefix            = true
+	defaultMapPrefix               = "ht_"
+)
+
+var (
+	enabled                 bool
+	numMaps                 int
+	numLoadElementsPerMap   int
+	payloadSizeBytes        int
+	appendMapIndexToMapName bool
+	appendClientIdToMapName bool
+	numRuns                 int
+	useMapPrefix            bool
+	mapPrefix               string
+)
 
 func init() {
 	maps.Register(LoadRunner{})
+	gob.Register(loadElement{})
 }
 
 func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
@@ -50,75 +82,131 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting load test loop", log.InfoLevel)
 
-	// TODO Lots of functionality very similar to pokedexrunner -- refactor
-	var wg sync.WaitGroup
-	for i := 0; i < numMaps; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			mapName := assembleMapName(i)
-			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
-			start := time.Now()
-			hzLoadMap, err := hzClient.GetMap(ctx, mapName)
-			elapsed := time.Since(start).Milliseconds()
-			logTimingEvent("getMap()", int(elapsed))
-			if err != nil {
-				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
-			}
-			defer hzLoadMap.Destroy(ctx)
-		}(i)
+	elements := populateLoadElements()
 
+	// TODO This will be pretty much the same for every map runner... why not build a config mechanism that parses the given yaml into this structure?
+	runnerConfig := maps.MapRunnerConfig{
+		MapBaseName:             "load",
+		UseMapPrefix:            useMapPrefix,
+		MapPrefix:               mapPrefix,
+		AppendMapIndexToMapName: appendMapIndexToMapName,
+		AppendClientIdToMapName: appendClientIdToMapName,
 	}
-	wg.Wait()
+
+	testLoop := maps.TestLoop[loadElement]{
+		HzClient:               hzClient,
+		RunnerConfig:           &runnerConfig,
+		NumMaps:                numMaps,
+		NumRuns:                numRuns,
+		Elements:               elements,
+		Ctx:                    ctx,
+		GetElementIdFunc:       getElementID,
+		DeserializeElementFunc: deserializeElementFunc,
+	}
+
+	testLoop.Run()
+
+	logInternalStateEvent("finished load test loop", log.InfoLevel)
 
 }
 
-// TODO Logic same as pokedexrunner -- refactor
-func assembleMapName(mapIndex int) string {
+func populateLoadElements() *[]loadElement {
 
-	mapName := "load"
-	if useMapPrefix && mapPrefix != ""{
-		mapName = fmt.Sprintf("%s%s", mapPrefix, mapName)
-	}
-	if appendMapIndexToMapName {
-		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
-	}
-	if appendClientIdToMapName {
-		mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
+	elements := make([]loadElement, numLoadElementsPerMap)
+
+	for i := 0; i < numLoadElementsPerMap; i++ {
+		elements[i] = loadElement{
+			Key:     strconv.Itoa(i),
+			Payload: generateRandomPayload(payloadSizeBytes),
+		}
 	}
 
-	return mapName
+	return &elements
+
+}
+
+// Copied from: https://stackoverflow.com/a/31832326
+// StackOverflow is such a fascinating place.
+func generateRandomPayload(n int) string {
+
+	src := rand.NewSource(time.Now().UnixNano())
+
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
+
+}
+
+func getElementID(element interface{}) string {
+
+	loadElement := element.(loadElement)
+	return loadElement.Key
+
+}
+
+func deserializeElementFunc(elementFromHz interface{}) error {
+
+	_, ok := elementFromHz.(loadElement)
+
+	if !ok {
+		return errors.New("unable to serialize value retrieved from hazelcast map into loadelement instance")
+	}
+
+	return nil
 
 }
 
 func populateConfig() {
 
-	mapTestsConfig, err := config.RetrieveMapTestConfig()
+	parsedConfig := config.GetParsedConfig()
+
+	keyPath := "maptests.load.enabled"
+	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
 
 	if err != nil {
-		logConfigEvent("maptests", "config file", fmt.Sprintf("cannot populate config: %s", err))
+		logErrUponConfigExtraction(keyPath, err)
+		enabled = defaultEnabled
+	} else {
+		enabled = valueFromConfig.(bool)
 	}
 
-	loadConfig, ok := mapTestsConfig["load"].(map[string]interface{})
-	if !ok {
-		logConfigEvent("maptests.load", "config file", "unable to read 'maptests.load' object into map for further processing")
-	}
-
-	enabled, ok = loadConfig["enabled"].(bool)
-	if !ok {
-		logConfigEvent("maptests.load.enabled", "config file", "unable to parse 'maptests.load.enabled' into bool")
-	}
+	// TODO Populate those correctly once new mechanism for parsing config is in place
+	numMaps = defaultNumMaps
+	appendClientIdToMapName = defaultAppendClientIdToMapName
+	appendMapIndexToMapName = defaultAppendMapIndexToMapName
+	numRuns = defaultNumRuns
+	numLoadElementsPerMap = defaultNumLoadElementsPerMap
+	payloadSizeBytes = defaultPayloadSizeBytes
+	useMapPrefix = defaultUseMapPrefix
+	mapPrefix = defaultMapPrefix
 
 }
 
-func logConfigEvent(configValue string, source string, msg string) {
+func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
 
-	log.WithFields(log.Fields{
+	fields := log.Fields{
 		"kind":   logging.ConfigurationError,
 		"value":  configValue,
 		"source": source,
 		"client": client.ClientID(),
-	}).Fatal(msg)
+	}
+	if logLevel == log.WarnLevel {
+		log.WithFields(fields).Warn(msg)
+	} else {
+		log.WithFields(fields).Fatal(msg)
+	}
 
 }
 
@@ -137,21 +225,17 @@ func logInternalStateEvent(msg string, logLevel log.Level) {
 
 }
 
-func logTimingEvent(operation string, tookMs int) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.TimingInfo,
-		"client": client.ClientID(),
-		"tookMs": tookMs,
-	}).Infof("'%s' took %d ms", operation, tookMs)
-
-}
-
 func logHzEvent(msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.HzError,
 		"client": client.ClientID(),
 	}).Fatal(msg)
+
+}
+
+func logErrUponConfigExtraction(keyPath string, err error) {
+
+	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
 
 }

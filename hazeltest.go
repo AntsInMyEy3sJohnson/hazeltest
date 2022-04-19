@@ -7,6 +7,7 @@ import (
 	_ "hazeltest/logging"
 	"hazeltest/maps"
 	_ "hazeltest/maps/pokedex"
+	_ "hazeltest/maps/load"
 	"os"
 	"strings"
 

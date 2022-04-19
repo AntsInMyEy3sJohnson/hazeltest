@@ -97,37 +97,28 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
+	runnerConfig := maps.MapRunnerConfig{
+		MapBaseName: "pokedex",
+		UseMapPrefix: useMapPrefix,
+		MapPrefix: mapPrefix,
+		AppendMapIndexToMapName: appendMapIndexToMapName,
+		AppendClientIdToMapName: appendClientIdToMapName,
+	}
+
 	testLoop := maps.TestLoop[pokemon]{
 		HzClient:               hzClient,
+		RunnerConfig:           &runnerConfig,		
 		NumMaps:                numMaps,
 		NumRuns:                numRuns,
-		Elements:               pokedex.Pokemon,
+		Elements:               &pokedex.Pokemon,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
 		DeserializeElementFunc: deserializeElement,
-		AssembleMapNameFunc:    assembleMapName,
 	}
 
 	testLoop.Run()
 
 	logInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
-
-}
-
-func assembleMapName(mapIndex int) string {
-
-	mapName := "pokedex"
-	if useMapPrefix && mapPrefix != "" {
-		mapName = fmt.Sprintf("%s%s", mapPrefix, mapName)
-	}
-	if appendMapIndexToMapName {
-		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
-	}
-	if appendClientIdToMapName {
-		mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
-	}
-
-	return mapName
 
 }
 

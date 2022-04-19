@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/DmitriyVTitov/size v1.5.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.5 // indirect

@@ -22,13 +22,13 @@ type AssembleMapName func(mapNumber int) string
 
 type TestLoop[T any] struct {
 	HzClient               *hazelcast.Client
+	RunnerConfig           *MapRunnerConfig
 	NumMaps                int
 	NumRuns                int
-	Elements               []T
+	Elements               *[]T
 	Ctx                    context.Context
 	GetElementIdFunc       GetElementID
 	DeserializeElementFunc DeserializeElement
-	AssembleMapNameFunc    AssembleMapName
 }
 
 func (l TestLoop[T]) Run() {
@@ -38,12 +38,12 @@ func (l TestLoop[T]) Run() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mapName := l.AssembleMapNameFunc(i)
+			mapName := l.assembleMapName(i)
 			logInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
 			hzMap, err := l.HzClient.GetMap(l.Ctx, mapName)
 			elapsed := time.Since(start).Milliseconds()
-			logTimingEvent("getMap()", int(elapsed))
+			logTimingEvent("getMap()", mapName, int(elapsed))
 			if err != nil {
 				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
@@ -62,17 +62,17 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := l.IngestAll(m, mapName, mapNumber)
+		err := l.ingestAll(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = l.ReadAll(m, mapName, mapNumber)
+		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		err = l.DeleteSome(m, mapName, mapNumber)
+		err = l.deleteSome(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
@@ -81,10 +81,10 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 
 }
 
-func (l TestLoop[T]) IngestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
-	for _, v := range l.Elements {
+	for _, v := range *l.Elements {
 		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
 		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
@@ -105,9 +105,9 @@ func (l TestLoop[T]) IngestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 
 }
 
-func (l TestLoop[T]) ReadAll(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	for _, v := range l.Elements {
+	for _, v := range *l.Elements {
 		valueFromHZ, err := m.Get(l.Ctx, assembleMapKey(l.GetElementIdFunc(v), mapNumber))
 		if err != nil {
 			return err
@@ -118,19 +118,21 @@ func (l TestLoop[T]) ReadAll(m *hazelcast.Map, mapName string, mapNumber int) er
 		}
 	}
 
-	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.Elements), mapName), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(*l.Elements), mapName), log.TraceLevel)
 
 	return nil
 
 }
 
-func (l TestLoop[T]) DeleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l TestLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	numElementsToDelete := rand.Intn(len(l.Elements))
+	numElementsToDelete := rand.Intn(len(*l.Elements))
 	deleted := 0
 
+	elements := *l.Elements
+
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(l.GetElementIdFunc(l.Elements[i]), mapNumber)
+		key := assembleMapKey(l.GetElementIdFunc(elements[i]), mapNumber)
 		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
@@ -151,17 +153,37 @@ func (l TestLoop[T]) DeleteSome(m *hazelcast.Map, mapName string, mapNumber int)
 
 }
 
+func (l TestLoop[T]) assembleMapName(mapIndex int) string {
+
+	c := l.RunnerConfig
+
+	mapName := c.MapBaseName
+	if c.UseMapPrefix && c.MapPrefix != "" {
+		mapName = fmt.Sprintf("%s%s", c.MapPrefix, mapName)
+	}
+	if c.AppendMapIndexToMapName {
+		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
+	}
+	if c.AppendClientIdToMapName {
+		mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
+	}
+
+	return mapName
+
+}
+
 func assembleMapKey(id string, mapNumber int) string {
 
 	return fmt.Sprintf("%s-%s", client.ClientID(), id)
 
 }
 
-func logTimingEvent(operation string, tookMs int) {
+func logTimingEvent(operation string, mapName string, tookMs int) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.TimingInfo,
 		"client": client.ClientID(),
+		"map": mapName,
 		"tookMs": tookMs,
 	}).Infof("'%s' took %d ms", operation, tookMs)
 
