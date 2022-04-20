@@ -4,10 +4,9 @@ import (
 	"hazeltest/client"
 	clientConfig "hazeltest/client/config"
 	"hazeltest/logging"
-	_ "hazeltest/logging"
 	"hazeltest/maps"
-	_ "hazeltest/maps/pokedex"
 	_ "hazeltest/maps/load"
+	_ "hazeltest/maps/pokedex"
 	"os"
 	"strings"
 
@@ -40,7 +39,7 @@ func logConfigurationError(configValue string, source string, msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.ConfigurationError,
-		"value": configValue,
+		"value":  configValue,
 		"source": source,
 		"client": client.ClientID(),
 	}).Fatal(msg)

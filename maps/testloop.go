@@ -108,9 +108,13 @@ func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	for _, v := range *l.Elements {
-		valueFromHZ, err := m.Get(l.Ctx, assembleMapKey(l.GetElementIdFunc(v), mapNumber))
+		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
+		valueFromHZ, err := m.Get(l.Ctx, key)
 		if err != nil {
 			return err
+		}
+		if valueFromHZ == nil {
+			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
 		}
 		err = l.DeserializeElementFunc(valueFromHZ)
 		if err != nil {
@@ -209,6 +213,6 @@ func logHzEvent(msg string) {
 	log.WithFields(log.Fields{
 		"kind":   logging.HzError,
 		"client": client.ClientID(),
-	}).Fatal(msg)
+	}).Warn(msg)
 
 }
