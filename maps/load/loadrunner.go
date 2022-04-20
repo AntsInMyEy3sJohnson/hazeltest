@@ -20,7 +20,7 @@ type LoadRunner struct{}
 
 type loadElement struct {
 	Key     string
-	Payload string
+	Payload *string
 }
 
 // Copied from: https://stackoverflow.com/a/31832326
@@ -113,11 +113,15 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 func populateLoadElements() *[]loadElement {
 
 	elements := make([]loadElement, numEntriesPerMap)
+	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
+	// unique string for each map entry will result in high memory consumption of this Hazeltest client. 
+	// Thus, we use one random string for each map and point to that string in each load element
+	randomPayload := generateRandomPayload(payloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
-			Payload: generateRandomPayload(payloadSizeBytes),
+			Payload: &randomPayload,
 		}
 	}
 
