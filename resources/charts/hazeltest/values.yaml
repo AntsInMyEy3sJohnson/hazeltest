@@ -1,6 +1,6 @@
 replicaCount: 1
 
-image: antsinmyey3sjohnson/hazeltest:0.0.6
+image: antsinmyey3sjohnson/hazeltest:0.0.9
 
 resources:
   requests: 
@@ -12,13 +12,24 @@ resources:
 
 env:
   hzCluster: "hazelcastimdg"
-  hzMembers: "10.43.147.83"
+  hzMembers: "hazelcastimdg.hazelcastimdg.svc.cluster.local:5701"
 
 config:
   maptests:
     pokedex:
       enabled: true
       numMaps: 10
+      appendMapIndexToMapName: true
+      appendClientIdToMapName: false
+      numRuns: 10000
+      mapPrefix:
+        enabled: true
+        prefix: "ht_"
+    load:
+      enabled: false
+      numMaps: 10
+      numEntriesPerMap: 5000
+      payloadSizeBytes: 512000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
