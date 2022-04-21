@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/hazelcast/hazelcast-go-client"
@@ -21,8 +22,10 @@ type DeserializeElement func(element interface{}) error
 type AssembleMapName func(mapNumber int) string
 
 type TestLoop[T any] struct {
+	ID                     uuid.UUID
+	Source                 string
 	HzClient               *hazelcast.Client
-	RunnerConfig           *MapRunnerConfig
+	Config                 *MapRunnerConfig
 	NumMaps                int
 	NumRuns                int
 	Elements               []T
@@ -31,7 +34,29 @@ type TestLoop[T any] struct {
 	DeserializeElementFunc DeserializeElement
 }
 
+type TestLoopStatus struct {
+	Source            string
+	Config            *MapRunnerConfig
+	NumMaps           int
+	NumRuns           int
+	TotalRuns         int
+	TotalRunsFinished int
+}
+
+var (
+	Loops map[uuid.UUID]*TestLoopStatus
+	mutex sync.Mutex
+)
+
+func init() {
+
+	Loops = make(map[uuid.UUID]*TestLoopStatus)
+
+}
+
 func (l TestLoop[T]) Run() {
+
+	l.insertLoopWithInitialStatus()
 
 	var wg sync.WaitGroup
 	for i := 0; i < l.NumMaps; i++ {
@@ -55,11 +80,33 @@ func (l TestLoop[T]) Run() {
 
 }
 
+func (l TestLoop[T]) insertLoopWithInitialStatus() {
+
+	status := &TestLoopStatus{
+		Source:            l.Source,
+		Config:            l.Config,
+		NumMaps:           l.NumMaps,
+		NumRuns:           l.NumRuns,
+		TotalRuns:         l.NumMaps * l.NumRuns,
+		TotalRunsFinished: 0,
+	}
+
+	mutex.Lock()
+	{
+		Loops[l.ID] = status
+	}
+	mutex.Unlock()
+
+}
+
 func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, mapNumber int) {
 
+	updateStep := 50
+
 	for i := 0; i < numRuns; i++ {
-		if i > 0 && i%50 == 0 {
-			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
+		if i > 0 && i%updateStep == 0 {
+			l.increaseTotalNumRunsCompleted(updateStep)
+			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d -- test loop status updated", i, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
@@ -78,6 +125,16 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 			continue
 		}
 	}
+
+}
+
+func (l TestLoop[T]) increaseTotalNumRunsCompleted(increase int) {
+
+	mutex.Lock()
+	{
+		Loops[l.ID].TotalRunsFinished += increase
+	}
+	mutex.Unlock()
 
 }
 
@@ -159,7 +216,7 @@ func (l TestLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int)
 
 func (l TestLoop[T]) assembleMapName(mapIndex int) string {
 
-	c := l.RunnerConfig
+	c := l.Config
 
 	mapName := c.MapBaseName
 	if c.UseMapPrefix && c.MapPrefix != "" {
@@ -187,7 +244,7 @@ func logTimingEvent(operation string, mapName string, tookMs int) {
 	log.WithFields(log.Fields{
 		"kind":   logging.TimingInfo,
 		"client": client.ClientID(),
-		"map": mapName,
+		"map":    mapName,
 		"tookMs": tookMs,
 	}).Infof("'%s' took %d ms", operation, tookMs)
 

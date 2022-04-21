@@ -110,8 +110,9 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	}
 
 	testLoop := maps.TestLoop[pokemon]{
+		Source:					"pokedexrunner",
 		HzClient:               hzClient,
-		RunnerConfig:           &runnerConfig,		
+		Config:           &runnerConfig,		
 		NumMaps:                numMaps,
 		NumRuns:                numRuns,
 		Elements:               pokedex.Pokemon,

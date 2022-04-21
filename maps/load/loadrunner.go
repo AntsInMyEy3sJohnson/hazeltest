@@ -94,8 +94,9 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 	}
 
 	testLoop := maps.TestLoop[loadElement]{
+		Source: 				"load",
 		HzClient:               hzClient,
-		RunnerConfig:           &runnerConfig,
+		Config:           &runnerConfig,
 		NumMaps:                numMaps,
 		NumRuns:                numRuns,
 		Elements:               elements,
