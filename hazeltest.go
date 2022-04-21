@@ -1,6 +1,7 @@
 package main
 
 import (
+	"hazeltest/api"
 	"hazeltest/client"
 	clientConfig "hazeltest/client/config"
 	"hazeltest/logging"
@@ -14,6 +15,8 @@ import (
 )
 
 func main() {
+
+	api.Expose()
 
 	clientConfig.ParseCommandLineArgs()
 
@@ -29,6 +32,8 @@ func main() {
 	if hzMembers == "" {
 		logConfigurationError("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided")
 	}
+
+	api.Ready()
 
 	mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: strings.Split(hzMembers, ",")}
 	mapTester.TestMaps()

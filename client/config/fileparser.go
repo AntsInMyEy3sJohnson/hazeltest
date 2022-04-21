@@ -74,7 +74,7 @@ func logIoEvent(msg string, clientID uuid.UUID, level log.Level) {
 func logConfigEvent(configValue string, source string, msg string, clientID uuid.UUID) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.ConfigurationError,
+		"kind":   "config information",
 		"value": configValue,
 		"source": source,
 		"client": clientID,

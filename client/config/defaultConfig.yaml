@@ -24,7 +24,7 @@ maptests:
       prefix: "ht_"
   load:
     # Same as for PokedexRunner
-    enabled: true
+    enabled: false
     # Same as for PokedexRunner
     numMaps: 5
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
