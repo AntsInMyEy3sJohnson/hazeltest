@@ -1,14 +1,16 @@
 replicaCount: 1
 
-image: antsinmyey3sjohnson/hazeltest:0.0.9
+image: antsinmyey3sjohnson/hazeltest:0.1.0
 
-resources:
-  requests: 
-    cpu: "500m"
-    memory: "64M"
-  limits:
-    cpu: "1"
-    memory: "128M"
+app:
+  httpPort: 8080
+  resources:
+    requests: 
+      cpu: "500m"
+      memory: "64M"
+    limits:
+      cpu: "1"
+      memory: "128M"
 
 env:
   hzCluster: "hazelcastimdg"

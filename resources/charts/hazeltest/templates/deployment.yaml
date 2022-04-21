@@ -27,13 +27,24 @@ spec:
         image: {{ .Values.image }}
         args: ["-config-file=/data/config/custom-config.yaml"]
         imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: {{ .Values.app.httpPort }}
+        livenessProbe:
+          httpGet:
+            port: http
+            path: /liveness
+        readinessProbe:
+          httpGet:
+            port: http
+            path: /readiness
         resources:
           requests:
-            cpu: {{ .Values.resources.requests.cpu }}
-            memory: {{ .Values.resources.requests.memory }}
+            cpu: {{ .Values.app.resources.requests.cpu }}
+            memory: {{ .Values.app.resources.requests.memory }}
           limits:
-            cpu: {{ .Values.resources.limits.cpu }}
-            memory: {{ .Values.resources.limits.memory }}
+            cpu: {{ .Values.app.resources.limits.cpu }}
+            memory: {{ .Values.app.resources.limits.memory }}
         env:
         - name: HZ_CLUSTER
           value: {{ .Values.env.hzCluster }}
