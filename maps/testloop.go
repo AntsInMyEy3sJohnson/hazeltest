@@ -25,7 +25,7 @@ type TestLoop[T any] struct {
 	RunnerConfig           *MapRunnerConfig
 	NumMaps                int
 	NumRuns                int
-	Elements               *[]T
+	Elements               []T
 	Ctx                    context.Context
 	GetElementIdFunc       GetElementID
 	DeserializeElementFunc DeserializeElement
@@ -84,7 +84,7 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
-	for _, v := range *l.Elements {
+	for _, v := range l.Elements {
 		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
 		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
@@ -107,7 +107,7 @@ func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 
 func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	for _, v := range *l.Elements {
+	for _, v := range l.Elements {
 		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
 		valueFromHZ, err := m.Get(l.Ctx, key)
 		if err != nil {
@@ -122,7 +122,7 @@ func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) er
 		}
 	}
 
-	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(*l.Elements), mapName), log.TraceLevel)
+	logInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.Elements), mapName), log.TraceLevel)
 
 	return nil
 
@@ -130,10 +130,10 @@ func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) er
 
 func (l TestLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	numElementsToDelete := rand.Intn(len(*l.Elements))
+	numElementsToDelete := rand.Intn(len(l.Elements))
 	deleted := 0
 
-	elements := *l.Elements
+	elements := l.Elements
 
 	for i := 0; i < numElementsToDelete; i++ {
 		key := assembleMapKey(l.GetElementIdFunc(elements[i]), mapNumber)

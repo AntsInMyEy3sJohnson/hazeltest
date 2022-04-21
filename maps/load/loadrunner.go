@@ -110,7 +110,7 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 
 }
 
-func populateLoadElements() *[]loadElement {
+func populateLoadElements() []loadElement {
 
 	elements := make([]loadElement, numEntriesPerMap)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
@@ -125,7 +125,7 @@ func populateLoadElements() *[]loadElement {
 		}
 	}
 
-	return &elements
+	return elements
 
 }
 

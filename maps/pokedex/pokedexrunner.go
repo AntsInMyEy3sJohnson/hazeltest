@@ -114,7 +114,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 		RunnerConfig:           &runnerConfig,		
 		NumMaps:                numMaps,
 		NumRuns:                numRuns,
-		Elements:               &pokedex.Pokemon,
+		Elements:               pokedex.Pokemon,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
 		DeserializeElementFunc: deserializeElement,
