@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	api.Expose()
+	api.Serve()
 
 	clientConfig.ParseCommandLineArgs()
 

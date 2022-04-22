@@ -34,7 +34,7 @@ func init() {
 
 }
 
-func Expose() {
+func Serve() {
 
 	go func() {
 		server := &http.Server{
