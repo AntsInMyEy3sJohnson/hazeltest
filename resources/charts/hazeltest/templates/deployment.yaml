@@ -24,9 +24,9 @@ spec:
           name: {{ template "hazeltest.fullname" . }}-config
       containers:
       - name: hazeltest
-        image: {{ .Values.image }}
+        image: {{ .Values.app.image }}
         args: ["-config-file=/data/config/custom-config.yaml"]
-        imagePullPolicy: Always
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
         ports:
         - name: http
           containerPort: {{ .Values.app.httpPort }}

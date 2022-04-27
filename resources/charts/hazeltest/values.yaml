@@ -1,8 +1,10 @@
 replicaCount: 1
 
-image: antsinmyey3sjohnson/hazeltest:0.1.0
+
 
 app:
+  image: antsinmyey3sjohnson/hazeltest:0.1.0
+  imagePullPolicy: IfNotPresent
   httpPort: 8080
   resources:
     requests: 
