@@ -48,34 +48,6 @@ type nextEvolution struct {
 //go:embed pokedex.json
 var pokedexFile embed.FS
 
-const (
-	defaultEnabled                             = true
-	defaultNumMaps                             = 10
-	defaultAppendMapIndexToMapName             = true
-	defaultAppendClientIdToMapName             = false
-	defaultNumRuns                             = 10000
-	defaultUseMapPrefix                        = true
-	defaultMapPrefix                           = "ht_"
-	defaultSleepBetweenActionBatchesEnabled    = false
-	defaultSleepBetweenActionBatchesDurationMs = 200
-	defaultSleepBetweenRunsEnabled             = true
-	defaultSleepBetweenRunsDurationMs          = 200
-)
-
-var (
-	enabled                             bool
-	numMaps                             int
-	appendMapIndexToMapName             bool
-	appendClientIdToMapName             bool
-	numRuns                             int
-	useMapPrefix                        bool
-	mapPrefix                           string
-	sleepBetweenActionBatchesEnabled    bool
-	sleepBetweenActionBatchesDurationMs int
-	sleepBetweenRunsEnabled             bool
-	sleepBetweenRunsDurationMs          int
-)
-
 func init() {
 	maps.Register(PokedexRunner{})
 	gob.Register(pokemon{})
@@ -83,9 +55,9 @@ func init() {
 
 func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
-	populateConfig()
+	mapRunnerConfig := populateConfig()
 
-	if !enabled {
+	if !mapRunnerConfig.Enabled {
 		logInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -101,6 +73,8 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
+	// TODO This would be a nice spot for something like 'api.RaiseReadiness()'... decrement wait group for every runner that raises readiness, once the counter hits zero, readiness probes should succeed
+
 	if err != nil {
 		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
 	}
@@ -109,22 +83,10 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	runnerConfig := maps.MapConfig{
-		NumMaps:                   numMaps,
-		NumRuns:                   numRuns,
-		MapBaseName:               "pokedex",
-		UseMapPrefix:              useMapPrefix,
-		MapPrefix:                 mapPrefix,
-		AppendMapIndexToMapName:   appendMapIndexToMapName,
-		AppendClientIdToMapName:   appendClientIdToMapName,
-		SleepBetweenActionBatches: &maps.SleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
-		SleepBetweenRuns:          &maps.SleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
-	}
-
 	testLoop := maps.TestLoop[pokemon]{
 		Source:                 "pokedexrunner",
 		HzClient:               hzClient,
-		Config:                 &runnerConfig,
+		Config:                 mapRunnerConfig,
 		Elements:               pokedex.Pokemon,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
@@ -155,115 +117,17 @@ func deserializeElement(elementFromHZ interface{}) error {
 
 }
 
-func populateConfig() {
+func populateConfig() *maps.MapRunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
+	runnerKeyPath := "maptests.pokedex"
 
-	// TODO All of the following is very ugly indeed -- simply parse Yaml into new struct type instead?
-	keyPath := "maptests.pokedex.enabled"
-	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		enabled = defaultEnabled
-	} else {
-		enabled = valueFromConfig.(bool)
+	configBuilder := maps.MapRunnerConfigBuilder{
+		RunnerKeyPath: runnerKeyPath,
+		MapBaseName:   "pokedex",
+		ParsedConfig:  parsedConfig,
 	}
-
-	keyPath = "maptests.pokedex.numMaps"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		numMaps = defaultNumMaps
-	} else {
-		numMaps = valueFromConfig.(int)
-	}
-
-	keyPath = "maptests.pokedex.appendMapIndexToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		appendMapIndexToMapName = defaultAppendMapIndexToMapName
-	} else {
-		appendMapIndexToMapName = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.pokedex.appendClientIdToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		appendClientIdToMapName = defaultAppendClientIdToMapName
-	} else {
-		appendClientIdToMapName = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.pokedex.numRuns"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		numRuns = defaultNumRuns
-	} else {
-		numRuns = valueFromConfig.(int)
-	}
-
-	keyPath = "maptests.pokedex.mapPrefix.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		useMapPrefix = defaultUseMapPrefix
-	} else {
-		useMapPrefix = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.pokedex.mapPrefix.prefix"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		mapPrefix = defaultMapPrefix
-	} else {
-		mapPrefix = valueFromConfig.(string)
-	}
-
-	keyPath = "maptests.pokedex.sleeps.betweenActionBatches.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		sleepBetweenActionBatchesEnabled = defaultSleepBetweenActionBatchesEnabled
-	} else {
-		sleepBetweenActionBatchesEnabled = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.pokedex.sleeps.betweenActionBatches.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		sleepBetweenActionBatchesDurationMs = defaultSleepBetweenActionBatchesDurationMs
-	} else {
-		sleepBetweenActionBatchesDurationMs = valueFromConfig.(int)
-	}
-
-	keyPath = "maptests.pokedex.sleeps.betweenRuns.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		sleepBetweenRunsEnabled = defaultSleepBetweenRunsEnabled
-	} else {
-		sleepBetweenRunsEnabled = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.pokedex.sleeps.betweenRuns.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		sleepBetweenRunsDurationMs = defaultSleepBetweenRunsDurationMs
-	} else {
-		sleepBetweenRunsDurationMs = valueFromConfig.(int)
-	}
-
-}
-
-func logErrUponConfigExtraction(keyPath string, err error) {
-
-	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
+	return configBuilder.PopulateConfig()
 
 }
 
@@ -286,22 +150,6 @@ func parsePokedexFile() (*pokedex, error) {
 	logInternalStateEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
-
-}
-
-func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.ConfigurationError,
-		"value":  configValue,
-		"source": source,
-		"client": client.ClientID(),
-	}
-	if logLevel == log.WarnLevel {
-		log.WithFields(fields).Warn(msg)
-	} else {
-		log.WithFields(fields).Fatal(msg)
-	}
 
 }
 

@@ -32,27 +32,13 @@ const (
 )
 
 const (
-	defaultEnabled                 = true
-	defaultNumMaps                 = 10
-	defaultNumEntriesPerMap        = 10000
-	defaultPayloadSizeBytes        = 1000
-	defaultAppendMapIndexToMapName = true
-	defaultAppendClientIdToMapName = false
-	defaultNumRuns                 = 10000
-	defaultUseMapPrefix            = true
-	defaultMapPrefix               = "ht_"
+	defaultNumEntriesPerMap = 10000
+	defaultPayloadSizeBytes = 1000
 )
 
 var (
-	enabled                 bool
-	numMaps                 int
-	numEntriesPerMap        int
-	payloadSizeBytes        int
-	appendMapIndexToMapName bool
-	appendClientIdToMapName bool
-	numRuns                 int
-	useMapPrefix            bool
-	mapPrefix               string
+	numEntriesPerMap int
+	payloadSizeBytes int
 )
 
 func init() {
@@ -62,9 +48,9 @@ func init() {
 
 func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 
-	populateConfig()
+	mapRunnerConfig := populateConfig()
 
-	if !enabled {
+	if !mapRunnerConfig.Enabled {
 		logInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -84,21 +70,10 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 
 	elements := populateLoadElements()
 
-	// TODO This will be pretty much the same for every map runner... why not build a config mechanism that parses the given yaml into this structure?
-	runnerConfig := maps.MapConfig{
-		NumMaps:                 numMaps,
-		NumRuns:                 numRuns,
-		MapBaseName:             "load",
-		UseMapPrefix:            useMapPrefix,
-		MapPrefix:               mapPrefix,
-		AppendMapIndexToMapName: appendMapIndexToMapName,
-		AppendClientIdToMapName: appendClientIdToMapName,
-	}
-
 	testLoop := maps.TestLoop[loadElement]{
 		Source:                 "load",
 		HzClient:               hzClient,
-		Config:                 &runnerConfig,
+		Config:                 mapRunnerConfig,
 		Elements:               elements,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
@@ -173,31 +148,13 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateConfig() { 
+func populateConfig() *maps.MapRunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
+	runnerKeyPath := "maptests.load"
 
-	keyPath := "maptests.load.enabled"
+	keyPath := runnerKeyPath + ".numEntriesPerMap"
 	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
-
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		enabled = defaultEnabled
-	} else {
-		enabled = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.load.numMaps"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		numMaps = defaultNumMaps
-	} else {
-		numMaps = valueFromConfig.(int)
-	}
-
-	keyPath = "maptests.load.numEntriesPerMap"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
 		numEntriesPerMap = defaultNumEntriesPerMap
@@ -205,7 +162,7 @@ func populateConfig() {
 		numEntriesPerMap = valueFromConfig.(int)
 	}
 
-	keyPath = "maptests.load.payloadSizeBytes"
+	keyPath = runnerKeyPath + ".payloadSizeBytes"
 	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -214,50 +171,12 @@ func populateConfig() {
 		payloadSizeBytes = valueFromConfig.(int)
 	}
 
-	keyPath = "maptests.load.appendMapIndexToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		appendMapIndexToMapName = defaultAppendMapIndexToMapName
-	} else {
-		appendMapIndexToMapName = valueFromConfig.(bool)
+	configBuilder := maps.MapRunnerConfigBuilder{
+		RunnerKeyPath: runnerKeyPath,
+		MapBaseName:   "load",
+		ParsedConfig:  parsedConfig,
 	}
-
-	keyPath = "maptests.load.appendClientIdToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		appendClientIdToMapName = defaultAppendClientIdToMapName
-	} else {
-		appendClientIdToMapName = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.load.numRuns"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		numRuns = defaultNumRuns
-	} else {
-		numRuns = valueFromConfig.(int)
-	}
-
-	keyPath = "maptests.load.mapPrefix.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		useMapPrefix = defaultUseMapPrefix
-	} else {
-		useMapPrefix = valueFromConfig.(bool)
-	}
-
-	keyPath = "maptests.load.mapPrefix.prefix"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
-		mapPrefix = defaultMapPrefix
-	} else {
-		mapPrefix = valueFromConfig.(string)
-	}
+	return configBuilder.PopulateConfig()
 
 }
 
