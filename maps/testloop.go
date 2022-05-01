@@ -104,6 +104,8 @@ func (l TestLoop[T]) insertLoopWithInitialStatus() {
 func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, mapNumber int) {
 
 	updateStep := 50
+	sleepBetweenActionBatchesConfig := l.Config.SleepBetweenActionBatches
+	sleepBetweenRunsConfig := l.Config.SleepBetweenRuns
 
 	for i := 0; i < numRuns; i++ {
 		if i > 0 && i%updateStep == 0 {
@@ -116,16 +118,28 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 			logHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
+		sleep(sleepBetweenActionBatchesConfig)
 		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
+		sleep(sleepBetweenActionBatchesConfig)
 		err = l.deleteSome(m, mapName, mapNumber)
 		if err != nil {
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
+		sleep(sleepBetweenRunsConfig)
+	}
+
+}
+
+func sleep(sleepConfig *SleepConfig) {
+
+	if sleepConfig.Enabled {
+		logInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepConfig.DurationMs), log.TraceLevel)
+		time.Sleep(time.Duration(sleepConfig.DurationMs) * time.Millisecond)
 	}
 
 }
