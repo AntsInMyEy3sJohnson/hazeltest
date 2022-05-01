@@ -85,7 +85,9 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 	elements := populateLoadElements()
 
 	// TODO This will be pretty much the same for every map runner... why not build a config mechanism that parses the given yaml into this structure?
-	runnerConfig := maps.MapRunnerConfig{
+	runnerConfig := maps.MapConfig{
+		NumMaps:                 numMaps,
+		NumRuns:                 numRuns,
 		MapBaseName:             "load",
 		UseMapPrefix:            useMapPrefix,
 		MapPrefix:               mapPrefix,
@@ -94,11 +96,9 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 	}
 
 	testLoop := maps.TestLoop[loadElement]{
-		Source: 				"load",
+		Source:                 "load",
 		HzClient:               hzClient,
-		Config:           &runnerConfig,
-		NumMaps:                numMaps,
-		NumRuns:                numRuns,
+		Config:                 &runnerConfig,
 		Elements:               elements,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
@@ -115,7 +115,7 @@ func populateLoadElements() []loadElement {
 
 	elements := make([]loadElement, numEntriesPerMap)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
-	// unique string for each map entry will result in high memory consumption of this Hazeltest client. 
+	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and point to that string in each load element
 	randomPayload := generateRandomPayload(payloadSizeBytes)
 
@@ -173,7 +173,7 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateConfig() {
+func populateConfig() { 
 
 	parsedConfig := config.GetParsedConfig()
 

@@ -33,6 +33,7 @@ func main() {
 		logConfigurationError("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided")
 	}
 
+	// TODO Should only be set once all runners have successfully connected to Hazelcast
 	api.Ready()
 
 	mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: strings.Split(hzMembers, ",")}

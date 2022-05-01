@@ -25,9 +25,7 @@ type TestLoop[T any] struct {
 	ID                     uuid.UUID
 	Source                 string
 	HzClient               *hazelcast.Client
-	Config                 *MapRunnerConfig
-	NumMaps                int
-	NumRuns                int
+	Config                 *MapConfig
 	Elements               []T
 	Ctx                    context.Context
 	GetElementIdFunc       GetElementID
@@ -36,7 +34,7 @@ type TestLoop[T any] struct {
 
 type TestLoopStatus struct {
 	Source            string
-	Config            *MapRunnerConfig
+	Config            *MapConfig
 	NumMaps           int
 	NumRuns           int
 	TotalRuns         int
@@ -58,8 +56,10 @@ func (l TestLoop[T]) Run() {
 
 	l.insertLoopWithInitialStatus()
 
+	// TODO Implement sleeps between iterations and between actions within each iteration
+
 	var wg sync.WaitGroup
-	for i := 0; i < l.NumMaps; i++ {
+	for i := 0; i < l.Config.NumMaps; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -73,7 +73,7 @@ func (l TestLoop[T]) Run() {
 				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzMap.Destroy(l.Ctx)
-			l.runForMap(hzMap, l.NumRuns, mapName, i)
+			l.runForMap(hzMap, l.Config.NumRuns, mapName, i)
 		}(i)
 	}
 	wg.Wait()
@@ -82,12 +82,14 @@ func (l TestLoop[T]) Run() {
 
 func (l TestLoop[T]) insertLoopWithInitialStatus() {
 
+	c := l.Config
+
 	status := &TestLoopStatus{
 		Source:            l.Source,
-		Config:            l.Config,
-		NumMaps:           l.NumMaps,
-		NumRuns:           l.NumRuns,
-		TotalRuns:         l.NumMaps * l.NumRuns,
+		Config:            c,
+		NumMaps:           c.NumMaps,
+		NumRuns:           c.NumRuns,
+		TotalRuns:         c.NumMaps * c.NumRuns,
 		TotalRunsFinished: 0,
 	}
 

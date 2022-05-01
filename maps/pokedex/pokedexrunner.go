@@ -49,23 +49,31 @@ type nextEvolution struct {
 var pokedexFile embed.FS
 
 const (
-	defaultEnabled = true
-	defaultNumMaps = 10
-	defaultAppendMapIndexToMapName = true
-	defaultAppendClientIdToMapName = false
-	defaultNumRuns = 10000
-	defaultUseMapPrefix = true
-	defaultMapPrefix = "ht_"
+	defaultEnabled                             = true
+	defaultNumMaps                             = 10
+	defaultAppendMapIndexToMapName             = true
+	defaultAppendClientIdToMapName             = false
+	defaultNumRuns                             = 10000
+	defaultUseMapPrefix                        = true
+	defaultMapPrefix                           = "ht_"
+	defaultSleepBetweenActionBatchesEnabled    = false
+	defaultSleepBetweenActionBatchesDurationMs = 200
+	defaultSleepBetweenRunsEnabled             = true
+	defaultSleepBetweenRunsDurationMs          = 200
 )
 
 var (
-	enabled bool
-	numMaps int
-	appendMapIndexToMapName bool
-	appendClientIdToMapName bool
-	numRuns int
-	useMapPrefix bool
-	mapPrefix string
+	enabled                             bool
+	numMaps                             int
+	appendMapIndexToMapName             bool
+	appendClientIdToMapName             bool
+	numRuns                             int
+	useMapPrefix                        bool
+	mapPrefix                           string
+	sleepBetweenActionBatchesEnabled    bool
+	sleepBetweenActionBatchesDurationMs int
+	sleepBetweenRunsEnabled             bool
+	sleepBetweenRunsDurationMs          int
 )
 
 func init() {
@@ -101,20 +109,22 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	runnerConfig := maps.MapRunnerConfig{
-		MapBaseName: "pokedex",
-		UseMapPrefix: useMapPrefix,
-		MapPrefix: mapPrefix,
-		AppendMapIndexToMapName: appendMapIndexToMapName,
-		AppendClientIdToMapName: appendClientIdToMapName,
+	runnerConfig := maps.MapConfig{
+		NumMaps:                   numMaps,
+		NumRuns:                   numRuns,
+		MapBaseName:               "pokedex",
+		UseMapPrefix:              useMapPrefix,
+		MapPrefix:                 mapPrefix,
+		AppendMapIndexToMapName:   appendMapIndexToMapName,
+		AppendClientIdToMapName:   appendClientIdToMapName,
+		SleepBetweenActionBatches: &maps.SleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
+		SleepBetweenRuns:          &maps.SleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
 	}
 
 	testLoop := maps.TestLoop[pokemon]{
-		Source:					"pokedexrunner",
+		Source:                 "pokedexrunner",
 		HzClient:               hzClient,
-		Config:           &runnerConfig,		
-		NumMaps:                numMaps,
-		NumRuns:                numRuns,
+		Config:                 &runnerConfig,
 		Elements:               pokedex.Pokemon,
 		Ctx:                    ctx,
 		GetElementIdFunc:       getElementID,
@@ -211,6 +221,42 @@ func populateConfig() {
 		mapPrefix = defaultMapPrefix
 	} else {
 		mapPrefix = valueFromConfig.(string)
+	}
+
+	keyPath = "maptests.pokedex.sleeps.betweenActionBatches.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		sleepBetweenActionBatchesEnabled = defaultSleepBetweenActionBatchesEnabled
+	} else {
+		sleepBetweenActionBatchesEnabled = valueFromConfig.(bool)
+	}
+
+	keyPath = "maptests.pokedex.sleeps.betweenActionBatches.durationMs"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		sleepBetweenActionBatchesDurationMs = defaultSleepBetweenActionBatchesDurationMs
+	} else {
+		sleepBetweenActionBatchesDurationMs = valueFromConfig.(int)
+	}
+
+	keyPath = "maptests.pokedex.sleeps.betweenRuns.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		sleepBetweenRunsEnabled = defaultSleepBetweenRunsEnabled
+	} else {
+		sleepBetweenRunsEnabled = valueFromConfig.(bool)
+	}
+
+	keyPath = "maptests.pokedex.sleeps.betweenRuns.durationMs"
+	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		sleepBetweenRunsDurationMs = defaultSleepBetweenRunsDurationMs
+	} else {
+		sleepBetweenRunsDurationMs = valueFromConfig.(int)
 	}
 
 }

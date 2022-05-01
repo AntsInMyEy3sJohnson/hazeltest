@@ -11,9 +11,9 @@ maptests:
     # Note: Both the client ID and the currently active goroutine/number are still part of the map keys, so no matter how 
     # the following two properties are set, different clients and goroutines within clients will not act on each other's keys
     appendMapIndexToMapName: true
-    # If so to 'true', the PokedexRunner will append to ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast; 
+    # If so to 'true', the PokedexRunner will append the ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast; 
     # if set to 'false', then this PokedexRunner will share its maps with the maps created by PokedexRunners in other Hazeltest instances
-    # Set this to 'false' if you would like to make all Hazeltest instances access the same map
+    # Set this to 'false' if you would like to make all Hazeltest instances access the same map or maps
     appendClientIdToMapName: false
     # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
     numRuns: 10000
@@ -22,13 +22,25 @@ maptests:
       # The prefix will be put in front of the map name as-is, so no additional underscores or other 
       # characters will be added
       prefix: "ht_"
+    # Using sleeps, the pace with which this runner interacts with Hazelcast can be slowed down
+    sleeps:
+      # Can be enabled to make the test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has 
+      # finished, meaning the next action batch will start only after a sleep of <durationMs>
+      betweenActionBatches:
+        enabled: false
+        durationMs: 200
+      # Can be enabled to make the test loop sleep for the given duration after each of the <numRuns>. One run consists of three actions (e.g. ingest-read-delete),
+      # so use this setting to tell the test loop to sleep after having finished the last action of run <n> and before commencing with the first action of run <n+1>
+      betweenRuns:
+        enabled: true
+        durationMs: 200
   load:
     # Same as for PokedexRunner
     enabled: false
     # Same as for PokedexRunner
     numMaps: 5
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
-    # arbitrarily many entries. The 'numEntriesPerMap' controls how many entries it will create
+    # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
     numEntriesPerMap: 10000
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
     payloadSizeBytes: 1000
@@ -42,3 +54,11 @@ maptests:
     mapPrefix:
       enabled: true
       prefix: "ht_"
+    # All properties under this key work in exactly the same way as for the PokedexRunner.
+    sleeps:
+      betweenActionBatches:
+        enabled: false
+        durationMs: 200
+      betweenRuns:
+        enabled: true
+        durationMs: 200
