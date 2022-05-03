@@ -3,7 +3,7 @@ replicaCount: 1
 
 
 app:
-  image: antsinmyey3sjohnson/hazeltest:0.1.0
+  image: antsinmyey3sjohnson/hazeltest:0.2.0
   imagePullPolicy: IfNotPresent
   httpPort: 8080
   resources:
@@ -29,6 +29,13 @@ config:
       mapPrefix:
         enabled: true
         prefix: "ht_"
+      sleeps:
+        betweenActionBatches:
+          enabled: false
+          durationMs: 200
+        betweenRuns:
+          enabled: true
+          durationMs: 200
     load:
       enabled: false
       numMaps: 10
@@ -40,3 +47,10 @@ config:
       mapPrefix:
         enabled: true
         prefix: "ht_"
+      sleeps:
+        betweenActionBatches:
+          enabled: false
+          durationMs: 200
+        betweenRuns:
+          enabled: true
+          durationMs: 200
