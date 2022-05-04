@@ -50,6 +50,8 @@ spec:
           value: {{ .Values.env.hzCluster }}
         - name: HZ_MEMBERS
           value: {{ .Values.env.hzMembers }}
+        - name: LOG_LEVEL
+          value: {{ .Values.env.logLevel }}
         volumeMounts:
         - name: hazeltest-config
           mountPath: /data/config

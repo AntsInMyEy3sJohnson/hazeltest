@@ -56,7 +56,7 @@ func (l TestLoop[T]) Run() {
 
 	l.insertLoopWithInitialStatus()
 
-	// TODO Implement sleeps between iterations and between actions within each iteration
+	// TODO Introduce randomness to sleeps -- right now, they produce cyclic high CPU usage
 
 	var wg sync.WaitGroup
 	for i := 0; i < l.Config.NumMaps; i++ {
