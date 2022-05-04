@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,6 +72,7 @@ func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
 	elements := populateLoadElements()
 
 	testLoop := maps.TestLoop[loadElement]{
+		ID:                     uuid.New(),
 		Source:                 "load",
 		HzClient:               hzClient,
 		Config:                 mapRunnerConfig,

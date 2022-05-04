@@ -12,6 +12,7 @@ import (
 	"hazeltest/logging"
 	"hazeltest/maps"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -84,6 +85,7 @@ func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
 	testLoop := maps.TestLoop[pokemon]{
+		ID:                     uuid.New(),
 		Source:                 "pokedexrunner",
 		HzClient:               hzClient,
 		Config:                 mapRunnerConfig,
