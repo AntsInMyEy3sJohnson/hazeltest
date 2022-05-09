@@ -1,3 +1,4 @@
+{{- if .Values.platform.deploy -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -8,7 +9,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   serviceName: {{ template "hazelcastimdg.fullname" . }}
-  replicas: {{ .Values.cluster.members.count }}
+  replicas: {{ .Values.platform.cluster.members.count }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
@@ -19,33 +20,33 @@ spec:
         app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      terminationGracePeriodSeconds: {{ .Values.cluster.members.gracefulShutDown.maxWaitSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}
       volumes:
       - name: hzconfig
         configMap:
           name: {{ template "hazelcastimdg.fullname" . }}-config
       containers:
       - name: {{ template "hazelcastimdg.fullname" . }}
-        image: {{ .Values.cluster.members.image }}
+        image: {{ .Values.platform.cluster.members.image }}
         resources:
-{{ toYaml .Values.cluster.members.resources | indent 10 }}
+{{ toYaml .Values.platform.cluster.members.resources | indent 10 }}
         ports:
         - name: hzmember
-          containerPort: {{ .Values.cluster.members.ports.member }}
+          containerPort: {{ .Values.platform.cluster.members.ports.member }}
         - name: hzmetrics
-          containerPort: {{ .Values.cluster.members.ports.metrics }}
+          containerPort: {{ .Values.platform.cluster.members.ports.metrics }}
         livenessProbe:
           httpGet:
             port: hzmember
             path: /hazelcast/health/node-state
-          initialDelaySeconds: {{ .Values.cluster.members.liveness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.cluster.members.liveness.periodSeconds }}
+          initialDelaySeconds: {{ .Values.platform.cluster.members.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.platform.cluster.members.liveness.periodSeconds }}
         readinessProbe:
           httpGet:
             port: hzmember
             path: /hazelcast/health/ready
-          initialDelaySeconds: {{ .Values.cluster.members.readiness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.cluster.members.readiness.periodSeconds }}
+          initialDelaySeconds: {{ .Values.platform.cluster.members.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
         env:
         - name: JAVA_OPTS
           value: "-Dhazelcast.config=/data/hazelcast/config/hazelcast.yaml \
@@ -53,9 +54,10 @@ spec:
                   -Dnamespace={{ .Release.Namespace }} \
                   -Dhazelcast.shutdownhook.policy=GRACEFUL \
                   -Dhazelcast.shutdownhook.enabled=true \ 
-                  -Dhazelcast.graceful.shutdown.max.wait={{ .Values.cluster.members.gracefulShutDown.maxWaitSeconds }}"
+                  -Dhazelcast.graceful.shutdown.max.wait={{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}"
         - name: LOGGING_LEVEL
-          value: {{ .Values.cluster.logging.level }}
+          value: {{ .Values.platform.cluster.logging.level }}
         volumeMounts:
         - name: hzconfig
           mountPath: /data/hazelcast/config
+{{- end -}}

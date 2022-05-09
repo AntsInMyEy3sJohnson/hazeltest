@@ -1,3 +1,4 @@
+{{- if .Values.platform.deploy -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,4 +9,5 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   hazelcast.yaml: |-
-{{ toYaml .Values.config | indent 4 }}
+{{ toYaml .Values.platform.config | indent 4 }}
+{{- end -}}

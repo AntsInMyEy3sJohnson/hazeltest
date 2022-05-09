@@ -1,3 +1,4 @@
+{{- if .Values.platform.deploy -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -5,15 +6,16 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.platform.service.type }}
   selector:
     app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
   - name: hzport
     protocol: TCP
-    port: {{ .Values.service.port }}
+    port: {{ .Values.platform.service.port }}
     targetPort: hzmember
+{{- end -}}
 
   
     
