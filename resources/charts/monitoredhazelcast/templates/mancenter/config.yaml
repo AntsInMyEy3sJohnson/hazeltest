@@ -1,0 +1,17 @@
+{{- if and .Values.platform.deploy .Values.mancenter.deploy -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "hazelcastimdg.fullname" . }}-mancenterconfig
+  labels:
+    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  hazelcast-client.yaml: |-
+    hazelcast-client:
+      cluster-name: {{ index .Values.platform.config.hazelcast "cluster-name" }}
+      network:
+        kubernetes:
+          enabled: true
+{{- end -}}

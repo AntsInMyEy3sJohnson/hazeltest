@@ -9,6 +9,5 @@ version: 1.0.0
 appVersion: "5.1.1"
 
 # Useful commands: 
-# helm install hazelcastimdg . --namespace=hazelcastimdg --create-namespace
-# helm upgrade --install hazelcastimdg . --namespace=hazelcastimdg --create-namespace
+# helm upgrade --install monitoredhazelcast . --namespace=hazelcastplatform --create-namespace
 # helm uninstall hazelcastimdg --namespace=hazelcastimdg

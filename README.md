@@ -11,13 +11,13 @@ For a general overview of the background and ideas behind Hazeltest, please refe
 Have a Kubernetes cluster at your disposal? Then you're in luck, because the easiest and most convenient way to get started is to apply the two Helm charts you can find in this repository's [chart](./resources/charts/) folder to it. First, get yourself a neat little Hazelcast cluster by running the following:
 
 ```bash
-$ helm upgrade --install hazelcastimdg ./hazelcastimdg --namespace=hazelcastimdg --create-namespace
+$ helm upgrade --install monitoredhazelcast . --namespace=hazelcastplatform --create-namespace
 ```
 
 Once the cluster is up and running, you can install Hazeltest like so:
 
 ```bash
-$ helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastimdg
+$ helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 ```
 
 In the Hazeltest pod, you should see some logging statements informing about the duration of a bunch of `getMap()` calls the two runners enabled by default have made on the Hazelcast cluster.

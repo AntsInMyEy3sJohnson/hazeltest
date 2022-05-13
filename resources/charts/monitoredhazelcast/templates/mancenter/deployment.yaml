@@ -1,0 +1,67 @@
+{{- if and .Values.platform.deploy .Values.mancenter.deploy -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "hazelcastimdg.name" . }}-mancenter
+  labels:
+    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: mancenter
+        image: {{ .Values.mancenter.instance.image }}
+        ports:
+        - name: {{ .Values.mancenter.instance.ports.metrics.name }}
+          containerPort: {{ .Values.mancenter.instance.ports.metrics.port }}
+        - name: {{ .Values.mancenter.instance.ports.health.name }}
+          containerPort: {{ .Values.mancenter.instance.ports.health.port }}
+        livenessProbe:
+          failureThreshold: {{ .Values.mancenter.instance.liveness.failureThreshold | default 3 }}
+          initialDelaySeconds: {{ .Values.mancenter.instance.liveness.initialDelaySeconds | default 60 }}
+          periodSeconds: {{ .Values.mancenter.instance.liveness.periodSeconds | default 20 }}
+          successThreshold: {{ .Values.mancenter.instance.liveness.successThreshold | default 1 }}
+          timeoutSeconds: {{ .Values.mancenter.instance.liveness.timeoutSeconds | default 2 }}
+          httpGet:
+            path: {{ .Values.mancenter.instance.liveness.path }}
+            port: {{ .Values.mancenter.instance.ports.health.port }}
+        readinessProbe:
+          failureThreshold: {{ .Values.mancenter.instance.readiness.failureThreshold | default 3 }}
+          initialDelaySeconds: {{ .Values.mancenter.instance.readiness.initialDelaySeconds | default 60 }}
+          periodSeconds: {{ .Values.mancenter.instance.readiness.periodSeconds | default 10 }}
+          successThreshold: {{ .Values.mancenter.instance.readiness.successThreshold | default 1 }}
+          timeoutSeconds: {{ .Values.mancenter.instance.readiness.timeoutSeconds | default 2 }}
+          httpGet:
+            path: {{ .Values.mancenter.instance.readiness.path }}
+            port: {{ .Values.mancenter.instance.ports.health.port }}
+        resources:
+          requests:
+            cpu: {{ .Values.mancenter.instance.resources.requests.cpu }}
+            memory: {{ .Values.mancenter.instance.resources.requests.memory }}
+          limits: 
+            cpu: {{ .Values.mancenter.instance.resources.limits.cpu }}
+            memory: {{ .Values.mancenter.instance.resources.limits.memory }}
+        env:
+        - name: JAVA_OPTS
+          value: "{{ .Values.mancenter.instance.javaOpts }} -XX:+UseContainerSupport"
+        - name: MC_INIT_CMD
+          value: ./bin/mc-conf.sh cluster add --lenient=true -H /data -cc /data/hazelcastmancenter/config/hazelcast-client.yaml
+        volumeMounts: 
+        - name: mancenterconfig
+          mountPath: /data/hazelcastmancenter/config
+      volumes:
+      - name: mancenterconfig
+        configMap:
+          name: {{ template "hazelcastimdg.fullname" . }}-mancenterconfig
+{{- end -}}

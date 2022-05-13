@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: "hazelcastimdg"
+  name: {{ template "hazelcastimdg.name" . }}
   labels:
     app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}

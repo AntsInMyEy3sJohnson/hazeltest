@@ -46,4 +46,33 @@ platform:
           kubernetes:
             enabled: true
             service-port: 5701
+
+mancenter:
+  deploy: true
+  instance:
+    image: hazelcast/management-center:5.1.3
+    # 'enabled' vs. 'enable' is not a typo, properties are actually called like this
+    javaOpts: "-Dhazelcast.mc.prometheusExporter.enabled=true -Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
+    ports:
+      metrics:
+        name: metrics
+        port: 8080
+      health:
+        name: health
+        port: 8081
+    liveness:
+      path: /health
+    readiness:
+      path: /health
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2G"
+      limits:
+        cpu: "1"
+        memory: "2G"
+      java:
+        xms: "1600m"
+        xmx: "1600m"
+
   
