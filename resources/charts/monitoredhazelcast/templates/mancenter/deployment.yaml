@@ -23,8 +23,8 @@ spec:
       - name: mancenter
         image: {{ .Values.mancenter.instance.image }}
         ports:
-        - name: {{ .Values.mancenter.instance.ports.metrics.name }}
-          containerPort: {{ .Values.mancenter.instance.ports.metrics.port }}
+        - name: {{ .Values.mancenter.instance.ports.web.name }}
+          containerPort: {{ .Values.mancenter.instance.ports.web.port }}
         - name: {{ .Values.mancenter.instance.ports.health.name }}
           containerPort: {{ .Values.mancenter.instance.ports.health.port }}
         livenessProbe:

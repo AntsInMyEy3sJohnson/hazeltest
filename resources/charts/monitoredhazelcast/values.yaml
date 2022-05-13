@@ -49,13 +49,16 @@ platform:
 
 mancenter:
   deploy: true
+  service:
+    type: LoadBalancer
+    port: 8080
   instance:
     image: hazelcast/management-center:5.1.3
-    # 'enabled' vs. 'enable' is not a typo, properties are actually called like this
-    javaOpts: "-Dhazelcast.mc.prometheusExporter.enabled=true -Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
+    # 'enabled' vs. 'enable' is not a typo, those properties are actually called like so
+    javaOpts: "-Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
     ports:
-      metrics:
-        name: metrics
+      web:
+        name: web
         port: 8080
       health:
         name: health
@@ -71,8 +74,3 @@ mancenter:
       limits:
         cpu: "1"
         memory: "2G"
-      java:
-        xms: "1600m"
-        xmx: "1600m"
-
-  

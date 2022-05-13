@@ -1,0 +1,18 @@
+{{- if and .Values.platform.deploy .Values.mancenter.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "hazelcastimdg.fullname" . }}-mancenter
+  labels:
+    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+spec:
+  type: {{ .Values.mancenter.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+  - name: {{ .Values.mancenter.instance.ports.web.name }}
+    protocol: TCP
+    port: {{ .Values.mancenter.service.port }}
+    targetPort: {{ .Values.mancenter.instance.ports.web.name }}
+{{- end -}}

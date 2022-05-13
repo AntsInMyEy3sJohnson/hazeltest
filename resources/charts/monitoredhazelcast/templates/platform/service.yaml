@@ -16,6 +16,3 @@ spec:
     port: {{ .Values.platform.service.port }}
     targetPort: hzmember
 {{- end -}}
-
-  
-    
