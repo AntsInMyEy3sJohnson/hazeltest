@@ -8,7 +8,7 @@ platform:
       level: INFO
     members:
       image: hazelcast/hazelcast:5.1.1
-      count: 1
+      count: 2
       ports:
         member: 5701
         metrics: 8080
@@ -29,7 +29,7 @@ platform:
         periodSeconds: 10
   config:
     hazelcast:
-      cluster-name: "hazelcastimdg"
+      cluster-name: "hazelcastplatform"
       properties:
         hazelcast.heartbeat.interval.seconds: 10
         hazelcast.jmx: true
@@ -70,7 +70,7 @@ mancenter:
     resources:
       requests:
         cpu: "500m"
-        memory: "2G"
+        memory: "1500M"
       limits:
-        cpu: "1"
-        memory: "2G"
+        cpu: "500m"
+        memory: "1500M"
