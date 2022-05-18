@@ -8,7 +8,8 @@ platform:
       level: INFO
     members:
       image: hazelcast/hazelcast:5.1.1
-      count: 2
+      imagePullPolicy: IfNotPresent
+      count: 3
       ports:
         member: 5701
         metrics: 8080
@@ -19,7 +20,7 @@ platform:
           cpu: "1"
           memory: "3G"
         limits:
-          cpu: "1"
+          cpu: "2"
           memory: "3G"
       liveness:
         initialDelaySeconds: 15
@@ -54,6 +55,7 @@ mancenter:
     port: 8080
   instance:
     image: hazelcast/management-center:5.1.3
+    imagePullPolicy: IfNotPresent
     # 'enabled' vs. 'enable' is not a typo, those properties are actually called like so
     javaOpts: "-Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
     ports:
@@ -72,5 +74,5 @@ mancenter:
         cpu: "500m"
         memory: "1500M"
       limits:
-        cpu: "500m"
+        cpu: "1"
         memory: "1500M"

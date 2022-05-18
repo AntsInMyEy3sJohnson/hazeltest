@@ -22,6 +22,7 @@ spec:
       containers:
       - name: mancenter
         image: {{ .Values.mancenter.instance.image }}
+        imagePullPolicy: {{ .Values.mancenter.instance.imagePullPolicy }}
         ports:
         - name: {{ .Values.mancenter.instance.ports.web.name }}
           containerPort: {{ .Values.mancenter.instance.ports.web.port }}

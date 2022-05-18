@@ -28,6 +28,7 @@ spec:
       containers:
       - name: {{ template "hazelcastimdg.fullname" . }}
         image: {{ .Values.platform.cluster.members.image }}
+        imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
         resources:
 {{ toYaml .Values.platform.cluster.members.resources | indent 10 }}
         ports:
