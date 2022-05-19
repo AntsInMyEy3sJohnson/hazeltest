@@ -1,7 +1,7 @@
 platform:
   deploy: true
   service:
-    type: ClusterIP
+    type: NodePort
     port: 5701
   cluster:
     logging:
@@ -9,7 +9,7 @@ platform:
     members:
       image: hazelcast/hazelcast:5.1.1
       imagePullPolicy: IfNotPresent
-      count: 3
+      count: 1
       ports:
         member: 5701
         metrics: 8080
@@ -47,6 +47,18 @@ platform:
           kubernetes:
             enabled: true
             service-port: 5701
+      map:
+        # Create very restrictive config for all map names not corresponding to one of 
+        # the other patterns such as to protect cluster from potentially misbehaving clients
+        default:
+          backup-count: 0
+          max-idle-seconds: 1
+          in-memory-format: BINARY
+        # Config for the Hazeltest maps
+        ht_*:
+          backup-count: 1
+          # Keep entries around for ten minutes
+          max-idle-seconds: 600
 
 mancenter:
   deploy: true

@@ -108,6 +108,7 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 	sleepBetweenRunsConfig := l.Config.SleepBetweenRuns
 
 	for i := 0; i < numRuns; i++ {
+		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
 			l.increaseTotalNumRunsCompleted(updateStep)
 			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d -- test loop status updated", i, mapName, mapNumber), log.InfoLevel)
@@ -130,7 +131,6 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, ma
 			logHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err))
 			continue
 		}
-		sleep(sleepBetweenRunsConfig)
 	}
 
 }
