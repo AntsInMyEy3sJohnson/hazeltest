@@ -30,6 +30,8 @@ platform:
         periodSeconds: 10
   config:
     hazelcast:
+      jet:
+        enabled: true
       cluster-name: "hazelcastplatform"
       properties:
         hazelcast.heartbeat.interval.seconds: 10
