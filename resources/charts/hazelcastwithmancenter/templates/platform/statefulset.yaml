@@ -50,8 +50,9 @@ spec:
           periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
         env:
         - name: JAVA_OPTS
-          value: "-Dhazelcast.config=/data/hazelcast/config/hazelcast.yaml \
-                  -DserviceName={{ template "hazelcastimdg.fullname" . }} \
+          value: "-XX:+UseContainerSupport \
+                  -Dhazelcast.config=/data/hazelcast/config/hazelcast.yaml \
+                  -DserviceName={{ template "hazelcastimdg.name" . }} \
                   -Dnamespace={{ .Release.Namespace }} \
                   -Dhazelcast.shutdownhook.policy=GRACEFUL \
                   -Dhazelcast.shutdownhook.enabled=true \ 
