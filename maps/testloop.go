@@ -158,7 +158,7 @@ func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 
 	numNewlyIngested := 0
 	for _, v := range l.Elements {
-		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
+		key := assembleMapKey(mapNumber, l.GetElementIdFunc(v))
 		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
@@ -181,7 +181,7 @@ func (l TestLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 func (l TestLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	for _, v := range l.Elements {
-		key := assembleMapKey(l.GetElementIdFunc(v), mapNumber)
+		key := assembleMapKey(mapNumber, l.GetElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.Ctx, key)
 		if err != nil {
 			return err
@@ -209,7 +209,7 @@ func (l TestLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int)
 	elements := l.Elements
 
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(l.GetElementIdFunc(elements[i]), mapNumber)
+		key := assembleMapKey(mapNumber, l.GetElementIdFunc(elements[i]))
 		containsKey, err := m.ContainsKey(l.Ctx, key)
 		if err != nil {
 			return err
@@ -249,9 +249,9 @@ func (l TestLoop[T]) assembleMapName(mapIndex int) string {
 
 }
 
-func assembleMapKey(id string, mapNumber int) string {
+func assembleMapKey(mapNumber int, elementID string) string {
 
-	return fmt.Sprintf("%s-%s", client.ClientID(), id)
+	return fmt.Sprintf("%s-%d-%s", client.ClientID(), mapNumber, elementID)
 
 }
 
