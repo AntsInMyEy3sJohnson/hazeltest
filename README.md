@@ -11,7 +11,7 @@ For a general overview of the background and ideas behind Hazeltest, please refe
 Have a Kubernetes cluster at your disposal? Then you're in luck, because the easiest and most convenient way to get started is to apply the two Helm charts you can find in this repository's [chart](./resources/charts/) folder to it. First, get yourself a neat little Hazelcast cluster by running the following:
 
 ```bash
-$ helm upgrade --install monitoredhazelcast ./monitoredhazelcast --namespace=hazelcastplatform --create-namespace
+$ helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
 ```
 
 Once the cluster is up and running, you can install Hazeltest like so:

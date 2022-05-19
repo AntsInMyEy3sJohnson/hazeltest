@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "hazelcastimdg.fullname" . }}-mancenter
+  name: {{ template "hazelcastimdg.name" . }}-mancenter
   labels:
     app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
 spec:

@@ -17,7 +17,7 @@ env:
   hzCluster: "hazelcastplatform"
   # Can be IP addresses or Kubernetes services names
   # Accepts multiple comma-separated values ("service1,service2,service3")
-  hzMembers: "monitoredhazelcast-hazelcastimdg.hazelcastplatform.svc.cluster.local:5701"
+  hzMembers: "hazelcastimdg.hazelcastplatform.svc.cluster.local:5701"
   # Set this to TRACE if you want to make the people running your IT department's logging platform very angry
   logLevel: INFO
 
