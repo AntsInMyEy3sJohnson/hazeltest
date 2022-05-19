@@ -1,7 +1,8 @@
 replicaCount: 1
 
 app:
-  image: antsinmyey3sjohnson/hazeltest:0.2.2
+  # 0.2.3
+  image: antsinmyey3sjohnson/hazeltest@sha256:c5c1e2c9ffc6407c779badeca321c4144269de33b6038e2e2375a98ffa1fb3a2
   imagePullPolicy: IfNotPresent
   httpPort: 8080
   resources:
@@ -45,7 +46,7 @@ config:
         enabled: true
         # The prefix will be put in front of the map name as-is, so no additional underscores or other 
         # characters will be added
-        prefix: "blubb_"
+        prefix: "ht_"
       # Using sleeps, the pace with which this runner interacts with Hazelcast can be slowed down
       sleeps:
         # Can be enabled to make the test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has 
@@ -57,7 +58,7 @@ config:
         # so use this setting to tell the test loop to sleep after having finished the last action of run <n> and before commencing with the first action of run <n+1>
         betweenRuns:
           enabled: true
-          durationMs: 10000
+          durationMs: 200
     load:
       # Same as for PokedexRunner
       enabled: true
@@ -77,7 +78,7 @@ config:
       # Same as for PokedexRunner
       mapPrefix:
         enabled: true
-        prefix: "blubbi_"
+        prefix: "ht_"
       # All properties under this key work in exactly the same way as for the PokedexRunner.
       sleeps:
         betweenActionBatches:
@@ -85,4 +86,4 @@ config:
           durationMs: 200
         betweenRuns:
           enabled: true
-          durationMs: 10000
+          durationMs: 200
