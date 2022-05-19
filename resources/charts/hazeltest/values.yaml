@@ -6,10 +6,10 @@ app:
   httpPort: 8080
   resources:
     requests: 
-      cpu: "256m"
+      cpu: "100m"
       memory: "64M"
     limits:
-      cpu: "500m"
+      cpu: "200m"
       memory: "128M"
 
 env:

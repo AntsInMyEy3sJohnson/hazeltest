@@ -51,7 +51,7 @@ platform:
 mancenter:
   deploy: true
   service:
-    type: LoadBalancer
+    type: NodePort
     port: 8080
   instance:
     image: hazelcast/management-center:5.1.3
