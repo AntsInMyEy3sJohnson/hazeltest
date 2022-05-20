@@ -30,7 +30,7 @@ spec:
         image: {{ .Values.platform.cluster.members.image }}
         imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
         resources:
-{{ toYaml .Values.platform.cluster.members.resources | indent 10 }}
+{{ toYaml .Values.platform.cluster.members.podResources | indent 10 }}
         ports:
         - name: hzmember
           containerPort: {{ .Values.platform.cluster.members.ports.member }}
@@ -50,7 +50,8 @@ spec:
           periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
         env:
         - name: JAVA_OPTS
-          value: "-XX:+UseContainerSupport \
+          value: "-Xmx{{ .Values.platform.cluster.members.jvmResources.xmx }} \
+                  -Xms{{ .Values.platform.cluster.members.jvmResources.xms }} \
                   -Dhazelcast.config=/data/hazelcast/config/hazelcast.yaml \
                   -DserviceName={{ template "hazelcastimdg.name" . }} \
                   -Dnamespace={{ .Release.Namespace }} \

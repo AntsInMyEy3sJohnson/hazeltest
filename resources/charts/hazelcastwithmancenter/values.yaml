@@ -15,13 +15,16 @@ platform:
         metrics: 8080
       gracefulShutDown:
         maxWaitSeconds: 60
-      resources:
+      podResources:
         requests:
           cpu: "1"
           memory: "3G"
         limits:
           cpu: "2"
           memory: "3G"
+      jvmResources:
+        xmx: 2500m
+        xms: 2500m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -49,6 +52,7 @@ platform:
           kubernetes:
             enabled: true
             service-port: 5701
+      # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
         # Create very restrictive config for all map names not corresponding to one of 
         # the other patterns such as to protect cluster from potentially misbehaving clients
@@ -61,6 +65,10 @@ platform:
           backup-count: 1
           # Keep entries around for ten minutes
           max-idle-seconds: 600
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: FREE_HEAP_PERCENTAGE
+            size: 10
 
 mancenter:
   deploy: true
