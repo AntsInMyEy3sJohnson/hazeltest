@@ -68,7 +68,7 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 20
+            size: 10
 
 mancenter:
   deploy: true
@@ -93,8 +93,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "500m"
+        cpu: "1"
         memory: "4G"
       limits:
-        cpu: "1"
+        cpu: "2"
         memory: "4G"
