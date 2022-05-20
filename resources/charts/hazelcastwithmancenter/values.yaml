@@ -9,7 +9,7 @@ platform:
     members:
       image: hazelcast/hazelcast:5.1.1
       imagePullPolicy: IfNotPresent
-      count: 1
+      count: 3
       ports:
         member: 5701
         metrics: 8080
@@ -68,7 +68,7 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 10
+            size: 20
 
 mancenter:
   deploy: true
@@ -94,7 +94,7 @@ mancenter:
     resources:
       requests:
         cpu: "500m"
-        memory: "1500M"
+        memory: "4G"
       limits:
         cpu: "1"
-        memory: "1500M"
+        memory: "4G"
