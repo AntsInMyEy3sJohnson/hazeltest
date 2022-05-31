@@ -15,7 +15,7 @@ platform:
         metrics: 8080
       gracefulShutDown:
         maxWaitSeconds: 60
-      podResources:
+      containerResources:
         requests:
           cpu: "1"
           memory: "3G"
@@ -58,17 +58,22 @@ platform:
         # the other patterns such as to protect cluster from potentially misbehaving clients
         default:
           backup-count: 0
-          max-idle-seconds: 1
+          max-idle-seconds: 5
           in-memory-format: BINARY
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: FREE_HEAP_PERCENTAGE
+            size: 30
         # Config for the Hazeltest maps
         ht_*:
           backup-count: 1
           # Keep entries around for ten minutes
           max-idle-seconds: 600
+          in-memory-format: BINARY
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 10
+            size: 15
 
 mancenter:
   deploy: true
