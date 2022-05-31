@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "hazeltest"
+  name: {{ .Release.Name }}
   labels:
     app.kubernetes.io/name: {{ template "hazeltest.name" . }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}

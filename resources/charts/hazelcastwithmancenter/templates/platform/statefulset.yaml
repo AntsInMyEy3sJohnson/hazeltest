@@ -30,7 +30,7 @@ spec:
         image: {{ .Values.platform.cluster.members.image }}
         imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
         resources:
-{{ toYaml .Values.platform.cluster.members.podResources | indent 10 }}
+{{ toYaml .Values.platform.cluster.members.containerResources | indent 10 }}
         ports:
         - name: hzmember
           containerPort: {{ .Values.platform.cluster.members.ports.member }}
