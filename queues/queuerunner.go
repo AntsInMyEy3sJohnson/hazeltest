@@ -1,7 +1,7 @@
 package queues
 
 type QueueRunner interface {
-	Run(hzCluster string, hzMembers []string)
+	RunQueueTests(hzCluster string, hzMembers []string)
 }
 
 var QueueRunners []QueueRunner

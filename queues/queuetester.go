@@ -24,7 +24,7 @@ func (t *QueueTester) TestQueues() {
 		go func(i int) {
 			defer wg.Done()
 			runner := QueueRunners[i]
-			runner.Run(t.HzCluster, t.HzMembers)
+			runner.RunQueueTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 
