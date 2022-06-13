@@ -25,7 +25,7 @@ func (t *MapTester) TestMaps() {
 		go func(i int) {
 			defer wg.Done()
 			runner := MapRunners[i]
-			runner.Run(t.HzCluster, t.HzMembers)
+			runner.RunMapTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 
@@ -36,7 +36,7 @@ func (t *MapTester) TestMaps() {
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind": logging.InternalStateInfo,
+		"kind":   logging.InternalStateInfo,
 		"client": client.ClientID(),
 	}).Trace(msg)
 

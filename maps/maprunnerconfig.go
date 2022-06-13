@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// MapRunnerConfig TODO Call this just "RunnerConfig" -- "Map" part is redundant because already in package name
 type MapRunnerConfig struct {
 	Enabled                   bool
 	NumMaps                   int

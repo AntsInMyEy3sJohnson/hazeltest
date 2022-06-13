@@ -1,7 +1,7 @@
 package maps
 
 type MapRunner interface {
-	Run(hzCluster string, hzMembers []string)
+	RunMapTests(hzCluster string, hzMembers []string)
 }
 
 var MapRunners []MapRunner
