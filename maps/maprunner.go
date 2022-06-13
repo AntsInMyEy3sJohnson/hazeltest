@@ -6,6 +6,6 @@ type MapRunner interface {
 
 var MapRunners []MapRunner
 
-func Register(r MapRunner) {
-	MapRunners = append(MapRunners, r)
+func Register(runner MapRunner) {
+	MapRunners = append(MapRunners, runner)
 }

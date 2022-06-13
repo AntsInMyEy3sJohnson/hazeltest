@@ -63,7 +63,7 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 30
+            size: 50
         # Config for the Hazeltest maps
         ht_*:
           backup-count: 1
