@@ -4,13 +4,12 @@ go 1.18
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/hazelcast/hazelcast-go-client v1.1.1
+	github.com/hazelcast/hazelcast-go-client v1.2.0
 	github.com/sirupsen/logrus v1.8.1
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (
-	github.com/DmitriyVTitov/size v1.5.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.5 // indirect
