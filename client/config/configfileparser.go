@@ -13,7 +13,7 @@ import (
 )
 
 type FileParser struct {
-	ClientID	uuid.UUID
+	ClientID uuid.UUID
 }
 
 //go:embed defaultConfig.yaml
@@ -75,7 +75,7 @@ func logConfigEvent(configValue string, source string, msg string, clientID uuid
 
 	log.WithFields(log.Fields{
 		"kind":   "config information",
-		"value": configValue,
+		"value":  configValue,
 		"source": source,
 		"client": clientID,
 	}).Info(msg)
