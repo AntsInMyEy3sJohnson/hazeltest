@@ -3,34 +3,32 @@ package tweets
 import (
 	"context"
 	"embed"
-	"encoding/csv"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
-	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/queues"
 	"io/fs"
-	"strconv"
 	"sync"
 	"time"
 )
 
 type Runner struct{}
 
-type tweetSet struct {
-	tweets []tweet
+type tweetCollection struct {
+	Tweets []tweet `json:"Tweets"`
 }
 
 type tweet struct {
-	id        uint64
-	createdAt string
-	text      string
+	Id        uint64 `json:"Id"`
+	CreatedAt string `json:"CreatedAt"`
+	Text      string `json:"Text"`
 }
 
-//go:embed tweets_simple.csv
+//go:embed tweets_simple.json
 var tweetsFile embed.FS
 
 func init() {
@@ -49,27 +47,37 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 	ts, err := parseTweets()
 	if err != nil {
-		logIoEvent(fmt.Sprintf("unable to parse tweets csv file: %s\n", err))
+		logIoEvent(fmt.Sprintf("unable to parse tweets json file: %v\n", err), log.FatalLevel)
 	}
 
 	ctx := context.TODO()
-	hzClient := initHazelcastClient(ctx, hzCluster, hzMembers)
+	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-tweetrunner", client.ClientID()), hzCluster, hzMembers)
+
+	if err != nil {
+		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %v\n", err), log.FatalLevel)
+	}
+	defer hzClient.Shutdown(ctx)
 
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("started tweets queue loop", log.InfoLevel)
 
 	queue, err := hzClient.GetQueue(ctx, "awesomeQueue")
 	if err != nil {
-		logInternalStateEvent("unable to retrieve queue from hazelcast cluster", log.WarnLevel)
+		logHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 	}
+
+	err = queue.Put(ctx, ts.Tweets[1])
+	value, err := queue.Poll(ctx)
+
+	fmt.Printf("received value from queue: %v\n", value)
 
 	var wg sync.WaitGroup
 	// One goroutine to add items, another one to poll them
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < len(ts.tweets); i++ {
-			err := queue.Put(ctx, ts.tweets[i])
+		for i := 0; i < len(ts.Tweets); i++ {
+			err := queue.Put(ctx, ts.Tweets[i])
 			if err != nil {
 				logHzEvent(fmt.Sprintf("unable to put tweet item into queue: %s\n", err), log.WarnLevel)
 			}
@@ -79,7 +87,7 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < len(ts.tweets); i++ {
+		for i := 0; i < len(ts.Tweets); i++ {
 			valueFromQueue, err := queue.PollWithTimeout(ctx, time.Duration(2000)*time.Millisecond)
 			if err != nil {
 				logHzEvent(fmt.Sprintf("unable to poll tweet from queue: %s\n", err), log.WarnLevel)
@@ -89,28 +97,15 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 		}
 	}()
 
-}
-
-func initHazelcastClient(ctx context.Context, hzCluster string, hzMembers []string) *hazelcast.Client {
-
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-tweetrunner", client.ClientID()), hzCluster, hzMembers)
-	if err != nil {
-		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s\n", err), log.FatalLevel)
-	}
-	defer func(hzClient *hazelcast.Client, ctx context.Context) {
-		err := hzClient.Shutdown(ctx)
-		if err != nil {
-			logHzEvent(fmt.Sprintf("unable to shutdown hazelcast client: %s\n", err), log.WarnLevel)
-		}
-	}(hzClient, ctx)
-
-	return hzClient
+	wg.Wait()
 
 }
 
-func parseTweets() (*tweetSet, error) {
+func parseTweets() (*tweetCollection, error) {
 
-	tweetsCsv, err := tweetsFile.Open("tweets_simple.csv")
+	// TODO Refactor logic related to file parsing into common file? Parsing json files is required in PokedexRunner, too... redundancy vs. coupling
+
+	tweetsJson, err := tweetsFile.Open("tweets_simple.json")
 
 	if err != nil {
 		return nil, err
@@ -119,41 +114,18 @@ func parseTweets() (*tweetSet, error) {
 	defer func(tweetsCsv fs.File) {
 		err := tweetsCsv.Close()
 		if err != nil {
-			logInternalStateEvent(fmt.Sprintf("unable to close tweets csv file: %v\n", err), log.WarnLevel)
+			logIoEvent(fmt.Sprintf("unable to close tweets json file: %v\n", err), log.WarnLevel)
 		}
-	}(tweetsCsv)
+	}(tweetsJson)
 
-	reader := csv.NewReader(tweetsCsv)
-	data, err := reader.ReadAll()
+	var tc tweetCollection
+	err = json.NewDecoder(tweetsJson).Decode(&tc)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &tweetSet{
-		parseCsv(data),
-	}, nil
-
-}
-
-func parseCsv(data [][]string) []tweet {
-
-	var tweets []tweet
-	// Skip header line
-	for i := 1; i < len(data); i++ {
-		t := data[i]
-
-		id, err := strconv.ParseUint(t[8], 10, 64)
-		if err != nil {
-			id = 0
-		}
-		createdAt := t[5]
-		text := t[1]
-
-		tweets = append(tweets, tweet{id, createdAt, text})
-	}
-
-	return tweets
+	return &tc, nil
 
 }
 
@@ -162,7 +134,7 @@ func populateConfig() *queues.RunnerConfig {
 	parsedConfig := config.GetParsedConfig()
 
 	return queues.RunnerConfigBuilder{
-		RunnerKeyPath: "queuetests.tweets",
+		RunnerKeyPath: "queuetests.Tweets",
 		ParsedConfig:  parsedConfig,
 	}.PopulateConfig()
 
@@ -183,12 +155,18 @@ func logInternalStateEvent(msg string, logLevel log.Level) {
 
 }
 
-func logIoEvent(msg string) {
+func logIoEvent(msg string, level log.Level) {
 
-	log.WithFields(log.Fields{
+	fields := log.Fields{
 		"kind":   logging.IoError,
 		"client": client.ClientID(),
-	}).Fatal(msg)
+	}
+
+	if level == log.WarnLevel {
+		log.WithFields(fields).Warn(msg)
+	} else {
+		log.WithFields(fields).Fatal(msg)
+	}
 
 }
 
