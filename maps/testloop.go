@@ -111,7 +111,7 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
 			l.increaseTotalNumRunsCompleted(updateStep)
-			logInternalStateEvent(fmt.Sprintf("finished %d runs for map %s in map goroutine %d -- test loop status updated", i, mapName, mapNumber), log.InfoLevel)
+			logInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d -- test loop status updated", i, l.Config.NumRuns, mapName, mapNumber), log.InfoLevel)
 		}
 		logInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
@@ -132,6 +132,8 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 			continue
 		}
 	}
+
+	logInternalStateEvent(fmt.Sprintf("map test loop done on map %s in map goroutine %d\n", mapName, mapNumber), log.InfoLevel)
 
 }
 
