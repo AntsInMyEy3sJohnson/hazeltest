@@ -1,7 +1,37 @@
 queuetests:
+  # 'queuetests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
+  # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
+  # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
+    # The TweetRunner will not be run when this is set to 'false'.
     enabled: true
+    # The number of queues the TweetRunner will work on. The TweetRunner will spawn one goroutine for each queue.
+    numQueues: 1
+    # Configuration for the goroutine responsible for putting tweets into a Hazelcast queue. Each of the <numQueues>
+    # goroutines will spawn one goroutine for performing put operations.
+    putConfig:
+      # Enable or disable put goroutine.
+      enabled: false
+      # The number of test loops the goroutine will perform for put operations. In each test loop, the goroutine will put
+      # all tweets into a Hazelcast queue. Thus, specifying, for example, 10.000 runs means the goroutine will put
+      # 10.000 * 500 tweets in total.
+      # You may have noticed the semantics of specifying the number of test loops for this queue runner is different
+      # compared to the map runners -- for the latter, one configures the number of test loops only once, and the test loop
+      # operations (ingest, read, delete) are performed sequentially. For this queue runner, on the other hand, the queue
+      # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
+      # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
+      # regarding the client behavior this queue runner can simulate.
+      numRuns: 1
+      batchSize: 50
+    # Configuration for the goroutine running poll operations for tweets against the Hazelcast queue. Just like with the
+    # put operations, each of the <numQueues> goroutines will spawn a dedicated goroutine for polling operations, too.
+    pollConfig:
+      # Enable or disable polling goroutine.
+      enabled: true
+      numRuns: 1
+      batchSize: 50
 
+# TODO Improve documentation: What datasource does each runner process?
 maptests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
