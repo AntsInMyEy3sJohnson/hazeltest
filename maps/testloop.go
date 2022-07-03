@@ -133,7 +133,7 @@ func (l TestLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 		}
 	}
 
-	logInternalStateEvent(fmt.Sprintf("map test loop done on map %s in map goroutine %d\n", mapName, mapNumber), log.InfoLevel)
+	logInternalStateEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
 
 }
 
