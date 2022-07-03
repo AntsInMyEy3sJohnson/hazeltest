@@ -6,7 +6,7 @@ queuetests:
     # The TweetRunner will not be run when this is set to 'false'.
     enabled: true
     # The number of queues the TweetRunner will work on. The TweetRunner will spawn one goroutine for each queue.
-    numQueues: 1
+    numQueues: 2
     # Configuration for the goroutine responsible for putting tweets into a Hazelcast queue. Each of the <numQueues>
     # goroutines will spawn one goroutine for performing put operations.
     putConfig:
@@ -23,6 +23,20 @@ queuetests:
       # regarding the client behavior this queue runner can simulate.
       numRuns: 1
       batchSize: 50
+      sleeps:
+        # Makes a put goroutine sleep once before performing the first put operation.
+        initialDelay:
+          enabled: true
+          durationMs: 2000
+        # Causes a put goroutine to sleep after performing one batch of put operations, where the batch size is
+        # configured by means of the above '(...).putConfig.batchSize' property.
+        betweenActionBatches:
+          enabled: true
+          durationMs: 100
+        # Makes a put goroutine pause execution before each run.
+        betweenRuns:
+          enabled: true
+          durationMs: 500
     # Configuration for the goroutine running poll operations for tweets against the Hazelcast queue. Just like with the
     # put operations, each of the <numQueues> goroutines will spawn a dedicated goroutine for polling operations, too.
     pollConfig:
@@ -30,6 +44,16 @@ queuetests:
       enabled: true
       numRuns: 1
       batchSize: 50
+      sleeps:
+        initialDelay:
+          enabled: true
+          durationMs: 2000
+        betweenActionBatches:
+          enabled: true
+          durationMs: 100
+        betweenRuns:
+          enabled: true
+          durationMs: 500
 
 # TODO Improve documentation: What datasource does each runner process?
 maptests:
