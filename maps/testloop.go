@@ -73,7 +73,7 @@ func (l TestLoop[T]) Run() {
 				logHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err))
 			}
 			defer hzMap.Destroy(l.Ctx)
-			l.runForMap(hzMap, l.Config.NumRuns, mapName, i)
+			l.runForMap(hzMap, mapName, i)
 		}(i)
 	}
 	wg.Wait()
@@ -101,13 +101,13 @@ func (l TestLoop[T]) insertLoopWithInitialStatus() {
 
 }
 
-func (l TestLoop[T]) runForMap(m *hazelcast.Map, numRuns int, mapName string, mapNumber int) {
+func (l TestLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) {
 
 	updateStep := 50
 	sleepBetweenActionBatchesConfig := l.Config.SleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.Config.SleepBetweenRuns
 
-	for i := 0; i < numRuns; i++ {
+	for i := 0; i < l.Config.NumRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
 			l.increaseTotalNumRunsCompleted(updateStep)
