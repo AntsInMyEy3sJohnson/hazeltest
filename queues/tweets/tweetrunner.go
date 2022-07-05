@@ -14,6 +14,7 @@ import (
 	"hazeltest/queues"
 	"io/fs"
 	"sync"
+	"time"
 )
 
 type Runner struct{}
@@ -101,10 +102,15 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 }
 
-func runPutLoop(config *queues.OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, queueName string, queueNumber int) {
+func runPutLoop(putConfig *queues.OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, queueName string, queueNumber int) {
 
-	numRuns := config.NumRuns
+	sleep(putConfig.InitialDelay, "initialDelay")
+
+	numRuns := putConfig.NumRuns
 	for i := 0; i < numRuns; i++ {
+		if i > 0 {
+			sleep(putConfig.SleepBetweenRuns, "betweenRuns")
+		}
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d of %d put runs for queue %s in queue goroutine %d", i, numRuns, queueName, queueNumber), log.InfoLevel)
 		}
@@ -116,19 +122,30 @@ func runPutLoop(config *queues.OperationConfig, tc *tweetCollection, q *hazelcas
 			} else {
 				logHzEvent(fmt.Sprintf("successfully wrote value to queue: %v", tweet), log.TraceLevel)
 			}
-			//time.Sleep(time.Duration(1000) * time.Millisecond)
+			if j > 0 && j%putConfig.BatchSize == 0 {
+				sleep(putConfig.SleepBetweenActionBatches, "betweenActionBatches")
+			}
 		}
-		logInternalStateEvent(fmt.Sprintf("finished putting one batch of tweets in queue %s after run %d of %d on queue goroutine %d", queueName, i, numRuns, queueNumber), log.TraceLevel)
+		logInternalStateEvent(fmt.Sprintf("finished putting one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", len(tc.Tweets), queueName, i, numRuns, queueNumber), log.TraceLevel)
 	}
 
 	logInternalStateEvent(fmt.Sprintf("put test loop done on queue '%s' in queue goroutine %d", queueName, queueNumber), log.InfoLevel)
 
 }
 
-func runPollLoop(config *queues.OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, queueName string, queueNumber int) {
+func sleep(sleepConfig *queues.SleepConfig, kind string) {
 
-	numRuns := config.NumRuns
-	for i := 0; i < config.NumRuns; i++ {
+	if sleepConfig.Enabled {
+		logInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s'", sleepConfig.DurationMs, kind), log.TraceLevel)
+		time.Sleep(time.Duration(sleepConfig.DurationMs) * time.Millisecond)
+	}
+
+}
+
+func runPollLoop(pollConfig *queues.OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, queueName string, queueNumber int) {
+
+	numRuns := pollConfig.NumRuns
+	for i := 0; i < pollConfig.NumRuns; i++ {
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d of %d poll runs for queue %s in queue goroutine %d", i, numRuns, queueName, queueNumber), log.InfoLevel)
 		}
