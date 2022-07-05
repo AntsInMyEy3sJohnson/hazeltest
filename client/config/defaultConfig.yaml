@@ -7,7 +7,7 @@ queuetests:
     enabled: true
     # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
     # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
-    numQueues: 1
+    numQueues: 5
     # If set to 'true', the TweetRunner will append the goroutine index of each of the <numQueues> queues to the latter's names,
     # and consequently each of those goroutines will work on its own queue in Hazelcast. Conversely, if this is set to
     # 'false', all queue goroutines in this particular Hazeltest instance will work on the same queue (which
@@ -41,7 +41,7 @@ queuetests:
       # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
       # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
       # regarding the client behavior this queue runner can simulate.
-      numRuns: 5000
+      numRuns: 500
       batchSize: 50
       sleeps:
         # Makes a put goroutine sleep once before performing the first put operation.
@@ -52,29 +52,29 @@ queuetests:
         # configured by means of the above '(...).putConfig.batchSize' property.
         betweenActionBatches:
           enabled: true
-          durationMs: 100
+          durationMs: 1000
         # Makes a put goroutine pause execution before each run.
         betweenRuns:
           enabled: true
-          durationMs: 500
+          durationMs: 2000
     # Configuration for the goroutine running poll operations for tweets against the Hazelcast queue. Just like with the
     # put operations, each of the <numQueues> goroutines will spawn a dedicated goroutine for polling operations, too.
     pollConfig:
       # Enable or disable polling goroutine.
       enabled: true
-      numRuns: 5000
+      numRuns: 500
       batchSize: 50
       # Same as for putConfig
       sleeps:
         initialDelay:
           enabled: true
-          durationMs: 10000
+          durationMs: 12500
         betweenActionBatches:
           enabled: true
-          durationMs: 2000
+          durationMs: 1000
         betweenRuns:
           enabled: true
-          durationMs: 2500
+          durationMs: 2000
 
 # TODO Improve documentation: What datasource does each runner process?
 maptests:
