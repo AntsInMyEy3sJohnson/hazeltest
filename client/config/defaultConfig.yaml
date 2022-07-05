@@ -44,6 +44,7 @@ queuetests:
       enabled: true
       numRuns: 1
       batchSize: 50
+      # Same as for putConfig
       sleeps:
         initialDelay:
           enabled: true
