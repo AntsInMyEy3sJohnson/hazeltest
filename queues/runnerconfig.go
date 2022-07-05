@@ -14,6 +14,8 @@ type RunnerConfig struct {
 	QueueBaseName               string
 	AppendQueueIndexToQueueName bool
 	AppendClientIdToQueueName   bool
+	UseQueuePrefix              bool
+	QueuePrefix                 string
 	PutConfig                   *OperationConfig
 	PollConfig                  *OperationConfig
 }
@@ -44,6 +46,8 @@ const (
 	defaultNumQueues                   = 10
 	defaultAppendQueueIndexToQueueName = false
 	defaultAppendClientIdToQueueName   = true
+	defaultUseQueuePrefix              = true
+	defaultQueuePrefix                 = "ht_"
 )
 
 // constants related to put configuration
@@ -114,12 +118,34 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		appendClientIdToQueueName = valueFromConfig.(bool)
 	}
 
+	keyPath = b.RunnerKeyPath + ".queuePrefix.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	var useQueuePrefix bool
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		useQueuePrefix = defaultUseQueuePrefix
+	} else {
+		useQueuePrefix = valueFromConfig.(bool)
+	}
+
+	keyPath = b.RunnerKeyPath + ".queuePrefix.prefix"
+	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	var queuePrefix string
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		queuePrefix = defaultQueuePrefix
+	} else {
+		queuePrefix = valueFromConfig.(string)
+	}
+
 	return &RunnerConfig{
 		Enabled:                     enabled,
 		NumQueues:                   numQueues,
 		QueueBaseName:               b.QueueBaseName,
 		AppendQueueIndexToQueueName: appendQueueIndexToQueueName,
 		AppendClientIdToQueueName:   appendClientIdToQueueName,
+		UseQueuePrefix:              useQueuePrefix,
+		QueuePrefix:                 queuePrefix,
 		PutConfig:                   b.populateOperationConfig("put", defaultEnabledPut, defaultNumRunsPut, defaultBatchSizePut),
 		PollConfig:                  b.populateOperationConfig("poll", defaultEnabledPoll, defaultNumRunsPoll, defaultBatchSizePoll),
 	}

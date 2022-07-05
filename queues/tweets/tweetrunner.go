@@ -210,8 +210,11 @@ func assembleQueueName(config *queues.RunnerConfig, queueIndex int) string {
 
 	queueName := config.QueueBaseName
 
+	if config.UseQueuePrefix && config.QueuePrefix != "" {
+		queueName = fmt.Sprintf("%s%s", config.QueuePrefix, queueName)
+	}
 	if config.AppendQueueIndexToQueueName {
-		queueName = fmt.Sprintf("%s-%s", queueName, queueIndex)
+		queueName = fmt.Sprintf("%s-%d", queueName, queueIndex)
 	}
 	if config.AppendClientIdToQueueName {
 		queueName = fmt.Sprintf("%s-%s", queueName, client.ClientID())

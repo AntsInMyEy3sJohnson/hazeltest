@@ -18,16 +18,20 @@ queuetests:
     # values or just put and polled). Therefore, different queue goroutines act on each other's elements, and if queue
     # names are identical across Hazeltest instances due to how the two 'append*' properties have been set, the TweetRunners
     # across those instances will act on each other's elements.
-    appendQueueIndexToQueueName: false
+    appendQueueIndexToQueueName: true
     # If set to 'true', the TweetRunner will append the unique client ID of this Hazeltest instance to the names of the
     # queue or queues it spawns. This will make sure TweetRunners across Hazeltest instances all work on distinct queues,
     # thus avoiding those runners acting on each other's elements.
-    appendClientIdToQueueName: true
+    appendClientIdToQueueName: false
+    queuePrefix:
+      enabled: true
+      # This prefix will be put in front of the queue name as it is without introducing any additional special characters.
+      prefix: "ht_"
     # Configuration for the goroutine responsible for putting tweets into a Hazelcast queue. Each of the <numQueues>
     # goroutines will spawn one goroutine for performing put operations.
     putConfig:
       # Enable or disable put goroutine.
-      enabled: false
+      enabled: true
       # The number of test loops the goroutine will perform for put operations. In each test loop, the goroutine will put
       # all tweets into a Hazelcast queue. Thus, specifying, for example, 10.000 runs means the goroutine will put
       # 10.000 * 500 tweets in total.
@@ -37,7 +41,7 @@ queuetests:
       # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
       # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
       # regarding the client behavior this queue runner can simulate.
-      numRuns: 1
+      numRuns: 5000
       batchSize: 50
       sleeps:
         # Makes a put goroutine sleep once before performing the first put operation.
@@ -58,19 +62,19 @@ queuetests:
     pollConfig:
       # Enable or disable polling goroutine.
       enabled: true
-      numRuns: 1
+      numRuns: 5000
       batchSize: 50
       # Same as for putConfig
       sleeps:
         initialDelay:
           enabled: true
-          durationMs: 2000
+          durationMs: 10000
         betweenActionBatches:
           enabled: true
-          durationMs: 100
+          durationMs: 2000
         betweenRuns:
           enabled: true
-          durationMs: 500
+          durationMs: 2500
 
 # TODO Improve documentation: What datasource does each runner process?
 maptests:
