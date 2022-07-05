@@ -38,7 +38,7 @@ func Serve() {
 
 	go func() {
 		server := &http.Server{
-			Addr: ":8080",
+			Addr: "localhost:8080",
 		}
 		http.HandleFunc("/liveness", livenessHandler)
 		http.HandleFunc("/readiness", readinessHandler)
