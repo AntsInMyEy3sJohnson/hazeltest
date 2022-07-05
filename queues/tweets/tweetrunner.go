@@ -29,7 +29,7 @@ type tweet struct {
 	Text      string `json:"Text"`
 }
 
-const queueOperationLoggingUpdateStep = 50
+const queueOperationLoggingUpdateStep = 10
 
 //go:embed tweets_simple.json
 var tweetsFile embed.FS
@@ -75,25 +75,28 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 		}
 		go func(i int) {
 			defer numQueuesWg.Done()
+
+			var putWg sync.WaitGroup
 			if c.PutConfig.Enabled {
-				var putWg sync.WaitGroup
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
 					runTweetLoop(c.PutConfig, tc, q, ctx, "put", queueName, i, putTweets)
 				}()
-				putWg.Wait()
+
 			}
 
+			var pollWg sync.WaitGroup
 			if c.PollConfig.Enabled {
-				var pollWg sync.WaitGroup
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
 					runTweetLoop(c.PollConfig, tc, q, ctx, "poll", queueName, i, pollTweets)
 				}()
-				pollWg.Wait()
 			}
+
+			putWg.Wait()
+			pollWg.Wait()
 
 		}(i)
 	}
