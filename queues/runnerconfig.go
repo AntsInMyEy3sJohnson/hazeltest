@@ -9,11 +9,13 @@ import (
 )
 
 type RunnerConfig struct {
-	Enabled       bool
-	NumQueues     int
-	QueueBaseName string
-	PutConfig     *OperationConfig
-	PollConfig    *OperationConfig
+	Enabled                     bool
+	NumQueues                   int
+	QueueBaseName               string
+	AppendQueueIndexToQueueName bool
+	AppendClientIdToQueueName   bool
+	PutConfig                   *OperationConfig
+	PollConfig                  *OperationConfig
 }
 
 type OperationConfig struct {
@@ -38,8 +40,10 @@ type RunnerConfigBuilder struct {
 
 // constants related to general runner configuration
 const (
-	defaultEnabled   = true
-	defaultNumQueues = 10
+	defaultEnabled                     = true
+	defaultNumQueues                   = 10
+	defaultAppendQueueIndexToQueueName = false
+	defaultAppendClientIdToQueueName   = true
 )
 
 // constants related to put configuration
@@ -90,12 +94,34 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		numQueues = valueFromConfig.(int)
 	}
 
+	keyPath = b.RunnerKeyPath + ".appendQueueIndexToQueueName"
+	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	var appendQueueIndexToQueueName bool
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendQueueIndexToQueueName = defaultAppendQueueIndexToQueueName
+	} else {
+		appendQueueIndexToQueueName = valueFromConfig.(bool)
+	}
+
+	keyPath = b.RunnerKeyPath + ".appendClientIdToQueueName"
+	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	var appendClientIdToQueueName bool
+	if err != nil {
+		logErrUponConfigExtraction(keyPath, err)
+		appendClientIdToQueueName = defaultAppendClientIdToQueueName
+	} else {
+		appendClientIdToQueueName = valueFromConfig.(bool)
+	}
+
 	return &RunnerConfig{
-		Enabled:       enabled,
-		NumQueues:     numQueues,
-		QueueBaseName: b.QueueBaseName,
-		PutConfig:     b.populateOperationConfig("put", defaultEnabledPut, defaultNumRunsPut, defaultBatchSizePut),
-		PollConfig:    b.populateOperationConfig("poll", defaultEnabledPoll, defaultNumRunsPoll, defaultBatchSizePoll),
+		Enabled:                     enabled,
+		NumQueues:                   numQueues,
+		QueueBaseName:               b.QueueBaseName,
+		AppendQueueIndexToQueueName: appendQueueIndexToQueueName,
+		AppendClientIdToQueueName:   appendClientIdToQueueName,
+		PutConfig:                   b.populateOperationConfig("put", defaultEnabledPut, defaultNumRunsPut, defaultBatchSizePut),
+		PollConfig:                  b.populateOperationConfig("poll", defaultEnabledPoll, defaultNumRunsPoll, defaultBatchSizePoll),
 	}
 
 }

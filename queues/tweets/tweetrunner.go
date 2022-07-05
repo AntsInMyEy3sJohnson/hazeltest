@@ -67,9 +67,9 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 	var numQueuesWg sync.WaitGroup
 	for i := 0; i < c.NumQueues; i++ {
 		numQueuesWg.Add(1)
-		queueName := assembleQueueName(c)
+		queueName := assembleQueueName(c, i)
 		logInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
-		q, err := hzClient.GetQueue(ctx, assembleQueueName(c))
+		q, err := hzClient.GetQueue(ctx, queueName)
 		if err != nil {
 			logHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 		}
@@ -206,10 +206,18 @@ func populateConfig() *queues.RunnerConfig {
 
 }
 
-func assembleQueueName(config *queues.RunnerConfig) string {
+func assembleQueueName(config *queues.RunnerConfig, queueIndex int) string {
 
-	// TODO Make this configurable based on append* properties
-	return config.QueueBaseName
+	queueName := config.QueueBaseName
+
+	if config.AppendQueueIndexToQueueName {
+		queueName = fmt.Sprintf("%s-%s", queueName, queueIndex)
+	}
+	if config.AppendClientIdToQueueName {
+		queueName = fmt.Sprintf("%s-%s", queueName, client.ClientID())
+	}
+
+	return queueName
 
 }
 
