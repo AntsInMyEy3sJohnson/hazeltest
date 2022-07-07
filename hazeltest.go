@@ -12,6 +12,7 @@ import (
 	_ "hazeltest/queues/tweets"
 	"os"
 	"strings"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -40,11 +41,22 @@ func main() {
 
 	hzMemberList := strings.Split(hzMembers, ",")
 
-	mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: hzMemberList}
-	mapTester.TestMaps()
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	queueTester := queues.QueueTester{HzCluster: hzCluster, HzMembers: hzMemberList}
-	queueTester.TestQueues()
+	go func() {
+		defer wg.Done()
+		mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: hzMemberList}
+		mapTester.TestMaps()
+	}()
+
+	go func() {
+		defer wg.Done()
+		queueTester := queues.QueueTester{HzCluster: hzCluster, HzMembers: hzMemberList}
+		queueTester.TestQueues()
+	}()
+
+	wg.Wait()
 
 }
 
