@@ -80,7 +80,7 @@ queuetests:
 maptests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
-    enabled: false
+    enabled: true
     # The runner will spawn one goroutine for each map
     numMaps: 5
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
@@ -115,7 +115,7 @@ maptests:
         durationMs: 200
   load:
     # Same as for PokedexRunner
-    enabled: false
+    enabled: true
     # Same as for PokedexRunner
     numMaps: 2
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
