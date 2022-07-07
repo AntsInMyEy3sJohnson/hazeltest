@@ -9,7 +9,7 @@ platform:
     members:
       image: hazelcast/hazelcast:5.1.1
       imagePullPolicy: IfNotPresent
-      count: 1
+      count: 3
       ports:
         member: 5701
         metrics: 8080
