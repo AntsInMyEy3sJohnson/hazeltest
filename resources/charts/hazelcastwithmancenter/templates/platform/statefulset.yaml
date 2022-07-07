@@ -19,6 +19,11 @@ spec:
       labels:
         app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # Include revision in Pod template so template hash changes with every new revision
+        # -> Force Hazelcast Pods to be restarted even after changes that normally would not cause a restart,
+        # such as changes to the Hazelcast ConfigMap
+        helmRevision: "{{ .Release.Revision }}"
     spec:
       terminationGracePeriodSeconds: {{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}
       volumes:

@@ -47,7 +47,7 @@ func init() {
 	gob.Register(loadElement{})
 }
 
-func (r LoadRunner) Run(hzCluster string, hzMembers []string) {
+func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
 	mapRunnerConfig := populateConfig()
 

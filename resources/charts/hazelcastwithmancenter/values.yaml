@@ -63,7 +63,7 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 30
+            size: 50
         # Config for the Hazeltest maps
         ht_*:
           backup-count: 1
@@ -74,6 +74,17 @@ platform:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
             size: 15
+      queue:
+        # Restrictive default
+        default:
+          max-size: 10
+          backup-count: 0
+          empty-queue-ttl: 10
+        # Config for Hazeltest queues
+        ht_*:
+          max-size: 10000
+          backup-count: 1
+          empty-queue-ttl: 120
 
 mancenter:
   deploy: true
@@ -99,7 +110,7 @@ mancenter:
     resources:
       requests:
         cpu: "1"
-        memory: "4G"
+        memory: "2G"
       limits:
         cpu: "2"
-        memory: "4G"
+        memory: "2G"

@@ -8,8 +8,11 @@ import (
 	"hazeltest/maps"
 	_ "hazeltest/maps/load"
 	_ "hazeltest/maps/pokedex"
+	"hazeltest/queues"
+	_ "hazeltest/queues/tweets"
 	"os"
 	"strings"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -36,8 +39,24 @@ func main() {
 	// TODO Should only be set once all runners have successfully connected to Hazelcast
 	api.Ready()
 
-	mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: strings.Split(hzMembers, ",")}
-	mapTester.TestMaps()
+	hzMemberList := strings.Split(hzMembers, ",")
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		mapTester := maps.MapTester{HzCluster: hzCluster, HzMembers: hzMemberList}
+		mapTester.TestMaps()
+	}()
+
+	go func() {
+		defer wg.Done()
+		queueTester := queues.QueueTester{HzCluster: hzCluster, HzMembers: hzMemberList}
+		queueTester.TestQueues()
+	}()
+
+	wg.Wait()
 
 }
 

@@ -1,17 +1,17 @@
-replicaCount: 1
+replicaCount: 3
 
 app:
-  # 0.2.3
-  image: antsinmyey3sjohnson/hazeltest@sha256:c5c1e2c9ffc6407c779badeca321c4144269de33b6038e2e2375a98ffa1fb3a2
+  # 0.3.1
+  image: antsinmyey3sjohnson/hazeltest@sha256:d19dac0db1a08a2ced05d353bdf62c267ee158c73e44c1419664ee1ac5efb772
   imagePullPolicy: IfNotPresent
   httpPort: 8080
   resources:
     requests: 
-      cpu: "100m"
-      memory: "64M"
+      cpu: "500m"
+      memory: "256M"
     limits:
-      cpu: "200m"
-      memory: "128M"
+      cpu: "1"
+      memory: "512M"
 
 env:
   # Name of the Hazelcast cluster to connect to -- usually configured in Hazelcast by means of the "hazelcast.cluster-name" property
@@ -23,20 +23,99 @@ env:
   logLevel: INFO
 
 config:
+  queuetests:
+    # 'queuetests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
+    # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
+    # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
+    tweets:
+      # The TweetRunner will not be run when this is set to 'false'.
+      enabled: true
+      # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
+      # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
+      numQueues: 5
+      # If set to 'true', the TweetRunner will append the goroutine index of each of the <numQueues> queues to the latter's names,
+      # and consequently each of those goroutines will work on its own queue in Hazelcast. Conversely, if this is set to
+      # 'false', all queue goroutines in this particular Hazeltest instance will work on the same queue (which
+      # might even be the same as the queue in use by other Hazeltest instances depending on the value for the
+      # 'appendClientIdToQueueName' setting).
+      # In contrast to map runners such as the PokedexRunner, the TweetRunner cannot distinguish the elements written to and
+      # read from a queue by different goroutines due to the nature of a queue (there is no unique key for a value; instead,
+      # values or just put and polled). Therefore, different queue goroutines act on each other's elements, and if queue
+      # names are identical across Hazeltest instances due to how the two 'append*' properties have been set, the TweetRunners
+      # across those instances will act on each other's elements.
+      appendQueueIndexToQueueName: true
+      # If set to 'true', the TweetRunner will append the unique client ID of this Hazeltest instance to the names of the
+      # queue or queues it spawns. This will make sure TweetRunners across Hazeltest instances all work on distinct queues,
+      # thus avoiding those runners acting on each other's elements.
+      appendClientIdToQueueName: false
+      queuePrefix:
+        enabled: true
+        # This prefix will be put in front of the queue name as it is without introducing any additional special characters.
+        prefix: "ht_"
+      # Configuration for the goroutine responsible for putting tweets into a Hazelcast queue. Each of the <numQueues>
+      # goroutines will spawn one goroutine for performing put operations.
+      putConfig:
+        # Enable or disable put goroutine.
+        enabled: true
+        # The number of test loops the goroutine will perform for put operations. In each test loop, the goroutine will put
+        # all tweets into a Hazelcast queue. Thus, specifying, for example, 10.000 runs means the goroutine will put
+        # 10.000 * 500 tweets in total.
+        # You may have noticed the semantics of specifying the number of test loops for this queue runner is different
+        # compared to the map runners -- for the latter, one configures the number of test loops only once, and the test loop
+        # operations (ingest, read, delete) are performed sequentially. For this queue runner, on the other hand, the queue
+        # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
+        # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
+        # regarding the client behavior this queue runner can simulate.
+        numRuns: 500
+        batchSize: 50
+        sleeps:
+          # Makes a put goroutine sleep once before performing the first put operation.
+          initialDelay:
+            enabled: false
+            durationMs: 2000
+          # Causes a put goroutine to sleep after performing one batch of put operations, where the batch size is
+          # configured by means of the above '(...).putConfig.batchSize' property.
+          betweenActionBatches:
+            enabled: true
+            durationMs: 1000
+          # Makes a put goroutine pause execution before each run.
+          betweenRuns:
+            enabled: true
+            durationMs: 2000
+      # Configuration for the goroutine running poll operations for tweets against the Hazelcast queue. Just like with the
+      # put operations, each of the <numQueues> goroutines will spawn a dedicated goroutine for polling operations, too.
+      pollConfig:
+        # Enable or disable polling goroutine.
+        enabled: true
+        numRuns: 500
+        batchSize: 50
+        # Same as for putConfig
+        sleeps:
+          initialDelay:
+            enabled: true
+            durationMs: 12500
+          betweenActionBatches:
+            enabled: true
+            durationMs: 1000
+          betweenRuns:
+            enabled: true
+            durationMs: 2000
+
+  # TODO Improve documentation: What datasource does each runner process?
   maptests:
     pokedex:
       # If set to 'false', the PokedexRunner will not be executed
-      enabled: false
+      enabled: true
       # The runner will spawn one goroutine for each map
       numMaps: 5
       # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
       # In other words, if this is set to 'true', this PokedexRunner will use <numMaps> distinct maps in Hazelcast; if it is set
       # to 'false', the <numMaps> goroutines will access the same map
       # For the PokedexRunner, this will result in a higher number of maps, each containing a smaller number of keys
-      # Note: Both the client ID and the currently active goroutine/number are still part of the map keys, so no matter how 
+      # Note: Both the client ID and the currently active goroutine/number are still part of the map keys, so no matter how
       # the following two properties are set, different clients and goroutines within clients will not act on each other's keys
       appendMapIndexToMapName: true
-      # If so to 'true', the PokedexRunner will append the ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast; 
+      # If so to 'true', the PokedexRunner will append the ID of its Hazeltest instance to the map name such that it gets its own map in Hazelcast;
       # if set to 'false', then this PokedexRunner will share its maps with the maps created by PokedexRunners in other Hazeltest instances
       # Set this to 'false' if you would like to make all Hazeltest instances access the same map or maps
       appendClientIdToMapName: false
@@ -44,12 +123,12 @@ config:
       numRuns: 10000
       mapPrefix:
         enabled: true
-        # The prefix will be put in front of the map name as-is, so no additional underscores or other 
+        # The prefix will be put in front of the map name as-is, so no additional underscores or other
         # characters will be added
         prefix: "ht_"
       # Using sleeps, the pace with which this runner interacts with Hazelcast can be slowed down
       sleeps:
-        # Can be enabled to make the test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has 
+        # Can be enabled to make the test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has
         # finished, meaning the next action batch will start only after a sleep of <durationMs>
         betweenActionBatches:
           enabled: false
@@ -63,12 +142,12 @@ config:
       # Same as for PokedexRunner
       enabled: true
       # Same as for PokedexRunner
-      numMaps: 10
+      numMaps: 2
       # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
       # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
       numEntriesPerMap: 5000
       # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
-      payloadSizeBytes: 1000000
+      payloadSizeBytes: 10000
       # Same as for PokedexRunner
       appendMapIndexToMapName: true
       # Same as for PokedexRunner
@@ -85,5 +164,5 @@ config:
           enabled: false
           durationMs: 200
         betweenRuns:
-          enabled: false
+          enabled: true
           durationMs: 200

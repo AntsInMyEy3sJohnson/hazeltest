@@ -16,6 +16,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// PokedexRunner TODO Refactor this to only be called "Runner"
+// Note to self: I should not start the name of a struct type with the name of the package it is contained in
 type PokedexRunner struct{}
 
 type pokedex struct {
@@ -54,7 +56,7 @@ func init() {
 	gob.Register(pokemon{})
 }
 
-func (r PokedexRunner) Run(hzCluster string, hzMembers []string) {
+func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
 	mapRunnerConfig := populateConfig()
 

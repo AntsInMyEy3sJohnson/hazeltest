@@ -1,31 +1,30 @@
-package maps
+package queues
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"sync"
-
-	log "github.com/sirupsen/logrus"
 )
 
-type MapTester struct {
+type QueueTester struct {
 	HzCluster string
 	HzMembers []string
 }
 
-func (t *MapTester) TestMaps() {
+func (t *QueueTester) TestQueues() {
 
 	clientID := client.ClientID()
-	logInternalStateInfo(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(MapRunners)))
+	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(QueueRunners)))
 
 	var wg sync.WaitGroup
-	for i := 0; i < len(MapRunners); i++ {
+	for i := 0; i < len(QueueRunners); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			runner := MapRunners[i]
-			runner.RunMapTests(t.HzCluster, t.HzMembers)
+			runner := QueueRunners[i]
+			runner.RunQueueTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 
