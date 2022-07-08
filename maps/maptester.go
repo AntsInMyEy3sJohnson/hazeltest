@@ -17,14 +17,14 @@ type MapTester struct {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ClientID()
-	logInternalStateInfo(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(MapRunners)))
+	logInternalStateInfo(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(Runners)))
 
 	var wg sync.WaitGroup
-	for i := 0; i < len(MapRunners); i++ {
+	for i := 0; i < len(Runners); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			runner := MapRunners[i]
+			runner := Runners[i]
 			runner.RunMapTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}

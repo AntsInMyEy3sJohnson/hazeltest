@@ -150,7 +150,7 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateConfig() *maps.MapRunnerConfig {
+func populateConfig() *maps.RunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
@@ -173,7 +173,7 @@ func populateConfig() *maps.MapRunnerConfig {
 		payloadSizeBytes = valueFromConfig.(int)
 	}
 
-	configBuilder := maps.MapRunnerConfigBuilder{
+	configBuilder := maps.RunnerConfigBuilder{
 		RunnerKeyPath: runnerKeyPath,
 		MapBaseName:   "load",
 		ParsedConfig:  parsedConfig,

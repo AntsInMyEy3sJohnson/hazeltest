@@ -25,7 +25,7 @@ type TestLoop[T any] struct {
 	ID                     uuid.UUID
 	Source                 string
 	HzClient               *hazelcast.Client
-	Config                 *MapRunnerConfig
+	Config                 *RunnerConfig
 	Elements               []T
 	Ctx                    context.Context
 	GetElementIdFunc       GetElementID
@@ -34,7 +34,7 @@ type TestLoop[T any] struct {
 
 type TestLoopStatus struct {
 	Source            string
-	Config            *MapRunnerConfig
+	Config            *RunnerConfig
 	NumMaps           int
 	NumRuns           int
 	TotalRuns         int

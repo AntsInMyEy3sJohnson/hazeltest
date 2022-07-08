@@ -121,12 +121,12 @@ func deserializeElement(elementFromHZ interface{}) error {
 
 }
 
-func populateConfig() *maps.MapRunnerConfig {
+func populateConfig() *maps.RunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.pokedex"
 
-	configBuilder := maps.MapRunnerConfigBuilder{
+	configBuilder := maps.RunnerConfigBuilder{
 		RunnerKeyPath: runnerKeyPath,
 		MapBaseName:   "pokedex",
 		ParsedConfig:  parsedConfig,
