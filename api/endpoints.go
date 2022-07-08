@@ -2,7 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"hazeltest/maps"
+	"fmt"
+	log "github.com/sirupsen/logrus"
+	"hazeltest/client"
+	"hazeltest/logging"
 	"net/http"
 	"sync"
 )
@@ -13,24 +16,26 @@ type liveness struct {
 	Up bool
 }
 type readiness struct {
-	Up bool
-}
-type status struct {
-	TestLoops []maps.TestLoopStatus
+	Up                         bool
+	atLeastOneClientRegistered bool
+	numClientsNotReady         int
 }
 
 var (
-	l     *liveness
-	r     *readiness
-	s     status
-	mutex sync.Mutex
+	l        *liveness
+	r        *readiness
+	s        status
+	lp       *logging.LogProvider
+	apiMutex sync.Mutex
 )
 
 func init() {
 
 	l = &liveness{true}
-	r = &readiness{false}
-	s = status{[]maps.TestLoopStatus{}}
+	r = &readiness{false, false, 0}
+	s = status{[]TestLoopStatus{}}
+
+	lp = &logging.LogProvider{ClientID: client.ClientID()}
 
 }
 
@@ -48,13 +53,32 @@ func Serve() {
 
 }
 
-func Ready() {
+func RaiseNotReady() {
 
-	mutex.Lock()
+	apiMutex.Lock()
 	{
-		r.Up = true
+		r.numClientsNotReady++
+		if !r.atLeastOneClientRegistered {
+			r.atLeastOneClientRegistered = true
+		}
+		lp.LogApiEvent(fmt.Sprintf("client has raised 'not ready', number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
 	}
-	mutex.Unlock()
+	apiMutex.Unlock()
+
+}
+
+func RaiseReady() {
+
+	apiMutex.Lock()
+	{
+		r.numClientsNotReady--
+		lp.LogApiEvent(fmt.Sprintf("client has raised readiness, number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
+		if r.numClientsNotReady == 0 && r.atLeastOneClientRegistered && !r.Up {
+			r.Up = true
+			lp.LogApiEvent("all clients ready", log.InfoLevel)
+		}
+	}
+	apiMutex.Unlock()
 
 }
 
@@ -73,11 +97,9 @@ func statusHandler(w http.ResponseWriter, req *http.Request) {
 
 func updateStatus(s *status) {
 
-	loops := maps.Loops
-
-	if len(loops) > 0 {
-		values := make([]maps.TestLoopStatus, 0, len(loops))
-		for _, v := range loops {
+	if len(Loops) > 0 {
+		values := make([]TestLoopStatus, 0, len(Loops))
+		for _, v := range Loops {
 			values = append(values, *v)
 		}
 		s.TestLoops = values
