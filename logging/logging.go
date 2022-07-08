@@ -1,10 +1,13 @@
 package logging
 
 import (
-	"os"
-	"io"
-	"strings"
+	"fmt"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"io"
+	"os"
+	"runtime"
+	"strings"
 )
 
 const InternalStateInfo = "internal state info"
@@ -13,7 +16,11 @@ const IoError = "io error"
 const HzError = "hazelcast error"
 const ConfigurationError = "incorrect or incomplete configuration"
 
-func init () {
+type LogProvider struct {
+	ClientID uuid.UUID
+}
+
+func init() {
 
 	log.SetFormatter(&log.JSONFormatter{})
 
@@ -46,5 +53,95 @@ func init () {
 	log.SetLevel(logLevel)
 	log.SetOutput(out)
 	log.SetReportCaller(true)
+
+}
+
+func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": IoError,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogTimingEvent(operation string, mapName string, tookMs int, level log.Level) {
+
+	fields := log.Fields{
+		"kind":   TimingInfo,
+		"map":    mapName,
+		"tookMs": tookMs,
+	}
+
+	lp.doLog(fmt.Sprintf("'%s' took %d ms", operation, tookMs), fields, level)
+
+}
+
+func (lp *LogProvider) LogInternalStateEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": InternalStateInfo,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogHzEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": HzError,
+	}
+
+	lp.doLog(msg, fields, level)
+}
+
+func (lp *LogProvider) LogErrUponConfigExtraction(keyPath string, err error, level log.Level) {
+
+	lp.logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), level)
+
+}
+
+func (lp *LogProvider) logConfigEvent(configValue string, source string, msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind":   ConfigurationError,
+		"value":  configValue,
+		"source": source,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) doLog(msg string, fields log.Fields, level log.Level) {
+
+	fields["caller"] = getCaller()
+	fields["client"] = lp.ClientID
+
+	if level == log.FatalLevel {
+		log.WithFields(fields).Fatal(msg)
+	} else if level == log.WarnLevel {
+		log.WithFields(fields).Warn(msg)
+	} else if level == log.InfoLevel {
+		log.WithFields(fields).Info(msg)
+	} else {
+		log.WithFields(fields).Trace(msg)
+	}
+
+}
+
+func getCaller() string {
+
+	// Skipping three stacks will bring us to the method or function that originally invoked the logging method
+	pc, _, _, ok := runtime.Caller(3)
+
+	if !ok {
+		return "unknown"
+	}
+
+	file, line := runtime.FuncForPC(pc).FileLine(pc)
+	return fmt.Sprintf("%s:%d", file, line)
 
 }

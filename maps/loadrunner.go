@@ -1,4 +1,4 @@
-package load
+package maps
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/logging"
-	"hazeltest/maps"
 	"math/rand"
 	"strconv"
 	"time"
@@ -17,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LoadRunner struct{}
+type loadRunner struct{}
 
 type loadElement struct {
 	Key     string
@@ -43,16 +41,16 @@ var (
 )
 
 func init() {
-	maps.Register(LoadRunner{})
+	register(loadRunner{})
 	gob.Register(loadElement{})
 }
 
-func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
+func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populateConfig()
+	mapRunnerConfig := populateLoadConfig()
 
-	if !mapRunnerConfig.Enabled {
-		logInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
+	if !mapRunnerConfig.enabled {
+		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 
@@ -62,29 +60,29 @@ func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-loadrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
+		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
 	}
 	defer hzClient.Shutdown(ctx)
 
-	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	logInternalStateEvent("starting load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogInternalStateEvent("starting load test loop", log.InfoLevel)
 
 	elements := populateLoadElements()
 
-	testLoop := maps.TestLoop[loadElement]{
-		ID:                     uuid.New(),
-		Source:                 "load",
-		HzClient:               hzClient,
-		Config:                 mapRunnerConfig,
-		Elements:               elements,
-		Ctx:                    ctx,
-		GetElementIdFunc:       getElementID,
-		DeserializeElementFunc: deserializeElementFunc,
+	testLoop := testLoop[loadElement]{
+		id:                     uuid.New(),
+		source:                 "load",
+		hzClient:               hzClient,
+		config:                 mapRunnerConfig,
+		elements:               elements,
+		ctx:                    ctx,
+		getElementIdFunc:       getLoadElementID,
+		deserializeElementFunc: deserializeLoadElement,
 	}
 
-	testLoop.Run()
+	testLoop.run()
 
-	logInternalStateEvent("finished load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("finished load test loop", log.InfoLevel)
 
 }
 
@@ -131,14 +129,14 @@ func generateRandomPayload(n int) string {
 
 }
 
-func getElementID(element interface{}) string {
+func getLoadElementID(element interface{}) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
 
 }
 
-func deserializeElementFunc(elementFromHz interface{}) error {
+func deserializeLoadElement(elementFromHz interface{}) error {
 
 	_, ok := elementFromHz.(loadElement)
 
@@ -150,7 +148,7 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateConfig() *maps.MapRunnerConfig {
+func populateLoadConfig() *runnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
@@ -158,7 +156,7 @@ func populateConfig() *maps.MapRunnerConfig {
 	keyPath := runnerKeyPath + ".numEntriesPerMap"
 	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numEntriesPerMap = defaultNumEntriesPerMap
 	} else {
 		numEntriesPerMap = valueFromConfig.(int)
@@ -167,63 +165,17 @@ func populateConfig() *maps.MapRunnerConfig {
 	keyPath = runnerKeyPath + ".payloadSizeBytes"
 	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		payloadSizeBytes = defaultPayloadSizeBytes
 	} else {
 		payloadSizeBytes = valueFromConfig.(int)
 	}
 
-	configBuilder := maps.MapRunnerConfigBuilder{
-		RunnerKeyPath: runnerKeyPath,
-		MapBaseName:   "load",
-		ParsedConfig:  parsedConfig,
+	configBuilder := runnerConfigBuilder{
+		runnerKeyPath: runnerKeyPath,
+		mapBaseName:   "load",
+		parsedConfig:  parsedConfig,
 	}
-	return configBuilder.PopulateConfig()
-
-}
-
-func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.ConfigurationError,
-		"value":  configValue,
-		"source": source,
-		"client": client.ClientID(),
-	}
-	if logLevel == log.WarnLevel {
-		log.WithFields(fields).Warn(msg)
-	} else {
-		log.WithFields(fields).Fatal(msg)
-	}
-
-}
-
-func logInternalStateEvent(msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
-	}
-
-	if logLevel == log.TraceLevel {
-		log.WithFields(fields).Trace(msg)
-	} else {
-		log.WithFields(fields).Info(msg)
-	}
-
-}
-
-func logHzEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.HzError,
-		"client": client.ClientID(),
-	}).Fatal(msg)
-
-}
-
-func logErrUponConfigExtraction(keyPath string, err error) {
-
-	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
+	return configBuilder.populateConfig()
 
 }
