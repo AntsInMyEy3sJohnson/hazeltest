@@ -87,6 +87,12 @@ const (
 	defaultSleepBetweenRunsDurationMsPoll          = 1000
 )
 
+var lp *logging.LogProvider
+
+func init() {
+	lp = &logging.LogProvider{ClientID: client.ClientID()}
+}
+
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 	keyPath := b.runnerKeyPath + ".enabled"

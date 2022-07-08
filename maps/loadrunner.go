@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/logging"
 	"math/rand"
 	"strconv"
 	"time"
@@ -44,7 +43,6 @@ var (
 func init() {
 	register(loadRunner{})
 	gob.Register(loadElement{})
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
 }
 
 func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {

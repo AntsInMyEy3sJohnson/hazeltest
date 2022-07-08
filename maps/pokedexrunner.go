@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/logging"
 )
 
 type pokedexRunner struct{}
@@ -50,7 +49,6 @@ var pokedexFile embed.FS
 func init() {
 	register(pokedexRunner{})
 	gob.Register(pokemon{})
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
 }
 
 func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {

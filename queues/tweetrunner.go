@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/logging"
 	"io/fs"
 	"sync"
 	"time"
@@ -33,12 +32,9 @@ const queueOperationLoggingUpdateStep = 10
 //go:embed tweets_simple.json
 var tweetsFile embed.FS
 
-var lp *logging.LogProvider
-
 func init() {
 	register(queueRunner{})
 	gob.Register(tweet{})
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
 }
 
 func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
