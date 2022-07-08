@@ -12,6 +12,12 @@ type runner interface {
 	runMapTests(hzCluster string, hzMembers []string)
 }
 
+var runners []runner
+
+func register(r runner) {
+	runners = append(runners, r)
+}
+
 type runnerConfig struct {
 	enabled                   bool
 	numMaps                   int
@@ -180,12 +186,6 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 type MapTester struct {
 	HzCluster string
 	HzMembers []string
-}
-
-var runners []runner
-
-func register(r runner) {
-	runners = append(runners, r)
 }
 
 func (t *MapTester) TestMaps() {
