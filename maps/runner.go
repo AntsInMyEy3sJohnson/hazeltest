@@ -8,32 +8,32 @@ import (
 	"sync"
 )
 
-type Runner interface {
-	RunMapTests(hzCluster string, hzMembers []string)
+type runner interface {
+	runMapTests(hzCluster string, hzMembers []string)
 }
 
-type RunnerConfig struct {
-	Enabled                   bool
-	NumMaps                   int
-	NumRuns                   int
-	MapBaseName               string
-	UseMapPrefix              bool
-	MapPrefix                 string
-	AppendMapIndexToMapName   bool
-	AppendClientIdToMapName   bool
-	SleepBetweenActionBatches *SleepConfig
-	SleepBetweenRuns          *SleepConfig
+type runnerConfig struct {
+	enabled                   bool
+	numMaps                   int
+	numRuns                   int
+	mapBaseName               string
+	useMapPrefix              bool
+	mapPrefix                 string
+	appendMapIndexToMapName   bool
+	appendClientIdToMapName   bool
+	sleepBetweenActionBatches *sleepConfig
+	sleepBetweenRuns          *sleepConfig
 }
 
-type SleepConfig struct {
-	Enabled    bool
-	DurationMs int
+type sleepConfig struct {
+	enabled    bool
+	durationMs int
 }
 
-type RunnerConfigBuilder struct {
-	RunnerKeyPath string
-	MapBaseName   string
-	ParsedConfig  map[string]interface{}
+type runnerConfigBuilder struct {
+	runnerKeyPath string
+	mapBaseName   string
+	parsedConfig  map[string]interface{}
 }
 
 const (
@@ -50,14 +50,10 @@ const (
 	defaultSleepBetweenRunsDurationMs          = 200
 )
 
-func Register(r Runner) {
-	Runners = append(Runners, r)
-}
+func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
-func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
-
-	keyPath := b.RunnerKeyPath + ".enabled"
-	valueFromConfig, err := config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath := b.runnerKeyPath + ".enabled"
+	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -66,8 +62,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		enabled = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".numMaps"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".numMaps"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numMaps int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -76,8 +72,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		numMaps = valueFromConfig.(int)
 	}
 
-	keyPath = b.RunnerKeyPath + ".appendMapIndexToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".appendMapIndexToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendMapIndexToMapName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -86,8 +82,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		appendMapIndexToMapName = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".appendClientIdToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".appendClientIdToMapName"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendClientIdToMapName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -96,8 +92,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		appendClientIdToMapName = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".numRuns"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".numRuns"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numRuns int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -106,8 +102,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		numRuns = valueFromConfig.(int)
 	}
 
-	keyPath = b.RunnerKeyPath + ".mapPrefix.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".mapPrefix.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var useMapPrefix bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -116,8 +112,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		useMapPrefix = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".mapPrefix.prefix"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".mapPrefix.prefix"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var mapPrefix string
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -126,8 +122,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		mapPrefix = valueFromConfig.(string)
 	}
 
-	keyPath = b.RunnerKeyPath + ".sleeps.betweenActionBatches.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesEnabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -136,8 +132,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		sleepBetweenActionBatchesEnabled = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".sleeps.betweenActionBatches.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.durationMs"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesDurationMs int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -146,8 +142,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		sleepBetweenActionBatchesDurationMs = valueFromConfig.(int)
 	}
 
-	keyPath = b.RunnerKeyPath + ".sleeps.betweenRuns.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsEnabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -156,8 +152,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		sleepBetweenRunsEnabled = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".sleeps.betweenRuns.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.durationMs"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsDurationMs int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -166,17 +162,17 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		sleepBetweenRunsDurationMs = valueFromConfig.(int)
 	}
 
-	return &RunnerConfig{
-		Enabled:                   enabled,
-		NumMaps:                   numMaps,
-		NumRuns:                   numRuns,
-		MapBaseName:               b.MapBaseName,
-		UseMapPrefix:              useMapPrefix,
-		MapPrefix:                 mapPrefix,
-		AppendMapIndexToMapName:   appendMapIndexToMapName,
-		AppendClientIdToMapName:   appendClientIdToMapName,
-		SleepBetweenActionBatches: &SleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
-		SleepBetweenRuns:          &SleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
+	return &runnerConfig{
+		enabled:                   enabled,
+		numMaps:                   numMaps,
+		numRuns:                   numRuns,
+		mapBaseName:               b.mapBaseName,
+		useMapPrefix:              useMapPrefix,
+		mapPrefix:                 mapPrefix,
+		appendMapIndexToMapName:   appendMapIndexToMapName,
+		appendClientIdToMapName:   appendClientIdToMapName,
+		sleepBetweenActionBatches: &sleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
+		sleepBetweenRuns:          &sleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
 	}
 
 }
@@ -186,20 +182,24 @@ type MapTester struct {
 	HzMembers []string
 }
 
-var Runners []Runner
+var runners []runner
+
+func register(r runner) {
+	runners = append(runners, r)
+}
 
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ClientID()
-	logInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(Runners)), log.InfoLevel)
+	logInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup
-	for i := 0; i < len(Runners); i++ {
+	for i := 0; i < len(runners); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			runner := Runners[i]
-			runner.RunMapTests(t.HzCluster, t.HzMembers)
+			runner := runners[i]
+			runner.runMapTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 

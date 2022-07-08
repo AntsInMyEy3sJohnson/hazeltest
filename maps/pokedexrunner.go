@@ -13,7 +13,7 @@ import (
 	"hazeltest/client/config"
 )
 
-type PokedexRunner struct{}
+type pokedexRunner struct{}
 
 type pokedex struct {
 	Pokemon []pokemon `json:"pokemon"`
@@ -47,15 +47,15 @@ type nextEvolution struct {
 var pokedexFile embed.FS
 
 func init() {
-	Register(PokedexRunner{})
+	register(pokedexRunner{})
 	gob.Register(pokemon{})
 }
 
-func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
+func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	mapRunnerConfig := populatePokedexConfig()
 
-	if !mapRunnerConfig.Enabled {
+	if !mapRunnerConfig.enabled {
 		logInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -81,18 +81,18 @@ func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	testLoop := TestLoop[pokemon]{
-		ID:                     uuid.New(),
-		Source:                 "pokedexrunner",
-		HzClient:               hzClient,
-		Config:                 mapRunnerConfig,
-		Elements:               pokedex.Pokemon,
-		Ctx:                    ctx,
-		GetElementIdFunc:       getPokemonID,
-		DeserializeElementFunc: deserializeElement,
+	testLoop := testLoop[pokemon]{
+		id:                     uuid.New(),
+		source:                 "pokedexrunner",
+		hzClient:               hzClient,
+		config:                 mapRunnerConfig,
+		elements:               pokedex.Pokemon,
+		ctx:                    ctx,
+		getElementIdFunc:       getPokemonID,
+		deserializeElementFunc: deserializePokemon,
 	}
 
-	testLoop.Run()
+	testLoop.run()
 
 	logInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
 
@@ -105,7 +105,7 @@ func getPokemonID(element interface{}) string {
 
 }
 
-func deserializeElement(elementFromHZ interface{}) error {
+func deserializePokemon(elementFromHZ interface{}) error {
 
 	_, ok := elementFromHZ.(pokemon)
 	if !ok {
@@ -116,17 +116,17 @@ func deserializeElement(elementFromHZ interface{}) error {
 
 }
 
-func populatePokedexConfig() *RunnerConfig {
+func populatePokedexConfig() *runnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.pokedex"
 
-	configBuilder := RunnerConfigBuilder{
-		RunnerKeyPath: runnerKeyPath,
-		MapBaseName:   "pokedex",
-		ParsedConfig:  parsedConfig,
+	configBuilder := runnerConfigBuilder{
+		runnerKeyPath: runnerKeyPath,
+		mapBaseName:   "pokedex",
+		parsedConfig:  parsedConfig,
 	}
-	return configBuilder.PopulateConfig()
+	return configBuilder.populateConfig()
 
 }
 

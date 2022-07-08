@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LoadRunner struct{}
+type loadRunner struct{}
 
 type loadElement struct {
 	Key     string
@@ -41,15 +41,15 @@ var (
 )
 
 func init() {
-	Register(LoadRunner{})
+	register(loadRunner{})
 	gob.Register(loadElement{})
 }
 
-func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
+func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	mapRunnerConfig := populateLoadConfig()
 
-	if !mapRunnerConfig.Enabled {
+	if !mapRunnerConfig.enabled {
 		logInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -69,18 +69,18 @@ func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
 	elements := populateLoadElements()
 
-	testLoop := TestLoop[loadElement]{
-		ID:                     uuid.New(),
-		Source:                 "load",
-		HzClient:               hzClient,
-		Config:                 mapRunnerConfig,
-		Elements:               elements,
-		Ctx:                    ctx,
-		GetElementIdFunc:       getLoadElementID,
-		DeserializeElementFunc: deserializeElementFunc,
+	testLoop := testLoop[loadElement]{
+		id:                     uuid.New(),
+		source:                 "load",
+		hzClient:               hzClient,
+		config:                 mapRunnerConfig,
+		elements:               elements,
+		ctx:                    ctx,
+		getElementIdFunc:       getLoadElementID,
+		deserializeElementFunc: deserializeLoadElement,
 	}
 
-	testLoop.Run()
+	testLoop.run()
 
 	logInternalStateEvent("finished load test loop", log.InfoLevel)
 
@@ -136,7 +136,7 @@ func getLoadElementID(element interface{}) string {
 
 }
 
-func deserializeElementFunc(elementFromHz interface{}) error {
+func deserializeLoadElement(elementFromHz interface{}) error {
 
 	_, ok := elementFromHz.(loadElement)
 
@@ -148,7 +148,7 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateLoadConfig() *RunnerConfig {
+func populateLoadConfig() *runnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
@@ -171,11 +171,11 @@ func populateLoadConfig() *RunnerConfig {
 		payloadSizeBytes = valueFromConfig.(int)
 	}
 
-	configBuilder := RunnerConfigBuilder{
-		RunnerKeyPath: runnerKeyPath,
-		MapBaseName:   "load",
-		ParsedConfig:  parsedConfig,
+	configBuilder := runnerConfigBuilder{
+		runnerKeyPath: runnerKeyPath,
+		mapBaseName:   "load",
+		parsedConfig:  parsedConfig,
 	}
-	return configBuilder.PopulateConfig()
+	return configBuilder.populateConfig()
 
 }

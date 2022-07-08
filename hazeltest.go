@@ -6,8 +6,6 @@ import (
 	clientConfig "hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
-	_ "hazeltest/maps/load"
-	_ "hazeltest/maps/pokedex"
 	"hazeltest/queues"
 	_ "hazeltest/queues/tweets"
 	"os"
