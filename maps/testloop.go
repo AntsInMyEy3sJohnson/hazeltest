@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"fmt"
+	"hazeltest/api"
 	"hazeltest/client"
 	"math/rand"
 	"sync"
@@ -27,24 +28,6 @@ type testLoop[t any] struct {
 	ctx                    context.Context
 	getElementIdFunc       getElementID
 	deserializeElementFunc deserializeElement
-}
-
-type TestLoopStatus struct {
-	Source            string
-	Config            *runnerConfig
-	NumMaps           int
-	NumRuns           int
-	TotalRuns         int
-	TotalRunsFinished int
-}
-
-var (
-	Loops map[uuid.UUID]*TestLoopStatus
-	mutex sync.Mutex
-)
-
-func init() {
-	Loops = make(map[uuid.UUID]*TestLoopStatus)
 }
 
 func (l testLoop[T]) run() {
@@ -79,20 +62,15 @@ func (l testLoop[T]) insertLoopWithInitialStatus() {
 
 	c := l.config
 
-	status := &TestLoopStatus{
+	status := &api.TestLoopStatus{
 		Source:            l.source,
-		Config:            c,
 		NumMaps:           c.numMaps,
 		NumRuns:           c.numRuns,
 		TotalRuns:         c.numMaps * c.numRuns,
 		TotalRunsFinished: 0,
 	}
 
-	mutex.Lock()
-	{
-		Loops[l.id] = status
-	}
-	mutex.Unlock()
+	api.InsertInitialTestLoopStatus(l.id, status)
 
 }
 
@@ -134,11 +112,7 @@ func (l testLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 
 func (l testLoop[T]) increaseTotalNumRunsCompleted(increase int) {
 
-	mutex.Lock()
-	{
-		Loops[l.id].TotalRunsFinished += increase
-	}
-	mutex.Unlock()
+	api.IncreaseTotalNumRunsCompleted(l.id, increase)
 
 }
 
