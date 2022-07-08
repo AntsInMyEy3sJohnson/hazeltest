@@ -2,11 +2,9 @@ package maps
 
 import (
 	"fmt"
-	"hazeltest/client"
-	"hazeltest/logging"
-	"sync"
-
 	log "github.com/sirupsen/logrus"
+	"hazeltest/client"
+	"sync"
 )
 
 type MapTester struct {
@@ -17,7 +15,7 @@ type MapTester struct {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ClientID()
-	logInternalStateInfo(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(Runners)))
+	logInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(Runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(Runners); i++ {
@@ -30,14 +28,5 @@ func (t *MapTester) TestMaps() {
 	}
 
 	wg.Wait()
-
-}
-
-func logInternalStateInfo(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
-	}).Trace(msg)
 
 }

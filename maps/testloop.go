@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"math/rand"
 	"sync"
 	"time"
@@ -254,40 +253,5 @@ func (l TestLoop[T]) assembleMapName(mapIndex int) string {
 func assembleMapKey(mapNumber int, elementID string) string {
 
 	return fmt.Sprintf("%s-%d-%s", client.ClientID(), mapNumber, elementID)
-
-}
-
-func logTimingEvent(operation string, mapName string, tookMs int) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.TimingInfo,
-		"client": client.ClientID(),
-		"map":    mapName,
-		"tookMs": tookMs,
-	}).Infof("'%s' took %d ms", operation, tookMs)
-
-}
-
-func logInternalStateEvent(msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
-	}
-
-	if logLevel == log.TraceLevel {
-		log.WithFields(fields).Trace(msg)
-	} else {
-		log.WithFields(fields).Info(msg)
-	}
-
-}
-
-func logHzEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.HzError,
-		"client": client.ClientID(),
-	}).Warn(msg)
 
 }
