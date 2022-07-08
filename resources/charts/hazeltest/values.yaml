@@ -1,8 +1,8 @@
-replicaCount: 3
+replicaCount: 1
 
 app:
-  # 0.3.1
-  image: antsinmyey3sjohnson/hazeltest@sha256:d19dac0db1a08a2ced05d353bdf62c267ee158c73e44c1419664ee1ac5efb772
+  # 0.4.0
+  image: antsinmyey3sjohnson/hazeltest@sha256:91568d6922d5e79509e1c499b5919037851d926cc9b56f74544de4847a3ec5e1
   imagePullPolicy: IfNotPresent
   httpPort: 8080
   resources:
