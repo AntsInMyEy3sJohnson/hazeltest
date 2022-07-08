@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"io/fs"
@@ -46,6 +47,8 @@ func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
 		return
 	}
 
+	api.RaiseNotReady()
+
 	tc, err := parseTweets()
 	if err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse tweets json file: %v", err), log.FatalLevel)
@@ -58,6 +61,8 @@ func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
 		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %v", err), log.FatalLevel)
 	}
 	defer hzClient.Shutdown(ctx)
+
+	api.RaiseReady()
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("started tweets queue loop", log.InfoLevel)

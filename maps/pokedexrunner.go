@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/client/config"
 )
@@ -60,6 +61,8 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 		return
 	}
 
+	api.RaiseNotReady()
+
 	pokedex, err := parsePokedexFile()
 
 	clientID := client.ClientID()
@@ -71,12 +74,12 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
 
-	// TODO This would be a nice spot for something like 'api.RaiseReadiness()'... decrement wait group for every runner that raises readiness, once the counter hits zero, readiness probes should succeed
-
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
 	}
 	defer hzClient.Shutdown(ctx)
+
+	api.RaiseReady()
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
