@@ -1,4 +1,4 @@
-package tweets
+package queues
 
 import (
 	"context"
@@ -11,13 +11,12 @@ import (
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"hazeltest/logging"
-	"hazeltest/queues"
 	"io/fs"
 	"sync"
 	"time"
 )
 
-type Runner struct{}
+type queueRunner struct{}
 
 type tweetCollection struct {
 	Tweets []tweet `json:"Tweets"`
@@ -35,11 +34,11 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	queues.Register(Runner{})
+	Register(queueRunner{})
 	gob.Register(tweet{})
 }
 
-func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
+func (r queueRunner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 	c := populateConfig()
 
@@ -105,7 +104,7 @@ func (r Runner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 }
 
-func runTweetLoop(config *queues.OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, operation string, queueName string, queueNumber int, queueFunction func([]tweet, *hazelcast.Queue, context.Context, *queues.OperationConfig, string)) {
+func runTweetLoop(config *OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, operation string, queueName string, queueNumber int, queueFunction func([]tweet, *hazelcast.Queue, context.Context, *OperationConfig, string)) {
 
 	sleep(config.InitialDelay, "initialDelay", queueName, operation)
 
@@ -125,7 +124,7 @@ func runTweetLoop(config *queues.OperationConfig, tc *tweetCollection, q *hazelc
 
 }
 
-func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfig *queues.OperationConfig, queueName string) {
+func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfig *OperationConfig, queueName string) {
 
 	for i := 0; i < len(tweets); i++ {
 		tweet := tweets[i]
@@ -142,7 +141,7 @@ func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfi
 
 }
 
-func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollConfig *queues.OperationConfig, queueName string) {
+func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollConfig *OperationConfig, queueName string) {
 
 	for i := 0; i < len(tweets); i++ {
 		valueFromQueue, err := q.Poll(ctx)
@@ -160,7 +159,7 @@ func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollCon
 
 }
 
-func sleep(sleepConfig *queues.SleepConfig, kind string, queueName string, operation string) {
+func sleep(sleepConfig *SleepConfig, kind string, queueName string, operation string) {
 
 	if sleepConfig.Enabled {
 		logInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepConfig.DurationMs, kind, queueName, operation), log.TraceLevel)
@@ -197,11 +196,11 @@ func parseTweets() (*tweetCollection, error) {
 
 }
 
-func populateConfig() *queues.RunnerConfig {
+func populateConfig() *RunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 
-	return queues.RunnerConfigBuilder{
+	return RunnerConfigBuilder{
 		RunnerKeyPath: "queuetests.tweets",
 		QueueBaseName: "tweets",
 		ParsedConfig:  parsedConfig,
@@ -209,7 +208,7 @@ func populateConfig() *queues.RunnerConfig {
 
 }
 
-func assembleQueueName(config *queues.RunnerConfig, queueIndex int) string {
+func assembleQueueName(config *RunnerConfig, queueIndex int) string {
 
 	queueName := config.QueueBaseName
 
