@@ -76,7 +76,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop := testLoop[loadElement]{
 		id:                     uuid.New(),
-		source:                 "load",
+		source:                 "loadrunner",
 		hzClient:               hzClient,
 		config:                 mapRunnerConfig,
 		elements:               elements,
