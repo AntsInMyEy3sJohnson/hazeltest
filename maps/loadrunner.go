@@ -1,4 +1,4 @@
-package load
+package maps
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/logging"
-	"hazeltest/maps"
 	"math/rand"
 	"strconv"
 	"time"
@@ -43,13 +41,13 @@ var (
 )
 
 func init() {
-	maps.Register(LoadRunner{})
+	Register(LoadRunner{})
 	gob.Register(loadElement{})
 }
 
 func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populateConfig()
+	mapRunnerConfig := populateLoadConfig()
 
 	if !mapRunnerConfig.Enabled {
 		logInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
@@ -71,14 +69,14 @@ func (r LoadRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
 	elements := populateLoadElements()
 
-	testLoop := maps.TestLoop[loadElement]{
+	testLoop := TestLoop[loadElement]{
 		ID:                     uuid.New(),
 		Source:                 "load",
 		HzClient:               hzClient,
 		Config:                 mapRunnerConfig,
 		Elements:               elements,
 		Ctx:                    ctx,
-		GetElementIdFunc:       getElementID,
+		GetElementIdFunc:       getLoadElementID,
 		DeserializeElementFunc: deserializeElementFunc,
 	}
 
@@ -131,7 +129,7 @@ func generateRandomPayload(n int) string {
 
 }
 
-func getElementID(element interface{}) string {
+func getLoadElementID(element interface{}) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
@@ -150,7 +148,7 @@ func deserializeElementFunc(elementFromHz interface{}) error {
 
 }
 
-func populateConfig() *maps.RunnerConfig {
+func populateLoadConfig() *RunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
@@ -173,57 +171,11 @@ func populateConfig() *maps.RunnerConfig {
 		payloadSizeBytes = valueFromConfig.(int)
 	}
 
-	configBuilder := maps.RunnerConfigBuilder{
+	configBuilder := RunnerConfigBuilder{
 		RunnerKeyPath: runnerKeyPath,
 		MapBaseName:   "load",
 		ParsedConfig:  parsedConfig,
 	}
 	return configBuilder.PopulateConfig()
-
-}
-
-func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.ConfigurationError,
-		"value":  configValue,
-		"source": source,
-		"client": client.ClientID(),
-	}
-	if logLevel == log.WarnLevel {
-		log.WithFields(fields).Warn(msg)
-	} else {
-		log.WithFields(fields).Fatal(msg)
-	}
-
-}
-
-func logInternalStateEvent(msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
-	}
-
-	if logLevel == log.TraceLevel {
-		log.WithFields(fields).Trace(msg)
-	} else {
-		log.WithFields(fields).Info(msg)
-	}
-
-}
-
-func logHzEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.HzError,
-		"client": client.ClientID(),
-	}).Fatal(msg)
-
-}
-
-func logErrUponConfigExtraction(keyPath string, err error) {
-
-	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
 
 }
