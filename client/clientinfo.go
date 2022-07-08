@@ -8,6 +8,6 @@ func init() {
 	clientID = uuid.New()
 }
 
-func ClientID() uuid.UUID {
+func ID() uuid.UUID {
 	return clientID
 }

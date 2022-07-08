@@ -34,8 +34,8 @@ func InitHazelcastClient(ctx context.Context, clientName string, hzCluster strin
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind": logging.InternalStateInfo,
-		"client": ClientID(),
+		"kind":   logging.InternalStateInfo,
+		"client": ID(),
 	}).Info(msg)
 
 }
@@ -44,9 +44,9 @@ func logConfigurationError(configValue string, source string, msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.ConfigurationError,
-		"value": configValue,
+		"value":  configValue,
 		"source": source,
-		"client": ClientID(),
+		"client": ID(),
 	}).Warn(msg)
 
 }

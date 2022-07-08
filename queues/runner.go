@@ -9,46 +9,48 @@ import (
 	"sync"
 )
 
-type runner interface {
-	runQueueTests(hzCluster string, hzMembers []string)
-}
+type (
+	runner interface {
+		runQueueTests(hzCluster string, hzMembers []string)
+	}
+	runnerConfig struct {
+		enabled                     bool
+		numQueues                   int
+		queueBaseName               string
+		appendQueueIndexToQueueName bool
+		appendClientIdToQueueName   bool
+		useQueuePrefix              bool
+		queuePrefix                 string
+		putConfig                   *operationConfig
+		pollConfig                  *operationConfig
+	}
+	operationConfig struct {
+		enabled                   bool
+		numRuns                   int
+		batchSize                 int
+		initialDelay              *sleepConfig
+		sleepBetweenActionBatches *sleepConfig
+		sleepBetweenRuns          *sleepConfig
+	}
+	sleepConfig struct {
+		enabled    bool
+		durationMs int
+	}
+	runnerConfigBuilder struct {
+		runnerKeyPath string
+		queueBaseName string
+		parsedConfig  map[string]interface{}
+	}
+	QueueTester struct {
+		HzCluster string
+		HzMembers []string
+	}
+)
 
 var runners []runner
 
 func register(r runner) {
 	runners = append(runners, r)
-}
-
-type runnerConfig struct {
-	enabled                     bool
-	numQueues                   int
-	queueBaseName               string
-	appendQueueIndexToQueueName bool
-	appendClientIdToQueueName   bool
-	useQueuePrefix              bool
-	queuePrefix                 string
-	putConfig                   *operationConfig
-	pollConfig                  *operationConfig
-}
-
-type operationConfig struct {
-	enabled                   bool
-	numRuns                   int
-	batchSize                 int
-	initialDelay              *sleepConfig
-	sleepBetweenActionBatches *sleepConfig
-	sleepBetweenRuns          *sleepConfig
-}
-
-type sleepConfig struct {
-	enabled    bool
-	durationMs int
-}
-
-type runnerConfigBuilder struct {
-	runnerKeyPath string
-	queueBaseName string
-	parsedConfig  map[string]interface{}
 }
 
 // constants related to general runner configuration
@@ -90,7 +92,7 @@ const (
 var lp *logging.LogProvider
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
+	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
@@ -275,7 +277,7 @@ func logConfigEvent(configValue string, source string, msg string, logLevel log.
 		"kind":   logging.ConfigurationError,
 		"value":  configValue,
 		"source": source,
-		"client": client.ClientID(),
+		"client": client.ID(),
 	}
 	if logLevel == log.WarnLevel {
 		log.WithFields(fields).Warn(msg)
@@ -285,14 +287,9 @@ func logConfigEvent(configValue string, source string, msg string, logLevel log.
 
 }
 
-type QueueTester struct {
-	HzCluster string
-	HzMembers []string
-}
-
 func (t *QueueTester) TestQueues() {
 
-	clientID := client.ClientID()
+	clientID := client.ID()
 	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(runners)))
 
 	var wg sync.WaitGroup
@@ -313,7 +310,7 @@ func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
 		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
+		"client": client.ID(),
 	}).Trace(msg)
 
 }

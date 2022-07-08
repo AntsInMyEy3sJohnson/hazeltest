@@ -16,14 +16,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type loadRunner struct{}
+type (
+	loadRunner  struct{}
+	loadElement struct {
+		Key     string
+		Payload *string
+	}
+)
 
-type loadElement struct {
-	Key     string
-	Payload *string
-}
-
-// Copied from: https://stackoverflow.com/a/31832326
+// From https://stackoverflow.com/a/31832326
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
@@ -59,7 +60,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	clientID := client.ClientID()
+	clientID := client.ID()
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-loadrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {

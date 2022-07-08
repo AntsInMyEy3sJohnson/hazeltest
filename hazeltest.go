@@ -20,7 +20,7 @@ func main() {
 
 	clientConfig.ParseCommandLineArgs()
 
-	fileParser := clientConfig.FileParser{ClientID: client.ClientID()}
+	fileParser := clientConfig.FileParser{ClientID: client.ID()}
 	fileParser.ParseConfigFile()
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
@@ -60,7 +60,7 @@ func logConfigurationError(configValue string, source string, msg string) {
 		"kind":   logging.ConfigurationError,
 		"value":  configValue,
 		"source": source,
-		"client": client.ClientID(),
+		"client": client.ID(),
 	}).Fatal(msg)
 
 }

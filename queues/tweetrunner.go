@@ -16,17 +16,17 @@ import (
 	"time"
 )
 
-type queueRunner struct{}
-
-type tweetCollection struct {
-	Tweets []tweet `json:"Tweets"`
-}
-
-type tweet struct {
-	Id        uint64 `json:"Id"`
-	CreatedAt string `json:"CreatedAt"`
-	Text      string `json:"Text"`
-}
+type (
+	queueRunner     struct{}
+	tweetCollection struct {
+		Tweets []tweet `json:"Tweets"`
+	}
+	tweet struct {
+		Id        uint64 `json:"Id"`
+		CreatedAt string `json:"CreatedAt"`
+		Text      string `json:"Text"`
+	}
+)
 
 const queueOperationLoggingUpdateStep = 10
 
@@ -55,7 +55,7 @@ func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	}
 
 	ctx := context.TODO()
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-tweetrunner", client.ClientID()), hzCluster, hzMembers)
+	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-tweetrunner", client.ID()), hzCluster, hzMembers)
 
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %v", err), log.FatalLevel)
@@ -223,7 +223,7 @@ func assembleQueueName(config *runnerConfig, queueIndex int) string {
 		queueName = fmt.Sprintf("%s-%d", queueName, queueIndex)
 	}
 	if config.appendClientIdToQueueName {
-		queueName = fmt.Sprintf("%s-%s", queueName, client.ClientID())
+		queueName = fmt.Sprintf("%s-%s", queueName, client.ID())
 	}
 
 	return queueName

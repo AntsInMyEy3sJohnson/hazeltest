@@ -9,38 +9,41 @@ import (
 	"sync"
 )
 
-type runner interface {
-	runMapTests(hzCluster string, hzMembers []string)
-}
+type (
+	runner interface {
+		runMapTests(hzCluster string, hzMembers []string)
+	}
+	runnerConfig struct {
+		enabled                   bool
+		numMaps                   int
+		numRuns                   int
+		mapBaseName               string
+		useMapPrefix              bool
+		mapPrefix                 string
+		appendMapIndexToMapName   bool
+		appendClientIdToMapName   bool
+		sleepBetweenActionBatches *sleepConfig
+		sleepBetweenRuns          *sleepConfig
+	}
+	sleepConfig struct {
+		enabled    bool
+		durationMs int
+	}
+	runnerConfigBuilder struct {
+		runnerKeyPath string
+		mapBaseName   string
+		parsedConfig  map[string]interface{}
+	}
+	MapTester struct {
+		HzCluster string
+		HzMembers []string
+	}
+)
 
 var runners []runner
 
 func register(r runner) {
 	runners = append(runners, r)
-}
-
-type runnerConfig struct {
-	enabled                   bool
-	numMaps                   int
-	numRuns                   int
-	mapBaseName               string
-	useMapPrefix              bool
-	mapPrefix                 string
-	appendMapIndexToMapName   bool
-	appendClientIdToMapName   bool
-	sleepBetweenActionBatches *sleepConfig
-	sleepBetweenRuns          *sleepConfig
-}
-
-type sleepConfig struct {
-	enabled    bool
-	durationMs int
-}
-
-type runnerConfigBuilder struct {
-	runnerKeyPath string
-	mapBaseName   string
-	parsedConfig  map[string]interface{}
 }
 
 const (
@@ -60,7 +63,7 @@ const (
 var lp *logging.LogProvider
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
+	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
@@ -190,14 +193,9 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 }
 
-type MapTester struct {
-	HzCluster string
-	HzMembers []string
-}
-
 func (t *MapTester) TestMaps() {
 
-	clientID := client.ClientID()
+	clientID := client.ID()
 	lp.LogInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup

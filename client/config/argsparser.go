@@ -17,12 +17,12 @@ func init() {
 
 func ParseCommandLineArgs() {
 
-	useUnisocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
+	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
 	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 
 	flag.Parse()
 
-	configs[ArgUseUniSocketClient] = *useUnisocketClient
+	configs[ArgUseUniSocketClient] = *useUniSocketClient
 	configs[ArgConfigFilePath] = *configFilePath
 
 }
