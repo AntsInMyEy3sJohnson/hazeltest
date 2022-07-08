@@ -6,7 +6,18 @@ import (
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"hazeltest/logging"
+	"sync"
 )
+
+type Runner interface {
+	RunQueueTests(hzCluster string, hzMembers []string)
+}
+
+var QueueRunners []Runner
+
+func Register(runner Runner) {
+	QueueRunners = append(QueueRunners, runner)
+}
 
 type RunnerConfig struct {
 	Enabled                     bool
@@ -265,5 +276,38 @@ func logConfigEvent(configValue string, source string, msg string, logLevel log.
 	} else {
 		log.WithFields(fields).Fatal(msg)
 	}
+
+}
+
+type QueueTester struct {
+	HzCluster string
+	HzMembers []string
+}
+
+func (t *QueueTester) TestQueues() {
+
+	clientID := client.ClientID()
+	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(QueueRunners)))
+
+	var wg sync.WaitGroup
+	for i := 0; i < len(QueueRunners); i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			runner := QueueRunners[i]
+			runner.RunQueueTests(t.HzCluster, t.HzMembers)
+		}(i)
+	}
+
+	wg.Wait()
+
+}
+
+func logInternalStateInfo(msg string) {
+
+	log.WithFields(log.Fields{
+		"kind":   logging.InternalStateInfo,
+		"client": client.ClientID(),
+	}).Trace(msg)
 
 }
