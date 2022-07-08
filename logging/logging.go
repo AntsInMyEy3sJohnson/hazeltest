@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+const ApiInfo = "api info"
 const InternalStateInfo = "internal state info"
 const TimingInfo = "timing info"
 const IoError = "io error"
@@ -60,6 +61,16 @@ func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
 		"kind": IoError,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": ApiInfo,
 	}
 
 	lp.doLog(msg, fields, level)

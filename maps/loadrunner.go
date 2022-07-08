@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/client/config"
 	"math/rand"
@@ -54,6 +55,8 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 		return
 	}
 
+	api.RaiseNotReady()
+
 	ctx := context.TODO()
 
 	clientID := client.ClientID()
@@ -64,6 +67,8 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	}
 	defer hzClient.Shutdown(ctx)
 
+	api.RaiseReady()
+
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting load test loop", log.InfoLevel)
 
@@ -71,7 +76,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop := testLoop[loadElement]{
 		id:                     uuid.New(),
-		source:                 "load",
+		source:                 "loadrunner",
 		hzClient:               hzClient,
 		config:                 mapRunnerConfig,
 		elements:               elements,
