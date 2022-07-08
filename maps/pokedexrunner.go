@@ -1,4 +1,4 @@
-package pokedex
+package maps
 
 import (
 	"context"
@@ -7,17 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hazeltest/client"
-	"hazeltest/client/config"
-	"hazeltest/logging"
-	"hazeltest/maps"
-
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/client"
+	"hazeltest/client/config"
 )
 
-// PokedexRunner TODO Refactor this to only be called "Runner"
-// Note to self: I should not start the name of a struct type with the name of the package it is contained in
 type PokedexRunner struct{}
 
 type pokedex struct {
@@ -52,13 +47,13 @@ type nextEvolution struct {
 var pokedexFile embed.FS
 
 func init() {
-	maps.Register(PokedexRunner{})
+	Register(PokedexRunner{})
 	gob.Register(pokemon{})
 }
 
 func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populateConfig()
+	mapRunnerConfig := populatePokedexConfig()
 
 	if !mapRunnerConfig.Enabled {
 		logInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
@@ -86,14 +81,14 @@ func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	testLoop := maps.TestLoop[pokemon]{
+	testLoop := TestLoop[pokemon]{
 		ID:                     uuid.New(),
 		Source:                 "pokedexrunner",
 		HzClient:               hzClient,
 		Config:                 mapRunnerConfig,
 		Elements:               pokedex.Pokemon,
 		Ctx:                    ctx,
-		GetElementIdFunc:       getElementID,
+		GetElementIdFunc:       getPokemonID,
 		DeserializeElementFunc: deserializeElement,
 	}
 
@@ -103,7 +98,7 @@ func (r PokedexRunner) RunMapTests(hzCluster string, hzMembers []string) {
 
 }
 
-func getElementID(element interface{}) string {
+func getPokemonID(element interface{}) string {
 
 	pokemon := element.(pokemon)
 	return fmt.Sprintf("%d", pokemon.ID)
@@ -121,12 +116,12 @@ func deserializeElement(elementFromHZ interface{}) error {
 
 }
 
-func populateConfig() *maps.RunnerConfig {
+func populatePokedexConfig() *RunnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.pokedex"
 
-	configBuilder := maps.RunnerConfigBuilder{
+	configBuilder := RunnerConfigBuilder{
 		RunnerKeyPath: runnerKeyPath,
 		MapBaseName:   "pokedex",
 		ParsedConfig:  parsedConfig,
@@ -154,38 +149,5 @@ func parsePokedexFile() (*pokedex, error) {
 	logInternalStateEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
-
-}
-
-func logIoEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.IoError,
-		"client": client.ClientID(),
-	}).Fatal(msg)
-
-}
-
-func logHzEvent(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.HzError,
-		"client": client.ClientID(),
-	}).Fatal(msg)
-
-}
-
-func logInternalStateEvent(msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.InternalStateInfo,
-		"client": client.ClientID(),
-	}
-
-	if logLevel == log.TraceLevel {
-		log.WithFields(fields).Trace(msg)
-	} else {
-		log.WithFields(fields).Info(msg)
-	}
 
 }
