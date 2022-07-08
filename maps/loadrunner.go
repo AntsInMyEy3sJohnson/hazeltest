@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hazeltest/client"
 	"hazeltest/client/config"
+	"hazeltest/logging"
 	"math/rand"
 	"strconv"
 	"time"
@@ -43,6 +44,7 @@ var (
 func init() {
 	register(loadRunner{})
 	gob.Register(loadElement{})
+	lp = &logging.LogProvider{ClientID: client.ClientID()}
 }
 
 func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
@@ -50,7 +52,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	mapRunnerConfig := populateLoadConfig()
 
 	if !mapRunnerConfig.enabled {
-		logInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 
@@ -60,12 +62,12 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-loadrunner", clientID), hzCluster, hzMembers)
 
 	if err != nil {
-		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
+		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
 	}
 	defer hzClient.Shutdown(ctx)
 
-	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	logInternalStateEvent("starting load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogInternalStateEvent("starting load test loop", log.InfoLevel)
 
 	elements := populateLoadElements()
 
@@ -82,7 +84,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop.run()
 
-	logInternalStateEvent("finished load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("finished load test loop", log.InfoLevel)
 
 }
 
@@ -156,7 +158,7 @@ func populateLoadConfig() *runnerConfig {
 	keyPath := runnerKeyPath + ".numEntriesPerMap"
 	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numEntriesPerMap = defaultNumEntriesPerMap
 	} else {
 		numEntriesPerMap = valueFromConfig.(int)
@@ -165,7 +167,7 @@ func populateLoadConfig() *runnerConfig {
 	keyPath = runnerKeyPath + ".payloadSizeBytes"
 	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		payloadSizeBytes = defaultPayloadSizeBytes
 	} else {
 		payloadSizeBytes = valueFromConfig.(int)

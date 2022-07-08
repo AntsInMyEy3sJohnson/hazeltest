@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/client/config"
+	"hazeltest/logging"
 )
 
 type pokedexRunner struct{}
@@ -49,6 +50,7 @@ var pokedexFile embed.FS
 func init() {
 	register(pokedexRunner{})
 	gob.Register(pokemon{})
+	lp = &logging.LogProvider{ClientID: client.ClientID()}
 }
 
 func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
@@ -56,7 +58,7 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	mapRunnerConfig := populatePokedexConfig()
 
 	if !mapRunnerConfig.enabled {
-		logInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 
@@ -64,7 +66,7 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	clientID := client.ClientID()
 	if err != nil {
-		logIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err))
+		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
 
 	ctx := context.TODO()
@@ -74,12 +76,12 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	// TODO This would be a nice spot for something like 'api.RaiseReadiness()'... decrement wait group for every runner that raises readiness, once the counter hits zero, readiness probes should succeed
 
 	if err != nil {
-		logHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err))
+		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
 	}
 	defer hzClient.Shutdown(ctx)
 
-	logInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	logInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
+	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
 	testLoop := testLoop[pokemon]{
 		id:                     uuid.New(),
@@ -94,7 +96,7 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop.run()
 
-	logInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
+	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
 
 }
 
@@ -146,7 +148,7 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	logInternalStateEvent("parsed pokedex file", log.TraceLevel)
+	lp.LogInternalStateEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
 

@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/client/config"
+	"hazeltest/logging"
 	"sync"
 )
 
@@ -56,13 +57,19 @@ const (
 	defaultSleepBetweenRunsDurationMs          = 200
 )
 
+var lp *logging.LogProvider
+
+func init() {
+	lp = &logging.LogProvider{ClientID: client.ClientID()}
+}
+
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 	keyPath := b.runnerKeyPath + ".enabled"
 	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		enabled = defaultEnabled
 	} else {
 		enabled = valueFromConfig.(bool)
@@ -72,7 +79,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numMaps int
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numMaps = defaultNumMaps
 	} else {
 		numMaps = valueFromConfig.(int)
@@ -82,7 +89,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendMapIndexToMapName bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		appendMapIndexToMapName = defaultAppendMapIndexToMapName
 	} else {
 		appendMapIndexToMapName = valueFromConfig.(bool)
@@ -92,7 +99,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendClientIdToMapName bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		appendClientIdToMapName = defaultAppendClientIdToMapName
 	} else {
 		appendClientIdToMapName = valueFromConfig.(bool)
@@ -102,7 +109,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numRuns int
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numRuns = defaultNumRuns
 	} else {
 		numRuns = valueFromConfig.(int)
@@ -112,7 +119,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var useMapPrefix bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		useMapPrefix = defaultUseMapPrefix
 	} else {
 		useMapPrefix = valueFromConfig.(bool)
@@ -122,7 +129,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var mapPrefix string
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		mapPrefix = defaultMapPrefix
 	} else {
 		mapPrefix = valueFromConfig.(string)
@@ -132,7 +139,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesEnabled bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		sleepBetweenActionBatchesEnabled = defaultSleepBetweenActionBatchesEnabled
 	} else {
 		sleepBetweenActionBatchesEnabled = valueFromConfig.(bool)
@@ -142,7 +149,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesDurationMs int
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		sleepBetweenActionBatchesDurationMs = defaultSleepBetweenActionBatchesDurationMs
 	} else {
 		sleepBetweenActionBatchesDurationMs = valueFromConfig.(int)
@@ -152,7 +159,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsEnabled bool
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		sleepBetweenRunsEnabled = defaultSleepBetweenRunsEnabled
 	} else {
 		sleepBetweenRunsEnabled = valueFromConfig.(bool)
@@ -162,7 +169,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsDurationMs int
 	if err != nil {
-		logErrUponConfigExtraction(keyPath, err)
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		sleepBetweenRunsDurationMs = defaultSleepBetweenRunsDurationMs
 	} else {
 		sleepBetweenRunsDurationMs = valueFromConfig.(int)
@@ -191,7 +198,7 @@ type MapTester struct {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ClientID()
-	logInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
+	lp.LogInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
