@@ -1,17 +1,15 @@
 package maps
 
 import (
+	"fmt"
+	log "github.com/sirupsen/logrus"
+	"hazeltest/client"
 	"hazeltest/client/config"
+	"sync"
 )
 
 type Runner interface {
 	RunMapTests(hzCluster string, hzMembers []string)
-}
-
-var Runners []Runner
-
-func Register(r Runner) {
-	Runners = append(Runners, r)
 }
 
 type RunnerConfig struct {
@@ -51,6 +49,10 @@ const (
 	defaultSleepBetweenRunsEnabled             = true
 	defaultSleepBetweenRunsDurationMs          = 200
 )
+
+func Register(r Runner) {
+	Runners = append(Runners, r)
+}
 
 func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 
@@ -176,5 +178,31 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		SleepBetweenActionBatches: &SleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
 		SleepBetweenRuns:          &SleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
 	}
+
+}
+
+type MapTester struct {
+	HzCluster string
+	HzMembers []string
+}
+
+var Runners []Runner
+
+func (t *MapTester) TestMaps() {
+
+	clientID := client.ClientID()
+	logInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(Runners)), log.InfoLevel)
+
+	var wg sync.WaitGroup
+	for i := 0; i < len(Runners); i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			runner := Runners[i]
+			runner.RunMapTests(t.HzCluster, t.HzMembers)
+		}(i)
+	}
+
+	wg.Wait()
 
 }
