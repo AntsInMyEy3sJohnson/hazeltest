@@ -34,15 +34,15 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	Register(queueRunner{})
+	register(queueRunner{})
 	gob.Register(tweet{})
 }
 
-func (r queueRunner) RunQueueTests(hzCluster string, hzMembers []string) {
+func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	c := populateConfig()
 
-	if !c.Enabled {
+	if !c.enabled {
 		logInternalStateEvent("tweetrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -64,7 +64,7 @@ func (r queueRunner) RunQueueTests(hzCluster string, hzMembers []string) {
 	logInternalStateEvent("started tweets queue loop", log.InfoLevel)
 
 	var numQueuesWg sync.WaitGroup
-	for i := 0; i < c.NumQueues; i++ {
+	for i := 0; i < c.numQueues; i++ {
 		numQueuesWg.Add(1)
 		queueName := assembleQueueName(c, i)
 		logInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
@@ -76,21 +76,21 @@ func (r queueRunner) RunQueueTests(hzCluster string, hzMembers []string) {
 			defer numQueuesWg.Done()
 
 			var putWg sync.WaitGroup
-			if c.PutConfig.Enabled {
+			if c.putConfig.enabled {
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
-					runTweetLoop(c.PutConfig, tc, q, ctx, "put", queueName, i, putTweets)
+					runTweetLoop(c.putConfig, tc, q, ctx, "put", queueName, i, putTweets)
 				}()
 
 			}
 
 			var pollWg sync.WaitGroup
-			if c.PollConfig.Enabled {
+			if c.pollConfig.enabled {
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
-					runTweetLoop(c.PollConfig, tc, q, ctx, "poll", queueName, i, pollTweets)
+					runTweetLoop(c.pollConfig, tc, q, ctx, "poll", queueName, i, pollTweets)
 				}()
 			}
 
@@ -104,14 +104,14 @@ func (r queueRunner) RunQueueTests(hzCluster string, hzMembers []string) {
 
 }
 
-func runTweetLoop(config *OperationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, operation string, queueName string, queueNumber int, queueFunction func([]tweet, *hazelcast.Queue, context.Context, *OperationConfig, string)) {
+func runTweetLoop(config *operationConfig, tc *tweetCollection, q *hazelcast.Queue, ctx context.Context, operation string, queueName string, queueNumber int, queueFunction func([]tweet, *hazelcast.Queue, context.Context, *operationConfig, string)) {
 
-	sleep(config.InitialDelay, "initialDelay", queueName, operation)
+	sleep(config.initialDelay, "initialDelay", queueName, operation)
 
-	numRuns := config.NumRuns
+	numRuns := config.numRuns
 	for i := 0; i < numRuns; i++ {
 		if i > 0 {
-			sleep(config.SleepBetweenRuns, "betweenRuns", queueName, operation)
+			sleep(config.sleepBetweenRuns, "betweenRuns", queueName, operation)
 		}
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
 			logInternalStateEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, operation, queueName, queueNumber), log.InfoLevel)
@@ -124,7 +124,7 @@ func runTweetLoop(config *OperationConfig, tc *tweetCollection, q *hazelcast.Que
 
 }
 
-func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfig *OperationConfig, queueName string) {
+func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfig *operationConfig, queueName string) {
 
 	for i := 0; i < len(tweets); i++ {
 		tweet := tweets[i]
@@ -134,14 +134,14 @@ func putTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, putConfi
 		} else {
 			logInternalStateEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, tweet), log.TraceLevel)
 		}
-		if i > 0 && i%putConfig.BatchSize == 0 {
-			sleep(putConfig.SleepBetweenActionBatches, "betweenActionBatches", queueName, "put")
+		if i > 0 && i%putConfig.batchSize == 0 {
+			sleep(putConfig.sleepBetweenActionBatches, "betweenActionBatches", queueName, "put")
 		}
 	}
 
 }
 
-func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollConfig *OperationConfig, queueName string) {
+func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollConfig *operationConfig, queueName string) {
 
 	for i := 0; i < len(tweets); i++ {
 		valueFromQueue, err := q.Poll(ctx)
@@ -152,18 +152,18 @@ func pollTweets(tweets []tweet, q *hazelcast.Queue, ctx context.Context, pollCon
 		} else {
 			logInternalStateEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)
 		}
-		if i > 0 && i%pollConfig.BatchSize == 0 {
-			sleep(pollConfig.SleepBetweenActionBatches, "betweenActionBatches", queueName, "poll")
+		if i > 0 && i%pollConfig.batchSize == 0 {
+			sleep(pollConfig.sleepBetweenActionBatches, "betweenActionBatches", queueName, "poll")
 		}
 	}
 
 }
 
-func sleep(sleepConfig *SleepConfig, kind string, queueName string, operation string) {
+func sleep(sleepConfig *sleepConfig, kind string, queueName string, operation string) {
 
-	if sleepConfig.Enabled {
-		logInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepConfig.DurationMs, kind, queueName, operation), log.TraceLevel)
-		time.Sleep(time.Duration(sleepConfig.DurationMs) * time.Millisecond)
+	if sleepConfig.enabled {
+		logInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepConfig.durationMs, kind, queueName, operation), log.TraceLevel)
+		time.Sleep(time.Duration(sleepConfig.durationMs) * time.Millisecond)
 	}
 
 }
@@ -196,29 +196,29 @@ func parseTweets() (*tweetCollection, error) {
 
 }
 
-func populateConfig() *RunnerConfig {
+func populateConfig() *runnerConfig {
 
 	parsedConfig := config.GetParsedConfig()
 
-	return RunnerConfigBuilder{
-		RunnerKeyPath: "queuetests.tweets",
-		QueueBaseName: "tweets",
-		ParsedConfig:  parsedConfig,
-	}.PopulateConfig()
+	return runnerConfigBuilder{
+		runnerKeyPath: "queuetests.tweets",
+		queueBaseName: "tweets",
+		parsedConfig:  parsedConfig,
+	}.populateConfig()
 
 }
 
-func assembleQueueName(config *RunnerConfig, queueIndex int) string {
+func assembleQueueName(config *runnerConfig, queueIndex int) string {
 
-	queueName := config.QueueBaseName
+	queueName := config.queueBaseName
 
-	if config.UseQueuePrefix && config.QueuePrefix != "" {
-		queueName = fmt.Sprintf("%s%s", config.QueuePrefix, queueName)
+	if config.useQueuePrefix && config.queuePrefix != "" {
+		queueName = fmt.Sprintf("%s%s", config.queuePrefix, queueName)
 	}
-	if config.AppendQueueIndexToQueueName {
+	if config.appendQueueIndexToQueueName {
 		queueName = fmt.Sprintf("%s-%d", queueName, queueIndex)
 	}
-	if config.AppendClientIdToQueueName {
+	if config.appendClientIdToQueueName {
 		queueName = fmt.Sprintf("%s-%s", queueName, client.ClientID())
 	}
 

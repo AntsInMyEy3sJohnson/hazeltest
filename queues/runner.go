@@ -9,46 +9,46 @@ import (
 	"sync"
 )
 
-type Runner interface {
-	RunQueueTests(hzCluster string, hzMembers []string)
+type runner interface {
+	runQueueTests(hzCluster string, hzMembers []string)
 }
 
-var QueueRunners []Runner
+var runners []runner
 
-func Register(runner Runner) {
-	QueueRunners = append(QueueRunners, runner)
+func register(r runner) {
+	runners = append(runners, r)
 }
 
-type RunnerConfig struct {
-	Enabled                     bool
-	NumQueues                   int
-	QueueBaseName               string
-	AppendQueueIndexToQueueName bool
-	AppendClientIdToQueueName   bool
-	UseQueuePrefix              bool
-	QueuePrefix                 string
-	PutConfig                   *OperationConfig
-	PollConfig                  *OperationConfig
+type runnerConfig struct {
+	enabled                     bool
+	numQueues                   int
+	queueBaseName               string
+	appendQueueIndexToQueueName bool
+	appendClientIdToQueueName   bool
+	useQueuePrefix              bool
+	queuePrefix                 string
+	putConfig                   *operationConfig
+	pollConfig                  *operationConfig
 }
 
-type OperationConfig struct {
-	Enabled                   bool
-	NumRuns                   int
-	BatchSize                 int
-	InitialDelay              *SleepConfig
-	SleepBetweenActionBatches *SleepConfig
-	SleepBetweenRuns          *SleepConfig
+type operationConfig struct {
+	enabled                   bool
+	numRuns                   int
+	batchSize                 int
+	initialDelay              *sleepConfig
+	sleepBetweenActionBatches *sleepConfig
+	sleepBetweenRuns          *sleepConfig
 }
 
-type SleepConfig struct {
-	Enabled    bool
-	DurationMs int
+type sleepConfig struct {
+	enabled    bool
+	durationMs int
 }
 
-type RunnerConfigBuilder struct {
-	RunnerKeyPath string
-	QueueBaseName string
-	ParsedConfig  map[string]interface{}
+type runnerConfigBuilder struct {
+	runnerKeyPath string
+	queueBaseName string
+	parsedConfig  map[string]interface{}
 }
 
 // constants related to general runner configuration
@@ -87,10 +87,10 @@ const (
 	defaultSleepBetweenRunsDurationMsPoll          = 1000
 )
 
-func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
+func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
-	keyPath := b.RunnerKeyPath + ".enabled"
-	valueFromConfig, err := config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath := b.runnerKeyPath + ".enabled"
+	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -99,8 +99,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		enabled = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".numQueues"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".numQueues"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numQueues int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -109,8 +109,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		numQueues = valueFromConfig.(int)
 	}
 
-	keyPath = b.RunnerKeyPath + ".appendQueueIndexToQueueName"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".appendQueueIndexToQueueName"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendQueueIndexToQueueName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -119,8 +119,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		appendQueueIndexToQueueName = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".appendClientIdToQueueName"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".appendClientIdToQueueName"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendClientIdToQueueName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -129,8 +129,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		appendClientIdToQueueName = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".queuePrefix.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".queuePrefix.enabled"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var useQueuePrefix bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -139,8 +139,8 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		useQueuePrefix = valueFromConfig.(bool)
 	}
 
-	keyPath = b.RunnerKeyPath + ".queuePrefix.prefix"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = b.runnerKeyPath + ".queuePrefix.prefix"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var queuePrefix string
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -149,26 +149,26 @@ func (b RunnerConfigBuilder) PopulateConfig() *RunnerConfig {
 		queuePrefix = valueFromConfig.(string)
 	}
 
-	return &RunnerConfig{
-		Enabled:                     enabled,
-		NumQueues:                   numQueues,
-		QueueBaseName:               b.QueueBaseName,
-		AppendQueueIndexToQueueName: appendQueueIndexToQueueName,
-		AppendClientIdToQueueName:   appendClientIdToQueueName,
-		UseQueuePrefix:              useQueuePrefix,
-		QueuePrefix:                 queuePrefix,
-		PutConfig:                   b.populateOperationConfig("put", defaultEnabledPut, defaultNumRunsPut, defaultBatchSizePut),
-		PollConfig:                  b.populateOperationConfig("poll", defaultEnabledPoll, defaultNumRunsPoll, defaultBatchSizePoll),
+	return &runnerConfig{
+		enabled:                     enabled,
+		numQueues:                   numQueues,
+		queueBaseName:               b.queueBaseName,
+		appendQueueIndexToQueueName: appendQueueIndexToQueueName,
+		appendClientIdToQueueName:   appendClientIdToQueueName,
+		useQueuePrefix:              useQueuePrefix,
+		queuePrefix:                 queuePrefix,
+		putConfig:                   b.populateOperationConfig("put", defaultEnabledPut, defaultNumRunsPut, defaultBatchSizePut),
+		pollConfig:                  b.populateOperationConfig("poll", defaultEnabledPoll, defaultNumRunsPoll, defaultBatchSizePoll),
 	}
 
 }
 
-func (b RunnerConfigBuilder) populateOperationConfig(operation string, defaultOperationEnabled bool,
-	defaultNumRuns int, defaultBatchSize int) *OperationConfig {
+func (b runnerConfigBuilder) populateOperationConfig(operation string, defaultOperationEnabled bool,
+	defaultNumRuns int, defaultBatchSize int) *operationConfig {
 
-	operationConfig := b.RunnerKeyPath + "." + fmt.Sprintf("%sConfig", operation)
-	keyPath := operationConfig + ".enabled"
-	valueFromConfig, err := config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	c := b.runnerKeyPath + "." + fmt.Sprintf("%sConfig", operation)
+	keyPath := c + ".enabled"
+	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -177,8 +177,8 @@ func (b RunnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 		enabled = valueFromConfig.(bool)
 	}
 
-	keyPath = operationConfig + ".numRuns"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = c + ".numRuns"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numRuns int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -187,8 +187,8 @@ func (b RunnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 		numRuns = valueFromConfig.(int)
 	}
 
-	keyPath = operationConfig + ".batchSize"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	keyPath = c + ".batchSize"
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var batchSizePoll int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -220,21 +220,21 @@ func (b RunnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 		defaultBetweenRunsDurationMs = defaultSleepBetweenRunsDurationMsPoll
 	}
 
-	return &OperationConfig{
-		Enabled:                   enabled,
-		NumRuns:                   numRuns,
-		BatchSize:                 batchSizePoll,
-		InitialDelay:              b.populateSleepConfig(operationConfig+".sleeps.initialDelay", defaultInitialDelayEnabled, defaultInitialDelayDurationMs),
-		SleepBetweenActionBatches: b.populateSleepConfig(operationConfig+".sleeps.betweenActionBatches", defaultBetweenActionBatchesEnabled, defaultBetweenActionBatchesDurationMs),
-		SleepBetweenRuns:          b.populateSleepConfig(operationConfig+".sleeps.betweenRuns", defaultBetweenRunsEnabled, defaultBetweenRunsDurationMs),
+	return &operationConfig{
+		enabled:                   enabled,
+		numRuns:                   numRuns,
+		batchSize:                 batchSizePoll,
+		initialDelay:              b.populateSleepConfig(c+".sleeps.initialDelay", defaultInitialDelayEnabled, defaultInitialDelayDurationMs),
+		sleepBetweenActionBatches: b.populateSleepConfig(c+".sleeps.betweenActionBatches", defaultBetweenActionBatchesEnabled, defaultBetweenActionBatchesDurationMs),
+		sleepBetweenRuns:          b.populateSleepConfig(c+".sleeps.betweenRuns", defaultBetweenRunsEnabled, defaultBetweenRunsDurationMs),
 	}
 
 }
 
-func (b RunnerConfigBuilder) populateSleepConfig(configBasePath string, defaultEnabled bool, defaultDurationMs int) *SleepConfig {
+func (b runnerConfigBuilder) populateSleepConfig(configBasePath string, defaultEnabled bool, defaultDurationMs int) *sleepConfig {
 
 	keyPath := configBasePath + ".enabled"
-	valueFromConfig, err := config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -244,7 +244,7 @@ func (b RunnerConfigBuilder) populateSleepConfig(configBasePath string, defaultE
 	}
 
 	keyPath = configBasePath + ".durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(b.ParsedConfig, keyPath)
+	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var durationMs int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -253,7 +253,7 @@ func (b RunnerConfigBuilder) populateSleepConfig(configBasePath string, defaultE
 		durationMs = valueFromConfig.(int)
 	}
 
-	return &SleepConfig{enabled, durationMs}
+	return &sleepConfig{enabled, durationMs}
 
 }
 
@@ -287,15 +287,15 @@ type QueueTester struct {
 func (t *QueueTester) TestQueues() {
 
 	clientID := client.ClientID()
-	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(QueueRunners)))
+	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(runners)))
 
 	var wg sync.WaitGroup
-	for i := 0; i < len(QueueRunners); i++ {
+	for i := 0; i < len(runners); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			runner := QueueRunners[i]
-			runner.RunQueueTests(t.HzCluster, t.HzMembers)
+			runner := runners[i]
+			runner.runQueueTests(t.HzCluster, t.HzMembers)
 		}(i)
 	}
 

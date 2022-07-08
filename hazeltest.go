@@ -7,7 +7,6 @@ import (
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
-	_ "hazeltest/queues/tweets"
 	"os"
 	"strings"
 	"sync"
