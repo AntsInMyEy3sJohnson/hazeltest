@@ -5,15 +5,13 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"math/rand"
+	"hazeltest/load"
 	"strconv"
-	"time"
-
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -22,14 +20,6 @@ type (
 		Key     string
 		Payload *string
 	}
-)
-
-// From https://stackoverflow.com/a/31832326
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 const (
@@ -98,7 +88,7 @@ func populateLoadElements() []loadElement {
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and point to that string in each load element
-	randomPayload := generateRandomPayload(payloadSizeBytes)
+	randomPayload := load.GenerateRandomStringPayload(payloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
@@ -108,30 +98,6 @@ func populateLoadElements() []loadElement {
 	}
 
 	return elements
-
-}
-
-// Copied from: https://stackoverflow.com/a/31832326
-// StackOverflow is such a fascinating place.
-func generateRandomPayload(n int) string {
-
-	src := rand.NewSource(time.Now().UnixNano())
-
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return string(b)
 
 }
 
