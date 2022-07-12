@@ -71,29 +71,29 @@ func populateLoadElements() []loadElement {
 
 func populateLoadConfig() *runnerConfig {
 
-	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "queuetests.load"
 
-	keyPath := runnerKeyPath + ".numLoadEntries"
-	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
+	numLoadEntries = populateConfigProperty(runnerKeyPath+".numLoadEntries", func(defaultValue any) {
+		numLoadEntries = defaultValue.(int)
+	}, defaultNumLoadEntries).(int)
 
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numLoadEntries = defaultNumLoadEntries
-	} else {
-		numLoadEntries = valueFromConfig.(int)
-	}
-
-	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		payloadSizeBytes = defaultPayloadSizeBytes
-	} else {
-		payloadSizeBytes = valueFromConfig.(int)
-	}
+	payloadSizeBytes = populateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(defaultValue any) {
+		payloadSizeBytes = defaultValue.(int)
+	}, defaultPayloadSizeBytes).(int)
 
 	return PopulateConfig(runnerKeyPath, "load")
+
+}
+
+func populateConfigProperty(keyPath string, assignDefaultValue func(any), defaultValue any) any {
+
+	valueFromConfig, err := config.ExtractConfigValue(config.GetParsedConfig(), keyPath)
+
+	if err != nil {
+		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
+		assignDefaultValue(defaultValue)
+	}
+
+	return valueFromConfig
 
 }
