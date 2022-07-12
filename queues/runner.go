@@ -265,25 +265,13 @@ func (b runnerConfigBuilder) populateSleepConfig(configBasePath string, defaultE
 
 }
 
-func logErrUponConfigExtraction(keyPath string, err error) {
+func PopulateConfig(runnerKeyPath string, queueBaseName string) *runnerConfig {
 
-	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
-
-}
-
-func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
-
-	fields := log.Fields{
-		"kind":   logging.ConfigurationError,
-		"value":  configValue,
-		"source": source,
-		"client": client.ID(),
-	}
-	if logLevel == log.WarnLevel {
-		log.WithFields(fields).Warn(msg)
-	} else {
-		log.WithFields(fields).Fatal(msg)
-	}
+	return runnerConfigBuilder{
+		runnerKeyPath,
+		queueBaseName,
+		config.GetParsedConfig(),
+	}.populateConfig()
 
 }
 
@@ -312,5 +300,27 @@ func logInternalStateInfo(msg string) {
 		"kind":   logging.InternalStateInfo,
 		"client": client.ID(),
 	}).Trace(msg)
+
+}
+
+func logErrUponConfigExtraction(keyPath string, err error) {
+
+	logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), log.WarnLevel)
+
+}
+
+func logConfigEvent(configValue string, source string, msg string, logLevel log.Level) {
+
+	fields := log.Fields{
+		"kind":   logging.ConfigurationError,
+		"value":  configValue,
+		"source": source,
+		"client": client.ID(),
+	}
+	if logLevel == log.WarnLevel {
+		log.WithFields(fields).Warn(msg)
+	} else {
+		log.WithFields(fields).Fatal(msg)
+	}
 
 }
