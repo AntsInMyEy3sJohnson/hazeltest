@@ -64,18 +64,13 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	pokedex, err := parsePokedexFile()
 
-	clientID := client.ID()
 	if err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
 
 	ctx := context.TODO()
 
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-pokedexrunner", clientID), hzCluster, hzMembers)
-
-	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
-	}
+	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "pokedexrunner", hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()

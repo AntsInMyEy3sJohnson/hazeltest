@@ -10,14 +10,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"io/fs"
 	"sync"
 	"time"
 )
 
 type (
-	queueRunner     struct{}
+	tweetRunner     struct{}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
 	}
@@ -34,13 +33,13 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(queueRunner{})
+	register(tweetRunner{})
 	gob.Register(tweet{})
 }
 
-func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c := populateConfig()
+	c := PopulateConfig("queuetests.tweets", "tweets")
 
 	if !c.enabled {
 		lp.LogInternalStateEvent("tweetrunner not enabled -- won't run", log.InfoLevel)
@@ -55,11 +54,8 @@ func (r queueRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	}
 
 	ctx := context.TODO()
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-tweetrunner", client.ID()), hzCluster, hzMembers)
 
-	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %v", err), log.FatalLevel)
-	}
+	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "tweetrunner", hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
@@ -197,18 +193,6 @@ func parseTweets() (*tweetCollection, error) {
 	}
 
 	return &tc, nil
-
-}
-
-func populateConfig() *runnerConfig {
-
-	parsedConfig := config.GetParsedConfig()
-
-	return runnerConfigBuilder{
-		runnerKeyPath: "queuetests.tweets",
-		queueBaseName: "tweets",
-		parsedConfig:  parsedConfig,
-	}.populateConfig()
 
 }
 

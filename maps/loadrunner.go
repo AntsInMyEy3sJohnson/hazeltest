@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -42,6 +41,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	mapRunnerConfig := populateLoadConfig()
 
 	if !mapRunnerConfig.enabled {
+		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
 		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -50,18 +50,14 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	clientID := client.ID()
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-loadrunner", clientID), hzCluster, hzMembers)
+	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "maploadrunner", hzCluster, hzMembers)
 
-	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
-	}
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("starting load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("starting load test loop for maps", log.InfoLevel)
 
 	elements := populateLoadElements()
 
@@ -87,7 +83,7 @@ func populateLoadElements() []loadElement {
 	elements := make([]loadElement, numEntriesPerMap)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
-	// Thus, we use one random string for each map and point to that string in each load element
+	// Thus, we use one random string for each map and reference that string in each load element
 	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
