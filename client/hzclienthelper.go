@@ -40,8 +40,8 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 	hzClient, err := hazelcast.StartNewClientWithConfig(ctx, *hzConfig)
 
 	if err != nil {
+		// Causes log.Exit(1), which in turn calls os.Exit(1)
 		h.lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
-		return nil
 	}
 
 	return hzClient
