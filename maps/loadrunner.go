@@ -10,7 +10,7 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/client/config"
-	"hazeltest/load"
+	"hazeltest/loadsupport"
 	"strconv"
 )
 
@@ -18,7 +18,7 @@ type (
 	loadRunner  struct{}
 	loadElement struct {
 		Key     string
-		Payload *string
+		Payload string
 	}
 )
 
@@ -88,12 +88,12 @@ func populateLoadElements() []loadElement {
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and point to that string in each load element
-	randomPayload := load.GenerateRandomStringPayload(payloadSizeBytes)
+	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
-			Payload: &randomPayload,
+			Payload: randomPayload,
 		}
 	}
 
