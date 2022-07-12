@@ -1,4 +1,4 @@
-package load
+package loadsupport
 
 import (
 	"math/rand"
