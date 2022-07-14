@@ -74,7 +74,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop.run()
 
-	lp.LogInternalStateEvent("finished load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("finished map load test loop", log.InfoLevel)
 
 }
 
