@@ -30,7 +30,7 @@ const (
 
 func (l testLoop[t]) run() {
 
-	// Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs
+	// TODO Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs rather than the test loop pushing it
 
 	c := l.config
 	hzClient := l.hzClient
