@@ -92,7 +92,7 @@ func populateLoadConfig() *runnerConfig {
 		numLoadEntries = a.(int)
 	}, defaultNumLoadEntries)
 
-	populateConfigProperty(runnerKeyPath+"payloadSizeBytes", func(a any) {
+	populateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
 		payloadSizeBytes = a.(int)
 	}, defaultPayloadSizeBytes)
 
