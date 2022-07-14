@@ -109,7 +109,7 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 	_, ok := elementFromHz.(loadElement)
 
 	if !ok {
-		return errors.New("unable to serialize value retrieved from hazelcast map into loadelement instance")
+		return errors.New("unable to deserialize value retrieved from hazelcast map into loadelement instance")
 	}
 
 	return nil
