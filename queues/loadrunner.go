@@ -3,6 +3,7 @@ package queues
 import (
 	"context"
 	"encoding/gob"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
@@ -34,11 +35,12 @@ func init() {
 
 func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c := PopulateConfig("queuetests.load", "load")
+	c := populateLoadConfig()
 
 	if !c.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
 		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
+		return
 	}
 
 	api.RaiseNotReady()
@@ -52,6 +54,19 @@ func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting load test loop for queues", log.InfoLevel)
+
+	t := testLoop[loadElement]{
+		id:       uuid.New(),
+		source:   "loadrunner",
+		hzClient: hzClient,
+		config:   c,
+		elements: populateLoadElements(),
+		ctx:      ctx,
+	}
+
+	t.run()
+
+	lp.LogInternalStateEvent("finished queue load test loop", log.InfoLevel)
 
 }
 
