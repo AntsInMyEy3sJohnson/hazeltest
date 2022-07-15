@@ -75,6 +75,51 @@ queuetests:
         betweenRuns:
           enabled: true
           durationMs: 2000
+  load:
+    enabled: true
+    numQueues: 10
+    # Controls how many entries the queue load runner will use (this property is not available on the tweet runner because
+    # the tweet runner works on a static data set, hence the number of elements as well as their size are given). The
+    # queue load runner will create <numLoadEntries> string entries to iterate over them for each of the <numQueues> queues
+    # in each of the <numRuns> runs of its put and poll configurations.
+    numLoadEntries: 5000
+    # Configures the size, in bytes, for the random string to be used as each load entry (to reduce Hazeltest's memory
+    # footprint, only one random string of size <payloadSizeBytes> is created, and it will serve as the payload for each
+    # of the <numLoadEntries> entries)
+    payloadSizeBytes: 5000
+    appendQueueIndexToQueueName: true
+    appendClientIdToQueueName: false
+    queuePrefix:
+      enabled: true
+      prefix: "ht_"
+    putConfig:
+      enabled: true
+      numRuns: 500
+      batchSize: 50
+      sleeps:
+        initialDelay:
+          enabled: false
+          durationMs: 2000
+        betweenActionBatches:
+          enabled: true
+          durationMs: 200
+        betweenRuns:
+          enabled: true
+          durationMs: 200
+    pollConfig:
+      enabled: true
+      numRuns: 500
+      batchSize: 50
+      sleeps:
+        initialDelay:
+          enabled: true
+          durationMs: 20000
+        betweenActionBatches:
+          enabled: true
+          durationMs: 200
+        betweenRuns:
+          enabled: true
+          durationMs: 200
 
 # TODO Improve documentation: What datasource does each runner process?
 maptests:
@@ -107,37 +152,32 @@ maptests:
       # finished, meaning the next action batch will start only after a sleep of <durationMs>
       betweenActionBatches:
         enabled: false
-        durationMs: 200
+        durationMs: 2000
       # Can be enabled to make the test loop sleep for the given duration after each of the <numRuns>. One run consists of three actions (e.g. ingest-read-delete),
       # so use this setting to tell the test loop to sleep after having finished the last action of run <n> and before commencing with the first action of run <n+1>
       betweenRuns:
         enabled: true
-        durationMs: 200
+        durationMs: 2000
   load:
-    # Same as for PokedexRunner
     enabled: true
-    # Same as for PokedexRunner
     numMaps: 2
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
     numEntriesPerMap: 5000
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
-    payloadSizeBytes: 10000
-    # Same as for PokedexRunner
+    # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
+    # reduce the application's memory footprint)
+    payloadSizeBytes: 100000
     appendMapIndexToMapName: true
-    # Same as for PokedexRunner
     appendClientIdToMapName: false
-    # Same as for PokedexRunner
     numRuns: 10000
-    # Same as for PokedexRunner
     mapPrefix:
       enabled: true
       prefix: "ht_"
-    # All properties under this key work in exactly the same way as for the PokedexRunner.
     sleeps:
       betweenActionBatches:
         enabled: false
-        durationMs: 200
+        durationMs: 2000
       betweenRuns:
         enabled: true
-        durationMs: 200
+        durationMs: 2000
