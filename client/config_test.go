@@ -30,6 +30,8 @@ var mapTestsPokedexWithEnabledDefault = map[string]interface{}{
 
 func TestUserSuppliedValueTakesPrecedenceOverDefault(t *testing.T) {
 
+	defer t.Cleanup(teardown)
+
 	defaultConfig = mapTestsPokedexWithNumMapsDefault
 	userSuppliedConfig = mapTestsPokedexWithNumMapsUserSupplied
 
@@ -48,10 +50,11 @@ func TestUserSuppliedValueTakesPrecedenceOverDefault(t *testing.T) {
 
 func TestExtractNestedNotMap(t *testing.T) {
 
-	sourceMap := map[string]interface{}{
+	defer t.Cleanup(teardown)
+
+	defaultConfig = map[string]interface{}{
 		"mapTests": []int{1, 2, 3, 4, 5},
 	}
-	defaultConfig = sourceMap
 
 	_, err := retrieveConfigValue("mapTests.pokedex")
 
@@ -62,6 +65,8 @@ func TestExtractNestedNotMap(t *testing.T) {
 }
 
 func TestExtractKeyNotPresent(t *testing.T) {
+
+	defer t.Cleanup(teardown)
 
 	defaultConfig = mapTestsPokedexWithNumMapsDefault
 
@@ -78,6 +83,8 @@ func TestExtractKeyNotPresent(t *testing.T) {
 }
 
 func TestExtractNestedIntFromDefaultConfig(t *testing.T) {
+
+	defer t.Cleanup(teardown)
 
 	defaultConfig = mapTestsPokedexWithNumMapsDefault
 
@@ -96,6 +103,8 @@ func TestExtractNestedIntFromDefaultConfig(t *testing.T) {
 
 func TestExtractNestedBoolFromDefaultConfig(t *testing.T) {
 
+	defer t.Cleanup(teardown)
+
 	defaultConfig = mapTestsPokedexWithEnabledDefault
 
 	result, err := retrieveConfigValue("mapTests.pokedex.enabled")
@@ -107,5 +116,12 @@ func TestExtractNestedBoolFromDefaultConfig(t *testing.T) {
 	if !(result.(bool)) {
 		t.Error("expected result to be 'true', but was 'false'")
 	}
+
+}
+
+func teardown() {
+
+	defaultConfig = nil
+	userSuppliedConfig = nil
 
 }
