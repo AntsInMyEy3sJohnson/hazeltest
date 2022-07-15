@@ -4,7 +4,15 @@ import (
 	"testing"
 )
 
-var mapTestsPokedexWithNumMaps = map[string]interface{}{
+var mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
+	"mapTests": map[string]interface{}{
+		"pokedex": map[string]interface{}{
+			"numMaps": 10,
+		},
+	},
+}
+
+var mapTestsPokedexWithNumMapsDefault = map[string]interface{}{
 	"mapTests": map[string]interface{}{
 		"pokedex": map[string]interface{}{
 			"numMaps": 5,
@@ -12,12 +20,30 @@ var mapTestsPokedexWithNumMaps = map[string]interface{}{
 	},
 }
 
-var mapTestsPokedexWithEnabled = map[string]interface{}{
+var mapTestsPokedexWithEnabledDefault = map[string]interface{}{
 	"mapTests": map[string]interface{}{
 		"pokedex": map[string]interface{}{
 			"enabled": true,
 		},
 	},
+}
+
+func TestUserSuppliedValueTakesPrecedenceOverDefault(t *testing.T) {
+
+	defaultConfig = mapTestsPokedexWithNumMapsDefault
+	userSuppliedConfig = mapTestsPokedexWithNumMapsUserSupplied
+
+	expected := 10
+	actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
+
+	if err != nil {
+		t.Errorf("got non-nil error: %v", err)
+	}
+
+	if actual.(int) != expected {
+		t.Errorf("expected %d, got %d", expected, actual.(int))
+	}
+
 }
 
 func TestExtractNestedNotMap(t *testing.T) {
@@ -37,7 +63,7 @@ func TestExtractNestedNotMap(t *testing.T) {
 
 func TestExtractKeyNotPresent(t *testing.T) {
 
-	defaultConfig = mapTestsPokedexWithNumMaps
+	defaultConfig = mapTestsPokedexWithNumMapsDefault
 
 	actual, err := retrieveConfigValue("mapTests.load")
 
@@ -51,28 +77,26 @@ func TestExtractKeyNotPresent(t *testing.T) {
 
 }
 
-func TestExtractNestedInt(t *testing.T) {
+func TestExtractNestedIntFromDefaultConfig(t *testing.T) {
 
-	defaultConfig = mapTestsPokedexWithNumMaps
+	defaultConfig = mapTestsPokedexWithNumMapsDefault
 
-	expectedInt := 5
-	actualInt, err := retrieveConfigValue("mapTests.pokedex.numMaps")
+	expected := 5
+	actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
 	}
 
-	actualInt = actualInt.(int)
-
-	if expectedInt != actualInt {
-		t.Errorf("Expected: %d; got: %d", expectedInt, actualInt)
+	if actual.(int) != expected {
+		t.Errorf("Expected: %d; got: %d", expected, actual)
 	}
 
 }
 
-func TestExtractNestedBool(t *testing.T) {
+func TestExtractNestedBoolFromDefaultConfig(t *testing.T) {
 
-	defaultConfig = mapTestsPokedexWithEnabled
+	defaultConfig = mapTestsPokedexWithEnabledDefault
 
 	result, err := retrieveConfigValue("mapTests.pokedex.enabled")
 
