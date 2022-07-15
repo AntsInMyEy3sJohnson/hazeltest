@@ -1,7 +1,6 @@
-package config_test
+package client
 
 import (
-	"hazeltest/client/config"
 	"testing"
 )
 
@@ -26,8 +25,9 @@ func TestExtractNestedNotMap(t *testing.T) {
 	sourceMap := map[string]interface{}{
 		"mapTests": []int{1, 2, 3, 4, 5},
 	}
+	defaultConfig = sourceMap
 
-	_, err := config.ExtractConfigValue(sourceMap, "mapTests.pokedex")
+	_, err := RetrieveConfigValue("mapTests.pokedex")
 
 	if err == nil {
 		t.Error("expected non-nil error value, received nil instead")
@@ -37,9 +37,9 @@ func TestExtractNestedNotMap(t *testing.T) {
 
 func TestExctractKeyNotPresent(t *testing.T) {
 
-	sourceMap := mapTestsPokedexWithNumMaps
+	defaultConfig = mapTestsPokedexWithNumMaps
 
-	actual, err := config.ExtractConfigValue(sourceMap, "mapTests.load")
+	actual, err := RetrieveConfigValue("mapTests.load")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
@@ -53,10 +53,10 @@ func TestExctractKeyNotPresent(t *testing.T) {
 
 func TestExtractNestedInt(t *testing.T) {
 
-	sourceMap := mapTestsPokedexWithNumMaps
+	defaultConfig = mapTestsPokedexWithNumMaps
 
 	expectedInt := 5
-	actualInt, err := config.ExtractConfigValue(sourceMap, "mapTests.pokedex.numMaps")
+	actualInt, err := RetrieveConfigValue("mapTests.pokedex.numMaps")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
@@ -72,9 +72,9 @@ func TestExtractNestedInt(t *testing.T) {
 
 func TestExtractNestedBool(t *testing.T) {
 
-	sourceMap := mapTestsPokedexWithEnabled
+	defaultConfig = mapTestsPokedexWithEnabled
 
-	result, err := config.ExtractConfigValue(sourceMap, "mapTests.pokedex.enabled")
+	result, err := RetrieveConfigValue("mapTests.pokedex.enabled")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
