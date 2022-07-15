@@ -27,7 +27,7 @@ func TestExtractNestedNotMap(t *testing.T) {
 	}
 	defaultConfig = sourceMap
 
-	_, err := RetrieveConfigValue("mapTests.pokedex")
+	_, err := retrieveConfigValue("mapTests.pokedex")
 
 	if err == nil {
 		t.Error("expected non-nil error value, received nil instead")
@@ -39,7 +39,7 @@ func TestExtractKeyNotPresent(t *testing.T) {
 
 	defaultConfig = mapTestsPokedexWithNumMaps
 
-	actual, err := RetrieveConfigValue("mapTests.load")
+	actual, err := retrieveConfigValue("mapTests.load")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
@@ -56,7 +56,7 @@ func TestExtractNestedInt(t *testing.T) {
 	defaultConfig = mapTestsPokedexWithNumMaps
 
 	expectedInt := 5
-	actualInt, err := RetrieveConfigValue("mapTests.pokedex.numMaps")
+	actualInt, err := retrieveConfigValue("mapTests.pokedex.numMaps")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)
@@ -74,7 +74,7 @@ func TestExtractNestedBool(t *testing.T) {
 
 	defaultConfig = mapTestsPokedexWithEnabled
 
-	result, err := RetrieveConfigValue("mapTests.pokedex.enabled")
+	result, err := retrieveConfigValue("mapTests.pokedex.enabled")
 
 	if err != nil {
 		t.Errorf("Got non-nil error value: %s", err)

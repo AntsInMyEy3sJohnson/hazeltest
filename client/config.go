@@ -47,7 +47,17 @@ func RetrieveArgValue(arg string) interface{} {
 
 }
 
-func RetrieveConfigValue(keyPath string) (any, error) {
+func PopulateConfigProperty(keyPath string, assignValue func(any)) {
+
+	if value, err := retrieveConfigValue(keyPath); err != nil {
+		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
+	} else {
+		assignValue(value)
+	}
+
+}
+
+func retrieveConfigValue(keyPath string) (any, error) {
 
 	if value, err := retrieveConfigValueFromMap(userSuppliedConfig, keyPath); err == nil {
 		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.TraceLevel)
