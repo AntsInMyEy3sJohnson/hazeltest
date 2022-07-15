@@ -111,11 +111,11 @@ func (lp *LogProvider) LogHzEvent(msg string, level log.Level) {
 
 func (lp *LogProvider) LogErrUponConfigExtraction(keyPath string, err error, level log.Level) {
 
-	lp.logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), level)
+	lp.LogConfigEvent(keyPath, "config file", fmt.Sprintf("encountered error upon attempt to extract config value: %v", err), level)
 
 }
 
-func (lp *LogProvider) logConfigEvent(configValue string, source string, msg string, level log.Level) {
+func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level log.Level) {
 
 	fields := log.Fields{
 		"kind":   ConfigurationError,

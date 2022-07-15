@@ -7,7 +7,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"hazeltest/loadsupport"
 )
 
@@ -16,11 +15,6 @@ type (
 	loadElement struct {
 		Payload string
 	}
-)
-
-const (
-	defaultNumLoadEntries   = 5000
-	defaultPayloadSizeBytes = 1000
 )
 
 var (
@@ -88,25 +82,14 @@ func populateLoadConfig() *runnerConfig {
 
 	runnerKeyPath := "queuetests.load"
 
-	populateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
+	client.PopulateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
 		numLoadEntries = a.(int)
-	}, defaultNumLoadEntries)
+	})
 
-	populateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
 		payloadSizeBytes = a.(int)
-	}, defaultPayloadSizeBytes)
+	})
 
 	return PopulateConfig(runnerKeyPath, "load")
-
-}
-
-func populateConfigProperty(keyPath string, assignValue func(any), defaultValue any) {
-
-	if value, err := config.ExtractConfigValue(config.GetParsedConfig(), keyPath); err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
-		assignValue(defaultValue)
-	} else {
-		assignValue(value)
-	}
 
 }

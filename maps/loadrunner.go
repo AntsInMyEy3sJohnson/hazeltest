@@ -8,7 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"hazeltest/loadsupport"
 	"strconv"
 )
@@ -19,11 +18,6 @@ type (
 		Key     string
 		Payload string
 	}
-)
-
-const (
-	defaultNumEntriesPerMap = 10000
-	defaultPayloadSizeBytes = 1000
 )
 
 var (
@@ -118,31 +112,19 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 func populateLoadConfig() *runnerConfig {
 
-	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
 
-	keyPath := runnerKeyPath + ".numEntriesPerMap"
-	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numEntriesPerMap = defaultNumEntriesPerMap
-	} else {
-		numEntriesPerMap = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".numEntriesPerMap", func(a any) {
+		numEntriesPerMap = a.(int)
+	})
 
-	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		payloadSizeBytes = defaultPayloadSizeBytes
-	} else {
-		payloadSizeBytes = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+		payloadSizeBytes = a.(int)
+	})
 
 	configBuilder := runnerConfigBuilder{
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
-		parsedConfig:  parsedConfig,
 	}
 	return configBuilder.populateConfig()
 
