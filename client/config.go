@@ -41,6 +41,12 @@ func ParseConfigs() {
 
 }
 
+func RetrieveArgValue(arg string) interface{} {
+
+	return commandLineArgs[arg]
+
+}
+
 func RetrieveConfigValue(keyPath string) (any, error) {
 
 	if value, err := retrieveConfigValueFromMap(userSuppliedConfig, keyPath); err == nil {
@@ -89,12 +95,6 @@ func parseCommandLineArgs() {
 
 	commandLineArgs[ArgUseUniSocketClient] = *useUniSocketClient
 	commandLineArgs[ArgConfigFilePath] = *configFilePath
-
-}
-
-func RetrieveArgValue(arg string) interface{} {
-
-	return commandLineArgs[arg]
 
 }
 
