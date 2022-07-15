@@ -31,6 +31,7 @@ const (
 func (l testLoop[t]) run() {
 
 	// TODO Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs rather than the test loop pushing it
+	// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/8
 
 	c := l.config
 	hzClient := l.hzClient
