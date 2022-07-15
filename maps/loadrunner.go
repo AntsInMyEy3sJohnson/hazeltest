@@ -117,11 +117,10 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 func populateLoadConfig() *runnerConfig {
 
-	parsedConfig := client.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
 
 	keyPath := runnerKeyPath + ".numEntriesPerMap"
-	valueFromConfig, err := client.RetrieveConfigValue(parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numEntriesPerMap = defaultNumEntriesPerMap
@@ -130,7 +129,7 @@ func populateLoadConfig() *runnerConfig {
 	}
 
 	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = client.RetrieveConfigValue(parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		payloadSizeBytes = defaultPayloadSizeBytes
@@ -141,7 +140,6 @@ func populateLoadConfig() *runnerConfig {
 	configBuilder := runnerConfigBuilder{
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
-		parsedConfig:  parsedConfig,
 	}
 	return configBuilder.populateConfig()
 

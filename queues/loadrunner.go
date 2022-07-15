@@ -101,7 +101,7 @@ func populateLoadConfig() *runnerConfig {
 
 func populateConfigProperty(keyPath string, assignValue func(any), defaultValue any) {
 
-	if value, err := client.RetrieveConfigValue(client.GetParsedConfig(), keyPath); err != nil {
+	if value, err := client.RetrieveConfigValue(keyPath); err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
 		assignValue(defaultValue)
 	} else {

@@ -31,7 +31,6 @@ type (
 	runnerConfigBuilder struct {
 		runnerKeyPath string
 		mapBaseName   string
-		parsedConfig  map[string]interface{}
 	}
 	MapTester struct {
 		HzCluster string
@@ -68,7 +67,7 @@ func init() {
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 	keyPath := b.runnerKeyPath + ".enabled"
-	valueFromConfig, err := client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
 	var enabled bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -78,7 +77,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".numMaps"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var numMaps int
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -88,7 +87,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".appendMapIndexToMapName"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var appendMapIndexToMapName bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -98,7 +97,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".appendClientIdToMapName"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var appendClientIdToMapName bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -108,7 +107,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".numRuns"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var numRuns int
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -118,7 +117,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".mapPrefix.enabled"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var useMapPrefix bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -128,7 +127,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".mapPrefix.prefix"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var mapPrefix string
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -138,7 +137,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.enabled"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var sleepBetweenActionBatchesEnabled bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -148,7 +147,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.durationMs"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var sleepBetweenActionBatchesDurationMs int
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -158,7 +157,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.enabled"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var sleepBetweenRunsEnabled bool
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
@@ -168,7 +167,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.durationMs"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var sleepBetweenRunsDurationMs int
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)

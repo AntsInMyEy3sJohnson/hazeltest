@@ -38,7 +38,6 @@ type (
 	runnerConfigBuilder struct {
 		runnerKeyPath string
 		queueBaseName string
-		parsedConfig  map[string]interface{}
 	}
 	QueueTester struct {
 		HzCluster string
@@ -97,7 +96,7 @@ func init() {
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 	keyPath := b.runnerKeyPath + ".enabled"
-	valueFromConfig, err := client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -107,7 +106,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".numQueues"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var numQueues int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -117,7 +116,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".appendQueueIndexToQueueName"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var appendQueueIndexToQueueName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -127,7 +126,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".appendClientIdToQueueName"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var appendClientIdToQueueName bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -137,7 +136,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".queuePrefix.enabled"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var useQueuePrefix bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -147,7 +146,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 	}
 
 	keyPath = b.runnerKeyPath + ".queuePrefix.prefix"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var queuePrefix string
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -175,7 +174,7 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 
 	c := b.runnerKeyPath + "." + fmt.Sprintf("%sConfig", operation)
 	keyPath := c + ".enabled"
-	valueFromConfig, err := client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -185,7 +184,7 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 	}
 
 	keyPath = c + ".numRuns"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var numRuns int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -195,7 +194,7 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 	}
 
 	keyPath = c + ".batchSize"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var batchSizePoll int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -241,7 +240,7 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string, defaultOp
 func (b runnerConfigBuilder) populateSleepConfig(configBasePath string, defaultEnabled bool, defaultDurationMs int) *sleepConfig {
 
 	keyPath := configBasePath + ".enabled"
-	valueFromConfig, err := client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
 	var enabled bool
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -251,7 +250,7 @@ func (b runnerConfigBuilder) populateSleepConfig(configBasePath string, defaultE
 	}
 
 	keyPath = configBasePath + ".durationMs"
-	valueFromConfig, err = client.RetrieveConfigValue(b.parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
 	var durationMs int
 	if err != nil {
 		logErrUponConfigExtraction(keyPath, err)
@@ -269,7 +268,6 @@ func PopulateConfig(runnerKeyPath string, queueBaseName string) *runnerConfig {
 	return runnerConfigBuilder{
 		runnerKeyPath,
 		queueBaseName,
-		client.GetParsedConfig(),
 	}.populateConfig()
 
 }
