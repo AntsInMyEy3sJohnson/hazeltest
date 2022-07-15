@@ -77,12 +77,13 @@ func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 
 }
 
-func (lp *LogProvider) LogTimingEvent(operation string, mapName string, tookMs int, level log.Level) {
+func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int, level log.Level) {
 
 	fields := log.Fields{
-		"kind":   TimingInfo,
-		"map":    mapName,
-		"tookMs": tookMs,
+		"kind":              TimingInfo,
+		"operation":         operation,
+		"dataStructureName": dataStructureName,
+		"tookMs":            tookMs,
 	}
 
 	lp.doLog(fmt.Sprintf("'%s' took %d ms", operation, tookMs), fields, level)
