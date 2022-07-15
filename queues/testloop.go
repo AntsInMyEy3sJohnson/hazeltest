@@ -41,7 +41,10 @@ func (l testLoop[t]) run() {
 		numQueuesWg.Add(1)
 		queueName := l.assembleQueueName(i)
 		lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
+		start := time.Now()
 		q, err := hzClient.GetQueue(ctx, queueName)
+		elapsed := time.Since(start).Milliseconds()
+		lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 		if err != nil {
 			lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 		}
