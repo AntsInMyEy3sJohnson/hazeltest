@@ -17,11 +17,6 @@ type (
 	}
 )
 
-const (
-	defaultNumLoadEntries   = 5000
-	defaultPayloadSizeBytes = 1000
-)
-
 var (
 	numLoadEntries   int
 	payloadSizeBytes int
@@ -87,25 +82,14 @@ func populateLoadConfig() *runnerConfig {
 
 	runnerKeyPath := "queuetests.load"
 
-	populateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
+	client.PopulateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
 		numLoadEntries = a.(int)
-	}, defaultNumLoadEntries)
+	})
 
-	populateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
 		payloadSizeBytes = a.(int)
-	}, defaultPayloadSizeBytes)
+	})
 
 	return PopulateConfig(runnerKeyPath, "load")
-
-}
-
-func populateConfigProperty(keyPath string, assignValue func(any), defaultValue any) {
-
-	if value, err := client.RetrieveConfigValue(keyPath); err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
-		assignValue(defaultValue)
-	} else {
-		assignValue(value)
-	}
 
 }

@@ -20,11 +20,6 @@ type (
 	}
 )
 
-const (
-	defaultNumEntriesPerMap = 10000
-	defaultPayloadSizeBytes = 1000
-)
-
 var (
 	numEntriesPerMap int
 	payloadSizeBytes int
@@ -119,23 +114,13 @@ func populateLoadConfig() *runnerConfig {
 
 	runnerKeyPath := "maptests.load"
 
-	keyPath := runnerKeyPath + ".numEntriesPerMap"
-	valueFromConfig, err := client.RetrieveConfigValue(keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numEntriesPerMap = defaultNumEntriesPerMap
-	} else {
-		numEntriesPerMap = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".numEntriesPerMap", func(a any) {
+		numEntriesPerMap = a.(int)
+	})
 
-	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = client.RetrieveConfigValue(keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		payloadSizeBytes = defaultPayloadSizeBytes
-	} else {
-		payloadSizeBytes = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+		payloadSizeBytes = a.(int)
+	})
 
 	configBuilder := runnerConfigBuilder{
 		runnerKeyPath: runnerKeyPath,
