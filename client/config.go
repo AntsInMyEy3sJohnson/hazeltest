@@ -134,9 +134,3 @@ func decodeConfigFile(target *map[string]interface{}, path string, openFileFunc 
 	}
 
 }
-
-func GetParsedConfig() map[string]interface{} {
-
-	return defaultConfig
-
-}
