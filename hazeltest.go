@@ -3,7 +3,6 @@ package main
 import (
 	"hazeltest/api"
 	"hazeltest/client"
-	clientConfig "hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
@@ -18,10 +17,7 @@ func main() {
 
 	api.Serve()
 
-	clientConfig.ParseCommandLineArgs()
-
-	fileParser := clientConfig.FileParser{ClientID: client.ClientID()}
-	fileParser.ParseConfigFile()
+	client.ParseConfigs()
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
@@ -60,7 +56,7 @@ func logConfigurationError(configValue string, source string, msg string) {
 		"kind":   logging.ConfigurationError,
 		"value":  configValue,
 		"source": source,
-		"client": client.ClientID(),
+		"client": client.ID(),
 	}).Fatal(msg)
 
 }

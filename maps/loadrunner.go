@@ -4,36 +4,20 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"fmt"
-	"hazeltest/api"
-	"hazeltest/client"
-	"hazeltest/client/config"
-	"math/rand"
-	"strconv"
-	"time"
-
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
+	"hazeltest/client"
+	"hazeltest/loadsupport"
+	"strconv"
 )
 
-type loadRunner struct{}
-
-type loadElement struct {
-	Key     string
-	Payload *string
-}
-
-// Copied from: https://stackoverflow.com/a/31832326
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
-const (
-	defaultNumEntriesPerMap = 10000
-	defaultPayloadSizeBytes = 1000
+type (
+	loadRunner  struct{}
+	loadElement struct {
+		Key     string
+		Payload string
+	}
 )
 
 var (
@@ -51,6 +35,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	mapRunnerConfig := populateLoadConfig()
 
 	if !mapRunnerConfig.enabled {
+		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
 		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -59,18 +44,14 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	clientID := client.ClientID()
-	hzClient, err := client.InitHazelcastClient(ctx, fmt.Sprintf("%s-loadrunner", clientID), hzCluster, hzMembers)
+	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "maploadrunner", hzCluster, hzMembers)
 
-	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
-	}
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("starting load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("starting load test loop for maps", log.InfoLevel)
 
 	elements := populateLoadElements()
 
@@ -87,7 +68,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	testLoop.run()
 
-	lp.LogInternalStateEvent("finished load test loop", log.InfoLevel)
+	lp.LogInternalStateEvent("finished map load test loop", log.InfoLevel)
 
 }
 
@@ -96,41 +77,17 @@ func populateLoadElements() []loadElement {
 	elements := make([]loadElement, numEntriesPerMap)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
-	// Thus, we use one random string for each map and point to that string in each load element
-	randomPayload := generateRandomPayload(payloadSizeBytes)
+	// Thus, we use one random string for each map and reference that string in each load element
+	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
-			Payload: &randomPayload,
+			Payload: randomPayload,
 		}
 	}
 
 	return elements
-
-}
-
-// Copied from: https://stackoverflow.com/a/31832326
-// StackOverflow is such a fascinating place.
-func generateRandomPayload(n int) string {
-
-	src := rand.NewSource(time.Now().UnixNano())
-
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return string(b)
 
 }
 
@@ -146,7 +103,7 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 	_, ok := elementFromHz.(loadElement)
 
 	if !ok {
-		return errors.New("unable to serialize value retrieved from hazelcast map into loadelement instance")
+		return errors.New("unable to deserialize value retrieved from hazelcast map into loadelement instance")
 	}
 
 	return nil
@@ -155,31 +112,19 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 func populateLoadConfig() *runnerConfig {
 
-	parsedConfig := config.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
 
-	keyPath := runnerKeyPath + ".numEntriesPerMap"
-	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numEntriesPerMap = defaultNumEntriesPerMap
-	} else {
-		numEntriesPerMap = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".numEntriesPerMap", func(a any) {
+		numEntriesPerMap = a.(int)
+	})
 
-	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		payloadSizeBytes = defaultPayloadSizeBytes
-	} else {
-		payloadSizeBytes = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+		payloadSizeBytes = a.(int)
+	})
 
 	configBuilder := runnerConfigBuilder{
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
-		parsedConfig:  parsedConfig,
 	}
 	return configBuilder.populateConfig()
 

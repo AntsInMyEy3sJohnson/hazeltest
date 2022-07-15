@@ -4,14 +4,39 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"hazeltest/logging"
 	"sync"
 )
 
-type runner interface {
-	runMapTests(hzCluster string, hzMembers []string)
-}
+type (
+	runner interface {
+		runMapTests(hzCluster string, hzMembers []string)
+	}
+	runnerConfig struct {
+		enabled                   bool
+		numMaps                   int
+		numRuns                   int
+		mapBaseName               string
+		useMapPrefix              bool
+		mapPrefix                 string
+		appendMapIndexToMapName   bool
+		appendClientIdToMapName   bool
+		sleepBetweenActionBatches *sleepConfig
+		sleepBetweenRuns          *sleepConfig
+	}
+	sleepConfig struct {
+		enabled    bool
+		durationMs int
+	}
+	runnerConfigBuilder struct {
+		runnerKeyPath string
+		mapBaseName   string
+	}
+	MapTester struct {
+		HzCluster string
+		HzMembers []string
+	}
+)
 
 var runners []runner
 
@@ -19,161 +44,68 @@ func register(r runner) {
 	runners = append(runners, r)
 }
 
-type runnerConfig struct {
-	enabled                   bool
-	numMaps                   int
-	numRuns                   int
-	mapBaseName               string
-	useMapPrefix              bool
-	mapPrefix                 string
-	appendMapIndexToMapName   bool
-	appendClientIdToMapName   bool
-	sleepBetweenActionBatches *sleepConfig
-	sleepBetweenRuns          *sleepConfig
-}
-
-type sleepConfig struct {
-	enabled    bool
-	durationMs int
-}
-
-type runnerConfigBuilder struct {
-	runnerKeyPath string
-	mapBaseName   string
-	parsedConfig  map[string]interface{}
-}
-
-const (
-	defaultEnabled                             = true
-	defaultNumMaps                             = 10
-	defaultAppendMapIndexToMapName             = true
-	defaultAppendClientIdToMapName             = false
-	defaultNumRuns                             = 10000
-	defaultUseMapPrefix                        = true
-	defaultMapPrefix                           = "ht_"
-	defaultSleepBetweenActionBatchesEnabled    = false
-	defaultSleepBetweenActionBatchesDurationMs = 200
-	defaultSleepBetweenRunsEnabled             = true
-	defaultSleepBetweenRunsDurationMs          = 200
-)
-
 var lp *logging.LogProvider
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
+	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
-	keyPath := b.runnerKeyPath + ".enabled"
-	valueFromConfig, err := config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var enabled bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		enabled = defaultEnabled
-	} else {
-		enabled = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".enabled", func(a any) {
+		enabled = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".numMaps"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numMaps int
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numMaps = defaultNumMaps
-	} else {
-		numMaps = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".numMaps", func(a any) {
+		numMaps = a.(int)
+	})
 
-	keyPath = b.runnerKeyPath + ".appendMapIndexToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendMapIndexToMapName bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		appendMapIndexToMapName = defaultAppendMapIndexToMapName
-	} else {
-		appendMapIndexToMapName = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".appendMapIndexToMapName", func(a any) {
+		appendMapIndexToMapName = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".appendClientIdToMapName"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var appendClientIdToMapName bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		appendClientIdToMapName = defaultAppendClientIdToMapName
-	} else {
-		appendClientIdToMapName = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
+		appendMapIndexToMapName = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".numRuns"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var numRuns int
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		numRuns = defaultNumRuns
-	} else {
-		numRuns = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".numRuns", func(a any) {
+		numRuns = a.(int)
+	})
 
-	keyPath = b.runnerKeyPath + ".mapPrefix.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var useMapPrefix bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		useMapPrefix = defaultUseMapPrefix
-	} else {
-		useMapPrefix = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".mapPrefix.enabled", func(a any) {
+		useMapPrefix = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".mapPrefix.prefix"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var mapPrefix string
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		mapPrefix = defaultMapPrefix
-	} else {
-		mapPrefix = valueFromConfig.(string)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".mapPrefix.prefix", func(a any) {
+		mapPrefix = a.(string)
+	})
 
-	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesEnabled bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		sleepBetweenActionBatchesEnabled = defaultSleepBetweenActionBatchesEnabled
-	} else {
-		sleepBetweenActionBatchesEnabled = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(a any) {
+		sleepBetweenActionBatchesEnabled = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".sleeps.betweenActionBatches.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenActionBatchesDurationMs int
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		sleepBetweenActionBatchesDurationMs = defaultSleepBetweenActionBatchesDurationMs
-	} else {
-		sleepBetweenActionBatchesDurationMs = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(a any) {
+		sleepBetweenActionBatchesDurationMs = a.(int)
+	})
 
-	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.enabled"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsEnabled bool
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		sleepBetweenRunsEnabled = defaultSleepBetweenRunsEnabled
-	} else {
-		sleepBetweenRunsEnabled = valueFromConfig.(bool)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(a any) {
+		sleepBetweenRunsEnabled = a.(bool)
+	})
 
-	keyPath = b.runnerKeyPath + ".sleeps.betweenRuns.durationMs"
-	valueFromConfig, err = config.ExtractConfigValue(b.parsedConfig, keyPath)
 	var sleepBetweenRunsDurationMs int
-	if err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
-		sleepBetweenRunsDurationMs = defaultSleepBetweenRunsDurationMs
-	} else {
-		sleepBetweenRunsDurationMs = valueFromConfig.(int)
-	}
+	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(a any) {
+		sleepBetweenRunsDurationMs = a.(int)
+	})
 
 	return &runnerConfig{
 		enabled:                   enabled,
@@ -190,14 +122,9 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 }
 
-type MapTester struct {
-	HzCluster string
-	HzMembers []string
-}
-
 func (t *MapTester) TestMaps() {
 
-	clientID := client.ClientID()
+	clientID := client.ID()
 	lp.LogInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup

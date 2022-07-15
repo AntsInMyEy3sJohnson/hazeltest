@@ -15,20 +15,22 @@ import (
 	"github.com/hazelcast/hazelcast-go-client"
 )
 
-type getElementID func(element interface{}) string
+type (
+	getElementID func(element interface{}) string
 
-type deserializeElement func(element interface{}) error
+	deserializeElement func(element interface{}) error
 
-type testLoop[t any] struct {
-	id                     uuid.UUID
-	source                 string
-	hzClient               *hazelcast.Client
-	config                 *runnerConfig
-	elements               []t
-	ctx                    context.Context
-	getElementIdFunc       getElementID
-	deserializeElementFunc deserializeElement
-}
+	testLoop[t any] struct {
+		id                     uuid.UUID
+		source                 string
+		hzClient               *hazelcast.Client
+		config                 *runnerConfig
+		elements               []t
+		ctx                    context.Context
+		getElementIdFunc       getElementID
+		deserializeElementFunc deserializeElement
+	}
+)
 
 func (l testLoop[T]) run() {
 
@@ -204,7 +206,7 @@ func (l testLoop[T]) assembleMapName(mapIndex int) string {
 		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
 	}
 	if c.appendClientIdToMapName {
-		mapName = fmt.Sprintf("%s-%s", mapName, client.ClientID())
+		mapName = fmt.Sprintf("%s-%s", mapName, client.ID())
 	}
 
 	return mapName
@@ -222,6 +224,6 @@ func sleep(sleepConfig *sleepConfig) {
 
 func assembleMapKey(mapNumber int, elementID string) string {
 
-	return fmt.Sprintf("%s-%d-%s", client.ClientID(), mapNumber, elementID)
+	return fmt.Sprintf("%s-%d-%s", client.ID(), mapNumber, elementID)
 
 }

@@ -35,7 +35,7 @@ func init() {
 	r = &readiness{false, false, 0}
 	s = status{[]TestLoopStatus{}}
 
-	lp = &logging.LogProvider{ClientID: client.ClientID()}
+	lp = &logging.LogProvider{ClientID: client.ID()}
 
 }
 

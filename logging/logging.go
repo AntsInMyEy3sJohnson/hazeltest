@@ -77,12 +77,13 @@ func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 
 }
 
-func (lp *LogProvider) LogTimingEvent(operation string, mapName string, tookMs int, level log.Level) {
+func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int, level log.Level) {
 
 	fields := log.Fields{
-		"kind":   TimingInfo,
-		"map":    mapName,
-		"tookMs": tookMs,
+		"kind":              TimingInfo,
+		"operation":         operation,
+		"dataStructureName": dataStructureName,
+		"tookMs":            tookMs,
 	}
 
 	lp.doLog(fmt.Sprintf("'%s' took %d ms", operation, tookMs), fields, level)
@@ -110,11 +111,11 @@ func (lp *LogProvider) LogHzEvent(msg string, level log.Level) {
 
 func (lp *LogProvider) LogErrUponConfigExtraction(keyPath string, err error, level log.Level) {
 
-	lp.logConfigEvent(keyPath, "config file", fmt.Sprintf("will use default for property due to error: %s", err), level)
+	lp.LogConfigEvent(keyPath, "config file", fmt.Sprintf("encountered error upon attempt to extract config value: %v", err), level)
 
 }
 
-func (lp *LogProvider) logConfigEvent(configValue string, source string, msg string, level log.Level) {
+func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level log.Level) {
 
 	fields := log.Fields{
 		"kind":   ConfigurationError,
