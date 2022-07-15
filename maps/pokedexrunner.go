@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 )
 
 type (
@@ -115,7 +114,7 @@ func deserializePokemon(elementFromHZ interface{}) error {
 
 func populatePokedexConfig() *runnerConfig {
 
-	parsedConfig := config.GetParsedConfig()
+	parsedConfig := client.GetParsedConfig()
 	runnerKeyPath := "maptests.pokedex"
 
 	configBuilder := runnerConfigBuilder{

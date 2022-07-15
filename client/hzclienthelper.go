@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"hazeltest/client/config"
 	"hazeltest/logging"
 
 	"github.com/hazelcast/hazelcast-go-client"
@@ -26,9 +25,9 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, runnerName)
 	hzConfig.Cluster.Name = hzCluster
 
-	useUniSocketClient, ok := config.RetrieveArgValue(config.ArgUseUniSocketClient).(bool)
+	useUniSocketClient, ok := RetrieveArgValue(ArgUseUniSocketClient).(bool)
 	if !ok {
-		logConfigurationError(config.ArgUseUniSocketClient, "command line", "unable to convert value into bool -- using default instead")
+		logConfigurationError(ArgUseUniSocketClient, "command line", "unable to convert value into bool -- using default instead")
 		useUniSocketClient = false
 	}
 	hzConfig.Cluster.Unisocket = useUniSocketClient

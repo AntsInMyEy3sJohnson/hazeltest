@@ -8,7 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"hazeltest/loadsupport"
 	"strconv"
 )
@@ -118,11 +117,11 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 func populateLoadConfig() *runnerConfig {
 
-	parsedConfig := config.GetParsedConfig()
+	parsedConfig := client.GetParsedConfig()
 	runnerKeyPath := "maptests.load"
 
 	keyPath := runnerKeyPath + ".numEntriesPerMap"
-	valueFromConfig, err := config.ExtractConfigValue(parsedConfig, keyPath)
+	valueFromConfig, err := client.RetrieveConfigValue(parsedConfig, keyPath)
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		numEntriesPerMap = defaultNumEntriesPerMap
@@ -131,7 +130,7 @@ func populateLoadConfig() *runnerConfig {
 	}
 
 	keyPath = runnerKeyPath + ".payloadSizeBytes"
-	valueFromConfig, err = config.ExtractConfigValue(parsedConfig, keyPath)
+	valueFromConfig, err = client.RetrieveConfigValue(parsedConfig, keyPath)
 	if err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.WarnLevel)
 		payloadSizeBytes = defaultPayloadSizeBytes

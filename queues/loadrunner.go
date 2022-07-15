@@ -7,7 +7,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/client/config"
 	"hazeltest/loadsupport"
 )
 
@@ -102,7 +101,7 @@ func populateLoadConfig() *runnerConfig {
 
 func populateConfigProperty(keyPath string, assignValue func(any), defaultValue any) {
 
-	if value, err := config.ExtractConfigValue(config.GetParsedConfig(), keyPath); err != nil {
+	if value, err := client.RetrieveConfigValue(client.GetParsedConfig(), keyPath); err != nil {
 		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
 		assignValue(defaultValue)
 	} else {

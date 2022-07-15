@@ -3,7 +3,6 @@ package main
 import (
 	"hazeltest/api"
 	"hazeltest/client"
-	clientConfig "hazeltest/client/config"
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
@@ -18,10 +17,7 @@ func main() {
 
 	api.Serve()
 
-	clientConfig.ParseCommandLineArgs()
-
-	fileParser := clientConfig.FileParser{ClientID: client.ID()}
-	fileParser.ParseConfigFile()
+	client.ParseConfigs()
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
