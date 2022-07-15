@@ -35,7 +35,7 @@ func TestExtractNestedNotMap(t *testing.T) {
 
 }
 
-func TestExctractKeyNotPresent(t *testing.T) {
+func TestExtractKeyNotPresent(t *testing.T) {
 
 	defaultConfig = mapTestsPokedexWithNumMaps
 

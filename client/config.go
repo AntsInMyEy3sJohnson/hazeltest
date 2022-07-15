@@ -43,38 +43,40 @@ func ParseConfigs() {
 
 func RetrieveConfigValue(keyPath string) (any, error) {
 
-	pathElements := strings.Split(keyPath, ".")
-
-	if len(pathElements) == 1 {
-		return getValueFromMaps(keyPath)
+	if value, err := retrieveConfigValueFromMap(userSuppliedConfig, keyPath); err == nil {
+		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.TraceLevel)
+		return value, nil
 	}
 
-	currentPathElement := pathElements[0]
-	sourceMap, err := getValueFromMaps(currentPathElement)
-
-	if err != nil {
-		return nil, fmt.Errorf("error upon attempt to parse value at '%s' into map for further processing", currentPathElement)
+	if value, err := retrieveConfigValueFromMap(defaultConfig, keyPath); err == nil {
+		lp.LogConfigEvent(keyPath, "config file", "found value in default config file", log.TraceLevel)
+		return value, nil
 	}
 
-	sourceMap = sourceMap.(map[string]interface{})
-
-	keyPath = keyPath[strings.Index(keyPath, ".")+1:]
-
-	return RetrieveConfigValue(sourceMap, keyPath)
+	errMsg := fmt.Sprintf("no map provides value for key '%s'", keyPath)
+	lp.LogConfigEvent(keyPath, "config file", errMsg, log.WarnLevel)
+	return nil, errors.New(errMsg)
 
 }
 
-func getValueFromMaps(key string) (any, error) {
+func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
-	if value, ok := userSuppliedConfig[key]; ok {
-		return value, nil
+	pathElements := strings.Split(keyPath, ".")
+
+	if len(pathElements) == 1 {
+		return m[keyPath], nil
 	}
 
-	if value, ok := defaultConfig[key]; ok {
-		return value, nil
+	currentPathElement := pathElements[0]
+	sourceMap, ok := m[currentPathElement].(map[string]interface{})
+
+	if !ok {
+		return nil, fmt.Errorf("error upon attempt to parse value at '%s' into map for further processing", currentPathElement)
 	}
 
-	return nil, errors.New(fmt.Sprintf("no config map contained value for key '%s'", key))
+	keyPath = keyPath[strings.Index(keyPath, ".")+1:]
+
+	return retrieveConfigValueFromMap(sourceMap, keyPath)
 
 }
 
