@@ -69,7 +69,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
 	var appendClientIdToMapName bool
 	client.PopulateConfigProperty(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
-		appendMapIndexToMapName = a.(bool)
+		appendClientIdToMapName = a.(bool)
 	})
 
 	var numRuns int
