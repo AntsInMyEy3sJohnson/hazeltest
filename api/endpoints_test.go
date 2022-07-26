@@ -10,14 +10,25 @@ import (
 
 func TestReadinessCheck(t *testing.T) {
 
-	RaiseNotReady()
-
 	request := httptest.NewRequest(http.MethodGet, "localhost:8080/readiness", nil)
 	recorder := httptest.NewRecorder()
 
 	readinessHandler(recorder, request)
-
 	response := recorder.Result()
+	defer response.Body.Close()
+
+	statusCode := response.StatusCode
+	expectedStatusCode := 503
+
+	if statusCode != expectedStatusCode {
+		t.Errorf("expected status code %d, got %d", expectedStatusCode, statusCode)
+	}
+
+	RaiseNotReady()
+
+	readinessHandler(recorder, request)
+
+	response = recorder.Result()
 	defer response.Body.Close()
 
 	data, err := ioutil.ReadAll(response.Body)
@@ -30,8 +41,8 @@ func TestReadinessCheck(t *testing.T) {
 		t.Errorf("expected nil payload to be returned, got: %s", data)
 	}
 
-	statusCode := response.StatusCode
-	expectedStatusCode := 503
+	statusCode = response.StatusCode
+	expectedStatusCode = 503
 	if statusCode != expectedStatusCode {
 		t.Errorf("expected status code %d, got %d", expectedStatusCode, statusCode)
 	}
