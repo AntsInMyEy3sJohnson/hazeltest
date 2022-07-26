@@ -17,7 +17,7 @@ type liveness struct {
 }
 type readiness struct {
 	Up                         bool
-	atLeastOneClientRegistered bool
+	atLeastOneRunnerRegistered bool
 	numClientsNotReady         int
 }
 
@@ -58,8 +58,8 @@ func RaiseNotReady() {
 	apiMutex.Lock()
 	{
 		r.numClientsNotReady++
-		if !r.atLeastOneClientRegistered {
-			r.atLeastOneClientRegistered = true
+		if !r.atLeastOneRunnerRegistered {
+			r.atLeastOneRunnerRegistered = true
 		}
 		lp.LogApiEvent(fmt.Sprintf("client has raised 'not ready', number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
 	}
@@ -73,7 +73,7 @@ func RaiseReady() {
 	{
 		r.numClientsNotReady--
 		lp.LogApiEvent(fmt.Sprintf("client has raised readiness, number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
-		if r.numClientsNotReady == 0 && r.atLeastOneClientRegistered && !r.Up {
+		if r.numClientsNotReady == 0 && r.atLeastOneRunnerRegistered && !r.Up {
 			r.Up = true
 			lp.LogApiEvent("all clients ready", log.InfoLevel)
 		}
