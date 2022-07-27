@@ -18,15 +18,15 @@ type liveness struct {
 type readiness struct {
 	Up                         bool
 	atLeastOneRunnerRegistered bool
-	numClientsNotReady         int
+	numNonReadyRunners         int
 }
 
 var (
-	l        *liveness
-	r        *readiness
-	s        status
-	lp       *logging.LogProvider
-	apiMutex sync.Mutex
+	l  *liveness
+	r  *readiness
+	s  status
+	lp *logging.LogProvider
+	m  sync.Mutex
 )
 
 func init() {
@@ -55,30 +55,30 @@ func Serve() {
 
 func RaiseNotReady() {
 
-	apiMutex.Lock()
+	m.Lock()
 	{
-		r.numClientsNotReady++
+		r.numNonReadyRunners++
 		if !r.atLeastOneRunnerRegistered {
 			r.atLeastOneRunnerRegistered = true
 		}
-		lp.LogApiEvent(fmt.Sprintf("client has raised 'not ready', number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("client has raised 'not ready', number of non-ready clients now %d", r.numNonReadyRunners), log.InfoLevel)
 	}
-	apiMutex.Unlock()
+	m.Unlock()
 
 }
 
 func RaiseReady() {
 
-	apiMutex.Lock()
+	m.Lock()
 	{
-		r.numClientsNotReady--
-		lp.LogApiEvent(fmt.Sprintf("client has raised readiness, number of non-ready clients now %d", r.numClientsNotReady), log.InfoLevel)
-		if r.numClientsNotReady == 0 && r.atLeastOneRunnerRegistered && !r.Up {
+		r.numNonReadyRunners--
+		lp.LogApiEvent(fmt.Sprintf("client has raised readiness, number of non-ready clients now %d", r.numNonReadyRunners), log.InfoLevel)
+		if r.numNonReadyRunners == 0 && r.atLeastOneRunnerRegistered && !r.Up {
 			r.Up = true
 			lp.LogApiEvent("all clients ready", log.InfoLevel)
 		}
 	}
-	apiMutex.Unlock()
+	m.Unlock()
 
 }
 
