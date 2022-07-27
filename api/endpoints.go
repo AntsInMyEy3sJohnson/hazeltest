@@ -61,7 +61,7 @@ func RaiseNotReady() {
 		if !r.atLeastOneRunnerRegistered {
 			r.atLeastOneRunnerRegistered = true
 		}
-		lp.LogApiEvent(fmt.Sprintf("client has raised 'not ready', number of non-ready clients now %d", r.numNonReadyRunners), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("runner has raised 'not ready', number of non-ready runners now %d", r.numNonReadyRunners), log.InfoLevel)
 	}
 	m.Unlock()
 
@@ -72,10 +72,10 @@ func RaiseReady() {
 	m.Lock()
 	{
 		r.numNonReadyRunners--
-		lp.LogApiEvent(fmt.Sprintf("client has raised readiness, number of non-ready clients now %d", r.numNonReadyRunners), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("runner has raised readiness, number of non-ready runners now %d", r.numNonReadyRunners), log.InfoLevel)
 		if r.numNonReadyRunners == 0 && r.atLeastOneRunnerRegistered && !r.Up {
 			r.Up = true
-			lp.LogApiEvent("all clients ready", log.InfoLevel)
+			lp.LogApiEvent("all runners ready", log.InfoLevel)
 		}
 	}
 	m.Unlock()
