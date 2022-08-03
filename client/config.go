@@ -77,6 +77,10 @@ func retrieveConfigValue(keyPath string) (any, error) {
 
 func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
+	if m == nil {
+		return nil, fmt.Errorf("given config map was nil -- cannot look up key path '%s' in nil map", keyPath)
+	}
+
 	pathElements := strings.Split(keyPath, ".")
 
 	if len(pathElements) == 1 {
