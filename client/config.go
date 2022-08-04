@@ -50,7 +50,7 @@ func RetrieveArgValue(arg string) interface{} {
 func PopulateConfigProperty(keyPath string, assignValue func(any)) {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
-		lp.LogErrUponConfigExtraction(keyPath, err, log.FatalLevel)
+		lp.LogErrUponConfigRetrieval(keyPath, err, log.FatalLevel)
 	} else {
 		assignValue(value)
 	}
