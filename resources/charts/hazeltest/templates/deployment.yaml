@@ -33,7 +33,7 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.app.httpPort }}
+          containerPort: {{ .Values.httpPort }}
         livenessProbe:
           httpGet:
             port: http
@@ -43,12 +43,7 @@ spec:
             port: http
             path: /readiness
         resources:
-          requests:
-            cpu: {{ .Values.app.resources.requests.cpu }}
-            memory: {{ .Values.app.resources.requests.memory }}
-          limits:
-            cpu: {{ .Values.app.resources.limits.cpu }}
-            memory: {{ .Values.app.resources.limits.memory }}
+{{ toYaml .Values.resources | indent 10 }}
         env:
         - name: HZ_CLUSTER
           value: {{ .Values.env.hzCluster }}
