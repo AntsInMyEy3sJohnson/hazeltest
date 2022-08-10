@@ -18,7 +18,7 @@ spec:
         app.kubernetes.io/name: {{ template "hazeltest.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
       # Make sure Hazeltest Pods restart whenever a new Helm release is installed
-      # -> Ensures changes ConfigMap get picked up immediately
+      # -> Ensures changes made to ConfigMap get picked up immediately
       annotations:
         helmRevision: "{{ .Release.Revision }}"
     spec:
@@ -28,9 +28,9 @@ spec:
           name: {{ template "hazeltest.fullname" . }}-config
       containers:
       - name: hazeltest
-        image: {{ .Values.app.image }}
+        image: "{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.repository }}@sha256:{{ .Values.image.digest }}"
         args: ["-config-file=/data/config/custom-config.yaml"]
-        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - name: http
           containerPort: {{ .Values.app.httpPort }}
