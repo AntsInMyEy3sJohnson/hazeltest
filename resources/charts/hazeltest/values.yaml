@@ -11,11 +11,11 @@ image:
 httpPort: 8080
 resources:
   requests:
-    cpu: "500m"
-    memory: "256M"
+    cpu: "100m"
+    memory: "128M"
   limits:
-    cpu: "1"
-    memory: "512M"
+    cpu: "200m"
+    memory: "256M"
 
 env:
   # Name of the Hazelcast cluster to connect to -- usually configured in Hazelcast by means of the "hazelcast.cluster-name" property
