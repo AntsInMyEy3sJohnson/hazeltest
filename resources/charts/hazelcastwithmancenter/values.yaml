@@ -1,5 +1,7 @@
 platform:
   deploy: true
+  nodeSelectors:
+    tShirtSize: large
   service:
     type: NodePort
     port: 5701

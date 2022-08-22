@@ -25,6 +25,10 @@ spec:
         # such as changes to the Hazelcast ConfigMap
         helmRevision: "{{ .Release.Revision }}"
     spec:
+      {{ if .Values.platform.nodeSelectors }}
+      nodeSelector:
+        {{ toYaml .Values.platform.nodeSelectors }}
+      {{ end }}
       terminationGracePeriodSeconds: {{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}
       volumes:
       - name: hzconfig
