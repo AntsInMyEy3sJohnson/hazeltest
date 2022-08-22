@@ -19,6 +19,10 @@ spec:
         app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      {{ if .Values.mancenter.nodeSelectors }}
+      nodeSelector:
+        {{ toYaml .Values.mancenter.nodeSelectors }}
+      {{ end }}
       containers:
       - name: mancenter
         image: {{ .Values.mancenter.instance.image }}

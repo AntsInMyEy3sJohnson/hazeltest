@@ -91,6 +91,8 @@ mancenter:
   service:
     type: NodePort
     port: 8080
+  nodeSelectors:
+    tShirtSize: large
   instance:
     image: hazelcast/management-center:5.1.3
     imagePullPolicy: IfNotPresent
