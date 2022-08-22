@@ -29,7 +29,11 @@ spec:
       containers:
       - name: hazeltest
         image: "{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.repository }}@sha256:{{ .Values.image.digest }}"
+        {{ if .Values.startupArgs }}
+        args: [{{ join "," .Values.startupArgs }}]
+        {{ else }}
         args: ["-config-file=/data/config/custom-config.yaml"]
+        {{ end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - name: http

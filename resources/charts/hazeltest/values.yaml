@@ -17,6 +17,10 @@ resources:
     cpu: "200m"
     memory: "256M"
 
+startupArgs:
+  - "-config-file=/data/config/custom-config.yaml"
+  - "-use-unisocket-client=false"
+
 env:
   # Name of the Hazelcast cluster to connect to -- usually configured in Hazelcast by means of the "hazelcast.cluster-name" property
   hzCluster: "hazelcastplatform"

@@ -4,7 +4,7 @@ description: A Helm chart for deploying Hazeltest on Kubernetes
 
 type: application
 
-version: 1.1.0
+version: 1.2.0
 
 appVersion: "0.5.2"
 
