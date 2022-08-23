@@ -19,14 +19,14 @@ platform:
         maxWaitSeconds: 60
       containerResources:
         requests:
-          cpu: "1"
-          memory: "3G"
+          cpu: "4"
+          memory: "8G"
         limits:
-          cpu: "2"
-          memory: "3G"
+          cpu: "6"
+          memory: "8G"
       jvmResources:
-        xmx: 2500m
-        xms: 2500m
+        xmx: 6500m
+        xms: 6500m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -39,7 +39,7 @@ platform:
         enabled: true
         # Default is 5 -- by setting this to a higher value, one can decrease load on the Management Center
         # because it will receive fewer data points to work with
-        collection-frequency-seconds: 30
+        collection-frequency-seconds: 60
       jet:
         enabled: true
       cluster-name: "hazelcastplatform"
@@ -98,8 +98,6 @@ mancenter:
   service:
     type: NodePort
     port: 8080
-  nodeSelectors:
-    tShirtSize: large
   instance:
     image: hazelcast/management-center:5.1.3
     imagePullPolicy: IfNotPresent
@@ -118,8 +116,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "1"
-        memory: "2G"
-      limits:
         cpu: "2"
-        memory: "2G"
+        memory: "8G"
+      limits:
+        cpu: "4"
+        memory: "8G"
