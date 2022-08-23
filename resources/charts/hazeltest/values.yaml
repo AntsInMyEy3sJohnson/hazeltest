@@ -11,11 +11,11 @@ image:
 httpPort: 8080
 resources:
   requests:
+    cpu: "50m"
+    memory: "64M"
+  limits:
     cpu: "100m"
     memory: "128M"
-  limits:
-    cpu: "200m"
-    memory: "256M"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
