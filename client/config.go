@@ -19,6 +19,13 @@ const (
 	defaultConfigFilePath = "defaultConfig.yaml"
 )
 
+type (
+	flagParser interface {
+		Parse()
+	}
+	defaultFlagParser struct{}
+)
+
 var (
 	commandLineArgs map[string]interface{}
 	//go:embed defaultConfig.yaml
@@ -29,13 +36,18 @@ var (
 )
 
 func init() {
-	commandLineArgs = make(map[string]interface{})
 	lp = &logging.LogProvider{ClientID: ID()}
+}
+
+func (p defaultFlagParser) Parse() {
+
+	flag.Parse()
+
 }
 
 func ParseConfigs() {
 
-	parseCommandLineArgs()
+	commandLineArgs = parseCommandLineArgs(defaultFlagParser{})
 	parseDefaultConfigFile()
 	parseUserSuppliedConfigFile()
 
@@ -100,15 +112,18 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs() {
+func parseCommandLineArgs(p flagParser) map[string]interface{} {
 
 	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
 	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 
-	flag.Parse()
+	p.Parse()
 
+	commandLineArgs = make(map[string]interface{})
 	commandLineArgs[ArgUseUniSocketClient] = *useUniSocketClient
 	commandLineArgs[ArgConfigFilePath] = *configFilePath
+
+	return commandLineArgs
 
 }
 

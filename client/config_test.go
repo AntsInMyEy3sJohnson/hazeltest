@@ -1,31 +1,71 @@
 package client
 
 import (
+	"flag"
+	"fmt"
+	"os"
 	"testing"
 )
 
-var mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
-	"mapTests": map[string]interface{}{
-		"pokedex": map[string]interface{}{
-			"numMaps": 10,
+const (
+	customConfigFile = "customConfig.yaml"
+)
+
+type (
+	testParser struct{}
+)
+
+var (
+	mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
+		"mapTests": map[string]interface{}{
+			"pokedex": map[string]interface{}{
+				"numMaps": 10,
+			},
 		},
-	},
+	}
+	mapTestsPokedexWithNumMapsDefault = map[string]interface{}{
+		"mapTests": map[string]interface{}{
+			"pokedex": map[string]interface{}{
+				"numMaps": 5,
+			},
+		},
+	}
+	mapTestsPokedexWithEnabledDefault = map[string]interface{}{
+		"mapTests": map[string]interface{}{
+			"pokedex": map[string]interface{}{
+				"enabled": true,
+			},
+		},
+	}
+)
+
+func (p testParser) Parse() {
+
+	// Index 0 contains executable path, so start at index 1
+	os.Args[1] = fmt.Sprintf("--%s=true", ArgUseUniSocketClient)
+	os.Args[2] = fmt.Sprintf("--%s=%s", ArgConfigFilePath, customConfigFile)
+
+	flag.Parse()
+
 }
 
-var mapTestsPokedexWithNumMapsDefault = map[string]interface{}{
-	"mapTests": map[string]interface{}{
-		"pokedex": map[string]interface{}{
-			"numMaps": 5,
-		},
-	},
-}
+func TestParseCommandLineArgs(t *testing.T) {
 
-var mapTestsPokedexWithEnabledDefault = map[string]interface{}{
-	"mapTests": map[string]interface{}{
-		"pokedex": map[string]interface{}{
-			"enabled": true,
-		},
-	},
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	parsed := parseCommandLineArgs(testParser{})
+
+	actual := parsed[ArgUseUniSocketClient]
+	if true != actual {
+		t.Errorf("for '%s', expected '%t', got '%t'", ArgUseUniSocketClient, true, actual)
+	}
+
+	actual = parsed[ArgConfigFilePath]
+	if customConfigFile != actual {
+		t.Errorf("for '%s', expected '%s', got '%s'", ArgConfigFilePath, customConfigFile, actual)
+	}
+
 }
 
 func TestUserSuppliedValueTakesPrecedenceOverDefault(t *testing.T) {
