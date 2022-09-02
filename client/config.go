@@ -20,10 +20,11 @@ const (
 )
 
 type (
-	flagParser interface {
-		Parse()
+	fileOpener interface {
+		open(string) (io.Reader, error)
 	}
-	defaultFlagParser struct{}
+	defaultConfigFileOpener      struct{}
+	userSuppliedConfigFileOpener struct{}
 )
 
 var (
@@ -39,23 +40,34 @@ func init() {
 	lp = &logging.LogProvider{ClientID: ID()}
 }
 
-func (p defaultFlagParser) Parse() {
+func (o defaultConfigFileOpener) open(path string) (io.Reader, error) {
 
-	flag.Parse()
+	return defaultConfigFile.Open(path)
+
+}
+
+func (o userSuppliedConfigFileOpener) open(path string) (io.Reader, error) {
+
+	return os.Open(path)
 
 }
 
 func ParseConfigs() {
 
-	commandLineArgs = parseCommandLineArgs(defaultFlagParser{})
-	parseDefaultConfigFile()
-	parseUserSuppliedConfigFile()
+	parseCommandLineArgs()
+	parseDefaultConfigFile(defaultConfigFileOpener{})
+	parseUserSuppliedConfigFile(userSuppliedConfigFileOpener{}, RetrieveArgValue(ArgConfigFilePath).(string))
 
 }
 
 func RetrieveArgValue(arg string) interface{} {
 
-	return commandLineArgs[arg]
+	if value, ok := commandLineArgs[arg]; !ok {
+		lp.LogConfigEvent(arg, "command line", "unable to find requested arg in config values read from command line", log.FatalLevel)
+		return nil
+	} else {
+		return value
+	}
 
 }
 
@@ -112,41 +124,33 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs(p flagParser) map[string]interface{} {
+func parseCommandLineArgs() {
 
 	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
 	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 
-	p.Parse()
+	flag.Parse()
 
 	commandLineArgs = make(map[string]interface{})
 	commandLineArgs[ArgUseUniSocketClient] = *useUniSocketClient
 	commandLineArgs[ArgConfigFilePath] = *configFilePath
 
-	return commandLineArgs
+}
+
+func parseDefaultConfigFile(o fileOpener) {
+
+	decodeConfigFile(&defaultConfig, defaultConfigFilePath, o.open)
 
 }
 
-func parseDefaultConfigFile() {
+func parseUserSuppliedConfigFile(o fileOpener, filePath string) {
 
-	decodeConfigFile(&defaultConfig, defaultConfigFilePath, func(path string) (io.Reader, error) {
-		return defaultConfigFile.Open(path)
-	})
-
-}
-
-func parseUserSuppliedConfigFile() {
-
-	configFilePath := RetrieveArgValue(ArgConfigFilePath).(string)
-
-	if configFilePath == defaultConfigFilePath {
+	if filePath == defaultConfigFilePath {
 		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
 		return
 	}
 
-	decodeConfigFile(&userSuppliedConfig, configFilePath, func(path string) (io.Reader, error) {
-		return os.Open(path)
-	})
+	decodeConfigFile(&userSuppliedConfig, filePath, o.open)
 
 }
 

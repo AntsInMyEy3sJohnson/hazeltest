@@ -1,19 +1,13 @@
 package client
 
 import (
-	"flag"
-	"fmt"
-	"os"
+	"bytes"
+	"gopkg.in/yaml.v3"
+	"io"
 	"testing"
 )
 
-const (
-	customConfigFile = "customConfig.yaml"
-)
-
-type (
-	testParser struct{}
-)
+type testConfigOpener struct{}
 
 var (
 	mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
@@ -39,31 +33,21 @@ var (
 	}
 )
 
-func (p testParser) Parse() {
+func (o testConfigOpener) open(path string) (io.Reader, error) {
 
-	// Index 0 contains executable path, so start at index 1
-	os.Args[1] = fmt.Sprintf("--%s=true", ArgUseUniSocketClient)
-	os.Args[2] = fmt.Sprintf("--%s=%s", ArgConfigFilePath, customConfigFile)
-
-	flag.Parse()
+	b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsUserSupplied)
+	return bytes.NewReader(b), nil
 
 }
 
-func TestParseCommandLineArgs(t *testing.T) {
+func TestParseUserSuppliedConfig(t *testing.T) {
 
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
+	parseCommandLineArgs()
+	// File path does not matter here since we're not reading an actual file
+	parseUserSuppliedConfigFile(testConfigOpener{}, "")
 
-	parsed := parseCommandLineArgs(testParser{})
-
-	actual := parsed[ArgUseUniSocketClient]
-	if true != actual {
-		t.Errorf("for '%s', expected '%t', got '%t'", ArgUseUniSocketClient, true, actual)
-	}
-
-	actual = parsed[ArgConfigFilePath]
-	if customConfigFile != actual {
-		t.Errorf("for '%s', expected '%s', got '%s'", ArgConfigFilePath, customConfigFile, actual)
+	if len(userSuppliedConfig) == 0 {
+		t.Errorf("expected populated map with user-supplied config values, but got empty map")
 	}
 
 }
