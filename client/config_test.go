@@ -9,6 +9,11 @@ import (
 
 type testConfigOpener struct{}
 
+const (
+	checkMark = "\u2713"
+	ballotX   = "\u2717"
+)
+
 var (
 	mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
 		"mapTests": map[string]interface{}{
@@ -33,21 +38,56 @@ var (
 	}
 )
 
-func (o testConfigOpener) open(path string) (io.Reader, error) {
+func (o testConfigOpener) open(_ string) (io.Reader, error) {
 
 	b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsUserSupplied)
 	return bytes.NewReader(b), nil
 
 }
 
+func TestParseDefaultConfig(t *testing.T) {
+
+	t.Log("given the need to test populating the config state from the default config file")
+	{
+		t.Log("\twhen providing a fileOpener")
+		{
+			parseDefaultConfigFile(testConfigOpener{})
+			msg := "\t\tdefault config state should be populated"
+			if len(defaultConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestParseUserSuppliedConfig(t *testing.T) {
 
-	parseCommandLineArgs()
-	// File path does not matter here since we're not reading an actual file
-	parseUserSuppliedConfigFile(testConfigOpener{}, "")
+	t.Log("given the need to test populating the config state from the user-supplied config file")
+	{
+		t.Log("\twhen providing the default config file path")
+		{
+			parseUserSuppliedConfigFile(testConfigOpener{}, defaultConfigFilePath)
+			msg := "\t\tuser-provided config state should be empty"
+			if len(userSuppliedConfig) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
 
-	if len(userSuppliedConfig) == 0 {
-		t.Errorf("expected populated map with user-supplied config values, but got empty map")
+		t.Log("\twhen providing any path other than the default config file path")
+		{
+			parseUserSuppliedConfigFile(testConfigOpener{}, "some-user-supplied-config.yaml")
+			msg := "\t\tuser-provided config state should be populated"
+			if len(userSuppliedConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
 	}
 
 }
