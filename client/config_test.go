@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"errors"
 	"gopkg.in/yaml.v3"
 	"io"
 	"testing"
@@ -51,9 +52,17 @@ func TestParseDefaultConfig(t *testing.T) {
 	{
 		t.Log("\twhen providing a fileOpener")
 		{
-			parseDefaultConfigFile(testConfigOpener{})
-			msg := "\t\tdefault config state should be populated"
-			if len(defaultConfig) > 0 {
+			config, err := parseDefaultConfigFile(testConfigOpener{})
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdefault config state should be populated"
+			if len(config) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Error(msg, ballotX)
@@ -65,13 +74,21 @@ func TestParseDefaultConfig(t *testing.T) {
 
 func TestParseUserSuppliedConfig(t *testing.T) {
 
-	t.Log("given the need to test populating the config state from the user-supplied config file")
+	t.Log("given the need to test populating the config map from the user-supplied config file")
 	{
 		t.Log("\twhen providing the default config file path")
 		{
-			parseUserSuppliedConfigFile(testConfigOpener{}, defaultConfigFilePath)
-			msg := "\t\tuser-provided config state should be empty"
-			if len(userSuppliedConfig) == 0 {
+			config, err := parseUserSuppliedConfigFile(testConfigOpener{}, defaultConfigFilePath)
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned map should be empty"
+			if len(config) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Error(msg, ballotX)
@@ -80,9 +97,88 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 
 		t.Log("\twhen providing any path other than the default config file path")
 		{
-			parseUserSuppliedConfigFile(testConfigOpener{}, "some-user-supplied-config.yaml")
-			msg := "\t\tuser-provided config state should be populated"
-			if len(userSuppliedConfig) > 0 {
+			config, err := parseUserSuppliedConfigFile(testConfigOpener{}, "some-user-supplied-config.yaml")
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned map should be populated"
+			if len(config) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+	}
+
+}
+
+func TestDecodeConfigFile(t *testing.T) {
+
+	t.Log("given the need to test decoding the yaml config file")
+	{
+		t.Log("\twhen providing a target map and a file open function that returns a valid io.Reader")
+		{
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
+				b, _ := yaml.Marshal(mapTestsPokedexWithEnabledDefault)
+				return bytes.NewReader(b), nil
+			})
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\ttarget map should be populated"
+			if len(target) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a target map and a file open function that returns an error")
+		{
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
+				return nil, errors.New("lo and behold, an error")
+			})
+
+			msg := "\t\terror should be reported"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned map should be empty"
+			if len(target) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a target map and a file open function that returns an io.Reader producing invalid yaml")
+		{
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
+				return bytes.NewReader([]byte("this is not yaml")), nil
+			})
+
+			msg := "\t\terror should be reported"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned map should be empty"
+			if len(target) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Error(msg, ballotX)

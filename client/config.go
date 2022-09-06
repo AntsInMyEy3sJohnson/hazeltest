@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"hazeltest/logging"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
 )
@@ -42,21 +43,53 @@ func init() {
 
 func (o defaultConfigFileOpener) open(path string) (io.Reader, error) {
 
-	return defaultConfigFile.Open(path)
+	if file, err := defaultConfigFile.Open(path); err != nil {
+		return nil, err
+	} else {
+		defer func(file fs.File) {
+			err := file.Close()
+			if err != nil {
+				lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
+			}
+		}(file)
+		return file, nil
+	}
 
 }
 
 func (o userSuppliedConfigFileOpener) open(path string) (io.Reader, error) {
 
-	return os.Open(path)
+	if file, err := os.Open(path); err != nil {
+		return nil, err
+	} else {
+		defer func(file *os.File) {
+			err := file.Close()
+			if err != nil {
+				lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
+			}
+		}(file)
+		return file, nil
+	}
 
 }
 
-func ParseConfigs() {
+func ParseConfigs() error {
 
-	parseCommandLineArgs()
-	parseDefaultConfigFile(defaultConfigFileOpener{})
-	parseUserSuppliedConfigFile(userSuppliedConfigFileOpener{}, RetrieveArgValue(ArgConfigFilePath).(string))
+	commandLineArgs = parseCommandLineArgs()
+
+	if config, err := parseDefaultConfigFile(defaultConfigFileOpener{}); err != nil {
+		return err
+	} else {
+		defaultConfig = config
+	}
+
+	if config, err := parseUserSuppliedConfigFile(userSuppliedConfigFileOpener{}, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
+		return err
+	} else {
+		userSuppliedConfig = config
+	}
+
+	return nil
 
 }
 
@@ -124,46 +157,53 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs() {
+func parseCommandLineArgs() map[string]interface{} {
 
 	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
 	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 
 	flag.Parse()
 
-	commandLineArgs = make(map[string]interface{})
-	commandLineArgs[ArgUseUniSocketClient] = *useUniSocketClient
-	commandLineArgs[ArgConfigFilePath] = *configFilePath
+	target := make(map[string]interface{})
+	target[ArgUseUniSocketClient] = *useUniSocketClient
+	target[ArgConfigFilePath] = *configFilePath
+
+	return target
 
 }
 
-func parseDefaultConfigFile(o fileOpener) {
+func parseDefaultConfigFile(o fileOpener) (map[string]interface{}, error) {
 
-	decodeConfigFile(&defaultConfig, defaultConfigFilePath, o.open)
+	return decodeConfigFile(defaultConfigFilePath, o.open)
 
 }
 
-func parseUserSuppliedConfigFile(o fileOpener, filePath string) {
+func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]interface{}, error) {
 
 	if filePath == defaultConfigFilePath {
 		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
-		return
+		return map[string]interface{}{}, nil
 	}
 
-	decodeConfigFile(&userSuppliedConfig, filePath, o.open)
+	return decodeConfigFile(filePath, o.open)
 
 }
 
-func decodeConfigFile(target *map[string]interface{}, path string, openFileFunc func(path string) (io.Reader, error)) {
+func decodeConfigFile(path string, openFileFunc func(path string) (io.Reader, error)) (map[string]interface{}, error) {
 
 	r, err := openFileFunc(path)
 
 	if err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.FatalLevel)
+		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.ErrorLevel)
+		return nil, err
 	}
 
+	target := make(map[string]interface{})
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.FatalLevel)
+		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.ErrorLevel)
+		return nil, err
+	} else {
+		return target, nil
 	}
 
 }
