@@ -30,19 +30,58 @@ var (
 			},
 		},
 	}
-	mapTestsPokedexWithEnabledDefault = map[string]interface{}{
-		"mapTests": map[string]interface{}{
-			"pokedex": map[string]interface{}{
-				"enabled": true,
-			},
-		},
-	}
 )
 
 func (o testConfigOpener) open(_ string) (io.Reader, error) {
 
 	b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsUserSupplied)
 	return bytes.NewReader(b), nil
+
+}
+
+func TestPopulateConfigProperty(t *testing.T) {
+
+	t.Log("given the need to test populating a config property")
+	{
+		t.Log("\twhen providing an assignment function and a map containing the desired key")
+		{
+			defaultConfig = mapTestsPokedexWithNumMapsDefault
+
+			var target int
+			err := PopulateConfigProperty("mapTests.pokedex.numMaps", func(a any) {
+				target = a.(int)
+			})
+
+			msg := "\t\tno error should be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			expected := 5
+			msg = "\t\tassignment function must have been called"
+			if target == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing an assignment function and a map not containing the desired key")
+		{
+			err := PopulateConfigProperty("mapTests.pokedex.enabled", func(_ any) {
+				// No-op
+			})
+
+			msg := "\t\terror should be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+	}
 
 }
 
@@ -124,7 +163,7 @@ func TestDecodeConfigFile(t *testing.T) {
 		t.Log("\twhen providing a target map and a file open function that returns a valid io.Reader")
 		{
 			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
-				b, _ := yaml.Marshal(mapTestsPokedexWithEnabledDefault)
+				b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsDefault)
 				return bytes.NewReader(b), nil
 			})
 
