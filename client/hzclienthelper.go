@@ -25,12 +25,12 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, runnerName)
 	hzConfig.Cluster.Name = hzCluster
 
-	useUniSocketClient, ok := RetrieveArgValue(ArgUseUniSocketClient).(bool)
-	if !ok {
+	useUniSocketClient, err := RetrieveArgValue(ArgUseUniSocketClient)
+	if err != nil {
 		logConfigurationError(ArgUseUniSocketClient, "command line", "unable to convert value into bool -- using default instead")
 		useUniSocketClient = false
 	}
-	hzConfig.Cluster.Unisocket = useUniSocketClient
+	hzConfig.Cluster.Unisocket = useUniSocketClient.(bool)
 
 	logInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig))
 

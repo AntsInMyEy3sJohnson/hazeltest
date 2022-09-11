@@ -39,6 +39,50 @@ func (o testConfigOpener) open(_ string) (io.Reader, error) {
 
 }
 
+func TestRetrieveArgValue(t *testing.T) {
+
+	t.Log("given the need to test the retrieval of values from the commandline-provided config")
+	{
+
+		t.Log("\twhen providing an argument contained in the commandline-supplied argument list")
+		{
+			commandLineArgs = parseCommandLineArgs()
+
+			actual, err := RetrieveArgValue(ArgConfigFilePath)
+
+			msg := "\t\tno error should be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\texpected value should be returned"
+			expected := "defaultConfig.yaml"
+
+			if actual == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen providing an argument not contained in the commandline-supplied argument list")
+		{
+			_, err := RetrieveArgValue("some-arg")
+
+			msg := "\t\tan error should be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestPopulateConfigProperty(t *testing.T) {
 
 	t.Log("given the need to test populating a config property")
