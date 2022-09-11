@@ -188,93 +188,87 @@ func TestDecodeConfigFile(t *testing.T) {
 
 }
 
-func TestUserSuppliedValueTakesPrecedenceOverDefault(t *testing.T) {
+func TestRetrieveConfigValue(t *testing.T) {
 
 	defer t.Cleanup(teardown)
 
-	defaultConfig = mapTestsPokedexWithNumMapsDefault
-	userSuppliedConfig = mapTestsPokedexWithNumMapsUserSupplied
+	t.Log("given the need to test config value retrieval")
+	{
+		t.Log("\twhen providing a default and a user-supplied config map")
+		{
+			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			userSuppliedConfig = mapTestsPokedexWithNumMapsUserSupplied
 
-	expected := 10
-	actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
+			expected := 10
+			actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
 
-	if err != nil {
-		t.Errorf("got non-nil error: %v", err)
-	}
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
-	if actual.(int) != expected {
-		t.Errorf("expected %d, got %d", expected, actual.(int))
-	}
+			msg = "\t\tuser-supplied config value should be returned"
+			if actual == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
 
-}
+		t.Log("\twhen providing a config map not containing a nested map")
+		{
+			defaultConfig = map[string]interface{}{
+				"mapTests": []int{1, 2, 3, 4, 5},
+			}
+			userSuppliedConfig = nil
 
-func TestExtractNestedNotMap(t *testing.T) {
+			_, err := retrieveConfigValue("mapTests.pokedex")
 
-	defer t.Cleanup(teardown)
+			msg := "\t\terror should occur"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
 
-	defaultConfig = map[string]interface{}{
-		"mapTests": []int{1, 2, 3, 4, 5},
-	}
+		t.Log("\twhen providing a config map not containing the desired key")
+		{
+			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			_, err := retrieveConfigValue("mapTests.load")
 
-	_, err := retrieveConfigValue("mapTests.pokedex")
+			msg := "\t\tan error should be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Log(msg, ballotX)
+			}
+		}
 
-	if err == nil {
-		t.Error("expected non-nil error value, received nil instead")
-	}
+		t.Log("\twhen providing a config map containing the desired key in a nested sub-map")
+		{
 
-}
+			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			expected := 5
+			actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
 
-func TestExtractKeyNotPresent(t *testing.T) {
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
-	defer t.Cleanup(teardown)
+			msg = "\t\tcorrect value should be returned"
+			if actual == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
 
-	defaultConfig = mapTestsPokedexWithNumMapsDefault
-
-	actual, err := retrieveConfigValue("mapTests.load")
-
-	if err != nil {
-		t.Errorf("Got non-nil error value: %s", err)
-	}
-
-	if actual != nil {
-		t.Error("expected nil payload value, got non-nil value instead")
-	}
-
-}
-
-func TestExtractNestedIntFromDefaultConfig(t *testing.T) {
-
-	defer t.Cleanup(teardown)
-
-	defaultConfig = mapTestsPokedexWithNumMapsDefault
-
-	expected := 5
-	actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
-
-	if err != nil {
-		t.Errorf("Got non-nil error value: %s", err)
-	}
-
-	if actual.(int) != expected {
-		t.Errorf("Expected: %d; got: %d", expected, actual)
-	}
-
-}
-
-func TestExtractNestedBoolFromDefaultConfig(t *testing.T) {
-
-	defer t.Cleanup(teardown)
-
-	defaultConfig = mapTestsPokedexWithEnabledDefault
-
-	result, err := retrieveConfigValue("mapTests.pokedex.enabled")
-
-	if err != nil {
-		t.Errorf("Got non-nil error value: %s", err)
-	}
-
-	if !(result.(bool)) {
-		t.Error("expected result to be 'true', but was 'false'")
 	}
 
 }

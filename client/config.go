@@ -141,7 +141,11 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 	pathElements := strings.Split(keyPath, ".")
 
 	if len(pathElements) == 1 {
-		return m[keyPath], nil
+		if value, ok := m[keyPath]; ok {
+			return value, nil
+		} else {
+			return nil, fmt.Errorf("nested key '%s' not found in map", keyPath)
+		}
 	}
 
 	currentPathElement := pathElements[0]
