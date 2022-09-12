@@ -36,6 +36,7 @@ var (
 			},
 		},
 	}
+	defaultArgs = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, defaultConfigFilePath)}
 )
 
 func (o testConfigOpener) open(_ string) (io.Reader, error) {
@@ -54,9 +55,10 @@ func (o erroneousTestConfigOpener) open(_ string) (io.Reader, error) {
 func TestParseConfigs(t *testing.T) {
 
 	oldArgs := os.Args
-	defer func() {
+	defer t.Cleanup(func() {
 		os.Args = oldArgs
-	}()
+		teardown(oldArgs)
+	})
 
 	t.Log("given the need to test the parsing of configuration values from config file and commandline")
 	{
@@ -77,7 +79,7 @@ func TestParseConfigs(t *testing.T) {
 		{
 			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 
-			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=true", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, defaultConfigFilePath)}
+			os.Args = defaultArgs
 			err := ParseConfigs()
 
 			msg := "\t\tno error should occur"
@@ -130,7 +132,7 @@ func TestParseConfigs(t *testing.T) {
 			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 			u = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
 
-			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=true", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, "a-user-supplied-config-file.yaml")}
+			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, "a-user-supplied-config-file.yaml")}
 			err := ParseConfigs()
 
 			msg := "\t\tno error should be returned"
@@ -175,12 +177,19 @@ func TestParseConfigs(t *testing.T) {
 
 func TestRetrieveArgValue(t *testing.T) {
 
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
+
 	t.Log("given the need to test the retrieval of values from the commandline-provided config")
 	{
 
 		t.Log("\twhen providing an argument contained in the commandline-supplied argument list")
 		{
-			_, err := parseCommandLineArgs()
+			os.Args = defaultArgs
+			args, err := parseCommandLineArgs()
 
 			msg := "\t\tno error should be returned upon parsing of commandline-provided arguments"
 			if err == nil {
@@ -189,14 +198,9 @@ func TestRetrieveArgValue(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			actual, err := RetrieveArgValue(ArgConfigFilePath)
+			commandLineArgs = args
 
-			msg = "\t\tno error should be returned upon arg value retrieval"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+			actual := RetrieveArgValue(ArgConfigFilePath)
 
 			msg = "\t\texpected value should be returned"
 			expected := "defaultConfig.yaml"
@@ -210,10 +214,10 @@ func TestRetrieveArgValue(t *testing.T) {
 
 		t.Log("\twhen providing an argument not contained in the commandline-supplied argument list")
 		{
-			_, err := RetrieveArgValue("some-arg")
+			actual := RetrieveArgValue("some-arg")
 
-			msg := "\t\tan error should be returned"
-			if err != nil {
+			msg := "\t\tnil should be returned"
+			if actual == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Error(msg, ballotX)
@@ -225,6 +229,12 @@ func TestRetrieveArgValue(t *testing.T) {
 }
 
 func TestPopulateConfigProperty(t *testing.T) {
+
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
 
 	t.Log("given the need to test populating a config property")
 	{
@@ -272,6 +282,12 @@ func TestPopulateConfigProperty(t *testing.T) {
 
 func TestParseDefaultConfig(t *testing.T) {
 
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
+
 	t.Log("given the need to test populating the config state from the default config file")
 	{
 		t.Log("\twhen providing a fileOpener")
@@ -297,6 +313,12 @@ func TestParseDefaultConfig(t *testing.T) {
 }
 
 func TestParseUserSuppliedConfig(t *testing.T) {
+
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
 
 	t.Log("given the need to test populating the config map from the user-supplied config file")
 	{
@@ -342,6 +364,12 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 }
 
 func TestDecodeConfigFile(t *testing.T) {
+
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
 
 	t.Log("given the need to test decoding the yaml config file")
 	{
@@ -414,7 +442,11 @@ func TestDecodeConfigFile(t *testing.T) {
 
 func TestRetrieveConfigValue(t *testing.T) {
 
-	defer t.Cleanup(teardown)
+	oldArgs := os.Args
+	defer t.Cleanup(func() {
+		os.Args = oldArgs
+		teardown(oldArgs)
+	})
 
 	t.Log("given the need to test config value retrieval")
 	{
@@ -497,7 +529,9 @@ func TestRetrieveConfigValue(t *testing.T) {
 
 }
 
-func teardown() {
+func teardown(oldArgs []string) {
+
+	os.Args = oldArgs
 
 	defaultConfig = nil
 	userSuppliedConfig = nil
