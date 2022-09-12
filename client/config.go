@@ -100,12 +100,7 @@ func ParseConfigs() error {
 		defaultConfig = config
 	}
 
-	configFilePath, err := RetrieveArgValue(ArgConfigFilePath)
-	if err != nil {
-		return err
-	}
-
-	if config, err := parseUserSuppliedConfigFile(u, configFilePath.(string)); err != nil {
+	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
 		return FailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedConfig = config
@@ -115,15 +110,9 @@ func ParseConfigs() error {
 
 }
 
-func RetrieveArgValue(arg string) (interface{}, error) {
+func RetrieveArgValue(arg string) interface{} {
 
-	if value, ok := commandLineArgs[arg]; !ok {
-		msg := fmt.Sprintf("unable to find requested arg '%s' in config values read from command line", arg)
-		lp.LogConfigEvent(arg, "command line", msg, log.ErrorLevel)
-		return nil, errors.New(msg)
-	} else {
-		return value, nil
-	}
+	return commandLineArgs[arg]
 
 }
 
