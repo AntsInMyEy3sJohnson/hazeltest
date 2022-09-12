@@ -3,12 +3,18 @@ package client
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
+	"os"
 	"testing"
 )
 
-type testConfigOpener struct{}
+type testConfigOpener struct {
+	m map[string]interface{}
+}
+
+type erroneousTestConfigOpener struct{}
 
 const (
 	checkMark = "\u2713"
@@ -34,8 +40,136 @@ var (
 
 func (o testConfigOpener) open(_ string) (io.Reader, error) {
 
-	b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsUserSupplied)
+	b, _ := yaml.Marshal(o.m)
 	return bytes.NewReader(b), nil
+
+}
+
+func (o erroneousTestConfigOpener) open(_ string) (io.Reader, error) {
+
+	return nil, errors.New("lo and behold, here i am, a dummy error")
+
+}
+
+func TestParseConfigs(t *testing.T) {
+
+	oldArgs := os.Args
+	defer func() {
+		os.Args = oldArgs
+	}()
+
+	t.Log("given the need to test the parsing of configuration values from config file and commandline")
+	{
+		t.Log("\twhen providing undefined commandline arguments")
+		{
+			os.Args = []string{os.Args[0], "--some-undefined-arg=blah"}
+			err := ParseConfigs()
+
+			msg := "\t\tcorrect type of error should be returned"
+			if err != nil && err == FailedParseCommandLineArgs {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a valid file opener to parse the default config file and no user-supplied config file")
+		{
+			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
+
+			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=true", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, defaultConfigFilePath)}
+			err := ParseConfigs()
+
+			msg := "\t\tno error should occur"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdefault config map should be populated"
+			if len(defaultConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+
+			msg = "\t\tuser-supplied config map should not be populated"
+			if len(userSuppliedConfig) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing an error-throwing file opener to parse the default config file")
+		{
+			defaultConfig = nil
+			d = erroneousTestConfigOpener{}
+
+			err := ParseConfigs()
+
+			msg := "\t\tcorrect type of error should be returned"
+			if err != nil && err == FailedParseDefaultConfigFile {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdefault config map should be empty"
+			if len(defaultConfig) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing valid file openers for parsing both the default and the user-supplied config file, and a user-supplied config file path")
+		{
+			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
+			u = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
+
+			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=true", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, "a-user-supplied-config-file.yaml")}
+			err := ParseConfigs()
+
+			msg := "\t\tno error should be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdefault config map should be populated"
+			if len(defaultConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+
+			msg = "\t\tuser-supplied config map should be populated"
+			if len(userSuppliedConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a valid file opener for the default config file, but one that throws an error for the user-supplied config file")
+		{
+			u = erroneousTestConfigOpener{}
+
+			err := ParseConfigs()
+
+			msg := "\t\tcorrect type of error should be returned"
+			if err != nil && err == FailedParseUserSuppliedConfigFile {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+	}
 
 }
 
@@ -46,11 +180,18 @@ func TestRetrieveArgValue(t *testing.T) {
 
 		t.Log("\twhen providing an argument contained in the commandline-supplied argument list")
 		{
-			commandLineArgs = parseCommandLineArgs()
+			_, err := parseCommandLineArgs()
+
+			msg := "\t\tno error should be returned upon parsing of commandline-provided arguments"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 			actual, err := RetrieveArgValue(ArgConfigFilePath)
 
-			msg := "\t\tno error should be returned"
+			msg = "\t\tno error should be returned upon arg value retrieval"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
@@ -65,7 +206,6 @@ func TestRetrieveArgValue(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
-
 		}
 
 		t.Log("\twhen providing an argument not contained in the commandline-supplied argument list")
@@ -79,6 +219,7 @@ func TestRetrieveArgValue(t *testing.T) {
 				t.Error(msg, ballotX)
 			}
 		}
+
 	}
 
 }
@@ -135,7 +276,7 @@ func TestParseDefaultConfig(t *testing.T) {
 	{
 		t.Log("\twhen providing a fileOpener")
 		{
-			config, err := parseDefaultConfigFile(testConfigOpener{})
+			config, err := parseDefaultConfigFile(testConfigOpener{m: mapTestsPokedexWithNumMapsDefault})
 
 			msg := "\t\tno error should occur"
 			if err == nil {
@@ -161,7 +302,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 	{
 		t.Log("\twhen providing the default config file path")
 		{
-			config, err := parseUserSuppliedConfigFile(testConfigOpener{}, defaultConfigFilePath)
+			config, err := parseUserSuppliedConfigFile(testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}, defaultConfigFilePath)
 
 			msg := "\t\tno error should occur"
 			if err == nil {
@@ -180,7 +321,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 
 		t.Log("\twhen providing any path other than the default config file path")
 		{
-			config, err := parseUserSuppliedConfigFile(testConfigOpener{}, "some-user-supplied-config.yaml")
+			config, err := parseUserSuppliedConfigFile(testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}, "some-user-supplied-config.yaml")
 
 			msg := "\t\tno error should occur"
 			if err == nil {

@@ -29,16 +29,29 @@ type (
 )
 
 var (
+	FailedParseCommandLineArgs        error
+	FailedParseDefaultConfigFile      error
+	FailedParseUserSuppliedConfigFile error
+)
+
+var (
 	commandLineArgs map[string]interface{}
 	//go:embed defaultConfig.yaml
 	defaultConfigFile  embed.FS
 	defaultConfig      map[string]interface{}
 	userSuppliedConfig map[string]interface{}
 	lp                 *logging.LogProvider
+	d                  fileOpener
+	u                  fileOpener
 )
 
 func init() {
+	FailedParseCommandLineArgs = errors.New("unable to parse commandline-supplied arguments")
+	FailedParseDefaultConfigFile = errors.New("unable to parse default config file")
+	FailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied config file")
 	lp = &logging.LogProvider{ClientID: ID()}
+	d = defaultConfigFileOpener{}
+	u = userSuppliedConfigFileOpener{}
 }
 
 func (o defaultConfigFileOpener) open(path string) (io.Reader, error) {
@@ -75,10 +88,14 @@ func (o userSuppliedConfigFileOpener) open(path string) (io.Reader, error) {
 
 func ParseConfigs() error {
 
-	commandLineArgs = parseCommandLineArgs()
+	if args, err := parseCommandLineArgs(); err != nil {
+		return FailedParseCommandLineArgs
+	} else {
+		commandLineArgs = args
+	}
 
-	if config, err := parseDefaultConfigFile(defaultConfigFileOpener{}); err != nil {
-		return err
+	if config, err := parseDefaultConfigFile(d); err != nil {
+		return FailedParseDefaultConfigFile
 	} else {
 		defaultConfig = config
 	}
@@ -88,8 +105,8 @@ func ParseConfigs() error {
 		return err
 	}
 
-	if config, err := parseUserSuppliedConfigFile(userSuppliedConfigFileOpener{}, configFilePath.(string)); err != nil {
-		return err
+	if config, err := parseUserSuppliedConfigFile(u, configFilePath.(string)); err != nil {
+		return FailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedConfig = config
 	}
@@ -169,18 +186,22 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs() map[string]interface{} {
+func parseCommandLineArgs() (map[string]interface{}, error) {
 
-	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
-	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	flag.Parse()
+	useUniSocketClient := flagSet.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
+	configFilePath := flagSet.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+
+	if err := flagSet.Parse(os.Args[1:]); err != nil {
+		return nil, err
+	}
 
 	target := make(map[string]interface{})
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
 
-	return target
+	return target, nil
 
 }
 
