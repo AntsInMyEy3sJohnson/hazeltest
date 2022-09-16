@@ -45,47 +45,51 @@ type (
 	}
 )
 
-var runners []runner
+var (
+	runners []runner
+	a       client.DefaultConfigPropertyAssigner
+	lp      *logging.LogProvider
+)
 
 func register(r runner) {
 	runners = append(runners, r)
 }
 
-var lp *logging.LogProvider
-
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
+	a = client.DefaultConfigPropertyAssigner{}
 }
 
 func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 
+	// TODO Error handling
 	var enabled bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".enabled", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".enabled", func(a any) {
 		enabled = a.(bool)
 	})
 
 	var numQueues int
-	client.PopulateConfigProperty(b.runnerKeyPath+".numQueues", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".numQueues", func(a any) {
 		numQueues = a.(int)
 	})
 
 	var appendQueueIndexToQueueName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendQueueIndexToQueueName", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".appendQueueIndexToQueueName", func(a any) {
 		appendQueueIndexToQueueName = a.(bool)
 	})
 
 	var appendClientIdToQueueName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendClientIdToQueueName", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".appendClientIdToQueueName", func(a any) {
 		appendClientIdToQueueName = a.(bool)
 	})
 
 	var useQueuePrefix bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".queuePrefix.enabled", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".queuePrefix.enabled", func(a any) {
 		useQueuePrefix = a.(bool)
 	})
 
 	var queuePrefix string
-	client.PopulateConfigProperty(b.runnerKeyPath+".queuePrefix.prefix", func(a any) {
+	_ = a.Assign(b.runnerKeyPath+".queuePrefix.prefix", func(a any) {
 		queuePrefix = a.(string)
 	})
 
@@ -107,18 +111,19 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) *operatio
 
 	c := b.runnerKeyPath + "." + fmt.Sprintf("%sConfig", operation)
 
+	// TODO Error handling
 	var enabled bool
-	client.PopulateConfigProperty(c+".enabled", func(a any) {
+	_ = a.Assign(c+".enabled", func(a any) {
 		enabled = a.(bool)
 	})
 
 	var numRuns int
-	client.PopulateConfigProperty(c+".numRuns", func(a any) {
+	_ = a.Assign(c+".numRuns", func(a any) {
 		numRuns = a.(int)
 	})
 
 	var batchSizePoll int
-	client.PopulateConfigProperty(c+".batchSize", func(a any) {
+	_ = a.Assign(c+".batchSize", func(a any) {
 		batchSizePoll = a.(int)
 	})
 
@@ -136,14 +141,15 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) *operatio
 func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) *sleepConfig {
 
 	keyPath := configBasePath + ".enabled"
+
 	var enabled bool
-	client.PopulateConfigProperty(keyPath, func(a any) {
+	_ = a.Assign(keyPath, func(a any) {
 		enabled = a.(bool)
 	})
 
 	keyPath = configBasePath + ".durationMs"
 	var durationMs int
-	client.PopulateConfigProperty(keyPath, func(a any) {
+	_ = a.Assign(keyPath, func(a any) {
 		durationMs = a.(int)
 	})
 

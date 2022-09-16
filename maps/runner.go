@@ -12,6 +12,9 @@ type (
 	runner interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
+	configPropertyAssigner interface {
+		Assign(string, func(any)) error
+	}
 	runnerConfig struct {
 		enabled                   bool
 		numMaps                   int
@@ -50,62 +53,92 @@ func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
-func (b runnerConfigBuilder) populateConfig() *runnerConfig {
+func (b runnerConfigBuilder) populateConfig(a configPropertyAssigner) (*runnerConfig, error) {
+
+	var assignmentOps []func() error
 
 	var enabled bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".enabled", func(a any) {
-		enabled = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".enabled", func(a any) {
+			enabled = a.(bool)
+		})
 	})
 
 	var numMaps int
-	client.PopulateConfigProperty(b.runnerKeyPath+".numMaps", func(a any) {
-		numMaps = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".numMaps", func(a any) {
+			numMaps = a.(int)
+		})
 	})
 
 	var appendMapIndexToMapName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendMapIndexToMapName", func(a any) {
-		appendMapIndexToMapName = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".appendMapIndexToMapName", func(a any) {
+			appendMapIndexToMapName = a.(bool)
+		})
 	})
 
 	var appendClientIdToMapName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
-		appendClientIdToMapName = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
+			appendClientIdToMapName = a.(bool)
+		})
 	})
 
 	var numRuns int
-	client.PopulateConfigProperty(b.runnerKeyPath+".numRuns", func(a any) {
-		numRuns = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".numRuns", func(a any) {
+			numRuns = a.(int)
+		})
 	})
 
 	var useMapPrefix bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".mapPrefix.enabled", func(a any) {
-		useMapPrefix = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".mapPrefix.enabled", func(a any) {
+			useMapPrefix = a.(bool)
+		})
 	})
 
 	var mapPrefix string
-	client.PopulateConfigProperty(b.runnerKeyPath+".mapPrefix.prefix", func(a any) {
-		mapPrefix = a.(string)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".mapPrefix.prefix", func(a any) {
+			mapPrefix = a.(string)
+		})
 	})
 
 	var sleepBetweenActionBatchesEnabled bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(a any) {
-		sleepBetweenActionBatchesEnabled = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(a any) {
+			sleepBetweenActionBatchesEnabled = a.(bool)
+		})
 	})
 
 	var sleepBetweenActionBatchesDurationMs int
-	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(a any) {
-		sleepBetweenActionBatchesDurationMs = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(a any) {
+			sleepBetweenActionBatchesDurationMs = a.(int)
+		})
 	})
 
 	var sleepBetweenRunsEnabled bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(a any) {
-		sleepBetweenRunsEnabled = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(a any) {
+			sleepBetweenRunsEnabled = a.(bool)
+		})
 	})
 
 	var sleepBetweenRunsDurationMs int
-	client.PopulateConfigProperty(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(a any) {
-		sleepBetweenRunsDurationMs = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(a any) {
+			sleepBetweenRunsDurationMs = a.(int)
+		})
 	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
 
 	return &runnerConfig{
 		enabled:                   enabled,
@@ -118,7 +151,7 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 		appendClientIdToMapName:   appendClientIdToMapName,
 		sleepBetweenActionBatches: &sleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
 		sleepBetweenRuns:          &sleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
-	}
+	}, nil
 
 }
 

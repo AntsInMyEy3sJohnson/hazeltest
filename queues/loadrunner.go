@@ -82,11 +82,14 @@ func populateLoadConfig() *runnerConfig {
 
 	runnerKeyPath := "queuetests.load"
 
-	client.PopulateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
+	a := client.DefaultConfigPropertyAssigner{}
+
+	// TODO Error handling
+	_ = a.Assign(runnerKeyPath+".numLoadEntries", func(a any) {
 		numLoadEntries = a.(int)
 	})
 
-	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+	_ = a.Assign(runnerKeyPath+".payloadSizeBytes", func(a any) {
 		payloadSizeBytes = a.(int)
 	})
 

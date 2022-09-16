@@ -20,6 +20,8 @@ const (
 	defaultConfigFilePath = "defaultConfig.yaml"
 )
 
+type DefaultConfigPropertyAssigner struct{}
+
 type (
 	fileOpener interface {
 		open(string) (io.Reader, error)
@@ -116,7 +118,7 @@ func RetrieveArgValue(arg string) interface{} {
 
 }
 
-func PopulateConfigProperty(keyPath string, assignValue func(any)) error {
+func (a DefaultConfigPropertyAssigner) Assign(keyPath string, assignValue func(any)) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
 		lp.LogErrUponConfigRetrieval(keyPath, err, log.ErrorLevel)

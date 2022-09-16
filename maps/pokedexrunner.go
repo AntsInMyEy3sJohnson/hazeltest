@@ -52,7 +52,8 @@ func init() {
 
 func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populatePokedexConfig()
+	// TODO Handle error
+	mapRunnerConfig, _ := populatePokedexConfig()
 
 	if !mapRunnerConfig.enabled {
 		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
@@ -112,7 +113,7 @@ func deserializePokemon(elementFromHZ interface{}) error {
 
 }
 
-func populatePokedexConfig() *runnerConfig {
+func populatePokedexConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.pokedex"
 
@@ -120,7 +121,8 @@ func populatePokedexConfig() *runnerConfig {
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "pokedex",
 	}
-	return configBuilder.populateConfig()
+
+	return configBuilder.populateConfig(client.DefaultConfigPropertyAssigner{})
 
 }
 

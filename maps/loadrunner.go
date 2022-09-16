@@ -32,7 +32,8 @@ func init() {
 
 func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populateLoadConfig()
+	// TODO Handle error
+	mapRunnerConfig, _ := populateLoadConfig()
 
 	if !mapRunnerConfig.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
@@ -110,15 +111,18 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 }
 
-func populateLoadConfig() *runnerConfig {
+func populateLoadConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.load"
 
-	client.PopulateConfigProperty(runnerKeyPath+".numEntriesPerMap", func(a any) {
+	a := client.DefaultConfigPropertyAssigner{}
+
+	// TODO Handle error
+	_ = a.Assign(runnerKeyPath+".numEntriesPerMap", func(a any) {
 		numEntriesPerMap = a.(int)
 	})
 
-	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+	_ = a.Assign(runnerKeyPath+".payloadSizeBytes", func(a any) {
 		payloadSizeBytes = a.(int)
 	})
 
@@ -126,6 +130,6 @@ func populateLoadConfig() *runnerConfig {
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
 	}
-	return configBuilder.populateConfig()
+	return configBuilder.populateConfig(a)
 
 }

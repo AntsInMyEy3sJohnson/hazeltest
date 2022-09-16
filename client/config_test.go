@@ -236,6 +236,8 @@ func TestPopulateConfigProperty(t *testing.T) {
 		teardown(oldArgs)
 	})
 
+	a := DefaultConfigPropertyAssigner{}
+
 	t.Log("given the need to test populating a config property")
 	{
 		t.Log("\twhen providing an assignment function and a map containing the desired key")
@@ -243,7 +245,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 			defaultConfig = mapTestsPokedexWithNumMapsDefault
 
 			var target int
-			err := PopulateConfigProperty("mapTests.pokedex.numMaps", func(a any) {
+			err := a.Assign("mapTests.pokedex.numMaps", func(a any) {
 				target = a.(int)
 			})
 
@@ -265,7 +267,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 
 		t.Log("\twhen providing an assignment function and a map not containing the desired key")
 		{
-			err := PopulateConfigProperty("mapTests.pokedex.enabled", func(_ any) {
+			err := a.Assign("mapTests.pokedex.enabled", func(_ any) {
 				// No-op
 			})
 
