@@ -14,8 +14,10 @@ import (
 )
 
 type (
-	pokedexRunner struct{}
-	pokedex       struct {
+	pokedexRunner struct {
+		ls lastState
+	}
+	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
 	}
 	pokemon struct {
@@ -42,23 +44,32 @@ type (
 	}
 )
 
-//go:embed pokedex.json
-var pokedexFile embed.FS
+var (
+	//go:embed pokedex.json
+	pokedexFile      embed.FS
+	propertyAssigner configPropertyAssigner
+)
 
 func init() {
-	register(pokedexRunner{})
+	register(pokedexRunner{ls: start})
 	gob.Register(pokemon{})
+	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
 func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
-	// TODO Handle error
-	mapRunnerConfig, _ := populatePokedexConfig()
+	mapRunnerConfig, err := populatePokedexConfig(propertyAssigner)
+	if err != nil {
+		lp.LogInternalStateEvent("unable to populate config for pokedex runner -- aborting", log.ErrorLevel)
+		return
+	}
+	r.ls = populateConfigComplete
 
 	if !mapRunnerConfig.enabled {
 		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	r.ls = checkEnabledComplete
 
 	api.RaiseNotReady()
 
@@ -74,6 +85,7 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
+	r.ls = raiseReadyComplete
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
@@ -89,7 +101,9 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 		deserializeElementFunc: deserializePokemon,
 	}
 
+	r.ls = testLoopStart
 	testLoop.run()
+	r.ls = testLoopComplete
 
 	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
 
@@ -113,7 +127,7 @@ func deserializePokemon(elementFromHZ interface{}) error {
 
 }
 
-func populatePokedexConfig() (*runnerConfig, error) {
+func populatePokedexConfig(a configPropertyAssigner) (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.pokedex"
 
@@ -122,7 +136,7 @@ func populatePokedexConfig() (*runnerConfig, error) {
 		mapBaseName:   "pokedex",
 	}
 
-	return configBuilder.populateConfig(client.DefaultConfigPropertyAssigner{})
+	return configBuilder.populateConfig(a)
 
 }
 

@@ -1,24 +1,7 @@
 package maps
 
 import (
-	"errors"
 	"testing"
-)
-
-type (
-	testConfigPropertyAssigner struct {
-		returnError   bool
-		runnerKeyPath string
-		dummyConfig   map[string]interface{}
-	}
-)
-
-const (
-	checkMark     = "\u2713"
-	ballotX       = "\u2717"
-	runnerKeyPath = "testRunner"
-	mapPrefix     = "t_"
-	mapBaseName   = "test"
 )
 
 var (
@@ -36,17 +19,6 @@ var (
 		runnerKeyPath + ".sleeps.betweenRuns.durationMs":          2500,
 	}
 )
-
-func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any)) error {
-
-	if a.returnError {
-		return errors.New("deliberately thrown error")
-	}
-
-	assignFunc(a.dummyConfig[keyPath])
-	return nil
-
-}
 
 func TestPopulateConfig(t *testing.T) {
 

@@ -12,6 +12,7 @@ type (
 	runner interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
+	lastState              string
 	configPropertyAssigner interface {
 		Assign(string, func(any)) error
 	}
@@ -39,6 +40,15 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
+)
+
+const (
+	start                  lastState = "start"
+	populateConfigComplete lastState = "populateConfigComplete"
+	checkEnabledComplete   lastState = "checkEnabledComplete"
+	raiseReadyComplete     lastState = "raiseReadyComplete"
+	testLoopStart          lastState = "testLoopStart"
+	testLoopComplete       lastState = "testLoopComplete"
 )
 
 var runners []runner
