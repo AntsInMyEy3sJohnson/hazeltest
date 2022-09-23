@@ -10,11 +10,17 @@ import (
 	"testing"
 )
 
-type testConfigOpener struct {
-	m map[string]interface{}
-}
-
-type erroneousTestConfigOpener struct{}
+type (
+	testConfigOpener struct {
+		m map[string]interface{}
+	}
+	erroneousTestConfigOpener struct{}
+	testReadCloser            struct {
+		io.Reader
+		io.Closer
+	}
+	testCloser struct{}
+)
 
 const (
 	checkMark = "\u2713"
@@ -39,16 +45,25 @@ var (
 	defaultArgs = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, defaultConfigFilePath)}
 )
 
-func (o testConfigOpener) open(_ string) (io.Reader, error) {
+func (o testConfigOpener) open(_ string) (io.ReadCloser, error) {
 
 	b, _ := yaml.Marshal(o.m)
-	return bytes.NewReader(b), nil
+	return testReadCloser{
+		Reader: bytes.NewReader(b),
+		Closer: testCloser{},
+	}, nil
 
 }
 
-func (o erroneousTestConfigOpener) open(_ string) (io.Reader, error) {
+func (o erroneousTestConfigOpener) open(_ string) (io.ReadCloser, error) {
 
 	return nil, errors.New("lo and behold, here i am, a dummy error")
+
+}
+
+func (c testCloser) Close() error {
+
+	return nil
 
 }
 
@@ -377,9 +392,12 @@ func TestDecodeConfigFile(t *testing.T) {
 	{
 		t.Log("\twhen providing a target map and a file open function that returns a valid io.Reader")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
 				b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsDefault)
-				return bytes.NewReader(b), nil
+				return testReadCloser{
+					Reader: bytes.NewReader(b),
+					Closer: testCloser{},
+				}, nil
 			})
 
 			msg := "\t\tno error should occur"
@@ -399,7 +417,7 @@ func TestDecodeConfigFile(t *testing.T) {
 
 		t.Log("\twhen providing a target map and a file open function that returns an error")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
 				return nil, errors.New("lo and behold, an error")
 			})
 
@@ -420,8 +438,11 @@ func TestDecodeConfigFile(t *testing.T) {
 
 		t.Log("\twhen providing a target map and a file open function that returns an io.Reader producing invalid yaml")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.Reader, error) {
-				return bytes.NewReader([]byte("this is not yaml")), nil
+			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
+				return testReadCloser{
+					Reader: bytes.NewReader([]byte("this is not yaml")),
+					Closer: testCloser{},
+				}, nil
 			})
 
 			msg := "\t\terror should be reported"

@@ -9,7 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 	"hazeltest/logging"
 	"io"
-	"io/fs"
 	"os"
 	"strings"
 )
@@ -24,7 +23,7 @@ type DefaultConfigPropertyAssigner struct{}
 
 type (
 	fileOpener interface {
-		open(string) (io.Reader, error)
+		open(string) (io.ReadCloser, error)
 	}
 	defaultConfigFileOpener      struct{}
 	userSuppliedConfigFileOpener struct{}
@@ -56,33 +55,21 @@ func init() {
 	u = userSuppliedConfigFileOpener{}
 }
 
-func (o defaultConfigFileOpener) open(path string) (io.Reader, error) {
+func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
 
 	if file, err := defaultConfigFile.Open(path); err != nil {
 		return nil, err
 	} else {
-		defer func(file fs.File) {
-			err := file.Close()
-			if err != nil {
-				lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
-			}
-		}(file)
 		return file, nil
 	}
 
 }
 
-func (o userSuppliedConfigFileOpener) open(path string) (io.Reader, error) {
+func (o userSuppliedConfigFileOpener) open(path string) (io.ReadCloser, error) {
 
 	if file, err := os.Open(path); err != nil {
 		return nil, err
 	} else {
-		defer func(file *os.File) {
-			err := file.Close()
-			if err != nil {
-				lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
-			}
-		}(file)
 		return file, nil
 	}
 
@@ -216,7 +203,7 @@ func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]inte
 
 }
 
-func decodeConfigFile(path string, openFileFunc func(path string) (io.Reader, error)) (map[string]interface{}, error) {
+func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser, error)) (map[string]interface{}, error) {
 
 	r, err := openFileFunc(path)
 
@@ -224,6 +211,12 @@ func decodeConfigFile(path string, openFileFunc func(path string) (io.Reader, er
 		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.ErrorLevel)
 		return nil, err
 	}
+	defer func(r io.ReadCloser) {
+		err := r.Close()
+		if err != nil {
+			lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
+		}
+	}(r)
 
 	target := make(map[string]interface{})
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
