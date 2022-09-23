@@ -192,6 +192,8 @@ func parseCommandLineArgs() (map[string]interface{}, error) {
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
 
+	lp.LogInternalStateEvent(fmt.Sprintf("command line arguments parsed: %v\n", target), log.InfoLevel)
+
 	return target, nil
 
 }
