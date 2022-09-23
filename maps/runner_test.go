@@ -71,7 +71,7 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]interface{}) b
 
 	return rc.enabled == expected[runnerKeyPath+".enabled"] &&
 		rc.numMaps == expected[runnerKeyPath+".numMaps"] &&
-		rc.numRuns == expected[runnerKeyPath+".numRuns"] &&
+		rc.numRuns == uint32(expected[runnerKeyPath+".numRuns"].(int)) &&
 		rc.mapBaseName == mapBaseName &&
 		rc.useMapPrefix == expected[runnerKeyPath+".mapPrefix.enabled"] &&
 		rc.mapPrefix == expected[runnerKeyPath+".mapPrefix.prefix"] &&
