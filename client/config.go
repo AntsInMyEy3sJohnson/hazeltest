@@ -103,6 +103,7 @@ func ParseConfigs() error {
 	}
 
 	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
+		lp.LogConfigEvent("N/A", "config file", err.Error(), log.ErrorLevel)
 		return FailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedConfig = config
