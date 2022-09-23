@@ -134,6 +134,8 @@ func (lp *LogProvider) doLog(msg string, fields log.Fields, level log.Level) {
 
 	if level == log.FatalLevel {
 		log.WithFields(fields).Fatal(msg)
+	} else if level == log.ErrorLevel {
+		log.WithFields(fields).Error(msg)
 	} else if level == log.WarnLevel {
 		log.WithFields(fields).Warn(msg)
 	} else if level == log.InfoLevel {
