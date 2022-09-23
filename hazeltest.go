@@ -29,12 +29,15 @@ func main() {
 		logConfigurationError("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided")
 	}
 
-	api.Serve()
-
 	hzMemberList := strings.Split(hzMembers, ",")
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		api.Serve()
+	}()
 
 	go func() {
 		defer wg.Done()

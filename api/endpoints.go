@@ -41,15 +41,13 @@ func init() {
 
 func Serve() {
 
-	go func() {
-		server := &http.Server{
-			Addr: ":8080",
-		}
-		http.HandleFunc("/liveness", livenessHandler)
-		http.HandleFunc("/readiness", readinessHandler)
-		http.HandleFunc("/status", statusHandler)
-		server.ListenAndServe()
-	}()
+	server := &http.Server{
+		Addr: ":8080",
+	}
+	http.HandleFunc("/liveness", livenessHandler)
+	http.HandleFunc("/readiness", readinessHandler)
+	http.HandleFunc("/status", statusHandler)
+	server.ListenAndServe()
 
 }
 
