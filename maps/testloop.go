@@ -68,7 +68,7 @@ func (l testLoop[T]) insertLoopWithInitialStatus() {
 		Source:            l.source,
 		NumMaps:           c.numMaps,
 		NumRuns:           c.numRuns,
-		TotalRuns:         c.numMaps * c.numRuns,
+		TotalRuns:         uint32(c.numMaps) * c.numRuns,
 		TotalRunsFinished: 0,
 	}
 
@@ -78,11 +78,11 @@ func (l testLoop[T]) insertLoopWithInitialStatus() {
 
 func (l testLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) {
 
-	updateStep := 50
+	updateStep := uint32(50)
 	sleepBetweenActionBatchesConfig := l.config.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.config.sleepBetweenRuns
 
-	for i := 0; i < l.config.numRuns; i++ {
+	for i := uint32(0); i < l.config.numRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
 			l.increaseTotalNumRunsCompleted(updateStep)
@@ -112,7 +112,7 @@ func (l testLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 
 }
 
-func (l testLoop[T]) increaseTotalNumRunsCompleted(increase int) {
+func (l testLoop[T]) increaseTotalNumRunsCompleted(increase uint32) {
 
 	api.IncreaseTotalNumRunsCompleted(l.id, increase)
 

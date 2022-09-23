@@ -25,7 +25,7 @@ type (
 	}
 	operationConfig struct {
 		enabled                   bool
-		numRuns                   int
+		numRuns                   uint32
 		batchSize                 int
 		initialDelay              *sleepConfig
 		sleepBetweenActionBatches *sleepConfig
@@ -117,9 +117,9 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) *operatio
 		enabled = a.(bool)
 	})
 
-	var numRuns int
+	var numRuns uint32
 	_ = a.Assign(c+".numRuns", func(a any) {
-		numRuns = a.(int)
+		numRuns = uint32(a.(int))
 	})
 
 	var batchSizePoll int
@@ -188,7 +188,7 @@ func (t *QueueTester) TestQueues() {
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateInfo,
+		"kind":   logging.InternalStateEvent,
 		"client": client.ID(),
 	}).Trace(msg)
 

@@ -96,7 +96,7 @@ func (l testLoop[t]) runElementLoop(elements []t, q *hazelcast.Queue, o operatio
 	sleep(config.initialDelay, "initialDelay", queueName, o)
 
 	numRuns := config.numRuns
-	for i := 0; i < numRuns; i++ {
+	for i := uint32(0); i < numRuns; i++ {
 		if i > 0 {
 			sleep(config.sleepBetweenRuns, "betweenRuns", queueName, o)
 		}
