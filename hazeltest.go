@@ -58,7 +58,7 @@ func main() {
 func logConfigurationError(configValue string, source string, msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.ConfigurationError,
+		"kind":   logging.ConfigurationEvent,
 		"value":  configValue,
 		"source": source,
 		"client": client.ID(),
