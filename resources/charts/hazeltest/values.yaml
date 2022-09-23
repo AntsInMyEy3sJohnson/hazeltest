@@ -5,7 +5,7 @@ image:
   organization: antsinmyey3sjohnson
   repository: hazeltest
   # 0.5.4
-  digest: 72784d8a18bf93d11f47fe78ebda9e323ac8ea8cd65ee090e655a3614fd059d6
+  digest: 2c7bd81af6fdff80fe6f8ad46aa41ec52012ac748628d24dd9132117beccd98a
   pullPolicy: IfNotPresent
 
 httpPort: 8080
