@@ -31,7 +31,7 @@ env:
   logLevel: INFO
 
 config:
-  # For documentation on these properties, please refer to <repo root>/client/config/defaultConfig.yaml
+  # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
   queuetests:
     tweets:
       enabled: true
