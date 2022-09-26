@@ -41,7 +41,7 @@ func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "queueloadrunner", hzCluster, hzMembers)
+	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
