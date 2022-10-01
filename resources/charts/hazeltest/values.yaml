@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: 50
 
 image:
   registry: docker.io
@@ -12,10 +12,10 @@ httpPort: 8080
 resources:
   requests:
     cpu: "50m"
-    memory: "64M"
+    memory: "32Mi"
   limits:
     cpu: "100m"
-    memory: "128M"
+    memory: "64Mi"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -31,16 +31,16 @@ env:
   logLevel: INFO
 
 config:
-  # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
+  # For documentation on these properties, please refer to <repo root>/client/config/defaultConfig.yaml
   queuetests:
     tweets:
       enabled: true
-      numQueues: 5
+      numQueues: 10
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: false
+      appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
-        prefix: "ht_"
+        prefix: "app1_"
       putConfig:
         enabled: true
         numRuns: 500
@@ -51,10 +51,10 @@ config:
             durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 1000
+            durationMs: 2000
           betweenRuns:
             enabled: true
-            durationMs: 2000
+            durationMs: 5000
       pollConfig:
         enabled: true
         numRuns: 500
@@ -62,23 +62,23 @@ config:
         sleeps:
           initialDelay:
             enabled: true
-            durationMs: 12500
+            durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 1000
+            durationMs: 2000
           betweenRuns:
             enabled: true
-            durationMs: 2000
+            durationMs: 5000
     load:
       enabled: true
       numQueues: 10
-      numLoadEntries: 5000
-      payloadSizeBytes: 5000
+      numLoadEntries: 50
+      payloadSizeBytes: 10
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: false
+      appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
-        prefix: "ht_"
+        prefix: "app1_"
       putConfig:
         enabled: true
         numRuns: 500
@@ -89,10 +89,10 @@ config:
             durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 200
+            durationMs: 1000
           betweenRuns:
             enabled: true
-            durationMs: 200
+            durationMs: 3500
       pollConfig:
         enabled: true
         numRuns: 500
@@ -100,46 +100,46 @@ config:
         sleeps:
           initialDelay:
             enabled: true
-            durationMs: 20000
+            durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 200
+            durationMs: 1000
           betweenRuns:
             enabled: true
-            durationMs: 200
+            durationMs: 3500
 
   maptests:
     pokedex:
       enabled: true
-      numMaps: 5
+      numMaps: 10
       appendMapIndexToMapName: true
-      appendClientIdToMapName: false
+      appendClientIdToMapName: true
       numRuns: 10000
       mapPrefix:
         enabled: true
-        prefix: "ht_"
+        prefix: "app1_"
       sleeps:
         betweenActionBatches:
-          enabled: false
-          durationMs: 2000
+          enabled: true
+          durationMs: 3000
         betweenRuns:
           enabled: true
-          durationMs: 2000
+          durationMs: 5000
     load:
       enabled: true
-      numMaps: 2
-      numEntriesPerMap: 5000
-      payloadSizeBytes: 100000
+      numMaps: 10
+      numEntriesPerMap: 50
+      payloadSizeBytes: 10
       appendMapIndexToMapName: true
-      appendClientIdToMapName: false
+      appendClientIdToMapName: true
       numRuns: 10000
       mapPrefix:
         enabled: true
-        prefix: "ht_"
+        prefix: "app1_"
       sleeps:
         betweenActionBatches:
-          enabled: false
-          durationMs: 2000
+          enabled: true
+          durationMs: 200
         betweenRuns:
           enabled: true
-          durationMs: 2000
+          durationMs: 200

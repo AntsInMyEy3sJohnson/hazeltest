@@ -1,7 +1,5 @@
 platform:
   deploy: true
-  nodeSelectors:
-    tShirtSize: large
   service:
     type: NodePort
     port: 5701
@@ -20,13 +18,13 @@ platform:
       containerResources:
         requests:
           cpu: "4"
-          memory: "8G"
+          memory: "7G"
         limits:
           cpu: "6"
-          memory: "8G"
+          memory: "7G"
       jvmResources:
-        xmx: 6500m
-        xms: 6500m
+        xmx: 5600m
+        xms: 5600m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -39,7 +37,7 @@ platform:
         enabled: true
         # Default is 5 -- by setting this to a higher value, one can decrease load on the Management Center
         # because it will receive fewer data points to work with
-        collection-frequency-seconds: 60
+        collection-frequency-seconds: 5
       jet:
         enabled: true
       cluster-name: "hazelcastplatform"
@@ -61,8 +59,6 @@ platform:
             service-port: 5701
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
-        # Create very restrictive config for all map names not corresponding to one of 
-        # the other patterns such as to protect cluster from potentially misbehaving clients
         default:
           backup-count: 0
           max-idle-seconds: 5
@@ -70,27 +66,43 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 50
-        # Config for the Hazeltest maps
-        ht_*:
+            size: 85
+        app1_load*:
           backup-count: 1
-          # Keep entries around for ten minutes
+          max-idle-seconds: 600"
+          in-memory-format: BINARY
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: FREE_HEAP_PERCENTAGE
+            size: 40
+        app1*:
+          backup-count: 1
           max-idle-seconds: 600
           in-memory-format: BINARY
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 15
+            size: 25
+        app2*:
+          backup-count: 2
+          max-idle-seconds: 120
+          in-memory-format: BINARY
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: USED_HEAP_PERCENTAGE
+            size: 80
       queue:
-        # Restrictive default
         default:
           max-size: 10
           backup-count: 0
           empty-queue-ttl: 10
-        # Config for Hazeltest queues
-        ht_*:
-          max-size: 10000
+        app1*:
+          max-size: 20
           backup-count: 1
+          empty-queue-ttl: 120
+        app2*:
+          max-size: 2000
+          backup-count: 2
           empty-queue-ttl: 120
 
 mancenter:
@@ -117,7 +129,7 @@ mancenter:
     resources:
       requests:
         cpu: "2"
-        memory: "8G"
+        memory: "12G"
       limits:
         cpu: "4"
-        memory: "8G"
+        memory: "12G"
