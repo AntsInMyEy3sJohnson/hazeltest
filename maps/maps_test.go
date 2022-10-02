@@ -24,7 +24,10 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any))
 		return errors.New("deliberately thrown error")
 	}
 
-	assignFunc(a.dummyConfig[keyPath])
+	if value, ok := a.dummyConfig[keyPath]; ok {
+		assignFunc(value)
+	}
+
 	return nil
 
 }

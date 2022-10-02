@@ -51,12 +51,12 @@ var (
 )
 
 func init() {
-	register(pokedexRunner{ls: start})
+	register(&pokedexRunner{ls: start})
 	gob.Register(pokemon{})
 	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
-func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
+func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	mapRunnerConfig, err := populatePokedexConfig(propertyAssigner)
 	if err != nil {
