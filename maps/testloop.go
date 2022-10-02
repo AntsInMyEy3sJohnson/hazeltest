@@ -16,10 +16,12 @@ import (
 )
 
 type (
-	getElementID func(element interface{}) string
-
+	getElementID       func(element interface{}) string
 	deserializeElement func(element interface{}) error
-
+	looper[t any]      interface {
+		init(lc *testLoopConfig[t])
+		run()
+	}
 	testLoop[t any] struct {
 		config *testLoopConfig[t]
 	}

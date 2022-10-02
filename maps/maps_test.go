@@ -1,13 +1,17 @@
 package maps
 
-import "errors"
+import (
+	"context"
+	"errors"
+	"github.com/hazelcast/hazelcast-go-client"
+)
 
 type (
 	testConfigPropertyAssigner struct {
-		returnError   bool
-		runnerKeyPath string
-		dummyConfig   map[string]interface{}
+		returnError bool
+		dummyConfig map[string]interface{}
 	}
+	dummyHzMapStore struct{}
 )
 
 const (
@@ -17,6 +21,18 @@ const (
 	mapPrefix     = "t_"
 	mapBaseName   = "test"
 )
+
+func (d dummyHzMapStore) Shutdown(_ context.Context) error {
+	return nil
+}
+
+func (d dummyHzMapStore) InitHazelcast(_ context.Context, _ string, _ string, _ []string) {
+	// No-op
+}
+
+func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (*hazelcast.Map, error) {
+	return nil, errors.New("i'm only a dummy implementation")
+}
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any)) error {
 

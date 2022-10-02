@@ -15,11 +15,11 @@ import (
 
 type (
 	pokedexRunner struct {
-		ls       lastState
-		name     string
-		source   string
-		mapStore client.HzMapStore
-		loop     testLoop[pokemon]
+		stateList []state
+		name      string
+		source    string
+		mapStore  client.HzMapStore
+		l         looper[pokemon]
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -48,11 +48,6 @@ type (
 	}
 )
 
-const (
-	runnerName   = "maps-pokedexrunner"
-	runnerSource = "pokedexrunner"
-)
-
 var (
 	//go:embed pokedex.json
 	pokedexFile      embed.FS
@@ -60,7 +55,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{ls: start, name: runnerName, source: runnerSource, mapStore: client.DefaultHzMapStore{}, loop: testLoop[pokemon]{}})
+	register(&pokedexRunner{stateList: []state{start}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
@@ -72,13 +67,13 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 		lp.LogInternalStateEvent("unable to populate config for pokedex runner -- aborting", log.ErrorLevel)
 		return
 	}
-	r.ls = populateConfigComplete
+	r.appendState(populateConfigComplete)
 
 	if !mapRunnerConfig.enabled {
 		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
-	r.ls = checkEnabledComplete
+	r.appendState(checkEnabledComplete)
 
 	api.RaiseNotReady()
 
@@ -94,20 +89,26 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
-	r.ls = raiseReadyComplete
+	r.appendState(raiseReadyComplete)
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, mapRunnerConfig, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	r.loop.init(lc)
+	r.l.init(lc)
 
-	r.ls = testLoopStart
-	r.loop.run()
-	r.ls = testLoopComplete
+	r.appendState(testLoopStart)
+	r.l.run()
+	r.appendState(testLoopComplete)
 
 	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
+
+}
+
+func (r *pokedexRunner) appendState(ls state) {
+
+	r.stateList = append(r.stateList, ls)
 
 }
 

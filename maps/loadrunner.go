@@ -14,7 +14,11 @@ import (
 
 type (
 	loadRunner struct {
+		ls       state
+		name     string
+		source   string
 		mapStore client.HzMapStore
+		l        looper[loadElement]
 	}
 	loadElement struct {
 		Key     string
@@ -28,7 +32,7 @@ var (
 )
 
 func init() {
-	register(loadRunner{mapStore: client.DefaultHzMapStore{}})
+	register(loadRunner{ls: start, name: "maps-loadrunner", source: "loadrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -55,20 +59,10 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting load test loop for maps", log.InfoLevel)
 
-	elements := populateLoadElements()
+	lc := &testLoopConfig[loadElement]{uuid.New(), r.source, r.mapStore, mapRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
 
-	testLoop := testLoop[loadElement]{
-		id:                     uuid.New(),
-		source:                 "loadrunner",
-		mapStore:               r.mapStore,
-		config:                 mapRunnerConfig,
-		elements:               elements,
-		ctx:                    ctx,
-		getElementIdFunc:       getLoadElementID,
-		deserializeElementFunc: deserializeLoadElement,
-	}
-
-	testLoop.run()
+	r.l.init(lc)
+	r.l.run()
 
 	lp.LogInternalStateEvent("finished map load test loop", log.InfoLevel)
 
