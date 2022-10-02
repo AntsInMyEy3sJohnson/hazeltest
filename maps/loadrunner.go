@@ -45,7 +45,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "maps-loadrunner", hzCluster, hzMembers)
+	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "maps-loadrunner", hzCluster, hzMembers)
 
 	defer hzClient.Shutdown(ctx)
 

@@ -53,7 +53,7 @@ func (r tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "queues-tweetrunner", hzCluster, hzMembers)
+	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "queues-tweetrunner", hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()

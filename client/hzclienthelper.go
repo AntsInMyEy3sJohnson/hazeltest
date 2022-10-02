@@ -15,7 +15,7 @@ type HzClientHelper struct {
 	lp       *logging.LogProvider
 }
 
-func NewHzClient() HzClientHelper {
+func NewHzClientHelper() HzClientHelper {
 	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}
 }
 

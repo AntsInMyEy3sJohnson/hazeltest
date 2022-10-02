@@ -81,7 +81,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "maps-pokedexrunner", hzCluster, hzMembers)
+	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "maps-pokedexrunner", hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
