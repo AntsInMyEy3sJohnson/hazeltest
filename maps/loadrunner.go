@@ -13,7 +13,9 @@ import (
 )
 
 type (
-	loadRunner  struct{}
+	loadRunner struct {
+		mapStore client.HzMapStore
+	}
 	loadElement struct {
 		Key     string
 		Payload string
@@ -26,7 +28,7 @@ var (
 )
 
 func init() {
-	register(loadRunner{})
+	register(loadRunner{mapStore: client.DefaultHzMapStore{}})
 	gob.Register(loadElement{})
 }
 
@@ -45,9 +47,8 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "maps-loadrunner", hzCluster, hzMembers)
-
-	defer hzClient.Shutdown(ctx)
+	r.mapStore.InitHazelcast(ctx, "maps-loadrunner", hzCluster, hzMembers)
+	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
 
@@ -59,7 +60,7 @@ func (r loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	testLoop := testLoop[loadElement]{
 		id:                     uuid.New(),
 		source:                 "loadrunner",
-		hzClient:               hzClient,
+		mapStore:               r.mapStore,
 		config:                 mapRunnerConfig,
 		elements:               elements,
 		ctx:                    ctx,

@@ -1,9 +1,30 @@
 package maps
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client"
 	"testing"
 )
+
+type (
+	dummyHzMapStore struct{}
+)
+
+func (d dummyHzMapStore) Shutdown(_ context.Context) error {
+	return nil
+}
+
+func (d dummyHzMapStore) InitHazelcast(_ context.Context, _ string, _ string, _ []string) {
+
+	// No-op
+
+}
+
+func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (*hazelcast.Map, error) {
+	return nil, errors.New("i'm only a dummy implementation")
+}
 
 func TestRunMapTests(t *testing.T) {
 
@@ -19,7 +40,7 @@ func TestRunMapTests(t *testing.T) {
 				runnerKeyPath: "",
 				dummyConfig:   nil,
 			}
-			r := pokedexRunner{ls: start}
+			r := pokedexRunner{ls: start, mapStore: dummyHzMapStore{}}
 
 			r.runMapTests(hzCluster, hzMembers)
 
@@ -39,7 +60,7 @@ func TestRunMapTests(t *testing.T) {
 					"maptests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{ls: start}
+			r := pokedexRunner{ls: start, mapStore: dummyHzMapStore{}}
 
 			r.runMapTests(hzCluster, hzMembers)
 

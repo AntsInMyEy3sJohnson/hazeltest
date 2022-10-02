@@ -23,7 +23,7 @@ type (
 	testLoop[t any] struct {
 		id                     uuid.UUID
 		source                 string
-		hzClient               *hazelcast.Client
+		mapStore               client.HzMapStore
 		config                 *runnerConfig
 		elements               []t
 		ctx                    context.Context
@@ -46,7 +46,7 @@ func (l testLoop[T]) run() {
 			mapName := l.assembleMapName(i)
 			lp.LogInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			hzMap, err := l.hzClient.GetMap(l.ctx, mapName)
+			hzMap, err := l.mapStore.GetMap(l.ctx, mapName)
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			if err != nil {

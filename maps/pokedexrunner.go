@@ -15,7 +15,8 @@ import (
 
 type (
 	pokedexRunner struct {
-		ls lastState
+		ls       lastState
+		mapStore client.HzMapStore
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -51,7 +52,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{ls: start})
+	register(&pokedexRunner{ls: start, mapStore: client.DefaultHzMapStore{}})
 	gob.Register(pokemon{})
 	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
@@ -81,8 +82,8 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "maps-pokedexrunner", hzCluster, hzMembers)
-	defer hzClient.Shutdown(ctx)
+	r.mapStore.InitHazelcast(ctx, "maps-pokedexrunner", hzCluster, hzMembers)
+	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
 	r.ls = raiseReadyComplete
@@ -93,7 +94,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	testLoop := testLoop[pokemon]{
 		id:                     uuid.New(),
 		source:                 "pokedexrunner",
-		hzClient:               hzClient,
+		mapStore:               r.mapStore,
 		config:                 mapRunnerConfig,
 		elements:               pokedex.Pokemon,
 		ctx:                    ctx,

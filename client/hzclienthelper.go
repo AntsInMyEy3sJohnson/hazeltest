@@ -10,9 +10,33 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type HzClientHelper struct {
-	clientID uuid.UUID
-	lp       *logging.LogProvider
+type (
+	HzClientHelper struct {
+		clientID uuid.UUID
+		lp       *logging.LogProvider
+	}
+	HzMapStore interface {
+		InitHazelcast(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
+		GetMap(ctx context.Context, name string) (*hazelcast.Map, error)
+		Shutdown(ctx context.Context) error
+	}
+	DefaultHzMapStore struct {
+		client *hazelcast.Client
+	}
+)
+
+func (d DefaultHzMapStore) Shutdown(ctx context.Context) error {
+	return d.client.Shutdown(ctx)
+}
+
+func (d DefaultHzMapStore) InitHazelcast(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
+
+	d.client = NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+
+}
+
+func (d DefaultHzMapStore) GetMap(ctx context.Context, name string) (*hazelcast.Map, error) {
+	return d.client.GetMap(ctx, name)
 }
 
 func NewHzClientHelper() HzClientHelper {
