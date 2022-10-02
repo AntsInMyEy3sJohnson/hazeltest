@@ -21,10 +21,13 @@ type (
 	deserializeElement func(element interface{}) error
 
 	testLoop[t any] struct {
+		config *testLoopConfig[t]
+	}
+	testLoopConfig[t any] struct {
 		id                     uuid.UUID
 		source                 string
 		mapStore               client.HzMapStore
-		config                 *runnerConfig
+		runnerConfig           *runnerConfig
 		elements               []t
 		ctx                    context.Context
 		getElementIdFunc       getElementID
@@ -32,27 +35,31 @@ type (
 	}
 )
 
-func (l testLoop[T]) run() {
+func (l testLoop[t]) init(lc *testLoopConfig[t]) {
+	l.config = lc
+}
+
+func (l testLoop[t]) run() {
 
 	l.insertLoopWithInitialStatus()
 
 	// TODO Introduce randomness to sleeps -- right now, they produce cyclic high CPU usage
 
 	var wg sync.WaitGroup
-	for i := 0; i < l.config.numMaps; i++ {
+	for i := 0; i < l.config.runnerConfig.numMaps; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			mapName := l.assembleMapName(i)
 			lp.LogInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			hzMap, err := l.mapStore.GetMap(l.ctx, mapName)
+			hzMap, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.FatalLevel)
 			}
-			defer hzMap.Destroy(l.ctx)
+			defer hzMap.Destroy(l.config.ctx)
 			l.runForMap(hzMap, mapName, i)
 		}(i)
 	}
@@ -60,33 +67,36 @@ func (l testLoop[T]) run() {
 
 }
 
-func (l testLoop[T]) insertLoopWithInitialStatus() {
+func (l testLoop[t]) insertLoopWithInitialStatus() {
 
 	c := l.config
 
+	numMaps := c.runnerConfig.numMaps
+	numRuns := c.runnerConfig.numRuns
+
 	status := &api.TestLoopStatus{
-		Source:            l.source,
-		NumMaps:           c.numMaps,
-		NumRuns:           c.numRuns,
-		TotalRuns:         uint32(c.numMaps) * c.numRuns,
+		Source:            l.config.source,
+		NumMaps:           numMaps,
+		NumRuns:           numRuns,
+		TotalRuns:         uint32(numMaps) * numRuns,
 		TotalRunsFinished: 0,
 	}
 
-	api.InsertInitialTestLoopStatus(l.id, status)
+	api.InsertInitialTestLoopStatus(l.config.id, status)
 
 }
 
-func (l testLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) {
+func (l testLoop[t]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) {
 
 	updateStep := uint32(50)
-	sleepBetweenActionBatchesConfig := l.config.sleepBetweenActionBatches
-	sleepBetweenRunsConfig := l.config.sleepBetweenRuns
+	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
+	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
 
-	for i := uint32(0); i < l.config.numRuns; i++ {
+	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
 			l.increaseTotalNumRunsCompleted(updateStep)
-			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d -- test loop status updated", i, l.config.numRuns, mapName, mapNumber), log.InfoLevel)
+			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d -- test loop status updated", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 		lp.LogInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
@@ -114,23 +124,23 @@ func (l testLoop[T]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) 
 
 func (l testLoop[T]) increaseTotalNumRunsCompleted(increase uint32) {
 
-	api.IncreaseTotalNumRunsCompleted(l.id, increase)
+	api.IncreaseTotalNumRunsCompleted(l.config.id, increase)
 
 }
 
 func (l testLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
-	for _, v := range l.elements {
-		key := assembleMapKey(mapNumber, l.getElementIdFunc(v))
-		containsKey, err := m.ContainsKey(l.ctx, key)
+	for _, v := range l.config.elements {
+		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
+		containsKey, err := m.ContainsKey(l.config.ctx, key)
 		if err != nil {
 			return err
 		}
 		if containsKey {
 			continue
 		}
-		if err = m.Set(l.ctx, key, v); err != nil {
+		if err = m.Set(l.config.ctx, key, v); err != nil {
 			return err
 		}
 		numNewlyIngested++
@@ -142,46 +152,46 @@ func (l testLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 
 }
 
-func (l testLoop[T]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l testLoop[t]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	for _, v := range l.elements {
-		key := assembleMapKey(mapNumber, l.getElementIdFunc(v))
-		valueFromHZ, err := m.Get(l.ctx, key)
+	for _, v := range l.config.elements {
+		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
+		valueFromHZ, err := m.Get(l.config.ctx, key)
 		if err != nil {
 			return err
 		}
 		if valueFromHZ == nil {
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
 		}
-		err = l.deserializeElementFunc(valueFromHZ)
+		err = l.config.deserializeElementFunc(valueFromHZ)
 		if err != nil {
 			return err
 		}
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.elements), mapName), log.TraceLevel)
+	lp.LogInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.config.elements), mapName), log.TraceLevel)
 
 	return nil
 
 }
 
-func (l testLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l testLoop[t]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
 
-	numElementsToDelete := rand.Intn(len(l.elements))
+	numElementsToDelete := rand.Intn(len(l.config.elements))
 	deleted := 0
 
-	elements := l.elements
+	elements := l.config.elements
 
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(mapNumber, l.getElementIdFunc(elements[i]))
-		containsKey, err := m.ContainsKey(l.ctx, key)
+		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(elements[i]))
+		containsKey, err := m.ContainsKey(l.config.ctx, key)
 		if err != nil {
 			return err
 		}
 		if !containsKey {
 			continue
 		}
-		_, err = m.Remove(l.ctx, key)
+		_, err = m.Remove(l.config.ctx, key)
 		if err != nil {
 			return err
 		}
@@ -194,18 +204,18 @@ func (l testLoop[T]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int)
 
 }
 
-func (l testLoop[T]) assembleMapName(mapIndex int) string {
+func (l testLoop[t]) assembleMapName(mapIndex int) string {
 
 	c := l.config
 
-	mapName := c.mapBaseName
-	if c.useMapPrefix && c.mapPrefix != "" {
-		mapName = fmt.Sprintf("%s%s", c.mapPrefix, mapName)
+	mapName := c.runnerConfig.mapBaseName
+	if c.runnerConfig.useMapPrefix && c.runnerConfig.mapPrefix != "" {
+		mapName = fmt.Sprintf("%s%s", c.runnerConfig.mapPrefix, mapName)
 	}
-	if c.appendMapIndexToMapName {
+	if c.runnerConfig.appendMapIndexToMapName {
 		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
 	}
-	if c.appendClientIdToMapName {
+	if c.runnerConfig.appendClientIdToMapName {
 		mapName = fmt.Sprintf("%s-%s", mapName, client.ID())
 	}
 

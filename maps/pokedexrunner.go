@@ -16,7 +16,10 @@ import (
 type (
 	pokedexRunner struct {
 		ls       lastState
+		name     string
+		source   string
 		mapStore client.HzMapStore
+		loop     testLoop[pokemon]
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -45,6 +48,11 @@ type (
 	}
 )
 
+const (
+	runnerName   = "maps-pokedexrunner"
+	runnerSource = "pokedexrunner"
+)
+
 var (
 	//go:embed pokedex.json
 	pokedexFile      embed.FS
@@ -52,7 +60,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{ls: start, mapStore: client.DefaultHzMapStore{}})
+	register(&pokedexRunner{ls: start, name: runnerName, source: runnerSource, mapStore: client.DefaultHzMapStore{}, loop: testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
@@ -82,7 +90,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	r.mapStore.InitHazelcast(ctx, "maps-pokedexrunner", hzCluster, hzMembers)
+	r.mapStore.InitHazelcast(ctx, r.name, hzCluster, hzMembers)
 	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
@@ -91,19 +99,12 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	testLoop := testLoop[pokemon]{
-		id:                     uuid.New(),
-		source:                 "pokedexrunner",
-		mapStore:               r.mapStore,
-		config:                 mapRunnerConfig,
-		elements:               pokedex.Pokemon,
-		ctx:                    ctx,
-		getElementIdFunc:       getPokemonID,
-		deserializeElementFunc: deserializePokemon,
-	}
+	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, mapRunnerConfig, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
+
+	r.loop.init(lc)
 
 	r.ls = testLoopStart
-	testLoop.run()
+	r.loop.run()
 	r.ls = testLoopComplete
 
 	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
