@@ -50,21 +50,21 @@ type (
 
 var (
 	//go:embed pokedex.json
-	pokedexFile      embed.FS
-	propertyAssigner configPropertyAssigner
+	pokedexFile embed.FS
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{start}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[pokemon]{}})
+	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[pokemon]{}})
 	gob.Register(pokemon{})
-	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
 func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
+	r.appendState(start)
+
 	mapRunnerConfig, err := populatePokedexConfig(propertyAssigner)
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for pokedex runner -- aborting", log.ErrorLevel)
+		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
@@ -106,9 +106,9 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 }
 
-func (r *pokedexRunner) appendState(ls state) {
+func (r *pokedexRunner) appendState(s state) {
 
-	r.stateList = append(r.stateList, ls)
+	r.stateList = append(r.stateList, s)
 
 }
 

@@ -12,7 +12,6 @@ type (
 	runner interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
-	state                  string
 	configPropertyAssigner interface {
 		Assign(string, func(any)) error
 	}
@@ -40,8 +39,10 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
+	state string
 )
 
+// TODO include state in status endpoint
 const (
 	start                  state = "start"
 	populateConfigComplete state = "populateConfigComplete"
@@ -51,7 +52,10 @@ const (
 	testLoopComplete       state = "testLoopComplete"
 )
 
-var runners []runner
+var (
+	runners          []runner
+	propertyAssigner configPropertyAssigner
+)
 
 func register(r runner) {
 	runners = append(runners, r)
@@ -61,6 +65,7 @@ var lp *logging.LogProvider
 
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
+	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
 func (b runnerConfigBuilder) populateConfig(a configPropertyAssigner) (*runnerConfig, error) {
