@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 )
 
@@ -20,6 +21,12 @@ const (
 	runnerKeyPath = "testRunner"
 	mapPrefix     = "t_"
 	mapBaseName   = "test"
+)
+
+var (
+	hzCluster                = "awesome-hz-cluster"
+	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
+	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 )
 
 func (d dummyHzMapStore) Shutdown(_ context.Context) error {
@@ -45,5 +52,21 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any))
 	}
 
 	return nil
+
+}
+
+func checkRunnerStateTransitions(expected []state, actual []state) (bool, string) {
+
+	if len(expected) != len(actual) {
+		return false, fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual))
+	}
+
+	for i, expectedValue := range expected {
+		if actual[i] != expectedValue {
+			return false, fmt.Sprintf("expected '%s' in index '%d', got '%s'", expectedValue, i, actual[i])
+		}
+	}
+
+	return true, ""
 
 }
