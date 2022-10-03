@@ -68,83 +68,83 @@ func init() {
 	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
-func (b runnerConfigBuilder) populateConfig(a configPropertyAssigner) (*runnerConfig, error) {
+func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var assignmentOps []func() error
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".enabled", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", func(a any) {
 			enabled = a.(bool)
 		})
 	})
 
 	var numMaps int
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".numMaps", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".numMaps", func(a any) {
 			numMaps = a.(int)
 		})
 	})
 
 	var appendMapIndexToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".appendMapIndexToMapName", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendMapIndexToMapName", func(a any) {
 			appendMapIndexToMapName = a.(bool)
 		})
 	})
 
 	var appendClientIdToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", func(a any) {
 			appendClientIdToMapName = a.(bool)
 		})
 	})
 
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".numRuns", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".numRuns", func(a any) {
 			numRuns = uint32(a.(int))
 		})
 	})
 
 	var useMapPrefix bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".mapPrefix.enabled", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", func(a any) {
 			useMapPrefix = a.(bool)
 		})
 	})
 
 	var mapPrefix string
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".mapPrefix.prefix", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", func(a any) {
 			mapPrefix = a.(string)
 		})
 	})
 
 	var sleepBetweenActionBatchesEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(a any) {
 			sleepBetweenActionBatchesEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenActionBatchesDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(a any) {
 			sleepBetweenActionBatchesDurationMs = a.(int)
 		})
 	})
 
 	var sleepBetweenRunsEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(a any) {
 			sleepBetweenRunsEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenRunsDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(a any) {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(a any) {
 			sleepBetweenRunsDurationMs = a.(int)
 		})
 	})

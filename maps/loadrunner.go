@@ -143,6 +143,6 @@ func populateLoadConfig(a configPropertyAssigner) (*runnerConfig, error) {
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
 	}
-	return configBuilder.populateConfig(a)
+	return configBuilder.populateConfig()
 
 }

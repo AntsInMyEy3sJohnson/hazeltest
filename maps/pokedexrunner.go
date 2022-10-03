@@ -62,7 +62,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	mapRunnerConfig, err := populatePokedexConfig(propertyAssigner)
+	mapRunnerConfig, err := populatePokedexConfig()
 	if err != nil {
 		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
 		return
@@ -130,7 +130,7 @@ func deserializePokemon(elementFromHZ interface{}) error {
 
 }
 
-func populatePokedexConfig(a configPropertyAssigner) (*runnerConfig, error) {
+func populatePokedexConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.pokedex"
 
@@ -139,7 +139,7 @@ func populatePokedexConfig(a configPropertyAssigner) (*runnerConfig, error) {
 		mapBaseName:   "pokedex",
 	}
 
-	return configBuilder.populateConfig(a)
+	return configBuilder.populateConfig()
 
 }
 
