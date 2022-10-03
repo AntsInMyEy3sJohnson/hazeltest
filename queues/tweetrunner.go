@@ -37,7 +37,7 @@ func init() {
 
 func (r tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c := populateConfig("queuetests.tweets", "tweets")
+	c, _ := populateConfig("queuetests.tweets", "tweets")
 
 	if !c.enabled {
 		lp.LogInternalStateEvent("tweetrunner not enabled -- won't run", log.InfoLevel)

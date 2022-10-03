@@ -29,7 +29,7 @@ func init() {
 
 func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c := populateLoadConfig()
+	c, _ := populateLoadConfig()
 
 	if !c.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
@@ -78,7 +78,7 @@ func populateLoadElements() []loadElement {
 
 }
 
-func populateLoadConfig() *runnerConfig {
+func populateLoadConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "queuetests.load"
 
