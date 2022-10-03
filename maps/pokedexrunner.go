@@ -62,14 +62,14 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	mapRunnerConfig, err := populatePokedexConfig()
+	config, err := populatePokedexConfig()
 	if err != nil {
 		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
-	if !mapRunnerConfig.enabled {
+	if !config.enabled {
 		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
@@ -94,7 +94,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, mapRunnerConfig, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
+	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
 	r.l.init(lc)
 
