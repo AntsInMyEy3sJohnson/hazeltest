@@ -157,7 +157,7 @@ func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) *sleepCo
 
 }
 
-func PopulateConfig(runnerKeyPath string, queueBaseName string) *runnerConfig {
+func populateConfig(runnerKeyPath string, queueBaseName string) *runnerConfig {
 
 	return runnerConfigBuilder{
 		runnerKeyPath,
