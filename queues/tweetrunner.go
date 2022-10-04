@@ -14,7 +14,12 @@ import (
 )
 
 type (
-	tweetRunner     struct{}
+	tweetRunner struct {
+		stateList []state
+		name      string
+		source    string
+		l         looper[tweet]
+	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
 	}
@@ -31,18 +36,26 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(tweetRunner{})
+	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner"})
 	gob.Register(tweet{})
 }
 
-func (r tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c, _ := populateConfig("queuetests.tweets", "tweets")
+	r.appendState(start)
 
-	if !c.enabled {
+	config, err := populateConfig("queuetests.tweets", "tweets")
+	if err != nil {
+		lp.LogInternalStateEvent("unable to populate config for queue tweet runner -- aborting", log.ErrorLevel)
+		return
+	}
+	r.appendState(populateConfigComplete)
+
+	if !config.enabled {
 		lp.LogInternalStateEvent("tweetrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	r.appendState(checkEnabledComplete)
 
 	api.RaiseNotReady()
 
@@ -53,27 +66,28 @@ func (r tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "queues-tweetrunner", hzCluster, hzMembers)
+	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
 	defer hzClient.Shutdown(ctx)
 
 	api.RaiseReady()
+	r.appendState(raiseReadyComplete)
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("started tweets queue loop", log.InfoLevel)
 
-	t := testLoop[tweet]{
-		id:       uuid.New(),
-		source:   "tweetrunner",
-		hzClient: hzClient,
-		config:   c,
-		elements: tc.Tweets,
-		ctx:      ctx,
-	}
+	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzClient: hzClient, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
+	r.l.init(lc)
 
-	t.run()
+	r.appendState(testLoopStart)
+	r.l.run()
+	r.appendState(testLoopComplete)
 
 	lp.LogInternalStateEvent("finished tweet test loop", log.InfoLevel)
 
+}
+
+func (r *tweetRunner) appendState(s state) {
+	r.stateList = append(r.stateList, s)
 }
 
 func parseTweets() (*tweetCollection, error) {

@@ -12,13 +12,20 @@ import (
 )
 
 type (
+	looper[t any] interface {
+		init(lc *testLoopConfig[t])
+		run()
+	}
 	testLoop[t any] struct {
-		id       uuid.UUID
-		source   string
-		hzClient *hazelcast.Client
-		config   *runnerConfig
-		elements []t
-		ctx      context.Context
+		config *testLoopConfig[t]
+	}
+	testLoopConfig[t any] struct {
+		id           uuid.UUID
+		source       string
+		hzClient     *hazelcast.Client
+		runnerConfig *runnerConfig
+		elements     []t
+		ctx          context.Context
 	}
 	operation string
 )
@@ -28,17 +35,21 @@ const (
 	poll = operation("poll")
 )
 
+func (l testLoop[t]) init(lc *testLoopConfig[t]) {
+	l.config = lc
+}
+
 func (l testLoop[t]) run() {
 
 	// TODO Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs rather than the test loop pushing it
 	// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/8
 
 	c := l.config
-	hzClient := l.hzClient
-	ctx := l.ctx
+	hzClient := l.config.hzClient
+	ctx := l.config.ctx
 
 	var numQueuesWg sync.WaitGroup
-	for i := 0; i < c.numQueues; i++ {
+	for i := 0; i < c.runnerConfig.numQueues; i++ {
 		numQueuesWg.Add(1)
 		queueName := l.assembleQueueName(i)
 		lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
@@ -53,21 +64,21 @@ func (l testLoop[t]) run() {
 			defer numQueuesWg.Done()
 
 			var putWg sync.WaitGroup
-			if c.putConfig.enabled {
+			if c.runnerConfig.putConfig.enabled {
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
-					l.runElementLoop(l.elements, q, put, queueName, i)
+					l.runElementLoop(l.config.elements, q, put, queueName, i)
 				}()
 
 			}
 
 			var pollWg sync.WaitGroup
-			if c.pollConfig.enabled {
+			if c.runnerConfig.pollConfig.enabled {
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
-					l.runElementLoop(l.elements, q, poll, queueName, i)
+					l.runElementLoop(l.config.elements, q, poll, queueName, i)
 				}()
 			}
 
@@ -86,10 +97,10 @@ func (l testLoop[t]) runElementLoop(elements []t, q *hazelcast.Queue, o operatio
 	var config *operationConfig
 	var queueFunction func(queue *hazelcast.Queue, queueName string)
 	if o == put {
-		config = l.config.putConfig
+		config = l.config.runnerConfig.putConfig
 		queueFunction = l.putElements
 	} else {
-		config = l.config.pollConfig
+		config = l.config.runnerConfig.pollConfig
 		queueFunction = l.pollElements
 	}
 
@@ -113,12 +124,12 @@ func (l testLoop[t]) runElementLoop(elements []t, q *hazelcast.Queue, o operatio
 
 func (l testLoop[t]) putElements(q *hazelcast.Queue, queueName string) {
 
-	elements := l.elements
-	putConfig := l.config.putConfig
+	elements := l.config.elements
+	putConfig := l.config.runnerConfig.putConfig
 
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
-		err := q.Put(l.ctx, e)
+		err := q.Put(l.config.ctx, e)
 		if err != nil {
 			lp.LogInternalStateEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 		} else {
@@ -133,10 +144,10 @@ func (l testLoop[t]) putElements(q *hazelcast.Queue, queueName string) {
 
 func (l testLoop[t]) pollElements(q *hazelcast.Queue, queueName string) {
 
-	pollConfig := l.config.pollConfig
+	pollConfig := l.config.runnerConfig.pollConfig
 
-	for i := 0; i < len(l.elements); i++ {
-		valueFromQueue, err := q.Poll(l.ctx)
+	for i := 0; i < len(l.config.elements); i++ {
+		valueFromQueue, err := q.Poll(l.config.ctx)
 		if err != nil {
 			lp.LogInternalStateEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
 		} else if valueFromQueue == nil {
@@ -155,15 +166,15 @@ func (l testLoop[t]) assembleQueueName(queueIndex int) string {
 
 	c := l.config
 
-	queueName := c.queueBaseName
+	queueName := c.runnerConfig.queueBaseName
 
-	if c.useQueuePrefix && c.queuePrefix != "" {
-		queueName = fmt.Sprintf("%s%s", c.queuePrefix, queueName)
+	if c.runnerConfig.useQueuePrefix && c.runnerConfig.queuePrefix != "" {
+		queueName = fmt.Sprintf("%s%s", c.runnerConfig.queuePrefix, queueName)
 	}
-	if c.appendQueueIndexToQueueName {
+	if c.runnerConfig.appendQueueIndexToQueueName {
 		queueName = fmt.Sprintf("%s-%d", queueName, queueIndex)
 	}
-	if c.appendClientIdToQueueName {
+	if c.runnerConfig.appendClientIdToQueueName {
 		queueName = fmt.Sprintf("%s-%s", queueName, client.ID())
 	}
 
