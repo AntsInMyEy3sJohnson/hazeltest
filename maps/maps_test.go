@@ -33,7 +33,7 @@ func (d dummyHzMapStore) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d dummyHzMapStore) InitHazelcast(_ context.Context, _ string, _ string, _ []string) {
+func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	// No-op
 }
 

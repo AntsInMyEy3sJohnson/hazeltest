@@ -58,7 +58,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	r.mapStore.InitHazelcast(ctx, "maps-loadrunner", hzCluster, hzMembers)
+	r.mapStore.InitHazelcastClient(ctx, "maps-loadrunner", hzCluster, hzMembers)
 	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
