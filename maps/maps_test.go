@@ -18,7 +18,7 @@ type (
 const (
 	checkMark     = "\u2713"
 	ballotX       = "\u2717"
-	runnerKeyPath = "testRunner"
+	runnerKeyPath = "testMapRunner"
 	mapPrefix     = "t_"
 	mapBaseName   = "test"
 )
