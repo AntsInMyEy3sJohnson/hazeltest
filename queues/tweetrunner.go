@@ -15,10 +15,11 @@ import (
 
 type (
 	tweetRunner struct {
-		stateList []state
-		name      string
-		source    string
-		l         looper[tweet]
+		stateList  []state
+		name       string
+		source     string
+		queueStore client.HzQueueStore
+		l          looper[tweet]
 	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
@@ -36,7 +37,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner"})
+	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: client.DefaultHzQueueStore{}, l: testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 
@@ -66,8 +67,8 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
-	defer hzClient.Shutdown(ctx)
+	r.queueStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
+	defer r.queueStore.Shutdown(ctx)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
@@ -75,7 +76,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("started tweets queue loop", log.InfoLevel)
 
-	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzClient: hzClient, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
+	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
 	r.l.init(lc)
 
 	r.appendState(testLoopStart)

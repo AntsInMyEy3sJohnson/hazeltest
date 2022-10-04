@@ -15,24 +15,48 @@ type (
 		clientID uuid.UUID
 		lp       *logging.LogProvider
 	}
-	HzMapStore interface {
-		InitHazelcast(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
-		GetMap(ctx context.Context, name string) (*hazelcast.Map, error)
+	HzClientInitializer interface {
+		InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
+	}
+	HzClientCloser interface {
 		Shutdown(ctx context.Context) error
+	}
+	HzMapStore interface {
+		HzClientInitializer
+		GetMap(ctx context.Context, name string) (*hazelcast.Map, error)
+		HzClientCloser
+	}
+	HzQueueStore interface {
+		HzClientInitializer
+		GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error)
+		HzClientCloser
 	}
 	DefaultHzMapStore struct {
 		client *hazelcast.Client
 	}
+	DefaultHzQueueStore struct {
+		client *hazelcast.Client
+	}
 )
+
+func (d DefaultHzQueueStore) Shutdown(ctx context.Context) error {
+	return d.client.Shutdown(ctx)
+}
+
+func (d DefaultHzQueueStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
+	d.client = NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+}
+
+func (d DefaultHzQueueStore) GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error) {
+	return d.client.GetQueue(ctx, name)
+}
 
 func (d DefaultHzMapStore) Shutdown(ctx context.Context) error {
 	return d.client.Shutdown(ctx)
 }
 
-func (d DefaultHzMapStore) InitHazelcast(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-
+func (d DefaultHzMapStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
 	d.client = NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
-
 }
 
 func (d DefaultHzMapStore) GetMap(ctx context.Context, name string) (*hazelcast.Map, error) {

@@ -22,7 +22,7 @@ type (
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
 		source       string
-		hzClient     *hazelcast.Client
+		hzQueueStore client.HzQueueStore
 		runnerConfig *runnerConfig
 		elements     []t
 		ctx          context.Context
@@ -45,7 +45,6 @@ func (l testLoop[t]) run() {
 	// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/8
 
 	c := l.config
-	hzClient := l.config.hzClient
 	ctx := l.config.ctx
 
 	var numQueuesWg sync.WaitGroup
@@ -54,7 +53,7 @@ func (l testLoop[t]) run() {
 		queueName := l.assembleQueueName(i)
 		lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
 		start := time.Now()
-		q, err := hzClient.GetQueue(ctx, queueName)
+		q, err := l.config.hzQueueStore.GetQueue(ctx, queueName)
 		elapsed := time.Since(start).Milliseconds()
 		lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 		if err != nil {

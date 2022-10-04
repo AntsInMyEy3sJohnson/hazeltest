@@ -12,10 +12,11 @@ import (
 
 type (
 	loadRunner struct {
-		stateList []state
-		name      string
-		source    string
-		l         looper[loadElement]
+		stateList  []state
+		name       string
+		source     string
+		queueStore client.HzQueueStore
+		l          looper[loadElement]
 	}
 	loadElement struct {
 		Payload string
@@ -28,7 +29,7 @@ var (
 )
 
 func init() {
-	register(loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", l: testLoop[loadElement]{}})
+	register(loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: client.DefaultHzQueueStore{}, l: testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -46,15 +47,15 @@ func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClientHelper().InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
-	defer hzClient.Shutdown(ctx)
+	r.queueStore.InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
+	defer r.queueStore.Shutdown(ctx)
 
 	api.RaiseReady()
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting load test loop for queues", log.InfoLevel)
 
-	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzClient: hzClient, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
+	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
 	r.l.init(lc)
 	r.l.run()
