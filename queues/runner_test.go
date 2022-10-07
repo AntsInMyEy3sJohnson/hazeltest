@@ -1,7 +1,6 @@
 package queues
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -33,19 +32,6 @@ var (
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.durationMs":          2000,
 	}
 )
-
-func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any)) error {
-
-	if a.returnError {
-		return errors.New("lo and behold, here is a deliberately thrown error")
-	}
-
-	if value, ok := a.dummyConfig[keyPath]; ok {
-		assignFunc(value)
-	}
-
-	return nil
-}
 
 func TestPopulateConfig(t *testing.T) {
 
