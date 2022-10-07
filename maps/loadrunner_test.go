@@ -15,7 +15,7 @@ func (d dummyLoadTestLoop) run() {
 	// No-op
 }
 
-func TestRunMapTests(t *testing.T) {
+func TestRunLoadMapTests(t *testing.T) {
 
 	t.Log("given the need to test running map tests in the load runner")
 	{
@@ -30,7 +30,7 @@ func TestRunMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)
@@ -48,7 +48,7 @@ func TestRunMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)
@@ -66,7 +66,7 @@ func TestRunMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)
