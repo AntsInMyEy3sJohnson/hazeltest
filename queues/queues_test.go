@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	hzCluster = "awesome-hz-cluster"
-	hzMembers = []string{"awesome-hz-cluster-svc.cluster.local"}
+	hzCluster                = "awesome-hz-cluster"
+	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
+	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 )
 
 func (d dummyHzQueueStore) Shutdown(_ context.Context) error {
