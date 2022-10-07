@@ -1,7 +1,6 @@
 package maps
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -20,7 +19,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 	t.Log("given the need to test running map tests in the pokedex runner")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
-		genericMsg := fmt.Sprint("\t\tstate transitions must be correct")
+		genericMsg := "\t\tstate transitions must be correct"
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: true,
@@ -30,7 +29,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)
@@ -48,7 +47,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)
@@ -66,7 +65,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			r.runMapTests(hzCluster, hzMembers)
 
-			if ok, msg := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, msg)

@@ -55,18 +55,18 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any))
 
 }
 
-func checkRunnerStateTransitions(expected []state, actual []state) (bool, string) {
+func checkRunnerStateTransitions(expected []state, actual []state) (string, bool) {
 
 	if len(expected) != len(actual) {
-		return false, fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual))
+		return fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual)), false
 	}
 
 	for i, expectedValue := range expected {
 		if actual[i] != expectedValue {
-			return false, fmt.Sprintf("expected '%s' in index '%d', got '%s'", expectedValue, i, actual[i])
+			return fmt.Sprintf("expected '%s' in index '%d', got '%s'", expectedValue, i, actual[i]), false
 		}
 	}
 
-	return true, ""
+	return "", true
 
 }
