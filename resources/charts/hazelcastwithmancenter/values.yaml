@@ -59,6 +59,8 @@ platform:
             service-port: 5701
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
+        # Create very restrictive config for all map names not corresponding to one of
+        # the other patterns such as to protect cluster from potentially misbehaving clients
         default:
           backup-count: 0
           max-idle-seconds: 5
@@ -66,43 +68,27 @@ platform:
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 85
-        app1_load*:
+            size: 50
+        # Config for the Hazeltest maps
+        ht_*:
           backup-count: 1
-          max-idle-seconds: 600"
-          in-memory-format: BINARY
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 40
-        app1*:
-          backup-count: 1
+          # Keep entries around for ten minutes
           max-idle-seconds: 600
           in-memory-format: BINARY
           eviction:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 25
-        app2*:
-          backup-count: 2
-          max-idle-seconds: 120
-          in-memory-format: BINARY
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: USED_HEAP_PERCENTAGE
-            size: 80
+            size: 15
       queue:
+        # Restrictive default
         default:
           max-size: 10
           backup-count: 0
           empty-queue-ttl: 10
-        app1*:
-          max-size: 20
+        # Config for Hazeltest queues
+        ht_*:
+          max-size: 10000
           backup-count: 1
-          empty-queue-ttl: 120
-        app2*:
-          max-size: 2000
-          backup-count: 2
           empty-queue-ttl: 120
 
 mancenter:
