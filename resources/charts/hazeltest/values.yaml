@@ -1,4 +1,4 @@
-replicaCount: 50
+replicaCount: 10
 
 image:
   registry: docker.io
@@ -11,10 +11,10 @@ image:
 httpPort: 8080
 resources:
   requests:
-    cpu: "50m"
+    cpu: "500m"
     memory: "32Mi"
   limits:
-    cpu: "100m"
+    cpu: "1"
     memory: "64Mi"
 
 startupArgs:
@@ -34,13 +34,13 @@ config:
   # For documentation on these properties, please refer to <repo root>/client/config/defaultConfig.yaml
   queuetests:
     tweets:
-      enabled: true
+      enabled: false
       numQueues: 10
       appendQueueIndexToQueueName: true
       appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
-        prefix: "app1_"
+        prefix: "ht_"
       putConfig:
         enabled: true
         numRuns: 500
@@ -70,7 +70,7 @@ config:
             enabled: true
             durationMs: 5000
     load:
-      enabled: true
+      enabled: false
       numQueues: 10
       numLoadEntries: 50
       payloadSizeBytes: 10
@@ -78,7 +78,7 @@ config:
       appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
-        prefix: "app1_"
+        prefix: "ht_"
       putConfig:
         enabled: true
         numRuns: 500
@@ -117,29 +117,29 @@ config:
       numRuns: 10000
       mapPrefix:
         enabled: true
-        prefix: "app1_"
+        prefix: "ht_"
       sleeps:
         betweenActionBatches:
           enabled: true
-          durationMs: 3000
+          durationMs: 500
         betweenRuns:
           enabled: true
-          durationMs: 5000
+          durationMs: 1000
     load:
       enabled: true
       numMaps: 10
-      numEntriesPerMap: 50
-      payloadSizeBytes: 10
+      numEntriesPerMap: 50000
+      payloadSizeBytes: 1000000
       appendMapIndexToMapName: true
       appendClientIdToMapName: true
       numRuns: 10000
       mapPrefix:
         enabled: true
-        prefix: "app1_"
+        prefix: "ht_"
       sleeps:
         betweenActionBatches:
           enabled: true
           durationMs: 200
         betweenRuns:
           enabled: true
-          durationMs: 200
+          durationMs: 1300
