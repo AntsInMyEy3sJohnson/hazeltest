@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -124,32 +123,18 @@ func deserializeLoadElement(elementFromHz interface{}) error {
 
 }
 
-func populateLoadConfig(a configPropertyAssigner) (*runnerConfig, error) {
+func populateLoadConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.load"
 
-	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", func(path string, a any) error {
-		if i, ok := a.(int); !ok {
-			return fmt.Errorf(templateIntParseError, path, a)
-		} else if i <= 0 {
-			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-		} else {
-			numEntriesPerMap = i
-			return nil
-		}
+	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
+		numEntriesPerMap = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", func(path string, a any) error {
-		if i, ok := a.(int); !ok {
-			return fmt.Errorf(templateIntParseError, path, a)
-		} else if i <= 0 {
-			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-		} else {
-			payloadSizeBytes = i
-			return nil
-		}
+	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
+		payloadSizeBytes = a.(int)
 	}); err != nil {
 		return nil, err
 	}

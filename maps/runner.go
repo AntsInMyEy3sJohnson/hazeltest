@@ -12,9 +12,7 @@ type (
 	runner interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
-	configPropertyAssigner interface {
-		Assign(string, func(string, any) error) error
-	}
+	// TODO Why is this interface in the maps package? What value does it provide there? Couldn't it be located in the config package?
 	runnerConfig struct {
 		enabled                   bool
 		numMaps                   int
@@ -52,16 +50,9 @@ const (
 	testLoopComplete       state = "testLoopComplete"
 )
 
-const (
-	templateBoolParseError        = "%s: unable to parse %v to bool"
-	templateIntParseError         = "%s: unable to parse %v to int"
-	templateStringParseError      = "%s: unable to parse %v into string"
-	templateNumberAtLeastOneError = "%s: expected number to be at least 1, got %d"
-)
-
 var (
 	runners          []runner
-	propertyAssigner configPropertyAssigner
+	propertyAssigner client.ConfigPropertyAssigner
 )
 
 func register(r runner) {
@@ -81,145 +72,78 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				enabled = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", client.ValidateBool, func(a any) {
+			enabled = a.(bool)
 		})
 	})
 
 	var numMaps int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".numMaps", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				numMaps = i
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".numMaps", client.ValidateInt, func(a any) {
+			numMaps = a.(int)
 		})
 	})
 
 	var appendMapIndexToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendMapIndexToMapName", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				appendMapIndexToMapName = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendMapIndexToMapName", client.ValidateBool, func(a any) {
+			appendMapIndexToMapName = a.(bool)
 		})
 	})
 
 	var appendClientIdToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", func(path string, a any) error {
-			// TODO Function "boolAssign" that handles assigning of all booleans once the config value has been extracted?
-			// Would be located in config package... config package could provide different assignment functions -- AssignBool, AssignInt, ...
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				appendClientIdToMapName = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", client.ValidateBool, func(a any) {
+			appendClientIdToMapName = a.(bool)
 		})
 	})
 
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".numRuns", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				numRuns = uint32(i)
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".numRuns", client.ValidateInt, func(a any) {
+			numRuns = uint32(a.(int))
 		})
 	})
 
 	var useMapPrefix bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				useMapPrefix = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", client.ValidateBool, func(a any) {
+			useMapPrefix = a.(bool)
 		})
 	})
 
 	var mapPrefix string
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", func(path string, a any) error {
-			if s, ok := a.(string); !ok {
-				return fmt.Errorf(templateStringParseError, path, a)
-			} else if len(s) == 0 {
-				return fmt.Errorf("%s: expected non-empty string", path)
-			} else {
-				mapPrefix = s
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", client.ValidateString, func(a any) {
+			mapPrefix = a.(string)
 		})
 	})
 
 	var sleepBetweenActionBatchesEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				sleepBetweenActionBatchesEnabled = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
+			sleepBetweenActionBatchesEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenActionBatchesDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				sleepBetweenActionBatchesDurationMs = i
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
+			sleepBetweenActionBatchesDurationMs = a.(int)
 		})
 	})
 
 	var sleepBetweenRunsEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				sleepBetweenRunsEnabled = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", client.ValidateBool, func(a any) {
+			sleepBetweenRunsEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenRunsDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				sleepBetweenRunsDurationMs = i
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", client.ValidateInt, func(a any) {
+			sleepBetweenRunsDurationMs = a.(int)
 		})
 	})
 

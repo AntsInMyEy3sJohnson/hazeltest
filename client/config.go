@@ -25,14 +25,58 @@ type (
 	fileOpener interface {
 		open(string) (io.ReadCloser, error)
 	}
+	ConfigPropertyAssigner interface {
+		Assign(keyPath string, validate func(string, any) error, assign func(any)) error
+	}
 	defaultConfigFileOpener      struct{}
 	userSuppliedConfigFileOpener struct{}
 )
 
+func ValidateBool(path string, a any) error {
+
+	if _, ok := a.(bool); !ok {
+		return fmt.Errorf(templateBoolParseError, path, a)
+	}
+
+	return nil
+
+}
+
+func ValidateInt(path string, a any) error {
+
+	if i, ok := a.(int); !ok {
+		return fmt.Errorf(templateIntParseError, path, a)
+	} else if i <= 0 {
+		return fmt.Errorf(templateNumberAtLeastOneError, path, i)
+	}
+
+	return nil
+
+}
+
+func ValidateString(path string, a any) error {
+
+	if s, ok := a.(string); !ok {
+		return fmt.Errorf(templateStringParseError, path, a)
+	} else if len(s) == 0 {
+		return fmt.Errorf("%s: expected non-empty string", path)
+	}
+
+	return nil
+
+}
+
+const (
+	templateBoolParseError        = "%s: unable to parse %v to bool"
+	templateIntParseError         = "%s: unable to parse %v to int"
+	templateStringParseError      = "%s: unable to parse %v into string"
+	templateNumberAtLeastOneError = "%s: expected number to be at least 1, got %d"
+)
+
 var (
-	FailedParseCommandLineArgs        error
-	FailedParseDefaultConfigFile      error
-	FailedParseUserSuppliedConfigFile error
+	ErrFailedParseCommandLineArgs        error
+	ErrFailedParseDefaultConfigFile      error
+	ErrFailedParseUserSuppliedConfigFile error
 )
 
 var (
@@ -47,9 +91,9 @@ var (
 )
 
 func init() {
-	FailedParseCommandLineArgs = errors.New("unable to parse commandline-supplied arguments")
-	FailedParseDefaultConfigFile = errors.New("unable to parse default config file")
-	FailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied config file")
+	ErrFailedParseCommandLineArgs = errors.New("unable to parse commandline-supplied arguments")
+	ErrFailedParseDefaultConfigFile = errors.New("unable to parse default config file")
+	ErrFailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied config file")
 	lp = &logging.LogProvider{ClientID: ID()}
 	d = defaultConfigFileOpener{}
 	u = userSuppliedConfigFileOpener{}
@@ -78,20 +122,20 @@ func (o userSuppliedConfigFileOpener) open(path string) (io.ReadCloser, error) {
 func ParseConfigs() error {
 
 	if args, err := parseCommandLineArgs(); err != nil {
-		return FailedParseCommandLineArgs
+		return ErrFailedParseCommandLineArgs
 	} else {
 		commandLineArgs = args
 	}
 
 	if config, err := parseDefaultConfigFile(d); err != nil {
-		return FailedParseDefaultConfigFile
+		return ErrFailedParseDefaultConfigFile
 	} else {
 		defaultConfig = config
 	}
 
 	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
 		lp.LogConfigEvent("N/A", "config file", err.Error(), log.ErrorLevel)
-		return FailedParseUserSuppliedConfigFile
+		return ErrFailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedConfig = config
 	}
@@ -106,18 +150,19 @@ func RetrieveArgValue(arg string) interface{} {
 
 }
 
-func (a DefaultConfigPropertyAssigner) Assign(keyPath string, assignFunc func(string, any) error) error {
+func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validationFunc func(string, any) error, assignFunc func(any)) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
 		lp.LogErrUponConfigRetrieval(keyPath, err, log.ErrorLevel)
 		return fmt.Errorf("unable to populate config property: could not find value matching key path: %s", keyPath)
 	} else {
-		if err := assignFunc(keyPath, value); err != nil {
+		if err := validationFunc(keyPath, value); err != nil {
 			return err
-		} else {
-			return nil
 		}
+		assignFunc(value)
 	}
+
+	return nil
 
 }
 

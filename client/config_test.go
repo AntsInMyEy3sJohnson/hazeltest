@@ -83,7 +83,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == FailedParseCommandLineArgs {
+			if err != nil && err == ErrFailedParseCommandLineArgs {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -128,7 +128,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == FailedParseDefaultConfigFile {
+			if err != nil && err == ErrFailedParseDefaultConfigFile {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -179,7 +179,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == FailedParseUserSuppliedConfigFile {
+			if err != nil && err == ErrFailedParseUserSuppliedConfigFile {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -261,8 +261,9 @@ func TestPopulateConfigProperty(t *testing.T) {
 
 			var target int
 			err := a.Assign("mapTests.pokedex.numMaps", func(_ string, a any) error {
-				target = a.(int)
 				return nil
+			}, func(a any) {
+				target = a.(int)
 			})
 
 			msg := "\t\tno error should be returned"
@@ -286,6 +287,8 @@ func TestPopulateConfigProperty(t *testing.T) {
 			err := a.Assign("mapTests.pokedex.enabled", func(_ string, _ any) error {
 				// No-op
 				return nil
+			}, func(a any) {
+				// No-op
 			})
 
 			msg := "\t\terror should be returned"

@@ -3,7 +3,6 @@ package queues
 import (
 	"context"
 	"encoding/gob"
-	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -101,28 +100,14 @@ func populateLoadConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "queuetests.load"
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", func(path string, a any) error {
-		if i, ok := a.(int); !ok {
-			return fmt.Errorf(templateIntParseError, path, a)
-		} else if i <= 0 {
-			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-		} else {
-			numLoadEntries = i
-			return nil
-		}
+	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
+		numLoadEntries = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".payloadSizeBytes", func(path string, a any) error {
-		if i, ok := a.(int); !ok {
-			return fmt.Errorf(templateIntParseError, path, a)
-		} else if i <= 0 {
-			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-		} else {
-			payloadSizeBytes = i
-			return nil
-		}
+	if err := propertyAssigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
+		payloadSizeBytes = a.(int)
 	}); err != nil {
 		return nil, err
 	}

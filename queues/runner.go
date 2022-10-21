@@ -16,9 +16,6 @@ type (
 	runner interface {
 		runQueueTests(hzCluster string, hzMembers []string)
 	}
-	configPropertyAssigner interface {
-		Assign(string, func(string, any) error) error
-	}
 	runnerConfig struct {
 		enabled                     bool
 		numQueues                   int
@@ -58,17 +55,10 @@ const (
 	testLoopComplete       state = "testLoopComplete"
 )
 
-const (
-	templateBoolParseError        = "%s: unable to parse %v to bool"
-	templateIntParseError         = "%s: unable to parse %v to int"
-	templateStringParseError      = "%s: unable to parse %v into string"
-	templateNumberAtLeastOneError = "%s: expected number to be at least 1, got %d"
-)
-
 var (
 	runners          []runner
 	lp               *logging.LogProvider
-	propertyAssigner configPropertyAssigner
+	propertyAssigner client.ConfigPropertyAssigner
 )
 
 func register(r runner) {
@@ -86,77 +76,43 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				enabled = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", client.ValidateBool, func(a any) {
+			enabled = a.(bool)
 		})
 	})
 
 	var numQueues int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".numQueues", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				numQueues = i
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".numQueues", client.ValidateInt, func(a any) {
+			numQueues = a.(int)
 		})
 	})
 
 	var appendQueueIndexToQueueName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendQueueIndexToQueueName", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				appendQueueIndexToQueueName = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendQueueIndexToQueueName", client.ValidateBool, func(a any) {
+			appendQueueIndexToQueueName = a.(bool)
 		})
 	})
 
 	var appendClientIdToQueueName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToQueueName", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				appendClientIdToQueueName = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToQueueName", client.ValidateBool, func(a any) {
+			appendClientIdToQueueName = a.(bool)
 		})
 	})
 
 	var useQueuePrefix bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				useQueuePrefix = b
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.enabled", client.ValidateBool, func(a any) {
+			useQueuePrefix = a.(bool)
 		})
 	})
 
 	var queuePrefix string
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.prefix", func(path string, a any) error {
-			if s, ok := a.(string); !ok {
-				return fmt.Errorf(templateStringParseError, path, a)
-			} else if len(s) == 0 {
-				return fmt.Errorf("%s: expected non-empty string", path)
-			} else {
-				queuePrefix = s
-				return nil
-			}
+		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.prefix", client.ValidateString, func(a any) {
+			queuePrefix = a.(string)
 		})
 	})
 
@@ -197,41 +153,22 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) (*operati
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(c+".enabled", func(path string, a any) error {
-			if b, ok := a.(bool); !ok {
-				return fmt.Errorf(templateBoolParseError, path, a)
-			} else {
-				enabled = b
-				return nil
-			}
+		return propertyAssigner.Assign(c+".enabled", client.ValidateBool, func(a any) {
+			enabled = a.(bool)
 		})
 	})
 
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(c+".numRuns", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				numRuns = uint32(i)
-				return nil
-			}
+		return propertyAssigner.Assign(c+".numRuns", client.ValidateInt, func(a any) {
+			numRuns = uint32(a.(int))
 		})
 	})
 
 	var batchSizePoll int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(c+".batchSize", func(path string, a any) error {
-			if i, ok := a.(int); !ok {
-				return fmt.Errorf(templateIntParseError, path, a)
-			} else if i <= 0 {
-				return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-			} else {
-				batchSizePoll = i
-				return nil
-			}
+		return propertyAssigner.Assign(c+".batchSize", client.ValidateInt, func(a any) {
+			batchSizePoll = a.(int)
 		})
 	})
 
@@ -270,28 +207,15 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) (*operati
 func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) (*sleepConfig, error) {
 
 	var enabled bool
-	if err := propertyAssigner.Assign(configBasePath+".enabled", func(path string, a any) error {
-		if b, ok := a.(bool); !ok {
-			return fmt.Errorf(templateBoolParseError, path, a)
-		} else {
-			enabled = b
-			return nil
-
-		}
+	if err := propertyAssigner.Assign(configBasePath+".enabled", client.ValidateBool, func(a any) {
+		enabled = a.(bool)
 	}); err != nil {
 		return nil, err
 	}
 
 	var durationMs int
-	if err := propertyAssigner.Assign(configBasePath+".durationMs", func(path string, a any) error {
-		if i, ok := a.(int); !ok {
-			return fmt.Errorf(templateIntParseError, path, a)
-		} else if i <= 0 {
-			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
-		} else {
-			durationMs = i
-			return nil
-		}
+	if err := propertyAssigner.Assign(configBasePath+".durationMs", client.ValidateInt, func(a any) {
+		durationMs = a.(int)
 	}); err != nil {
 		return nil, err
 	}
