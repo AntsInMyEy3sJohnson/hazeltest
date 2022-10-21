@@ -106,14 +106,17 @@ func RetrieveArgValue(arg string) interface{} {
 
 }
 
-func (a DefaultConfigPropertyAssigner) Assign(keyPath string, assignValue func(any)) error {
+func (a DefaultConfigPropertyAssigner) Assign(keyPath string, assignFunc func(string, any) error) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
 		lp.LogErrUponConfigRetrieval(keyPath, err, log.ErrorLevel)
 		return fmt.Errorf("unable to populate config property: could not find value matching key path: %s", keyPath)
 	} else {
-		assignValue(value)
-		return nil
+		if err := assignFunc(keyPath, value); err != nil {
+			return err
+		} else {
+			return nil
+		}
 	}
 
 }

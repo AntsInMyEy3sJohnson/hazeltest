@@ -260,8 +260,9 @@ func TestPopulateConfigProperty(t *testing.T) {
 			defaultConfig = mapTestsPokedexWithNumMapsDefault
 
 			var target int
-			err := a.Assign("mapTests.pokedex.numMaps", func(a any) {
+			err := a.Assign("mapTests.pokedex.numMaps", func(_ string, a any) error {
 				target = a.(int)
+				return nil
 			})
 
 			msg := "\t\tno error should be returned"
@@ -282,8 +283,9 @@ func TestPopulateConfigProperty(t *testing.T) {
 
 		t.Log("\twhen providing an assignment function and a map not containing the desired key")
 		{
-			err := a.Assign("mapTests.pokedex.enabled", func(_ any) {
+			err := a.Assign("mapTests.pokedex.enabled", func(_ string, _ any) error {
 				// No-op
+				return nil
 			})
 
 			msg := "\t\terror should be returned"

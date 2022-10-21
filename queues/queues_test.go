@@ -41,14 +41,17 @@ func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (*hazelcast.Que
 	return nil, errors.New("it is but a scratch")
 }
 
-func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any)) error {
+func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(string, any) error) error {
 
 	if a.returnError {
 		return errors.New("lo and behold, here is a deliberately thrown error")
 	}
 
 	if value, ok := a.dummyConfig[keyPath]; ok {
-		assignFunc(value)
+		if err := assignFunc(keyPath, value); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	return nil

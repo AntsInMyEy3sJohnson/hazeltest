@@ -41,14 +41,16 @@ func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (*hazelcast.Map, er
 	return nil, errors.New("i'm only a dummy implementation")
 }
 
-func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(any)) error {
+func (a testConfigPropertyAssigner) Assign(keyPath string, assignFunc func(string, any) error) error {
 
 	if a.returnError {
 		return errors.New("deliberately thrown error")
 	}
 
 	if value, ok := a.dummyConfig[keyPath]; ok {
-		assignFunc(value)
+		if err := assignFunc(keyPath, value); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -127,14 +128,28 @@ func populateLoadConfig(a configPropertyAssigner) (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.load"
 
-	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", func(a any) {
-		numEntriesPerMap = a.(int)
+	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", func(path string, a any) error {
+		if i, ok := a.(int); !ok {
+			return fmt.Errorf(templateIntParseError, path, a)
+		} else if i <= 0 {
+			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
+		} else {
+			numEntriesPerMap = i
+			return nil
+		}
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", func(a any) {
-		payloadSizeBytes = a.(int)
+	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", func(path string, a any) error {
+		if i, ok := a.(int); !ok {
+			return fmt.Errorf(templateIntParseError, path, a)
+		} else if i <= 0 {
+			return fmt.Errorf(templateNumberAtLeastOneError, path, i)
+		} else {
+			payloadSizeBytes = i
+			return nil
+		}
 	}); err != nil {
 		return nil, err
 	}
