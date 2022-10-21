@@ -12,7 +12,6 @@ type (
 	runner interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
-	// TODO Why is this interface in the maps package? What value does it provide there? Couldn't it be located in the config package?
 	runnerConfig struct {
 		enabled                   bool
 		numMaps                   int
