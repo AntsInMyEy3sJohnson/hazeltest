@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -64,6 +65,53 @@ func (o erroneousTestConfigOpener) open(_ string) (io.ReadCloser, error) {
 func (c testCloser) Close() error {
 
 	return nil
+
+}
+
+func TestValidateBool(t *testing.T) {
+
+	t.Log("given the need to test the bool validation function")
+	{
+		path := "maptests.pokedex.enabled"
+		t.Log("\twhen providing a value that can be parsed into a bool")
+		{
+			err := ValidateBool(path, true)
+
+			msg := "\t\tno error should be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a value that cannot be parsed into a bool")
+		{
+			err := ValidateBool(path, "not_a_bool_value")
+
+			msg := "\t\terror of correct type should be returned"
+			if err != nil && errors.As(err, &FailedParse{}) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+
+			errorMessage := err.Error()
+			msg = "\t\terror message should contain key path"
+			if strings.Contains(errorMessage, path) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+
+			msg = "\t\terror message should contain target type"
+			if strings.Contains(errorMessage, "bool") {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+	}
 
 }
 
