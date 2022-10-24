@@ -68,6 +68,58 @@ func (c testCloser) Close() error {
 
 }
 
+func TestValidateInt(t *testing.T) {
+
+	t.Log("given the need to test the int validation function")
+	{
+		path := "queuetests.tweets.numQueues"
+		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
+		{
+			for _, v := range []int{1, 5, 42} {
+				err := ValidateInt(path, v)
+
+				msg := "\t\tno error should occur"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Error(msg, ballotX)
+				}
+			}
+		}
+
+		t.Log("\twhen providing a value that can be parsed into an int, but is semantically incorrect")
+		{
+			msg := "\t\terror of correct type should be returned"
+			for _, v := range []int{-1, 0} {
+				err := ValidateInt(path, v)
+
+				if err != nil && errors.As(err, &FailedValueCheck{}) {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Error(msg, ballotX, v)
+				}
+			}
+		}
+
+		t.Log("\twhen providing a value that cannot be parsed into an int")
+		{
+			msg := "\t\terror of correct type should be returned"
+
+			for _, v := range []any{false, "blubb", 1.0, []int{1, 2, 3}, map[string]int{"hello": 1, "goodbye": 2}} {
+				err := ValidateInt(path, v)
+
+				if err != nil && errors.As(err, &FailedParse{}) {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Error(msg, ballotX, v)
+				}
+			}
+		}
+
+	}
+
+}
+
 func TestValidateBool(t *testing.T) {
 
 	t.Log("given the need to test the bool validation function")
