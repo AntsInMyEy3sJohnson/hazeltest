@@ -87,31 +87,41 @@ func TestValidateString(t *testing.T) {
 			}
 		}
 
+		correctTypeOfErrorMsg := "\t\terror of correct type should be returned"
+		pathInErrorStringMsg := "\t\tpath should be contained in error string"
 		t.Log("\twhen providing a value that can be parsed into a string, but yields an empty string")
 		{
-			msg := "\t\tcorrect type of error should be returned"
-
 			err := ValidateString(path, "")
 
 			if err != nil && errors.As(err, &FailedValueCheck{}) {
-				t.Log(msg, checkMark)
+				t.Log(correctTypeOfErrorMsg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Error(correctTypeOfErrorMsg, ballotX)
+			}
+
+			if strings.Contains(err.Error(), path) {
+				t.Log(pathInErrorStringMsg, checkMark)
+			} else {
+				t.Error(pathInErrorStringMsg, ballotX)
 			}
 		}
 
 		t.Log("\twhen providing a value that cannot be parsed into a string")
 		{
-			msg := "\t\tcorrect type of error should be returned"
-
 			for _, v := range []any{1.0, true, 42, []float32{1.2, 2.1, 4.3}, map[int]string{0: "frodo", 1: "gandalf"}} {
 
 				err := ValidateString(path, v)
 
 				if err != nil && errors.As(err, &FailedParse{}) {
-					t.Log(msg, checkMark, v)
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(msg, ballotX, v)
+					t.Error(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Error(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
@@ -138,31 +148,42 @@ func TestValidateInt(t *testing.T) {
 			}
 		}
 
+		correctTypeOfErrorMsg := "\t\terror of correct type should be returned"
+		pathInErrorStringMsg := "\t\tpath should be contained in error string"
 		t.Log("\twhen providing a value that can be parsed into an int, but is semantically incorrect")
 		{
-			msg := "\t\terror of correct type should be returned"
 			for _, v := range []int{-1, 0} {
 				err := ValidateInt(path, v)
 
 				if err != nil && errors.As(err, &FailedValueCheck{}) {
-					t.Log(msg, checkMark, v)
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(msg, ballotX, v)
+					t.Error(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Error(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
 
 		t.Log("\twhen providing a value that cannot be parsed into an int")
 		{
-			msg := "\t\terror of correct type should be returned"
-
 			for _, v := range []any{false, "blubb", 1.0, []int{1, 2, 3}, map[string]int{"hello": 1, "goodbye": 2}} {
 				err := ValidateInt(path, v)
 
 				if err != nil && errors.As(err, &FailedParse{}) {
-					t.Log(msg, checkMark, v)
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(msg, ballotX, v)
+					t.Error(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Error(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
