@@ -1,6 +1,9 @@
 package queues
 
 import (
+	"errors"
+	"hazeltest/client"
+	"strings"
 	"testing"
 )
 
@@ -63,9 +66,9 @@ func TestPopulateConfig(t *testing.T) {
 			} else {
 				t.Error(msg, ballotX)
 			}
-
 		}
-		t.Log("\twhen property assignment yields an error")
+
+		t.Log("\twhen property assigning a property yields an error")
 		{
 			propertyAssigner = testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]interface{}{}}
 			_, err := b.populateConfig()
@@ -78,7 +81,44 @@ func TestPopulateConfig(t *testing.T) {
 				t.Error(msg, ballotX)
 			}
 		}
+
+		t.Log("\twhen property parsing a property yields an error")
+		{
+			testConfigCopy := copyTestConfig()
+			invalidValuePath := runnerKeyPath + ".numQueues"
+			testConfigCopy[invalidValuePath] = "boom!"
+			propertyAssigner = testConfigPropertyAssigner{returnError: false, dummyConfig: testConfigCopy}
+
+			_, err := b.populateConfig()
+
+			msg := "\t\tcorrect type of error should be returned"
+
+			if err != nil && errors.As(err, &client.FailedParse{}) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror message must contain path of erroneous key"
+
+			if strings.Contains(err.Error(), invalidValuePath) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
+
+}
+
+func copyTestConfig() map[string]interface{} {
+
+	mapCopy := make(map[string]interface{})
+	for k, v := range testConfig {
+		mapCopy[k] = v
+	}
+
+	return mapCopy
 
 }
 
