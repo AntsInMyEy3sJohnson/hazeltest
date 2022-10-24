@@ -68,6 +68,57 @@ func (c testCloser) Close() error {
 
 }
 
+func TestValidateString(t *testing.T) {
+
+	t.Log("given the need to test the string validation function")
+	{
+		path := "maptests.load.mapPrefix.prefix"
+
+		t.Log("\twhen providing a value that can be parsed into a string")
+		{
+			msg := "\t\tno error should be returned"
+
+			err := ValidateString(path, "ht_")
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a value that can be parsed into a string, but yields an empty string")
+		{
+			msg := "\t\tcorrect type of error should be returned"
+
+			err := ValidateString(path, "")
+
+			if err != nil && errors.As(err, &FailedValueCheck{}) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Error(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen providing a value that cannot be parsed into a string")
+		{
+			msg := "\t\tcorrect type of error should be returned"
+
+			for _, v := range []any{1.0, true, 42, []float32{1.2, 2.1, 4.3}, map[int]string{0: "frodo", 1: "gandalf"}} {
+
+				err := ValidateString(path, v)
+
+				if err != nil && errors.As(err, &FailedParse{}) {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Error(msg, ballotX, v)
+				}
+			}
+		}
+	}
+
+}
+
 func TestValidateInt(t *testing.T) {
 
 	t.Log("given the need to test the int validation function")
