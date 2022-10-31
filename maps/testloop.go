@@ -11,8 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/hazelcast/hazelcast-go-client"
 )
 
 type (
@@ -37,11 +35,11 @@ type (
 	}
 )
 
-func (l testLoop[t]) init(lc *testLoopConfig[t]) {
+func (l *testLoop[t]) init(lc *testLoopConfig[t]) {
 	l.config = lc
 }
 
-func (l testLoop[t]) run() {
+func (l *testLoop[t]) run() {
 
 	l.insertLoopWithInitialStatus()
 
@@ -60,9 +58,9 @@ func (l testLoop[t]) run() {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.FatalLevel)
 				return
 			}
+			defer hzMap.Destroy(l.config.ctx)
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			defer hzMap.Destroy(l.config.ctx)
 			l.runForMap(hzMap, mapName, i)
 		}(i)
 	}
@@ -89,7 +87,7 @@ func (l testLoop[t]) insertLoopWithInitialStatus() {
 
 }
 
-func (l testLoop[t]) runForMap(m *hazelcast.Map, mapName string, mapNumber int) {
+func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 	updateStep := uint32(50)
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
@@ -131,7 +129,7 @@ func (l testLoop[T]) increaseTotalNumRunsCompleted(increase uint32) {
 
 }
 
-func (l testLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l testLoop[T]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.config.elements {
@@ -155,7 +153,7 @@ func (l testLoop[T]) ingestAll(m *hazelcast.Map, mapName string, mapNumber int) 
 
 }
 
-func (l testLoop[t]) readAll(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 	for _, v := range l.config.elements {
 		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
@@ -178,7 +176,7 @@ func (l testLoop[t]) readAll(m *hazelcast.Map, mapName string, mapNumber int) er
 
 }
 
-func (l testLoop[t]) deleteSome(m *hazelcast.Map, mapName string, mapNumber int) error {
+func (l testLoop[t]) deleteSome(m hzMap, mapName string, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(l.config.elements))
 	deleted := 0
