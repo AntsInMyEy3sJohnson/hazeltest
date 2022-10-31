@@ -93,9 +93,12 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
 
+	numRunsTotal := l.config.runnerConfig.numRuns
+	numRunsSentToStatus := uint32(0)
 	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
+			numRunsSentToStatus += updateStep
 			l.increaseTotalNumRunsCompleted(updateStep)
 			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d -- test loop status updated", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
@@ -119,6 +122,7 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 		}
 	}
 
+	l.increaseTotalNumRunsCompleted(numRunsTotal - numRunsSentToStatus)
 	lp.LogInternalStateEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
 
 }
