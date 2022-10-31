@@ -35,11 +35,11 @@ const (
 	poll = operation("poll")
 )
 
-func (l testLoop[t]) init(lc *testLoopConfig[t]) {
+func (l *testLoop[t]) init(lc *testLoopConfig[t]) {
 	l.config = lc
 }
 
-func (l testLoop[t]) run() {
+func (l *testLoop[t]) run() {
 
 	// TODO Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs rather than the test loop pushing it
 	// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/8
@@ -50,17 +50,19 @@ func (l testLoop[t]) run() {
 	var numQueuesWg sync.WaitGroup
 	for i := 0; i < c.runnerConfig.numQueues; i++ {
 		numQueuesWg.Add(1)
-		queueName := l.assembleQueueName(i)
-		lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
-		start := time.Now()
-		q, err := l.config.hzQueueStore.GetQueue(ctx, queueName)
-		elapsed := time.Since(start).Milliseconds()
-		lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
-		if err != nil {
-			lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
-		}
 		go func(i int) {
 			defer numQueuesWg.Done()
+
+			queueName := l.assembleQueueName(i)
+			lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
+			start := time.Now()
+			q, err := l.config.hzQueueStore.GetQueue(ctx, queueName)
+			if err != nil {
+				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
+			}
+			defer q.Destroy(ctx)
+			elapsed := time.Since(start).Milliseconds()
+			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 
 			var putWg sync.WaitGroup
 			if c.runnerConfig.putConfig.enabled {
@@ -83,7 +85,6 @@ func (l testLoop[t]) run() {
 
 			putWg.Wait()
 			pollWg.Wait()
-
 		}(i)
 	}
 
