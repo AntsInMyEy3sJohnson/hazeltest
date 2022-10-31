@@ -17,7 +17,7 @@ type (
 		stateList []state
 		name      string
 		source    string
-		mapStore  client.HzMapStore
+		mapStore  hzMapStore
 		l         looper[loadElement]
 	}
 	loadElement struct {
@@ -32,7 +32,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "maps-loadrunner", source: "loadrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[loadElement]{}})
+	register(&loadRunner{stateList: []state{}, name: "maps-loadrunner", source: "loadrunner", mapStore: defaultHzMapStore{}, l: testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 

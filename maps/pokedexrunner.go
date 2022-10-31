@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
-	"hazeltest/client"
 )
 
 type (
@@ -18,7 +17,7 @@ type (
 		stateList []state
 		name      string
 		source    string
-		mapStore  client.HzMapStore
+		mapStore  hzMapStore
 		l         looper[pokemon]
 	}
 	pokedex struct {
@@ -54,7 +53,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: client.DefaultHzMapStore{}, l: testLoop[pokemon]{}})
+	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: defaultHzMapStore{}, l: testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 }
 

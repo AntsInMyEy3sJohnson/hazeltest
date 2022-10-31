@@ -12,7 +12,14 @@ type (
 		returnError bool
 		dummyConfig map[string]interface{}
 	}
-	dummyHzMapStore struct{}
+	dummyHzMapStore struct {
+		m              *dummyHzMap
+		returnDummyMap bool
+		invocations    int
+	}
+	dummyHzMap struct {
+		data map[string]interface{}
+	}
 )
 
 const (
@@ -38,7 +45,29 @@ func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ stri
 }
 
 func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (*hazelcast.Map, error) {
+	d.invocations++
+	if d.returnDummyMap {
+		return nil, nil
+	}
 	return nil, errors.New("i'm only a dummy implementation")
+}
+
+func (m dummyHzMap) Get(_ context.Context, _ interface{}) (interface{}, error) {
+
+	return nil, errors.New("i'm only a dummy implementation")
+
+}
+
+func (m dummyHzMap) Put(_ context.Context, _, _ interface{}) (interface{}, error) {
+
+	return nil, errors.New("i'm only a dummy implementation")
+
+}
+
+func (m dummyHzMap) LocalMapStats() hazelcast.LocalMapStats {
+
+	return hazelcast.LocalMapStats{}
+
 }
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
