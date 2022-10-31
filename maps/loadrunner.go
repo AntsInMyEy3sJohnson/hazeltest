@@ -32,7 +32,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "maps-loadrunner", source: "loadrunner", mapStore: defaultHzMapStore{}, l: testLoop[loadElement]{}})
+	register(&loadRunner{stateList: []state{}, name: "maps-loadrunner", source: "loadrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 

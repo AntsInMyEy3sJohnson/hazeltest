@@ -53,7 +53,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: defaultHzMapStore{}, l: testLoop[pokemon]{}})
+	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 }
 

@@ -36,7 +36,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: defaultHzQueueStore{}, l: testLoop[tweet]{}})
+	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 

@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: defaultHzQueueStore{}, l: testLoop[loadElement]{}})
+	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
