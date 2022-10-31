@@ -21,28 +21,7 @@ type (
 	HzClientCloser interface {
 		Shutdown(ctx context.Context) error
 	}
-	HzQueueStore interface {
-		HzClientInitializer
-		GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error)
-		HzClientCloser
-	}
-
-	DefaultHzQueueStore struct {
-		client *hazelcast.Client
-	}
 )
-
-func (d DefaultHzQueueStore) Shutdown(ctx context.Context) error {
-	return d.client.Shutdown(ctx)
-}
-
-func (d DefaultHzQueueStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.client = NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
-}
-
-func (d DefaultHzQueueStore) GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error) {
-	return d.client.GetQueue(ctx, name)
-}
 
 func NewHzClientHelper() HzClientHelper {
 	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}

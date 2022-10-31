@@ -22,7 +22,7 @@ type (
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
 		source       string
-		hzQueueStore client.HzQueueStore
+		hzQueueStore hzQueueStore
 		runnerConfig *runnerConfig
 		elements     []t
 		ctx          context.Context

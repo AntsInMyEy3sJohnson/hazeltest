@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
-	"hazeltest/client"
 	"io/fs"
 )
 
@@ -18,7 +17,7 @@ type (
 		stateList  []state
 		name       string
 		source     string
-		queueStore client.HzQueueStore
+		queueStore hzQueueStore
 		l          looper[tweet]
 	}
 	tweetCollection struct {
@@ -37,7 +36,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: client.DefaultHzQueueStore{}, l: testLoop[tweet]{}})
+	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: defaultHzQueueStore{}, l: testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 

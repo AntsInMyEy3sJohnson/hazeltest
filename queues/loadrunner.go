@@ -15,7 +15,7 @@ type (
 		stateList  []state
 		name       string
 		source     string
-		queueStore client.HzQueueStore
+		queueStore hzQueueStore
 		l          looper[loadElement]
 	}
 	loadElement struct {
@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: client.DefaultHzQueueStore{}, l: testLoop[loadElement]{}})
+	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: defaultHzQueueStore{}, l: testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
