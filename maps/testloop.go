@@ -58,7 +58,9 @@ func (l *testLoop[t]) run() {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.FatalLevel)
 				return
 			}
-			defer hzMap.Destroy(l.config.ctx)
+			defer func() {
+				_ = hzMap.Destroy(l.config.ctx)
+			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			l.runForMap(hzMap, mapName, i)

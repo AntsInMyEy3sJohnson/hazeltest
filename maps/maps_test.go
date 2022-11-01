@@ -23,7 +23,7 @@ type (
 		getInvocations         int
 		removeInvocations      int
 		destroyInvocations     int
-		data                   map[string]interface{}
+		data                   *sync.Map
 	}
 )
 
@@ -70,15 +70,11 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key interface{}) (bool, erro
 	}
 	dummyMapOperationLock.Unlock()
 
-	if m.data == nil {
-		return false, errors.New("dummy data source not initialized")
-	}
-
 	keyString, ok := key.(string)
 	if !ok {
 		return false, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
 	}
-	if _, ok := m.data[keyString]; ok {
+	if _, ok := m.data.Load(keyString); ok {
 		return true, nil
 	}
 
@@ -99,7 +95,7 @@ func (m *dummyHzMap) Set(_ context.Context, key interface{}, value interface{}) 
 		return fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
 	}
 
-	m.data[keyString] = value
+	m.data.Store(keyString, value)
 
 	return nil
 
@@ -118,7 +114,8 @@ func (m *dummyHzMap) Get(_ context.Context, key interface{}) (interface{}, error
 		return nil, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
 	}
 
-	return m.data[keyString], nil
+	value, _ := m.data.Load(keyString)
+	return value, nil
 
 }
 
@@ -135,8 +132,8 @@ func (m *dummyHzMap) Remove(_ context.Context, key interface{}) (interface{}, er
 		return nil, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
 	}
 
-	if value, ok := m.data[keyString]; ok {
-		defer delete(m.data, keyString)
+	if value, ok := m.data.Load(keyString); ok {
+		defer m.data.Delete(keyString)
 		return value, nil
 	}
 
