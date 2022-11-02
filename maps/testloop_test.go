@@ -33,18 +33,16 @@ func deserializeFellowshipMember(_ interface{}) error {
 
 func TestRun(t *testing.T) {
 
+	testSource := "theFellowship"
+
 	t.Log("given the need to test running the maps test loop")
 	{
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{
-			testSource := "theFellowship"
-			rc := assembleRunnerConfig(1)
 			id := uuid.New()
-			ms := assembleDummyMapStore()
-			tlc := assembleTestLoopConfig(id, testSource, ms, &rc)
-			tl := testLoop[string]{
-				config: &tlc,
-			}
+			ms := assembleDummyMapStore(false)
+			rc := assembleRunnerConfig(1)
+			tl := assembleTestLoop(id, testSource, &rc, ms)
 
 			tl.run()
 
@@ -90,19 +88,14 @@ func TestRun(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
-
 		}
 
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
-			testSource := "theFellowship"
-			rc := assembleRunnerConfig(10)
-			id := uuid.New()
-			ms := assembleDummyMapStore()
-			tlc := assembleTestLoopConfig(id, testSource, ms, &rc)
-			tl := testLoop[string]{
-				config: &tlc,
-			}
+			numMaps := 10
+			rc := assembleRunnerConfig(numMaps)
+			ms := assembleDummyMapStore(false)
+			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
 
 			tl.run()
 
@@ -126,9 +119,39 @@ func TestRun(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+		}
+
+		t.Log("\twhen get map yields an error")
+		{
+			rc := assembleRunnerConfig(1)
+			ms := assembleDummyMapStore(true)
+			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
+
+			tl.run()
+
+			msg := "\t\tno invocations on map must have been attempted"
+
+			if ms.m.containsKeyInvocations == 0 &&
+				ms.m.setInvocations == 0 &&
+				ms.m.getInvocations == 0 &&
+				ms.m.removeInvocations == 0 &&
+				ms.m.destroyInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 		}
 
+	}
+
+}
+
+func assembleTestLoop(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoop[string] {
+
+	tlc := assembleTestLoopConfig(id, source, ms, rc)
+	return testLoop[string]{
+		config: &tlc,
 	}
 
 }
@@ -148,14 +171,13 @@ func assembleTestLoopConfig(id uuid.UUID, source string, ms hzMapStore, rc *runn
 
 }
 
-func assembleDummyMapStore() dummyHzMapStore {
+func assembleDummyMapStore(returnErrorUponGetMap bool) dummyHzMapStore {
 
 	dummyBackend := &sync.Map{}
 
 	return dummyHzMapStore{
-		m:              &dummyHzMap{data: dummyBackend},
-		returnDummyMap: true,
-		invocations:    0,
+		m:                     &dummyHzMap{data: dummyBackend},
+		returnErrorUponGetMap: returnErrorUponGetMap,
 	}
 
 }

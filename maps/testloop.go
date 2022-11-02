@@ -55,7 +55,7 @@ func (l *testLoop[t]) run() {
 			start := time.Now()
 			hzMap, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
 			if err != nil {
-				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.FatalLevel)
+				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
 				return
 			}
 			defer func() {

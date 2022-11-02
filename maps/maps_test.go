@@ -13,9 +13,8 @@ type (
 		dummyConfig map[string]interface{}
 	}
 	dummyHzMapStore struct {
-		m              *dummyHzMap
-		returnDummyMap bool
-		invocations    int
+		m                     *dummyHzMap
+		returnErrorUponGetMap bool
 	}
 	dummyHzMap struct {
 		containsKeyInvocations int
@@ -51,15 +50,10 @@ func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ stri
 }
 
 func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hzMap, error) {
-	dummyMapOperationLock.Lock()
-	{
-		d.invocations++
-	}
-	dummyMapOperationLock.Unlock()
-	if d.returnDummyMap {
+	if !d.returnErrorUponGetMap {
 		return d.m, nil
 	}
-	return nil, errors.New("i'm only a dummy implementation")
+	return nil, errors.New("i was told to throw an error")
 }
 
 func (m *dummyHzMap) ContainsKey(_ context.Context, key interface{}) (bool, error) {
