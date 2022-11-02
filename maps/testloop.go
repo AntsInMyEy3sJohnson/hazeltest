@@ -117,7 +117,7 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 			continue
 		}
 		sleep(sleepBetweenActionBatchesConfig)
-		err = l.deleteSome(m, mapName, mapNumber)
+		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
@@ -182,10 +182,10 @@ func (l testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l testLoop[t]) deleteSome(m hzMap, mapName string, mapNumber int) error {
+func (l testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(l.config.elements))
-	deleted := 0
+	removed := 0
 
 	elements := l.config.elements
 
@@ -202,10 +202,10 @@ func (l testLoop[t]) deleteSome(m hzMap, mapName string, mapNumber int) error {
 		if err != nil {
 			return err
 		}
-		deleted++
+		removed++
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("deleted %d elements from hazelcast map '%s'", deleted, mapName), log.TraceLevel)
+	lp.LogInternalStateEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", removed, mapName), log.TraceLevel)
 
 	return nil
 

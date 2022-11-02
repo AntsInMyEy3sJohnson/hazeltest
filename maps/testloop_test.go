@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var theFellowShip = []string{
+var theFellowship = []string{
 	"Aragorn",
 	"Gandalf",
 	"Legolas",
@@ -40,14 +40,14 @@ func TestRun(t *testing.T) {
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{
 			id := uuid.New()
-			ms := assembleDummyMapStore(false)
+			ms := assembleDummyMapStore(false, false)
 			rc := assembleRunnerConfig(1)
 			tl := assembleTestLoop(id, testSource, &rc, ms)
 
 			tl.run()
 
-			expectedNumSetInvocations := len(theFellowShip)
-			expectedNumGetInvocations := len(theFellowShip)
+			expectedNumSetInvocations := len(theFellowship)
+			expectedNumGetInvocations := len(theFellowship)
 			expectedNumDestroyInvocations := 1
 
 			msg := "\t\texpected predictable invocations on map must have been executed"
@@ -94,13 +94,13 @@ func TestRun(t *testing.T) {
 		{
 			numMaps := 10
 			rc := assembleRunnerConfig(numMaps)
-			ms := assembleDummyMapStore(false)
+			ms := assembleDummyMapStore(false, false)
 			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
 
 			tl.run()
 
-			expectedNumSetInvocations := len(theFellowShip) * 10
-			expectedNumGetInvocations := len(theFellowShip) * 10
+			expectedNumSetInvocations := len(theFellowship) * 10
+			expectedNumGetInvocations := len(theFellowship) * 10
 			expectedNumDestroyInvocations := 10
 
 			msg := "\t\texpected predictable invocations on map must have been executed"
@@ -121,10 +121,10 @@ func TestRun(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen get map yields an error")
+		t.Log("\twhen get map yields error")
 		{
 			rc := assembleRunnerConfig(1)
-			ms := assembleDummyMapStore(true)
+			ms := assembleDummyMapStore(true, false)
 			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
 
 			tl.run()
@@ -140,19 +140,56 @@ func TestRun(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+		}
 
+		t.Log("\twhen only one run is executed an error is thrown during read all")
+		{
+			rc := assembleRunnerConfig(1)
+			ms := assembleDummyMapStore(false, true)
+			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
+
+			tl.run()
+
+			msg := "\t\tno remove invocations must have been attempted"
+
+			if ms.m.removeInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdata must remain in map since no remove was executed"
+
+			if numElementsInSyncMap(ms.m.data) == len(theFellowship) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 	}
 
 }
 
+func numElementsInSyncMap(data *sync.Map) int {
+
+	i := 0
+	data.Range(func(key, value any) bool {
+		i++
+		return true
+	})
+
+	return i
+
+}
+
 func assembleTestLoop(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, ms, rc)
-	return testLoop[string]{
-		config: &tlc,
-	}
+	tl := testLoop[string]{}
+	tl.init(&tlc)
+
+	return tl
 
 }
 
@@ -163,7 +200,7 @@ func assembleTestLoopConfig(id uuid.UUID, source string, ms hzMapStore, rc *runn
 		source:                 source,
 		mapStore:               ms,
 		runnerConfig:           rc,
-		elements:               theFellowShip,
+		elements:               theFellowship,
 		ctx:                    nil,
 		getElementIdFunc:       fellowshipMemberName,
 		deserializeElementFunc: deserializeFellowshipMember,
@@ -171,12 +208,12 @@ func assembleTestLoopConfig(id uuid.UUID, source string, ms hzMapStore, rc *runn
 
 }
 
-func assembleDummyMapStore(returnErrorUponGetMap bool) dummyHzMapStore {
+func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet bool) dummyHzMapStore {
 
 	dummyBackend := &sync.Map{}
 
 	return dummyHzMapStore{
-		m:                     &dummyHzMap{data: dummyBackend},
+		m:                     &dummyHzMap{data: dummyBackend, returnErrorUponGet: returnErrorUponGet},
 		returnErrorUponGetMap: returnErrorUponGetMap,
 	}
 

@@ -23,6 +23,7 @@ type (
 		removeInvocations      int
 		destroyInvocations     int
 		data                   *sync.Map
+		returnErrorUponGet     bool
 	}
 )
 
@@ -50,10 +51,10 @@ func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ stri
 }
 
 func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hzMap, error) {
-	if !d.returnErrorUponGetMap {
-		return d.m, nil
+	if d.returnErrorUponGetMap {
+		return nil, errors.New("i was told to throw an error")
 	}
-	return nil, errors.New("i was told to throw an error")
+	return d.m, nil
 }
 
 func (m *dummyHzMap) ContainsKey(_ context.Context, key interface{}) (bool, error) {
@@ -102,6 +103,10 @@ func (m *dummyHzMap) Get(_ context.Context, key interface{}) (interface{}, error
 		m.getInvocations++
 	}
 	dummyMapOperationLock.Unlock()
+
+	if m.returnErrorUponGet {
+		return nil, errors.New("awesome dummy error")
+	}
 
 	keyString, ok := key.(string)
 	if !ok {
