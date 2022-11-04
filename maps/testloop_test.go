@@ -167,6 +167,37 @@ func TestRun(t *testing.T) {
 			}
 		}
 
+		t.Log("\twhen no map goroutine is launched because the configured number of maps is zero")
+		{
+			id := uuid.New()
+			ms := assembleDummyMapStore(false, false)
+			numMaps := 0
+			rc := assembleRunnerConfig(numMaps)
+			tl := assembleTestLoop(id, testSource, ms, &rc)
+
+			tl.run()
+
+			msg := "\t\tinitial test loop status must have been inserted into api anyway"
+			if api.Loops[id] != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tinitial test loop status inserted into api must be correct"
+			tls := api.Loops[id]
+
+			if tls.Source == testSource &&
+				tls.NumMaps == numMaps &&
+				tls.NumRuns == rc.numRuns &&
+				tls.TotalRuns == 0 &&
+				tls.TotalRunsFinished == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
 	}
 
 }
