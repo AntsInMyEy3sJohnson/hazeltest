@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.5.4
-  digest: 2c7bd81af6fdff80fe6f8ad46aa41ec52012ac748628d24dd9132117beccd98a
+  # 0.5.5
+  digest: 13edc7caca1bd5af9631693821c28ed5eeb389533d61c706a6481deda3ea985f
   pullPolicy: IfNotPresent
 
 httpPort: 8080
