@@ -42,7 +42,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			rc := assembleRunnerConfig(1)
-			tl := assembleTestLoop(id, testSource, &rc, ms)
+			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
 
@@ -95,7 +95,7 @@ func TestRun(t *testing.T) {
 			numMaps := 10
 			rc := assembleRunnerConfig(numMaps)
 			ms := assembleDummyMapStore(false, false)
-			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
+			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 
@@ -125,7 +125,7 @@ func TestRun(t *testing.T) {
 		{
 			rc := assembleRunnerConfig(1)
 			ms := assembleDummyMapStore(true, false)
-			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
+			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 
@@ -146,7 +146,7 @@ func TestRun(t *testing.T) {
 		{
 			rc := assembleRunnerConfig(1)
 			ms := assembleDummyMapStore(false, true)
-			tl := assembleTestLoop(uuid.New(), testSource, &rc, ms)
+			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 
@@ -183,9 +183,9 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) testLoop[string] {
 
-	tlc := assembleTestLoopConfig(id, source, ms, rc)
+	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := testLoop[string]{}
 	tl.init(&tlc)
 
@@ -193,7 +193,7 @@ func assembleTestLoop(id uuid.UUID, source string, rc *runnerConfig, ms hzMapSto
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) testLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopConfig[string] {
 
 	return testLoopConfig[string]{
 		id:                     id,
