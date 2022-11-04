@@ -7,9 +7,14 @@ import (
 )
 
 type (
+	hzQueue interface {
+		Put(ctx context.Context, element interface{}) error
+		Poll(ctx context.Context) (interface{}, error)
+		Destroy(ctx context.Context) error
+	}
 	hzQueueStore interface {
 		client.HzClientInitializer
-		GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error)
+		GetQueue(ctx context.Context, name string) (hzQueue, error)
 		client.HzClientCloser
 	}
 	defaultHzQueueStore struct {
@@ -25,6 +30,6 @@ func (d *defaultHzQueueStore) InitHazelcastClient(ctx context.Context, runnerNam
 	d.client = client.NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
 }
 
-func (d *defaultHzQueueStore) GetQueue(ctx context.Context, name string) (*hazelcast.Queue, error) {
+func (d *defaultHzQueueStore) GetQueue(ctx context.Context, name string) (hzQueue, error) {
 	return d.client.GetQueue(ctx, name)
 }

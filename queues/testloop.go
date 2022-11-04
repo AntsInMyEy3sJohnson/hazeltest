@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"sync"
@@ -60,7 +59,9 @@ func (l *testLoop[t]) run() {
 			if err != nil {
 				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 			}
-			defer q.Destroy(ctx)
+			defer func() {
+				_ = q.Destroy(ctx)
+			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 
@@ -92,10 +93,10 @@ func (l *testLoop[t]) run() {
 
 }
 
-func (l testLoop[t]) runElementLoop(elements []t, q *hazelcast.Queue, o operation, queueName string, queueNumber int) {
+func (l testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
 
 	var config *operationConfig
-	var queueFunction func(queue *hazelcast.Queue, queueName string)
+	var queueFunction func(queue hzQueue, queueName string)
 	if o == put {
 		config = l.config.runnerConfig.putConfig
 		queueFunction = l.putElements
@@ -122,7 +123,7 @@ func (l testLoop[t]) runElementLoop(elements []t, q *hazelcast.Queue, o operatio
 
 }
 
-func (l testLoop[t]) putElements(q *hazelcast.Queue, queueName string) {
+func (l testLoop[t]) putElements(q hzQueue, queueName string) {
 
 	elements := l.config.elements
 	putConfig := l.config.runnerConfig.putConfig
@@ -142,7 +143,7 @@ func (l testLoop[t]) putElements(q *hazelcast.Queue, queueName string) {
 
 }
 
-func (l testLoop[t]) pollElements(q *hazelcast.Queue, queueName string) {
+func (l testLoop[t]) pollElements(q hzQueue, queueName string) {
 
 	pollConfig := l.config.runnerConfig.pollConfig
 

@@ -1,10 +1,11 @@
 package queues
 
 import (
+	"container/list"
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hazelcast/hazelcast-go-client"
+	"sync"
 )
 
 type (
@@ -12,7 +13,16 @@ type (
 		returnError bool
 		dummyConfig map[string]interface{}
 	}
-	dummyHzQueueStore struct{}
+	dummyHzQueueStore struct {
+		q                       *dummyHzQueue
+		returnErrorUponGetQueue bool
+	}
+	dummyHzQueue struct {
+		data               *list.List
+		putInvocations     int
+		pollInvocations    int
+		destroyInvocations int
+	}
 )
 
 const (
@@ -27,6 +37,7 @@ var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
 	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
+	dummyQueueOperationLock  sync.Mutex
 )
 
 func (d dummyHzQueueStore) Shutdown(_ context.Context) error {
@@ -37,8 +48,11 @@ func (d dummyHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ st
 	// No-op
 }
 
-func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (*hazelcast.Queue, error) {
-	return nil, errors.New("it is but a scratch")
+func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (hzQueue, error) {
+	if d.returnErrorUponGetQueue {
+		return nil, errors.New("it is but a scratch")
+	}
+	return d.q, nil
 }
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
@@ -55,6 +69,43 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	}
 
 	return nil
+}
+
+func (d *dummyHzQueue) Put(_ context.Context, element interface{}) error {
+
+	dummyQueueOperationLock.Lock()
+	{
+		d.putInvocations++
+	}
+	dummyQueueOperationLock.Unlock()
+
+	d.data.PushBack(element)
+	return nil
+
+}
+
+func (d *dummyHzQueue) Poll(_ context.Context) (interface{}, error) {
+
+	dummyQueueOperationLock.Lock()
+	{
+		d.pollInvocations++
+	}
+	dummyQueueOperationLock.Unlock()
+
+	return d.data.Front(), nil
+
+}
+
+func (d *dummyHzQueue) Destroy(_ context.Context) error {
+
+	dummyQueueOperationLock.Lock()
+	{
+		d.destroyInvocations++
+	}
+	dummyQueueOperationLock.Unlock()
+
+	return nil
+
 }
 
 func checkRunnerStateTransitions(expected []state, actual []state) (string, bool) {
