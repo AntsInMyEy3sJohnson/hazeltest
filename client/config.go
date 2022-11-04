@@ -19,6 +19,42 @@ const (
 	defaultConfigFilePath = "defaultConfig.yaml"
 )
 
+type DefaultConfigPropertyAssigner struct{}
+
+type (
+	ConfigPropertyAssigner interface {
+		Assign(keyPath string, validate func(string, any) error, assign func(any)) error
+	}
+	FailedParse struct {
+		target  string
+		keyPath string
+	}
+	FailedValueCheck struct {
+		reason  string
+		keyPath string
+	}
+	// TODO Introduce dedicated error types for other error scenarios, too?
+)
+
+type (
+	fileOpener interface {
+		open(string) (io.ReadCloser, error)
+	}
+	defaultConfigFileOpener      struct{}
+	userSuppliedConfigFileOpener struct{}
+)
+
+var (
+	ErrFailedParseCommandLineArgs        = errors.New("unable to parse commandline-supplied arguments")
+	ErrFailedParseDefaultConfigFile      = errors.New("unable to parse default config file")
+	ErrFailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied config file")
+)
+
+var (
+	d fileOpener = defaultConfigFileOpener{}
+	u fileOpener = userSuppliedConfigFileOpener{}
+)
+
 var (
 	commandLineArgs map[string]interface{}
 	//go:embed defaultConfig.yaml
@@ -29,15 +65,97 @@ var (
 )
 
 func init() {
-	commandLineArgs = make(map[string]interface{})
 	lp = &logging.LogProvider{ClientID: ID()}
 }
 
-func ParseConfigs() {
+func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
 
-	parseCommandLineArgs()
-	parseDefaultConfigFile()
-	parseUserSuppliedConfigFile()
+	if file, err := defaultConfigFile.Open(path); err != nil {
+		return nil, err
+	} else {
+		return file, nil
+	}
+
+}
+
+func (o userSuppliedConfigFileOpener) open(path string) (io.ReadCloser, error) {
+
+	if file, err := os.Open(path); err != nil {
+		return nil, err
+	} else {
+		return file, nil
+	}
+
+}
+
+func (v FailedParse) Error() string {
+
+	return fmt.Sprintf("%s: failed to parse given value into %s", v.keyPath, v.target)
+
+}
+
+func (v FailedValueCheck) Error() string {
+
+	return fmt.Sprintf("%s: given value failed plausibility check: %s", v.keyPath, v.reason)
+
+}
+
+func ValidateBool(path string, a any) error {
+
+	if _, ok := a.(bool); !ok {
+		return FailedParse{"bool", path}
+	}
+
+	return nil
+
+}
+
+func ValidateInt(path string, a any) error {
+
+	if i, ok := a.(int); !ok {
+		return FailedParse{"int", path}
+	} else if i <= 0 {
+		return FailedValueCheck{"expected this number to be at least 1", path}
+	}
+
+	return nil
+
+}
+
+func ValidateString(path string, a any) error {
+
+	if s, ok := a.(string); !ok {
+		return FailedParse{"string", path}
+	} else if len(s) == 0 {
+		return FailedValueCheck{"expected this string to be non-empty", path}
+	}
+
+	return nil
+
+}
+
+func ParseConfigs() error {
+
+	if args, err := parseCommandLineArgs(); err != nil {
+		return ErrFailedParseCommandLineArgs
+	} else {
+		commandLineArgs = args
+	}
+
+	if config, err := parseDefaultConfigFile(d); err != nil {
+		return ErrFailedParseDefaultConfigFile
+	} else {
+		defaultConfig = config
+	}
+
+	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
+		lp.LogConfigEvent("N/A", "config file", err.Error(), log.ErrorLevel)
+		return ErrFailedParseUserSuppliedConfigFile
+	} else {
+		userSuppliedConfig = config
+	}
+
+	return nil
 
 }
 
@@ -47,13 +165,19 @@ func RetrieveArgValue(arg string) interface{} {
 
 }
 
-func PopulateConfigProperty(keyPath string, assignValue func(any)) {
+func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(string, any) error, assign func(any)) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
-		lp.LogErrUponConfigRetrieval(keyPath, err, log.FatalLevel)
+		lp.LogErrUponConfigRetrieval(keyPath, err, log.ErrorLevel)
+		return fmt.Errorf("unable to populate config property: could not find value matching key path: %s", keyPath)
 	} else {
-		assignValue(value)
+		if err := validate(keyPath, value); err != nil {
+			return err
+		}
+		assign(value)
 	}
+
+	return nil
 
 }
 
@@ -84,7 +208,11 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 	pathElements := strings.Split(keyPath, ".")
 
 	if len(pathElements) == 1 {
-		return m[keyPath], nil
+		if value, ok := m[keyPath]; ok {
+			return value, nil
+		} else {
+			return nil, fmt.Errorf("nested key '%s' not found in map", keyPath)
+		}
 	}
 
 	currentPathElement := pathElements[0]
@@ -100,51 +228,65 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs() {
+func parseCommandLineArgs() (map[string]interface{}, error) {
 
-	useUniSocketClient := flag.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
-	configFilePath := flag.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	flag.Parse()
+	useUniSocketClient := flagSet.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
+	configFilePath := flagSet.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 
-	commandLineArgs[ArgUseUniSocketClient] = *useUniSocketClient
-	commandLineArgs[ArgConfigFilePath] = *configFilePath
-
-}
-
-func parseDefaultConfigFile() {
-
-	decodeConfigFile(&defaultConfig, defaultConfigFilePath, func(path string) (io.Reader, error) {
-		return defaultConfigFile.Open(path)
-	})
-
-}
-
-func parseUserSuppliedConfigFile() {
-
-	configFilePath := RetrieveArgValue(ArgConfigFilePath).(string)
-
-	if configFilePath == defaultConfigFilePath {
-		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
-		return
+	if err := flagSet.Parse(os.Args[1:]); err != nil {
+		return nil, err
 	}
 
-	decodeConfigFile(&userSuppliedConfig, configFilePath, func(path string) (io.Reader, error) {
-		return os.Open(path)
-	})
+	target := make(map[string]interface{})
+	target[ArgUseUniSocketClient] = *useUniSocketClient
+	target[ArgConfigFilePath] = *configFilePath
+
+	lp.LogInternalStateEvent(fmt.Sprintf("command line arguments parsed: %v\n", target), log.InfoLevel)
+
+	return target, nil
 
 }
 
-func decodeConfigFile(target *map[string]interface{}, path string, openFileFunc func(path string) (io.Reader, error)) {
+func parseDefaultConfigFile(o fileOpener) (map[string]interface{}, error) {
+
+	return decodeConfigFile(defaultConfigFilePath, o.open)
+
+}
+
+func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]interface{}, error) {
+
+	if filePath == defaultConfigFilePath {
+		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
+		return map[string]interface{}{}, nil
+	}
+
+	return decodeConfigFile(filePath, o.open)
+
+}
+
+func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser, error)) (map[string]interface{}, error) {
 
 	r, err := openFileFunc(path)
 
 	if err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.FatalLevel)
+		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.ErrorLevel)
+		return nil, err
 	}
+	defer func(r io.ReadCloser) {
+		err := r.Close()
+		if err != nil {
+			lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
+		}
+	}(r)
 
+	target := make(map[string]interface{})
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.FatalLevel)
+		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.ErrorLevel)
+		return nil, err
+	} else {
+		return target, nil
 	}
 
 }

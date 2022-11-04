@@ -1,7 +1,5 @@
 platform:
   deploy: true
-  nodeSelectors:
-    tShirtSize: large
   service:
     type: NodePort
     port: 5701
@@ -20,13 +18,13 @@ platform:
       containerResources:
         requests:
           cpu: "4"
-          memory: "8G"
+          memory: "7G"
         limits:
           cpu: "6"
-          memory: "8G"
+          memory: "7G"
       jvmResources:
-        xmx: 6500m
-        xms: 6500m
+        xmx: 5600m
+        xms: 5600m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -61,7 +59,7 @@ platform:
             service-port: 5701
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
-        # Create very restrictive config for all map names not corresponding to one of 
+        # Create very restrictive config for all map names not corresponding to one of
         # the other patterns such as to protect cluster from potentially misbehaving clients
         default:
           backup-count: 0
@@ -117,7 +115,7 @@ mancenter:
     resources:
       requests:
         cpu: "2"
-        memory: "8G"
+        memory: "12G"
       limits:
         cpu: "4"
-        memory: "8G"
+        memory: "12G"

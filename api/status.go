@@ -8,9 +8,9 @@ import (
 type TestLoopStatus struct {
 	Source            string
 	NumMaps           int
-	NumRuns           int
-	TotalRuns         int
-	TotalRunsFinished int
+	NumRuns           uint32
+	TotalRuns         uint32
+	TotalRunsFinished uint32
 }
 
 type status struct {
@@ -34,7 +34,7 @@ func InsertInitialTestLoopStatus(testLoopID uuid.UUID, status *TestLoopStatus) {
 
 }
 
-func IncreaseTotalNumRunsCompleted(testLoopID uuid.UUID, increase int) {
+func IncreaseTotalNumRunsCompleted(testLoopID uuid.UUID, increase uint32) {
 
 	loopsMutex.Lock()
 	{

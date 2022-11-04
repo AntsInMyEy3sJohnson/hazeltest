@@ -9,6 +9,10 @@ import (
 )
 
 type (
+	QueueTester struct {
+		HzCluster string
+		HzMembers []string
+	}
 	runner interface {
 		runQueueTests(hzCluster string, hzMembers []string)
 	}
@@ -25,7 +29,7 @@ type (
 	}
 	operationConfig struct {
 		enabled                   bool
-		numRuns                   int
+		numRuns                   uint32
 		batchSize                 int
 		initialDelay              *sleepConfig
 		sleepBetweenActionBatches *sleepConfig
@@ -39,55 +43,93 @@ type (
 		runnerKeyPath string
 		queueBaseName string
 	}
-	QueueTester struct {
-		HzCluster string
-		HzMembers []string
-	}
+	state string
 )
 
-var runners []runner
+const (
+	start                  state = "start"
+	populateConfigComplete state = "populateConfigComplete"
+	checkEnabledComplete   state = "checkEnabledComplete"
+	raiseReadyComplete     state = "raiseReadyComplete"
+	testLoopStart          state = "testLoopStart"
+	testLoopComplete       state = "testLoopComplete"
+)
+
+var (
+	runners          []runner
+	lp               *logging.LogProvider
+	propertyAssigner client.ConfigPropertyAssigner
+)
 
 func register(r runner) {
 	runners = append(runners, r)
 }
 
-var lp *logging.LogProvider
-
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
+	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
-func (b runnerConfigBuilder) populateConfig() *runnerConfig {
+func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
+
+	var assignmentOps []func() error
 
 	var enabled bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".enabled", func(a any) {
-		enabled = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", client.ValidateBool, func(a any) {
+			enabled = a.(bool)
+		})
 	})
 
 	var numQueues int
-	client.PopulateConfigProperty(b.runnerKeyPath+".numQueues", func(a any) {
-		numQueues = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".numQueues", client.ValidateInt, func(a any) {
+			numQueues = a.(int)
+		})
 	})
 
 	var appendQueueIndexToQueueName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendQueueIndexToQueueName", func(a any) {
-		appendQueueIndexToQueueName = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendQueueIndexToQueueName", client.ValidateBool, func(a any) {
+			appendQueueIndexToQueueName = a.(bool)
+		})
 	})
 
 	var appendClientIdToQueueName bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".appendClientIdToQueueName", func(a any) {
-		appendClientIdToQueueName = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToQueueName", client.ValidateBool, func(a any) {
+			appendClientIdToQueueName = a.(bool)
+		})
 	})
 
 	var useQueuePrefix bool
-	client.PopulateConfigProperty(b.runnerKeyPath+".queuePrefix.enabled", func(a any) {
-		useQueuePrefix = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.enabled", client.ValidateBool, func(a any) {
+			useQueuePrefix = a.(bool)
+		})
 	})
 
 	var queuePrefix string
-	client.PopulateConfigProperty(b.runnerKeyPath+".queuePrefix.prefix", func(a any) {
-		queuePrefix = a.(string)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".queuePrefix.prefix", client.ValidateString, func(a any) {
+			queuePrefix = a.(string)
+		})
 	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	putConfig, err := b.populateOperationConfig("put")
+	if err != nil {
+		return nil, err
+	}
+	pollConfig, err := b.populateOperationConfig("poll")
+	if err != nil {
+		return nil, err
+	}
 
 	return &runnerConfig{
 		enabled:                     enabled,
@@ -97,61 +139,92 @@ func (b runnerConfigBuilder) populateConfig() *runnerConfig {
 		appendClientIdToQueueName:   appendClientIdToQueueName,
 		useQueuePrefix:              useQueuePrefix,
 		queuePrefix:                 queuePrefix,
-		putConfig:                   b.populateOperationConfig("put"),
-		pollConfig:                  b.populateOperationConfig("poll"),
-	}
+		putConfig:                   putConfig,
+		pollConfig:                  pollConfig,
+	}, nil
 
 }
 
-func (b runnerConfigBuilder) populateOperationConfig(operation string) *operationConfig {
+func (b runnerConfigBuilder) populateOperationConfig(operation string) (*operationConfig, error) {
 
 	c := b.runnerKeyPath + "." + fmt.Sprintf("%sConfig", operation)
 
+	var assignmentOps []func() error
+
 	var enabled bool
-	client.PopulateConfigProperty(c+".enabled", func(a any) {
-		enabled = a.(bool)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(c+".enabled", client.ValidateBool, func(a any) {
+			enabled = a.(bool)
+		})
 	})
 
-	var numRuns int
-	client.PopulateConfigProperty(c+".numRuns", func(a any) {
-		numRuns = a.(int)
+	var numRuns uint32
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(c+".numRuns", client.ValidateInt, func(a any) {
+			numRuns = uint32(a.(int))
+		})
 	})
 
 	var batchSizePoll int
-	client.PopulateConfigProperty(c+".batchSize", func(a any) {
-		batchSizePoll = a.(int)
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(c+".batchSize", client.ValidateInt, func(a any) {
+			batchSizePoll = a.(int)
+		})
 	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	initialDelay, err := b.populateSleepConfig(c + ".sleeps.initialDelay")
+	if err != nil {
+		return nil, err
+	}
+
+	sleepBetweenActionBatches, err := b.populateSleepConfig(c + ".sleeps.betweenActionBatches")
+	if err != nil {
+		return nil, err
+	}
+
+	sleepBetweenRuns, err := b.populateSleepConfig(c + ".sleeps.betweenRuns")
+	if err != nil {
+		return nil, err
+	}
 
 	return &operationConfig{
 		enabled:                   enabled,
 		numRuns:                   numRuns,
 		batchSize:                 batchSizePoll,
-		initialDelay:              b.populateSleepConfig(c + ".sleeps.initialDelay"),
-		sleepBetweenActionBatches: b.populateSleepConfig(c + ".sleeps.betweenActionBatches"),
-		sleepBetweenRuns:          b.populateSleepConfig(c + ".sleeps.betweenRuns"),
+		initialDelay:              initialDelay,
+		sleepBetweenActionBatches: sleepBetweenActionBatches,
+		sleepBetweenRuns:          sleepBetweenRuns,
+	}, nil
+
+}
+
+func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) (*sleepConfig, error) {
+
+	var enabled bool
+	if err := propertyAssigner.Assign(configBasePath+".enabled", client.ValidateBool, func(a any) {
+		enabled = a.(bool)
+	}); err != nil {
+		return nil, err
 	}
 
-}
-
-func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) *sleepConfig {
-
-	keyPath := configBasePath + ".enabled"
-	var enabled bool
-	client.PopulateConfigProperty(keyPath, func(a any) {
-		enabled = a.(bool)
-	})
-
-	keyPath = configBasePath + ".durationMs"
 	var durationMs int
-	client.PopulateConfigProperty(keyPath, func(a any) {
+	if err := propertyAssigner.Assign(configBasePath+".durationMs", client.ValidateInt, func(a any) {
 		durationMs = a.(int)
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	return &sleepConfig{enabled, durationMs}
+	return &sleepConfig{enabled, durationMs}, nil
 
 }
 
-func PopulateConfig(runnerKeyPath string, queueBaseName string) *runnerConfig {
+func populateConfig(runnerKeyPath string, queueBaseName string) (*runnerConfig, error) {
 
 	return runnerConfigBuilder{
 		runnerKeyPath,
@@ -182,7 +255,7 @@ func (t *QueueTester) TestQueues() {
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateInfo,
+		"kind":   logging.InternalStateEvent,
 		"client": client.ID(),
 	}).Trace(msg)
 

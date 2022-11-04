@@ -11,7 +11,13 @@ import (
 )
 
 type (
-	loadRunner  struct{}
+	loadRunner struct {
+		stateList  []state
+		name       string
+		source     string
+		queueStore hzQueueStore
+		l          looper[loadElement]
+	}
 	loadElement struct {
 		Payload string
 	}
@@ -23,44 +29,56 @@ var (
 )
 
 func init() {
-	register(loadRunner{})
+	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
-func (r loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
-	c := populateLoadConfig()
+	r.appendState(start)
+
+	c, err := populateLoadConfig()
+	if err != nil {
+		lp.LogInternalStateEvent("unable to populate config for queue load runner -- aborting", log.ErrorLevel)
+		return
+	}
+	r.appendState(populateConfigComplete)
 
 	if !c.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
 		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	r.appendState(checkEnabledComplete)
 
 	api.RaiseNotReady()
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "queueloadrunner", hzCluster, hzMembers)
-	defer hzClient.Shutdown(ctx)
+	r.queueStore.InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
+	defer r.queueStore.Shutdown(ctx)
 
 	api.RaiseReady()
+	r.appendState(raiseReadyComplete)
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting load test loop for queues", log.InfoLevel)
 
-	t := testLoop[loadElement]{
-		id:       uuid.New(),
-		source:   "loadrunner",
-		hzClient: hzClient,
-		config:   c,
-		elements: populateLoadElements(),
-		ctx:      ctx,
-	}
+	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	t.run()
+	r.l.init(lc)
+
+	r.appendState(testLoopStart)
+	r.l.run()
+	r.appendState(testLoopComplete)
 
 	lp.LogInternalStateEvent("finished queue load test loop", log.InfoLevel)
+
+}
+
+func (r *loadRunner) appendState(s state) {
+
+	r.stateList = append(r.stateList, s)
 
 }
 
@@ -78,18 +96,22 @@ func populateLoadElements() []loadElement {
 
 }
 
-func populateLoadConfig() *runnerConfig {
+func populateLoadConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "queuetests.load"
 
-	client.PopulateConfigProperty(runnerKeyPath+".numLoadEntries", func(a any) {
+	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
 		numLoadEntries = a.(int)
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	client.PopulateConfigProperty(runnerKeyPath+".payloadSizeBytes", func(a any) {
+	if err := propertyAssigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
 		payloadSizeBytes = a.(int)
-	})
+	}); err != nil {
+		return nil, err
+	}
 
-	return PopulateConfig(runnerKeyPath, "load")
+	return populateConfig(runnerKeyPath, "load")
 
 }

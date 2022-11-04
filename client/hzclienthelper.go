@@ -10,12 +10,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type HzClientHelper struct {
-	clientID uuid.UUID
-	lp       *logging.LogProvider
-}
+type (
+	HzClientHelper struct {
+		clientID uuid.UUID
+		lp       *logging.LogProvider
+	}
+	HzClientInitializer interface {
+		InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
+	}
+	HzClientCloser interface {
+		Shutdown(ctx context.Context) error
+	}
+)
 
-func NewHzClient() HzClientHelper {
+func NewHzClientHelper() HzClientHelper {
 	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}
 }
 
@@ -25,12 +33,7 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, runnerName)
 	hzConfig.Cluster.Name = hzCluster
 
-	useUniSocketClient, ok := RetrieveArgValue(ArgUseUniSocketClient).(bool)
-	if !ok {
-		logConfigurationError(ArgUseUniSocketClient, "command line", "unable to convert value into bool -- using default instead")
-		useUniSocketClient = false
-	}
-	hzConfig.Cluster.Unisocket = useUniSocketClient
+	hzConfig.Cluster.Unisocket = RetrieveArgValue(ArgUseUniSocketClient).(bool)
 
 	logInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig))
 
@@ -50,19 +53,8 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateInfo,
+		"kind":   logging.InternalStateEvent,
 		"client": ID(),
 	}).Info(msg)
-
-}
-
-func logConfigurationError(configValue string, source string, msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.ConfigurationError,
-		"value":  configValue,
-		"source": source,
-		"client": ID(),
-	}).Warn(msg)
 
 }

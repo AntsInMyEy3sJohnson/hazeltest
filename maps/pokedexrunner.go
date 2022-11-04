@@ -10,12 +10,17 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
-	"hazeltest/client"
 )
 
 type (
-	pokedexRunner struct{}
-	pokedex       struct {
+	pokedexRunner struct {
+		stateList []state
+		name      string
+		source    string
+		mapStore  hzMapStore
+		l         looper[pokemon]
+	}
+	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
 	}
 	pokemon struct {
@@ -42,22 +47,32 @@ type (
 	}
 )
 
-//go:embed pokedex.json
-var pokedexFile embed.FS
+var (
+	//go:embed pokedex.json
+	pokedexFile embed.FS
+)
 
 func init() {
-	register(pokedexRunner{})
+	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 }
 
-func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
+func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
-	mapRunnerConfig := populatePokedexConfig()
+	r.appendState(start)
 
-	if !mapRunnerConfig.enabled {
+	config, err := populatePokedexConfig()
+	if err != nil {
+		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
+		return
+	}
+	r.appendState(populateConfigComplete)
+
+	if !config.enabled {
 		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	r.appendState(checkEnabledComplete)
 
 	api.RaiseNotReady()
 
@@ -69,28 +84,30 @@ func (r pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	hzClient := client.NewHzClient().InitHazelcastClient(ctx, "pokedexrunner", hzCluster, hzMembers)
-	defer hzClient.Shutdown(ctx)
+	r.mapStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
+	defer r.mapStore.Shutdown(ctx)
 
 	api.RaiseReady()
+	r.appendState(raiseReadyComplete)
 
 	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
 
-	testLoop := testLoop[pokemon]{
-		id:                     uuid.New(),
-		source:                 "pokedexrunner",
-		hzClient:               hzClient,
-		config:                 mapRunnerConfig,
-		elements:               pokedex.Pokemon,
-		ctx:                    ctx,
-		getElementIdFunc:       getPokemonID,
-		deserializeElementFunc: deserializePokemon,
-	}
+	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	testLoop.run()
+	r.l.init(lc)
+
+	r.appendState(testLoopStart)
+	r.l.run()
+	r.appendState(testLoopComplete)
 
 	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
+
+}
+
+func (r *pokedexRunner) appendState(s state) {
+
+	r.stateList = append(r.stateList, s)
 
 }
 
@@ -112,7 +129,7 @@ func deserializePokemon(elementFromHZ interface{}) error {
 
 }
 
-func populatePokedexConfig() *runnerConfig {
+func populatePokedexConfig() (*runnerConfig, error) {
 
 	runnerKeyPath := "maptests.pokedex"
 
@@ -120,6 +137,7 @@ func populatePokedexConfig() *runnerConfig {
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "pokedex",
 	}
+
 	return configBuilder.populateConfig()
 
 }

@@ -10,12 +10,12 @@ import (
 	"strings"
 )
 
-const ApiInfo = "api info"
-const InternalStateInfo = "internal state info"
-const TimingInfo = "timing info"
-const IoError = "io error"
-const HzError = "hazelcast error"
-const ConfigurationError = "incorrect or incomplete configuration"
+const ApiEvent = "api event"
+const InternalStateEvent = "internal state event"
+const TimingEvent = "timing event"
+const IoEvent = "io event"
+const HzEvent = "hazelcast event"
+const ConfigurationEvent = "configuration event"
 
 type LogProvider struct {
 	ClientID uuid.UUID
@@ -60,7 +60,7 @@ func init() {
 func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": IoError,
+		"kind": IoEvent,
 	}
 
 	lp.doLog(msg, fields, level)
@@ -70,7 +70,7 @@ func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
 func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": ApiInfo,
+		"kind": ApiEvent,
 	}
 
 	lp.doLog(msg, fields, level)
@@ -80,7 +80,7 @@ func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int, level log.Level) {
 
 	fields := log.Fields{
-		"kind":              TimingInfo,
+		"kind":              TimingEvent,
 		"operation":         operation,
 		"dataStructureName": dataStructureName,
 		"tookMs":            tookMs,
@@ -93,7 +93,7 @@ func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string
 func (lp *LogProvider) LogInternalStateEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": InternalStateInfo,
+		"kind": InternalStateEvent,
 	}
 
 	lp.doLog(msg, fields, level)
@@ -103,7 +103,7 @@ func (lp *LogProvider) LogInternalStateEvent(msg string, level log.Level) {
 func (lp *LogProvider) LogHzEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": HzError,
+		"kind": HzEvent,
 	}
 
 	lp.doLog(msg, fields, level)
@@ -118,7 +118,7 @@ func (lp *LogProvider) LogErrUponConfigRetrieval(keyPath string, err error, leve
 func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind":   ConfigurationError,
+		"kind":   ConfigurationEvent,
 		"value":  configValue,
 		"source": source,
 	}
@@ -134,6 +134,8 @@ func (lp *LogProvider) doLog(msg string, fields log.Fields, level log.Level) {
 
 	if level == log.FatalLevel {
 		log.WithFields(fields).Fatal(msg)
+	} else if level == log.ErrorLevel {
+		log.WithFields(fields).Error(msg)
 	} else if level == log.WarnLevel {
 		log.WithFields(fields).Warn(msg)
 	} else if level == log.InfoLevel {

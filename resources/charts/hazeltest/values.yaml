@@ -1,21 +1,21 @@
-replicaCount: 1
+replicaCount: 10
 
 image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.5.3
-  digest: 90414d8f05079d294e6df8c5b46b983df2255e05574304475387c5d24056dc85
+  # 0.5.4
+  digest: 2c7bd81af6fdff80fe6f8ad46aa41ec52012ac748628d24dd9132117beccd98a
   pullPolicy: IfNotPresent
 
 httpPort: 8080
 resources:
   requests:
-    cpu: "50m"
-    memory: "64M"
+    cpu: "500m"
+    memory: "32Mi"
   limits:
-    cpu: "100m"
-    memory: "128M"
+    cpu: "1"
+    memory: "64Mi"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -35,9 +35,9 @@ config:
   queuetests:
     tweets:
       enabled: true
-      numQueues: 5
+      numQueues: 10
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: false
+      appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
         prefix: "ht_"
@@ -51,10 +51,10 @@ config:
             durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 1000
+            durationMs: 2000
           betweenRuns:
             enabled: true
-            durationMs: 2000
+            durationMs: 5000
       pollConfig:
         enabled: true
         numRuns: 500
@@ -62,20 +62,20 @@ config:
         sleeps:
           initialDelay:
             enabled: true
-            durationMs: 12500
+            durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 1000
+            durationMs: 2000
           betweenRuns:
             enabled: true
-            durationMs: 2000
+            durationMs: 5000
     load:
       enabled: true
       numQueues: 10
-      numLoadEntries: 5000
-      payloadSizeBytes: 5000
+      numLoadEntries: 50
+      payloadSizeBytes: 10
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: false
+      appendClientIdToQueueName: true
       queuePrefix:
         enabled: true
         prefix: "ht_"
@@ -89,10 +89,10 @@ config:
             durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 200
+            durationMs: 1000
           betweenRuns:
             enabled: true
-            durationMs: 200
+            durationMs: 3500
       pollConfig:
         enabled: true
         numRuns: 500
@@ -100,46 +100,46 @@ config:
         sleeps:
           initialDelay:
             enabled: true
-            durationMs: 20000
+            durationMs: 2000
           betweenActionBatches:
             enabled: true
-            durationMs: 200
+            durationMs: 1000
           betweenRuns:
             enabled: true
-            durationMs: 200
+            durationMs: 3500
 
   maptests:
     pokedex:
       enabled: true
-      numMaps: 5
+      numMaps: 10
       appendMapIndexToMapName: true
-      appendClientIdToMapName: false
+      appendClientIdToMapName: true
       numRuns: 10000
       mapPrefix:
         enabled: true
         prefix: "ht_"
       sleeps:
         betweenActionBatches:
-          enabled: false
-          durationMs: 2000
+          enabled: true
+          durationMs: 500
         betweenRuns:
           enabled: true
-          durationMs: 2000
+          durationMs: 1000
     load:
       enabled: true
-      numMaps: 2
-      numEntriesPerMap: 5000
-      payloadSizeBytes: 100000
+      numMaps: 10
+      numEntriesPerMap: 50000
+      payloadSizeBytes: 1000000
       appendMapIndexToMapName: true
-      appendClientIdToMapName: false
+      appendClientIdToMapName: true
       numRuns: 10000
       mapPrefix:
         enabled: true
         prefix: "ht_"
       sleeps:
         betweenActionBatches:
-          enabled: false
-          durationMs: 2000
+          enabled: true
+          durationMs: 200
         betweenRuns:
           enabled: true
-          durationMs: 2000
+          durationMs: 1300
