@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 )
 
@@ -18,6 +19,7 @@ type (
 		returnErrorUponGetQueue bool
 	}
 	dummyHzQueue struct {
+		queueCapacity      int
 		data               *list.List
 		putInvocations     int
 		pollInvocations    int
@@ -92,7 +94,31 @@ func (d *dummyHzQueue) Poll(_ context.Context) (interface{}, error) {
 	}
 	dummyQueueOperationLock.Unlock()
 
-	return d.data.Front(), nil
+	// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
+	// against an empty queue --> Replicate behavior here
+	if d.data.Len() == 0 {
+		// Nothing to poll
+		return nil, nil
+	}
+
+	element := d.data.Front()
+	d.data.Remove(element)
+
+	return element, nil
+
+}
+
+func (d *dummyHzQueue) RemainingCapacity(_ context.Context) (int, error) {
+
+	if d.queueCapacity < 0 {
+		return 0, errors.New("invalid test setup -- queue capacity cannot be negative")
+	}
+
+	if d.queueCapacity == 0 {
+		return math.MaxInt, nil
+	}
+
+	return d.queueCapacity - d.data.Len(), nil
 
 }
 

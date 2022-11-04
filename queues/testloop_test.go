@@ -24,11 +24,11 @@ func TestRun(t *testing.T) {
 
 	t.Log("given the need to test running the queue test loop")
 	{
-		t.Log("\twhen only a put config is provided")
+		t.Log("\twhen only put config is provided")
 		{
 			id := uuid.New()
-			qs := assembleDummyQueueStore(false)
-			rc := assembleRunnerConfig()
+			qs := assembleDummyQueueStore(false, 9)
+			rc := assembleRunnerConfig(true, 1, false, 0)
 			tl := assembleTestLoop(id, testSource, qs, &rc)
 			tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
 			tl.init(&tlc)
@@ -49,7 +49,82 @@ func TestRun(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tdata must be present in queue"
+			if qs.q.data.Len() == len(aNewHope) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
+	}
+
+	t.Log("\twhen both put and pull config are provided, and put runs twice as many times as poll")
+	{
+		id := uuid.New()
+		qs := assembleDummyQueueStore(false, 18)
+		rc := assembleRunnerConfig(true, 2, true, 1)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
+		tl.init(&tlc)
+
+		tl.run()
+
+		msg := "\t\texpected number of puts must have been executed"
+		if qs.q.putInvocations == 2*len(aNewHope) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\texpected number of polls must have been executed"
+		if qs.q.pollInvocations == len(aNewHope) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+	}
+
+	t.Log("\twhen poll is configured but put is not")
+	{
+		id := uuid.New()
+		qs := assembleDummyQueueStore(false, 1)
+		rc := assembleRunnerConfig(false, 0, true, 5)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
+		tl.init(&tlc)
+
+		tl.run()
+
+		msg := "\t\tall poll attempts must have been made anyway"
+		if qs.q.pollInvocations == 5*len(aNewHope) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+	}
+
+	t.Log("\twhen queue reaches its capacity")
+	{
+		id := uuid.New()
+		queueCapacity := 9
+		qs := assembleDummyQueueStore(false, queueCapacity)
+		rc := assembleRunnerConfig(true, 2, false, 0)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
+		tl.init(&tlc)
+
+		tl.run()
+
+		msg := "\t\tno puts must be executed once queue has reached maximum capacity"
+		if qs.q.putInvocations == queueCapacity {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
 	}
 
 }
@@ -77,27 +152,27 @@ func assembleTestLoopConfig(id uuid.UUID, source string, qs hzQueueStore, rc *ru
 
 }
 
-func assembleRunnerConfig() runnerConfig {
+func assembleRunnerConfig(enablePut bool, numRunsPut uint32, enablePoll bool, numRunsPoll uint32) runnerConfig {
 
 	disabledSleepConfig := sleepConfig{
 		enabled:    false,
 		durationMs: 0,
 	}
 	putConfig := operationConfig{
-		enabled:                   true,
-		numRuns:                   1,
+		enabled:                   enablePut,
+		numRuns:                   numRunsPut,
 		batchSize:                 1,
 		initialDelay:              &disabledSleepConfig,
 		sleepBetweenActionBatches: &disabledSleepConfig,
 		sleepBetweenRuns:          &disabledSleepConfig,
 	}
 	pollConfig := operationConfig{
-		enabled:                   false,
-		numRuns:                   0,
-		batchSize:                 0,
-		initialDelay:              nil,
-		sleepBetweenActionBatches: nil,
-		sleepBetweenRuns:          nil,
+		enabled:                   enablePoll,
+		numRuns:                   numRunsPoll,
+		batchSize:                 1,
+		initialDelay:              &disabledSleepConfig,
+		sleepBetweenActionBatches: &disabledSleepConfig,
+		sleepBetweenRuns:          &disabledSleepConfig,
 	}
 	return runnerConfig{
 		enabled:                     true,
@@ -113,12 +188,12 @@ func assembleRunnerConfig() runnerConfig {
 
 }
 
-func assembleDummyQueueStore(returnErrorUponGetQueue bool) dummyHzQueueStore {
+func assembleDummyQueueStore(returnErrorUponGetQueue bool, queueCapacity int) dummyHzQueueStore {
 
 	dummyBackend := &list.List{}
 
 	return dummyHzQueueStore{
-		q:                       &dummyHzQueue{data: dummyBackend},
+		q:                       &dummyHzQueue{data: dummyBackend, queueCapacity: queueCapacity},
 		returnErrorUponGetQueue: returnErrorUponGetQueue,
 	}
 

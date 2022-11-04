@@ -10,6 +10,7 @@ type (
 	hzQueue interface {
 		Put(ctx context.Context, element interface{}) error
 		Poll(ctx context.Context) (interface{}, error)
+		RemainingCapacity(ctx context.Context) (int, error)
 		Destroy(ctx context.Context) error
 	}
 	hzQueueStore interface {

@@ -130,11 +130,17 @@ func (l testLoop[t]) putElements(q hzQueue, queueName string) {
 
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
-		err := q.Put(l.config.ctx, e)
-		if err != nil {
-			lp.LogInternalStateEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
+		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
+			lp.LogInternalStateEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
+		} else if remaining == 0 {
+			lp.LogInternalStateEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
 		} else {
-			lp.LogInternalStateEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
+			err := q.Put(l.config.ctx, e)
+			if err != nil {
+				lp.LogInternalStateEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
+			} else {
+				lp.LogInternalStateEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
+			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {
 			sleep(putConfig.sleepBetweenActionBatches, "betweenActionBatches", queueName, "put")
