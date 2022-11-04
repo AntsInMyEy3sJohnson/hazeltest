@@ -53,17 +53,17 @@ func (l *testLoop[t]) run() {
 			mapName := l.assembleMapName(i)
 			lp.LogInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			hzMap, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
+			m, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
 				return
 			}
 			defer func() {
-				_ = hzMap.Destroy(l.config.ctx)
+				_ = m.Destroy(l.config.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			l.runForMap(hzMap, mapName, i)
+			l.runForMap(m, mapName, i)
 		}(i)
 	}
 	wg.Wait()
