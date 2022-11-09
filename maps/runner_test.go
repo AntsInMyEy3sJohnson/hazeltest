@@ -6,17 +6,19 @@ import (
 
 var (
 	testConfig = map[string]interface{}{
-		runnerKeyPath + ".enabled":                                true,
-		runnerKeyPath + ".numMaps":                                10,
-		runnerKeyPath + ".appendMapIndexToMapName":                true,
-		runnerKeyPath + ".appendClientIdToMapName":                false,
-		runnerKeyPath + ".numRuns":                                1000,
-		runnerKeyPath + ".mapPrefix.enabled":                      true,
-		runnerKeyPath + ".mapPrefix.prefix":                       mapPrefix,
-		runnerKeyPath + ".sleeps.betweenActionBatches.enabled":    true,
-		runnerKeyPath + ".sleeps.betweenActionBatches.durationMs": 2000,
-		runnerKeyPath + ".sleeps.betweenRuns.enabled":             true,
-		runnerKeyPath + ".sleeps.betweenRuns.durationMs":          2500,
+		runnerKeyPath + ".enabled":                                      true,
+		runnerKeyPath + ".numMaps":                                      10,
+		runnerKeyPath + ".appendMapIndexToMapName":                      true,
+		runnerKeyPath + ".appendClientIdToMapName":                      false,
+		runnerKeyPath + ".numRuns":                                      1000,
+		runnerKeyPath + ".mapPrefix.enabled":                            true,
+		runnerKeyPath + ".mapPrefix.prefix":                             mapPrefix,
+		runnerKeyPath + ".sleeps.betweenActionBatches.enabled":          true,
+		runnerKeyPath + ".sleeps.betweenActionBatches.durationMs":       2000,
+		runnerKeyPath + ".sleeps.betweenActionBatches.enableRandomness": true,
+		runnerKeyPath + ".sleeps.betweenRuns.enabled":                   true,
+		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                2500,
+		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":          true,
 	}
 )
 
@@ -81,7 +83,9 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]interface{}) b
 		rc.appendClientIdToMapName == expected[runnerKeyPath+".appendClientIdToMapName"] &&
 		rc.sleepBetweenActionBatches.enabled == expected[runnerKeyPath+".sleeps.betweenActionBatches.enabled"] &&
 		rc.sleepBetweenActionBatches.durationMs == expected[runnerKeyPath+".sleeps.betweenActionBatches.durationMs"] &&
+		rc.sleepBetweenActionBatches.enableRandomness == expected[runnerKeyPath+".sleeps.betweenActionBatches.enableRandomness"] &&
 		rc.sleepBetweenRuns.enabled == expected[runnerKeyPath+".sleeps.betweenRuns.enabled"] &&
-		rc.sleepBetweenRuns.durationMs == expected[runnerKeyPath+".sleeps.betweenRuns.durationMs"]
+		rc.sleepBetweenRuns.durationMs == expected[runnerKeyPath+".sleeps.betweenRuns.durationMs"] &&
+		rc.sleepBetweenRuns.enableRandomness == expected[runnerKeyPath+".sleeps.betweenRuns.enableRandomness"]
 
 }
