@@ -48,15 +48,26 @@ queuetests:
         initialDelay:
           enabled: false
           durationMs: 2000
+          # Enables or disables randomness for this sleep configuration. If disabled and given that the sleep config
+          # itself is enabled, the goroutine will sleep for the given amount of milliseconds. If enabled -- and again
+          # assuming the sleep config itself is enabled, too --, the amount of milliseconds to sleep will be determined
+          # randomly in the closed interval [0, <durationMs>].
+          # Hint: For queue runners, it makes sense to disable randomness for the initial sleep, as a reduced amount of
+          # milliseconds slept due to randomness might invalidate the purpose of the initial sleep, which is to give the
+          # operation in question, normally the put operation, enough time to put some elements into its queues before
+          # the poll operations start.
+          enableRandomness: false
         # Causes a put goroutine to sleep after performing one batch of put operations, where the batch size is
         # configured by means of the above '(...).putConfig.batchSize' property.
         betweenActionBatches:
           enabled: true
           durationMs: 1000
+          enableRandomness: true
         # Makes a put goroutine pause execution before each run.
         betweenRuns:
           enabled: true
           durationMs: 2000
+          enableRandomness: true
     # Configuration for the goroutine running poll operations for tweets against the Hazelcast queue. Just like with the
     # put operations, each of the <numQueues> goroutines will spawn a dedicated goroutine for polling operations, too.
     pollConfig:
@@ -69,12 +80,15 @@ queuetests:
         initialDelay:
           enabled: true
           durationMs: 12500
+          enableRandomness: false
         betweenActionBatches:
           enabled: true
           durationMs: 1000
+          enableRandomness: true
         betweenRuns:
           enabled: true
           durationMs: 2000
+          enableRandomness: true
   load:
     enabled: true
     numQueues: 10
@@ -100,12 +114,15 @@ queuetests:
         initialDelay:
           enabled: false
           durationMs: 2000
+          enableRandomness: false
         betweenActionBatches:
           enabled: true
           durationMs: 200
+          enableRandomness: true
         betweenRuns:
           enabled: true
           durationMs: 200
+          enableRandomness: true
     pollConfig:
       enabled: true
       numRuns: 500
@@ -114,12 +131,15 @@ queuetests:
         initialDelay:
           enabled: true
           durationMs: 20000
+          enableRandomness: false
         betweenActionBatches:
           enabled: true
           durationMs: 200
+          enableRandomness: true
         betweenRuns:
           enabled: true
           durationMs: 200
+          enableRandomness: true
 
 # TODO Improve documentation: What datasource does each runner process?
 maptests:
@@ -153,11 +173,13 @@ maptests:
       betweenActionBatches:
         enabled: false
         durationMs: 2000
+        enableRandomness: true
       # Can be enabled to make the test loop sleep for the given duration after each of the <numRuns>. One run consists of three actions (e.g. ingest-read-delete),
       # so use this setting to tell the test loop to sleep after having finished the last action of run <n> and before commencing with the first action of run <n+1>
       betweenRuns:
         enabled: true
         durationMs: 2000
+        enableRandomness: true
   load:
     enabled: true
     numMaps: 2
@@ -178,6 +200,8 @@ maptests:
       betweenActionBatches:
         enabled: false
         durationMs: 2000
+        enableRandomness: true
       betweenRuns:
         enabled: true
         durationMs: 2000
+        enableRandomness: true
