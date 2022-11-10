@@ -60,7 +60,7 @@ func TestRun(t *testing.T) {
 		{
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
@@ -112,7 +112,7 @@ func TestRun(t *testing.T) {
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
 			numMaps := 10
-			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -142,7 +142,7 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen get map yields error")
 		{
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -163,7 +163,7 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -191,7 +191,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			numMaps := 0
-			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
@@ -222,7 +222,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			numRuns := 20
-			rc := assembleRunnerConfig(1, numRuns, sleepConfigDisabled, sleepConfigEnabled)
+			rc := assembleRunnerConfig(1, numRuns, sleepConfigEnabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			start := time.Now()
@@ -243,7 +243,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			numRuns := 20
-			rc := assembleRunnerConfig(1, numRuns, sleepConfigDisabled, sleepConfigEnabledWithEnabledRandomness)
+			rc := assembleRunnerConfig(1, numRuns, sleepConfigEnabledWithEnabledRandomness)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			start := time.Now()
@@ -311,7 +311,7 @@ func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet bool) dummy
 
 }
 
-func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenActionBatches *sleepConfig, sleepBetweenRuns *sleepConfig) runnerConfig {
+func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenRuns *sleepConfig) runnerConfig {
 
 	return runnerConfig{
 		enabled:                   true,
@@ -322,7 +322,7 @@ func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenActionBatches *sleep
 		mapPrefix:                 "ht_",
 		appendMapIndexToMapName:   false,
 		appendClientIdToMapName:   false,
-		sleepBetweenActionBatches: sleepBetweenActionBatches,
+		sleepBetweenActionBatches: sleepConfigDisabled,
 		sleepBetweenRuns:          sleepBetweenRuns,
 	}
 
