@@ -36,8 +36,9 @@ type (
 		sleepBetweenRuns          *sleepConfig
 	}
 	sleepConfig struct {
-		enabled    bool
-		durationMs int
+		enabled          bool
+		durationMs       int
+		enableRandomness bool
 	}
 	runnerConfigBuilder struct {
 		runnerKeyPath string
@@ -220,7 +221,14 @@ func (b runnerConfigBuilder) populateSleepConfig(configBasePath string) (*sleepC
 		return nil, err
 	}
 
-	return &sleepConfig{enabled, durationMs}, nil
+	var enableRandomness bool
+	if err := propertyAssigner.Assign(configBasePath+".enableRandomness", client.ValidateBool, func(a any) {
+		enableRandomness = a.(bool)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &sleepConfig{enabled, durationMs, enableRandomness}, nil
 
 }
 
