@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -192,8 +193,14 @@ func (l testLoop[t]) assembleQueueName(queueIndex int) string {
 func sleep(sleepConfig *sleepConfig, kind string, queueName string, o operation) {
 
 	if sleepConfig.enabled {
-		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepConfig.durationMs, kind, queueName, o), log.TraceLevel)
-		time.Sleep(time.Duration(sleepConfig.durationMs) * time.Millisecond)
+		var sleepDuration int
+		if sleepConfig.enableRandomness {
+			sleepDuration = rand.Intn(sleepConfig.durationMs + 1)
+		} else {
+			sleepDuration = sleepConfig.durationMs
+		}
+		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepDuration, kind, queueName, o), log.TraceLevel)
+		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 
 }

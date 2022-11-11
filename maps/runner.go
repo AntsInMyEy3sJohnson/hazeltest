@@ -25,8 +25,9 @@ type (
 		sleepBetweenRuns          *sleepConfig
 	}
 	sleepConfig struct {
-		enabled    bool
-		durationMs int
+		enabled          bool
+		durationMs       int
+		enableRandomness bool
 	}
 	runnerConfigBuilder struct {
 		runnerKeyPath string
@@ -132,6 +133,13 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
+	var sleepBetweenActionBatchesEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
+			sleepBetweenActionBatchesEnableRandomness = a.(bool)
+		})
+	})
+
 	var sleepBetweenRunsEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
 		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", client.ValidateBool, func(a any) {
@@ -146,6 +154,13 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
+	var sleepBetweenRunsEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enableRandomness", client.ValidateBool, func(a any) {
+			sleepBetweenRunsEnableRandomness = a.(bool)
+		})
+	})
+
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
 			return nil, err
@@ -153,16 +168,24 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 	}
 
 	return &runnerConfig{
-		enabled:                   enabled,
-		numMaps:                   numMaps,
-		numRuns:                   numRuns,
-		mapBaseName:               b.mapBaseName,
-		useMapPrefix:              useMapPrefix,
-		mapPrefix:                 mapPrefix,
-		appendMapIndexToMapName:   appendMapIndexToMapName,
-		appendClientIdToMapName:   appendClientIdToMapName,
-		sleepBetweenActionBatches: &sleepConfig{sleepBetweenActionBatchesEnabled, sleepBetweenActionBatchesDurationMs},
-		sleepBetweenRuns:          &sleepConfig{sleepBetweenRunsEnabled, sleepBetweenRunsDurationMs},
+		enabled:                 enabled,
+		numMaps:                 numMaps,
+		numRuns:                 numRuns,
+		mapBaseName:             b.mapBaseName,
+		useMapPrefix:            useMapPrefix,
+		mapPrefix:               mapPrefix,
+		appendMapIndexToMapName: appendMapIndexToMapName,
+		appendClientIdToMapName: appendClientIdToMapName,
+		sleepBetweenActionBatches: &sleepConfig{
+			sleepBetweenActionBatchesEnabled,
+			sleepBetweenActionBatchesDurationMs,
+			sleepBetweenActionBatchesEnableRandomness,
+		},
+		sleepBetweenRuns: &sleepConfig{
+			sleepBetweenRunsEnabled,
+			sleepBetweenRunsDurationMs,
+			sleepBetweenRunsEnableRandomness,
+		},
 	}, nil
 
 }

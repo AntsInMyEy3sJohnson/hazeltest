@@ -43,8 +43,6 @@ func (l *testLoop[t]) run() {
 
 	l.insertLoopWithInitialStatus()
 
-	// TODO Introduce randomness to sleeps -- right now, they produce cyclic high CPU usage
-
 	var wg sync.WaitGroup
 	for i := 0; i < l.config.runnerConfig.numMaps; i++ {
 		wg.Add(1)
@@ -233,8 +231,14 @@ func (l testLoop[t]) assembleMapName(mapIndex int) string {
 func sleep(sleepConfig *sleepConfig) {
 
 	if sleepConfig.enabled {
-		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepConfig.durationMs), log.TraceLevel)
-		time.Sleep(time.Duration(sleepConfig.durationMs) * time.Millisecond)
+		var sleepDuration int
+		if sleepConfig.enableRandomness {
+			sleepDuration = rand.Intn(sleepConfig.durationMs + 1)
+		} else {
+			sleepDuration = sleepConfig.durationMs
+		}
+		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepDuration), log.TraceLevel)
+		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 
 }

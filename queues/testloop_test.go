@@ -3,20 +3,40 @@ package queues
 import (
 	"container/list"
 	"github.com/google/uuid"
+	"math"
 	"testing"
+	"time"
 )
 
-var aNewHope = []string{
-	"Princess Leia",
-	"Luke Skywalker",
-	"Obi-Wan Kenobi",
-	"Han Solo",
-	"Chewbacca",
-	"Jabba the Hutt",
-	"C-3PO",
-	"R2-D2",
-	"Darth Vader",
-}
+var (
+	aNewHope = []string{
+		"Princess Leia",
+		"Luke Skywalker",
+		"Obi-Wan Kenobi",
+		"Han Solo",
+		"Chewbacca",
+		"Jabba the Hutt",
+		"C-3PO",
+		"R2-D2",
+		"Darth Vader",
+	}
+	sleepDurationMs     = 10
+	sleepConfigDisabled = &sleepConfig{
+		enabled:          false,
+		durationMs:       0,
+		enableRandomness: false,
+	}
+	sleepConfigEnabled = &sleepConfig{
+		enabled:          true,
+		durationMs:       sleepDurationMs,
+		enableRandomness: false,
+	}
+	sleepConfigEnabledWithEnabledRandomness = &sleepConfig{
+		enabled:          true,
+		durationMs:       sleepDurationMs,
+		enableRandomness: true,
+	}
+)
 
 func TestRun(t *testing.T) {
 
@@ -28,10 +48,8 @@ func TestRun(t *testing.T) {
 		{
 			id := uuid.New()
 			qs := assembleDummyQueueStore(false, 9)
-			rc := assembleRunnerConfig(true, 1, false, 0)
+			rc := assembleRunnerConfig(true, 1, false, 0, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, qs, &rc)
-			tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
-			tl.init(&tlc)
 
 			tl.run()
 
@@ -59,14 +77,12 @@ func TestRun(t *testing.T) {
 		}
 	}
 
-	t.Log("\twhen both put and pull config are provided, and put runs twice as many times as poll")
+	t.Log("\twhen both put and poll config are provided, and put runs twice as many times as poll")
 	{
 		id := uuid.New()
 		qs := assembleDummyQueueStore(false, 18)
-		rc := assembleRunnerConfig(true, 2, true, 1)
+		rc := assembleRunnerConfig(true, 2, true, 1, sleepConfigDisabled, sleepConfigDisabled)
 		tl := assembleTestLoop(id, testSource, qs, &rc)
-		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
-		tl.init(&tlc)
 
 		tl.run()
 
@@ -90,10 +106,8 @@ func TestRun(t *testing.T) {
 	{
 		id := uuid.New()
 		qs := assembleDummyQueueStore(false, 1)
-		rc := assembleRunnerConfig(false, 0, true, 5)
+		rc := assembleRunnerConfig(false, 0, true, 5, sleepConfigDisabled, sleepConfigDisabled)
 		tl := assembleTestLoop(id, testSource, qs, &rc)
-		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
-		tl.init(&tlc)
 
 		tl.run()
 
@@ -111,15 +125,81 @@ func TestRun(t *testing.T) {
 		id := uuid.New()
 		queueCapacity := 9
 		qs := assembleDummyQueueStore(false, queueCapacity)
-		rc := assembleRunnerConfig(true, 2, false, 0)
+		rc := assembleRunnerConfig(true, 2, false, 0, sleepConfigDisabled, sleepConfigDisabled)
 		tl := assembleTestLoop(id, testSource, qs, &rc)
-		tlc := assembleTestLoopConfig(id, testSource, qs, &rc)
-		tl.init(&tlc)
 
 		tl.run()
 
-		msg := "\t\tno puts must be executed once queue has reached maximum capacity"
+		msg := "\t\tno puts must be executed"
 		if qs.q.putInvocations == queueCapacity {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+	}
+
+	var elapsedMsSleepEnabled int64
+	t.Log("\twhen enabled sleep config is provided for sleep between runs")
+	{
+		id := uuid.New()
+		qs := assembleDummyQueueStore(false, 9)
+		numRunsPutAndPoll := 20
+		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigDisabled, sleepConfigEnabled)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+
+		start := time.Now()
+		tl.run()
+		elapsedMsSleepEnabled = time.Since(start).Milliseconds()
+
+		msg := "\t\ttest run execution time must be at least number of runs into milliseconds slept after each run"
+		if elapsedMsSleepEnabled > int64(numRunsPutAndPoll*sleepDurationMs) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+	}
+
+	t.Log("\twhen enabled sleep config with enabled randomness is provided for sleep between runs")
+	{
+		id := uuid.New()
+		qs := assembleDummyQueueStore(false, 9)
+		numRunsPutAndPoll := 20
+		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigDisabled, sleepConfigEnabledWithEnabledRandomness)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+
+		start := time.Now()
+		tl.run()
+		elapsedMs := time.Since(start).Milliseconds()
+
+		msg := "\t\ttest run execution time must be less than number of runs into given number of milliseconds to sleep " +
+			"due to random factor reducing actual time slept"
+		if elapsedMs < int64(numRunsPutAndPoll*sleepDurationMs) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+	}
+
+	t.Log("\twhen sleeps are enabled for both put config and poll config")
+	{
+		// Put and poll operations run concurrently, so when sleeps are enabled for both,
+		// the total execution time should still be roughly what it had been if only one of them
+		// had received an enabled sleep config
+		id := uuid.New()
+		qs := assembleDummyQueueStore(false, 9)
+		numRunsPutAndPoll := 20
+		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigEnabled, sleepConfigEnabled)
+		tl := assembleTestLoop(id, testSource, qs, &rc)
+
+		start := time.Now()
+		tl.run()
+		elapsedMs := time.Since(start).Milliseconds()
+
+		msg := "\t\ttime slept must be roughly equal to time slept when only one kind of operation received enabled sleep config"
+		if math.Abs(float64(elapsedMs-elapsedMsSleepEnabled)) < float64(elapsedMsSleepEnabled)*0.1 {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX)
@@ -152,27 +232,23 @@ func assembleTestLoopConfig(id uuid.UUID, source string, qs hzQueueStore, rc *ru
 
 }
 
-func assembleRunnerConfig(enablePut bool, numRunsPut uint32, enablePoll bool, numRunsPoll uint32) runnerConfig {
+func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRunsPoll int, sleepConfigPutBetweenRuns *sleepConfig, sleepConfigPollBetweenRuns *sleepConfig) runnerConfig {
 
-	disabledSleepConfig := sleepConfig{
-		enabled:    false,
-		durationMs: 0,
-	}
 	putConfig := operationConfig{
 		enabled:                   enablePut,
-		numRuns:                   numRunsPut,
+		numRuns:                   uint32(numRunsPut),
 		batchSize:                 1,
-		initialDelay:              &disabledSleepConfig,
-		sleepBetweenActionBatches: &disabledSleepConfig,
-		sleepBetweenRuns:          &disabledSleepConfig,
+		initialDelay:              sleepConfigDisabled,
+		sleepBetweenActionBatches: sleepConfigDisabled,
+		sleepBetweenRuns:          sleepConfigPutBetweenRuns,
 	}
 	pollConfig := operationConfig{
 		enabled:                   enablePoll,
-		numRuns:                   numRunsPoll,
+		numRuns:                   uint32(numRunsPoll),
 		batchSize:                 1,
-		initialDelay:              &disabledSleepConfig,
-		sleepBetweenActionBatches: &disabledSleepConfig,
-		sleepBetweenRuns:          &disabledSleepConfig,
+		initialDelay:              sleepConfigDisabled,
+		sleepBetweenActionBatches: sleepConfigDisabled,
+		sleepBetweenRuns:          sleepConfigPollBetweenRuns,
 	}
 	return runnerConfig{
 		enabled:                     true,

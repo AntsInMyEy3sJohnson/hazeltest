@@ -78,31 +78,32 @@ func (d *dummyHzQueue) Put(_ context.Context, element interface{}) error {
 	dummyQueueOperationLock.Lock()
 	{
 		d.putInvocations++
+		d.data.PushBack(element)
 	}
 	dummyQueueOperationLock.Unlock()
 
-	d.data.PushBack(element)
 	return nil
 
 }
 
 func (d *dummyHzQueue) Poll(_ context.Context) (interface{}, error) {
 
+	var element *list.Element
 	dummyQueueOperationLock.Lock()
 	{
 		d.pollInvocations++
+		// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
+		// against an empty queue --> Replicate behavior here
+		if d.data.Len() == 0 {
+			// Nothing to poll
+			element = nil
+		} else {
+			element = d.data.Front()
+			d.data.Remove(element)
+		}
+
 	}
 	dummyQueueOperationLock.Unlock()
-
-	// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
-	// against an empty queue --> Replicate behavior here
-	if d.data.Len() == 0 {
-		// Nothing to poll
-		return nil, nil
-	}
-
-	element := d.data.Front()
-	d.data.Remove(element)
 
 	return element, nil
 
