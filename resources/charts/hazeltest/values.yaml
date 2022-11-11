@@ -1,11 +1,11 @@
-replicaCount: 10
+replicaCount: 1
 
 image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.5.5
-  digest: 13edc7caca1bd5af9631693821c28ed5eeb389533d61c706a6481deda3ea985f
+  # 0.6.0
+  digest: a4599a189cae9657093e2af639f8bd1e22a1f709d215feda394131c0f1335f78
   pullPolicy: IfNotPresent
 
 httpPort: 8080
