@@ -49,12 +49,15 @@ config:
           initialDelay:
             enabled: false
             durationMs: 2000
+            enableRandomness: false
           betweenActionBatches:
             enabled: true
             durationMs: 2000
+            enableRandomness: true
           betweenRuns:
             enabled: true
             durationMs: 5000
+            enableRandomness: true
       pollConfig:
         enabled: true
         numRuns: 500
@@ -63,12 +66,15 @@ config:
           initialDelay:
             enabled: true
             durationMs: 2000
+            enableRandomness: false
           betweenActionBatches:
             enabled: true
             durationMs: 2000
+            enableRandomness: true
           betweenRuns:
             enabled: true
             durationMs: 5000
+            enableRandomness: true
     load:
       enabled: true
       numQueues: 10
@@ -87,12 +93,15 @@ config:
           initialDelay:
             enabled: false
             durationMs: 2000
+            enableRandomness: false
           betweenActionBatches:
             enabled: true
             durationMs: 1000
+            enableRandomness: true
           betweenRuns:
             enabled: true
             durationMs: 3500
+            enableRandomness: true
       pollConfig:
         enabled: true
         numRuns: 500
@@ -101,12 +110,15 @@ config:
           initialDelay:
             enabled: true
             durationMs: 2000
+            enableRandomness: false
           betweenActionBatches:
             enabled: true
             durationMs: 1000
+            enableRandomness: true
           betweenRuns:
             enabled: true
             durationMs: 3500
+            enableRandomness: true
 
   maptests:
     pokedex:
@@ -122,9 +134,11 @@ config:
         betweenActionBatches:
           enabled: true
           durationMs: 500
+          enableRandomness: true
         betweenRuns:
           enabled: true
           durationMs: 1000
+          enableRandomness: true
     load:
       enabled: true
       numMaps: 10
@@ -140,6 +154,8 @@ config:
         betweenActionBatches:
           enabled: true
           durationMs: 200
+          enableRandomness: true
         betweenRuns:
           enabled: true
           durationMs: 1300
+          enableRandomness: true
