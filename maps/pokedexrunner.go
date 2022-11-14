@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"sync"
 )
 
 type (
@@ -85,7 +86,9 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	ctx := context.TODO()
 
 	r.mapStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
-	defer r.mapStore.Shutdown(ctx)
+	defer func() {
+		_ = r.mapStore.Shutdown(ctx)
+	}()
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
@@ -95,7 +98,11 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	r.l.init(lc)
+	sg := &statusGatherer{
+		status:   sync.Map{},
+		elements: make(chan statusElement),
+	}
+	r.l.init(lc, sg)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -149,7 +156,11 @@ func parsePokedexFile() (*pokedex, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer pokedexJson.Close()
+	defer func() {
+		if err := pokedexJson.Close(); err != nil {
+			lp.LogInternalStateEvent("unable to close pokedex json file", log.WarnLevel)
+		}
+	}()
 
 	var pokedex pokedex
 	err = json.NewDecoder(pokedexJson).Decode(&pokedex)

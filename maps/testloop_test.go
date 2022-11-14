@@ -1,8 +1,8 @@
 package maps
 
 import (
+	"fmt"
 	"github.com/google/uuid"
-	"hazeltest/api"
 	"sync"
 	"testing"
 	"time"
@@ -60,7 +60,8 @@ func TestRun(t *testing.T) {
 		{
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
+			numMaps, numRuns := 1, 1
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
@@ -70,6 +71,7 @@ func TestRun(t *testing.T) {
 			expectedNumDestroyInvocations := 1
 
 			msg := "\t\texpected predictable invocations on map must have been executed"
+
 			if expectedNumSetInvocations == ms.m.setInvocations &&
 				expectedNumGetInvocations == ms.m.getInvocations &&
 				expectedNumDestroyInvocations == ms.m.destroyInvocations {
@@ -79,6 +81,7 @@ func TestRun(t *testing.T) {
 			}
 
 			msg = "\t\texpected invocations based on random element in test loop must have been executed"
+
 			expectedContainsKeyInvocations := expectedNumSetInvocations + ms.m.removeInvocations
 			if expectedContainsKeyInvocations == ms.m.containsKeyInvocations {
 				t.Log(msg, checkMark)
@@ -86,43 +89,33 @@ func TestRun(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\ttest loop must have told api package about status"
+			msg = "\t\tvalues in test loop status must be correct"
 
-			if _, ok := api.Loops[id]; ok {
+			expectedRuns := numMaps * numRuns
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
-			}
-
-			msg = "\t\tstatus at end of test run must be correct"
-
-			testLoopStatus := api.Loops[id]
-
-			if testLoopStatus.Source == testSource &&
-				testLoopStatus.NumRuns == rc.numRuns &&
-				testLoopStatus.NumMaps == rc.numMaps &&
-				testLoopStatus.TotalRuns == rc.numRuns*uint32(rc.numMaps) &&
-				testLoopStatus.TotalRunsFinished == rc.numRuns {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
 
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
-			numMaps := 10
-			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled)
+			numMaps, numRuns := 10, 1
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
+			// Give status gatherer time to process all elements that might still be in channel
+			time.Sleep(500 * time.Millisecond)
 
 			expectedNumSetInvocations := len(theFellowship) * 10
 			expectedNumGetInvocations := len(theFellowship) * 10
 			expectedNumDestroyInvocations := 10
 
 			msg := "\t\texpected predictable invocations on map must have been executed"
+
 			if expectedNumSetInvocations == ms.m.setInvocations &&
 				expectedNumGetInvocations == ms.m.getInvocations &&
 				expectedNumDestroyInvocations == ms.m.destroyInvocations {
@@ -132,17 +125,28 @@ func TestRun(t *testing.T) {
 			}
 
 			msg = "\t\texpected invocations based on random element in test loop must have been executed"
+
 			expectedContainsKeyInvocations := expectedNumSetInvocations + ms.m.removeInvocations
 			if expectedContainsKeyInvocations == ms.m.containsKeyInvocations {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tvalues in test loop status must be correct"
+
+			expectedRuns := numMaps * numRuns
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
 		}
 
 		t.Log("\twhen get map yields error")
 		{
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
+			numMaps, numRuns := 1, 1
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -159,11 +163,20 @@ func TestRun(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tvalues in test loop status must be correct"
+
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, 0); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
 		}
 
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
-			rc := assembleRunnerConfig(1, 1, sleepConfigDisabled)
+			numMaps, numRuns := 1, 1
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -184,36 +197,33 @@ func TestRun(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tvalues in test loop status must be correct"
+
+			expectedRuns := numMaps * numRuns
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
 		}
 
 		t.Log("\twhen no map goroutine is launched because the configured number of maps is zero")
 		{
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
-			numMaps := 0
-			rc := assembleRunnerConfig(numMaps, 1, sleepConfigDisabled)
+			numMaps, numRuns := 0, 1
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
 
-			msg := "\t\tinitial test loop status must have been inserted into api anyway"
-			if api.Loops[id] != nil {
+			msg := "\t\tinitial status must contain correct values anyway"
+
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, 0, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tinitial test loop status inserted into api must be correct"
-			tls := api.Loops[id]
-
-			if tls.Source == testSource &&
-				tls.NumMaps == numMaps &&
-				tls.NumRuns == rc.numRuns &&
-				tls.TotalRuns == 0 &&
-				tls.TotalRunsFinished == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
 
@@ -263,6 +273,28 @@ func TestRun(t *testing.T) {
 
 }
 
+func statusContainsExpectedValues(status *sync.Map, expectedNumMaps, expectedNumRuns, expectedTotalRuns, expectedTotalRunsFinished int) (bool, string, string) {
+
+	if numMapsFromStatus, ok := status.Load(statusKeyNumMaps); !ok || numMapsFromStatus != expectedNumMaps {
+		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
+	}
+
+	if numRunsFromStatus, ok := status.Load(statusKeyNumRuns); !ok || numRunsFromStatus != uint32(expectedNumRuns) {
+		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
+	}
+
+	if totalRunsFromStatus, ok := status.Load(statusKeyTotalRuns); !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
+		return false, statusKeyTotalRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
+	}
+
+	if totalRunsFinishedFromStatus, ok := status.Load(statusKeyTotalRunsFinished); !ok || totalRunsFinishedFromStatus != uint32(expectedTotalRunsFinished) {
+		return false, statusKeyTotalRunsFinished, fmt.Sprintf("want: %d; got: %d", expectedTotalRunsFinished, totalRunsFinishedFromStatus)
+	}
+
+	return true, "", ""
+
+}
+
 func numElementsInSyncMap(data *sync.Map) int {
 
 	i := 0
@@ -279,9 +311,19 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := testLoop[string]{}
-	tl.init(&tlc)
+	sg := assembleStatusGatherer()
+	tl.init(&tlc, &sg)
 
 	return tl
+
+}
+
+func assembleStatusGatherer() statusGatherer {
+
+	return statusGatherer{
+		status:   sync.Map{},
+		elements: make(chan statusElement),
+	}
 
 }
 

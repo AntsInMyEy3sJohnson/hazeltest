@@ -6,7 +6,7 @@ import (
 
 type dummyPokedexTestLoop struct{}
 
-func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon]) {
+func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon], _ *statusGatherer) {
 	// No-op
 }
 

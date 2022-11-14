@@ -18,8 +18,8 @@ type status struct {
 }
 
 var (
-	Loops      map[uuid.UUID]*TestLoopStatus
-	loopsMutex sync.Mutex
+	Loops                 map[uuid.UUID]*TestLoopStatus
+	runnerStatusFunctions sync.Map
 )
 
 func init() {
@@ -28,18 +28,8 @@ func init() {
 
 }
 
-func InsertInitialTestLoopStatus(testLoopID uuid.UUID, status *TestLoopStatus) {
+func RegisterRunner(id uuid.UUID, queryStatusFunc func() *sync.Map) {
 
-	Loops[testLoopID] = status
-
-}
-
-func IncreaseTotalNumRunsCompleted(testLoopID uuid.UUID, increase uint32) {
-
-	loopsMutex.Lock()
-	{
-		Loops[testLoopID].TotalRunsFinished += increase
-	}
-	loopsMutex.Unlock()
+	runnerStatusFunctions.Store(id, queryStatusFunc())
 
 }
