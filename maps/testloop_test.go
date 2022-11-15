@@ -65,6 +65,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
+			waitForStatusGatheringDone(tl.sg.elements)
 
 			expectedNumSetInvocations := len(theFellowship)
 			expectedNumGetInvocations := len(theFellowship)
@@ -91,8 +92,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			expectedRuns := numMaps * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -107,8 +107,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
-			// Give status gatherer time to process all elements that might still be in channel
-			time.Sleep(500 * time.Millisecond)
+			waitForStatusGatheringDone(tl.sg.elements)
 
 			expectedNumSetInvocations := len(theFellowship) * 10
 			expectedNumGetInvocations := len(theFellowship) * 10
@@ -135,8 +134,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			expectedRuns := numMaps * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -151,6 +149,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
+			waitForStatusGatheringDone(tl.sg.elements)
 
 			msg := "\t\tno invocations on map must have been attempted"
 
@@ -166,7 +165,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, 0); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -181,6 +180,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
+			waitForStatusGatheringDone(tl.sg.elements)
 
 			msg := "\t\tno remove invocations must have been attempted"
 
@@ -201,7 +201,7 @@ func TestRun(t *testing.T) {
 			msg = "\t\tvalues in test loop status must be correct"
 
 			expectedRuns := numMaps * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, expectedRuns); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -217,10 +217,11 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
+			waitForStatusGatheringDone(tl.sg.elements)
 
 			msg := "\t\tinitial status must contain correct values anyway"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, 0, 0); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, 0, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -273,7 +274,17 @@ func TestRun(t *testing.T) {
 
 }
 
-func statusContainsExpectedValues(status *sync.Map, expectedNumMaps, expectedNumRuns, expectedTotalRuns, expectedTotalRunsFinished int) (bool, string, string) {
+func waitForStatusGatheringDone(elements chan statusElement) {
+
+	for {
+		if _, ok := <-elements; !ok {
+			break
+		}
+	}
+
+}
+
+func statusContainsExpectedValues(status *sync.Map, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
 
 	if numMapsFromStatus, ok := status.Load(statusKeyNumMaps); !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
@@ -287,8 +298,8 @@ func statusContainsExpectedValues(status *sync.Map, expectedNumMaps, expectedNum
 		return false, statusKeyTotalRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
-	if totalRunsFinishedFromStatus, ok := status.Load(statusKeyTotalRunsFinished); !ok || totalRunsFinishedFromStatus != uint32(expectedTotalRunsFinished) {
-		return false, statusKeyTotalRunsFinished, fmt.Sprintf("want: %d; got: %d", expectedTotalRunsFinished, totalRunsFinishedFromStatus)
+	if runnerFinishedFromStatus, ok := status.Load(statusKeyRunnerFinished); !ok || runnerFinishedFromStatus != expectedRunnerFinished {
+		return false, statusKeyRunnerFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
 	}
 
 	return true, "", ""
