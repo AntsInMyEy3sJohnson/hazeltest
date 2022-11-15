@@ -28,7 +28,7 @@ func init() {
 
 }
 
-func RegisterRunner(id uuid.UUID, queryStatusFunc func() *sync.Map) {
+func RegisterRunner(id uuid.UUID, queryStatusFunc func() map[string]interface{}) {
 
 	runnerStatusFunctions.Store(id, queryStatusFunc())
 

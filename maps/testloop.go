@@ -39,8 +39,9 @@ type (
 		value interface{}
 	}
 	statusGatherer struct {
-		status   sync.Map
-		elements chan statusElement
+		statusMutex sync.Mutex
+		status      map[string]interface{}
+		elements    chan statusElement
 	}
 )
 
@@ -55,9 +56,19 @@ var (
 	quitStatusGathering = statusElement{}
 )
 
-func (sg *statusGatherer) getStatus() *sync.Map {
+func (sg *statusGatherer) getStatus() map[string]interface{} {
 
-	return &sg.status
+	mapCopy := make(map[string]interface{}, len(sg.status))
+
+	sg.statusMutex.Lock()
+	{
+		for k, v := range sg.status {
+			mapCopy[k] = v
+		}
+	}
+	sg.statusMutex.Unlock()
+
+	return mapCopy
 
 }
 
@@ -66,11 +77,11 @@ func (sg *statusGatherer) gather() {
 	for {
 		element := <-sg.elements
 		if element == quitStatusGathering {
-			sg.status.Store(statusKeyRunnerFinished, true)
+			sg.status[statusKeyRunnerFinished] = true
 			close(sg.elements)
 			return
 		} else {
-			sg.status.Store(element.key, element.value)
+			sg.status[element.key] = element.value
 		}
 	}
 
@@ -120,16 +131,20 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 
 	c := l.config
 
-	// Insert initial state synchronously -- other goroutines starting afterwards might have to rely on it,
-	// so better incur additional processing time for synchronous initial insertion rather than build around
-	// possibility initial state has not been fully provided
 	numMaps := c.runnerConfig.numMaps
 	numRuns := c.runnerConfig.numRuns
 
-	l.sg.status.Store(statusKeyNumMaps, numMaps)
-	l.sg.status.Store(statusKeyNumRuns, numRuns)
-	l.sg.status.Store(statusKeyTotalRuns, uint32(numMaps)*numRuns)
-	l.sg.status.Store(statusKeyRunnerFinished, false)
+	l.sg.statusMutex.Lock()
+	{
+		// Insert initial state synchronously -- other goroutines starting afterwards might have to rely on it,
+		// so better incur additional processing time for synchronous initial insertion rather than build around
+		// possibility initial state has not been fully provided
+		l.sg.status[statusKeyNumMaps] = numMaps
+		l.sg.status[statusKeyNumRuns] = numRuns
+		l.sg.status[statusKeyTotalRuns] = uint32(numMaps) * numRuns
+		l.sg.status[statusKeyRunnerFinished] = false
+	}
+	l.sg.statusMutex.Unlock()
 
 }
 

@@ -284,21 +284,21 @@ func waitForStatusGatheringDone(elements chan statusElement) {
 
 }
 
-func statusContainsExpectedValues(status *sync.Map, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
+func statusContainsExpectedValues(status map[string]interface{}, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
 
-	if numMapsFromStatus, ok := status.Load(statusKeyNumMaps); !ok || numMapsFromStatus != expectedNumMaps {
+	if numMapsFromStatus, ok := status[statusKeyNumMaps]; !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
 	}
 
-	if numRunsFromStatus, ok := status.Load(statusKeyNumRuns); !ok || numRunsFromStatus != uint32(expectedNumRuns) {
+	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != uint32(expectedNumRuns) {
 		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
 	}
 
-	if totalRunsFromStatus, ok := status.Load(statusKeyTotalRuns); !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
+	if totalRunsFromStatus, ok := status[statusKeyTotalRuns]; !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
 		return false, statusKeyTotalRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
-	if runnerFinishedFromStatus, ok := status.Load(statusKeyRunnerFinished); !ok || runnerFinishedFromStatus != expectedRunnerFinished {
+	if runnerFinishedFromStatus, ok := status[statusKeyRunnerFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
 		return false, statusKeyRunnerFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
 	}
 
@@ -332,7 +332,7 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 func assembleStatusGatherer() statusGatherer {
 
 	return statusGatherer{
-		status:   sync.Map{},
+		status:   make(map[string]interface{}),
 		elements: make(chan statusElement),
 	}
 
