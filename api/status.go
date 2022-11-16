@@ -20,7 +20,11 @@ func assembleTestLoopStatus() map[string]interface{} {
 
 	testLoopStatusFunctions.Range(func(key, value any) bool {
 		runnerStatus := value.(func() map[string]interface{})()
-		testLoopStatus[key.(string)] = runnerStatus
+		if runnerStatus != nil {
+			testLoopStatus[key.(string)] = runnerStatus
+		} else {
+			testLoopStatus[key.(string)] = map[string]interface{}{}
+		}
 		return true
 	})
 
