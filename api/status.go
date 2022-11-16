@@ -1,35 +1,29 @@
 package api
 
 import (
-	"github.com/google/uuid"
 	"sync"
 )
 
-type TestLoopStatus struct {
-	Source            string
-	NumMaps           int
-	NumRuns           uint32
-	TotalRuns         uint32
-	TotalRunsFinished uint32
-}
-
-type status struct {
-	TestLoops []TestLoopStatus
-}
-
 var (
-	Loops                 map[uuid.UUID]*TestLoopStatus
 	runnerStatusFunctions sync.Map
 )
 
-func init() {
+func RegisterRunner(source string, queryStatusFunc func() map[string]interface{}) {
 
-	Loops = make(map[uuid.UUID]*TestLoopStatus)
+	runnerStatusFunctions.Store(source, queryStatusFunc)
 
 }
 
-func RegisterRunner(id uuid.UUID, queryStatusFunc func() map[string]interface{}) {
+func assembleTestLoopStatus() map[string]interface{} {
 
-	runnerStatusFunctions.Store(id, queryStatusFunc())
+	testLoopStatus := make(map[string]interface{})
+
+	runnerStatusFunctions.Range(func(key, value any) bool {
+		runnerStatus := value.(func() map[string]interface{})()
+		testLoopStatus[key.(string)] = runnerStatus
+		return true
+	})
+
+	return testLoopStatus
 
 }

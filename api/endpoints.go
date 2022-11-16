@@ -24,7 +24,6 @@ type readiness struct {
 var (
 	l  *liveness
 	r  *readiness
-	s  status
 	lp *logging.LogProvider
 	m  sync.Mutex
 )
@@ -33,7 +32,6 @@ func init() {
 
 	l = &liveness{true}
 	r = &readiness{false, false, 0}
-	s = status{[]TestLoopStatus{}}
 
 	lp = &logging.LogProvider{ClientID: client.ID()}
 
@@ -84,23 +82,11 @@ func statusHandler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case methodGet:
-		updateStatus(&s)
-		bytes, _ := json.Marshal(s)
+		testLoopStatus := assembleTestLoopStatus()
+		bytes, _ := json.Marshal(testLoopStatus)
 		w.Write(bytes)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-
-}
-
-func updateStatus(s *status) {
-
-	if len(Loops) > 0 {
-		values := make([]TestLoopStatus, 0, len(Loops))
-		for _, v := range Loops {
-			values = append(values, *v)
-		}
-		s.TestLoops = values
 	}
 
 }
