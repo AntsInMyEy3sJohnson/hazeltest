@@ -2,6 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,79 +13,120 @@ import (
 
 func TestReadinessCheck(t *testing.T) {
 
-	request := httptest.NewRequest(http.MethodGet, "localhost:8080/readiness", nil)
-	recorder := httptest.NewRecorder()
+	t.Log("given the need to test the application's readiness check")
+	{
+		request := httptest.NewRequest(http.MethodGet, "localhost:8080/readiness", nil)
+		recorder := httptest.NewRecorder()
 
-	readinessHandler(recorder, request)
-	response := recorder.Result()
-	defer response.Body.Close()
+		t.Log("\twhen initial state is given")
+		{
+			readinessHandler(recorder, request)
+			response := recorder.Result()
+			defer response.Body.Close()
 
-	statusCode := response.StatusCode
-	expectedStatusCode := 503
+			checkStatusCode(t, 503, response.StatusCode)
 
-	if statusCode != expectedStatusCode {
-		t.Errorf("expected status code %d, got %d", expectedStatusCode, statusCode)
+		}
+
+		t.Log("\twhen client has raised not ready")
+		{
+			RaiseNotReady()
+
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer response.Body.Close()
+
+			checkStatusCode(t, 503, response.StatusCode)
+
+			data, err := tryResponseRead(response.Body)
+			msg := "\t\tresponse body must be readable"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned payload must be empty"
+
+			if len(data) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen client has raised readiness")
+		{
+			RaiseReady()
+
+			recorder = httptest.NewRecorder()
+
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer response.Body.Close()
+
+			checkStatusCode(t, 200, response.StatusCode)
+
+			data, err := tryResponseRead(response.Body)
+			msg := "\t\tresponse body must be readable"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tbody of returned payload must be valid json"
+			var decodedData map[string]interface{}
+			err = json.Unmarshal(data, &decodedData)
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			expectedKey := "Up"
+			msg = fmt.Sprintf("\t\tjson must contain '%s' key", expectedKey)
+			if _, ok := decodedData[expectedKey]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			ready := decodedData[expectedKey].(bool)
+			msg = "\t\tjson must contain affirmative readiness flag"
+			if ready {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
 	}
 
-	RaiseNotReady()
+}
 
-	readinessHandler(recorder, request)
+func checkStatusCode(t *testing.T, expected, actual int) {
 
-	response = recorder.Result()
-	defer response.Body.Close()
+	msg := fmt.Sprintf("\t\tendpoint must return http status %d", expected)
 
-	data, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		t.Errorf("unexpected error occurred: %v", err)
+	if expected == actual {
+		t.Log(msg, checkMark)
+	} else {
+		t.Fatal(msg, ballotX)
 	}
 
-	if len(data) > 0 {
-		t.Errorf("expected nil payload to be returned, got: %s", data)
-	}
+}
 
-	statusCode = response.StatusCode
-	expectedStatusCode = 503
-	if statusCode != expectedStatusCode {
-		t.Errorf("expected status code %d, got %d", expectedStatusCode, statusCode)
-	}
+func tryResponseRead(body io.ReadCloser) ([]byte, error) {
 
-	RaiseReady()
-
-	recorder = httptest.NewRecorder()
-
-	readinessHandler(recorder, request)
-
-	response = recorder.Result()
-	defer response.Body.Close()
-
-	statusCode = response.StatusCode
-	expectedStatusCode = 200
-	if statusCode != expectedStatusCode {
-		t.Errorf("expected status code %d, got %d", expectedStatusCode, statusCode)
-	}
-
-	data, err = ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		t.Errorf("unexpected error occurred: %v", err)
-	}
-
-	var decodedData map[string]interface{}
-	err = json.Unmarshal(data, &decodedData)
-
-	if err != nil {
-		t.Errorf("got malformed json response: %s", data)
-	}
-
-	expectedKey := "Up"
-	if _, ok := decodedData[expectedKey]; !ok {
-		t.Errorf("expected key '%s' not present in returned json response", expectedKey)
-	}
-
-	ready := decodedData[expectedKey].(bool)
-	if !ready {
-		t.Error("api did not signal readiness")
+	if data, err := ioutil.ReadAll(body); err == nil {
+		return data, nil
+	} else {
+		return nil, errors.New("unable to read response body")
 	}
 
 }
