@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const testSource = "theFellowship"
+
 var (
 	theFellowship = []string{
 		"Aragorn",
@@ -51,8 +53,6 @@ func deserializeFellowshipMember(_ interface{}) error {
 }
 
 func TestRun(t *testing.T) {
-
-	testSource := "theFellowship"
 
 	t.Log("given the need to test running the maps test loop")
 	{
