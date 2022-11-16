@@ -18,11 +18,6 @@ const (
 	sourceLoadRunner    = "loadrunner"
 )
 
-const (
-	checkMark = "\u2713"
-	ballotX   = "\u2717"
-)
-
 var (
 	dummyStatusPokedexTestLoop = map[string]interface{}{
 		statusKeyNumMaps:        10,
