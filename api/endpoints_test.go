@@ -11,15 +11,47 @@ import (
 	"testing"
 )
 
-func TestReadinessCheck(t *testing.T) {
+func TestLivenessHandler(t *testing.T) {
 
-	t.Log("given the need to test the application's readiness check")
+	t.Log("given the need to test the liveness handler, serving the application's liveness check")
+	{
+		t.Log("when http get is sent")
+		{
+			request := httptest.NewRequest(http.MethodGet, "localhost:8080/liveness", nil)
+			recorder := httptest.NewRecorder()
+
+			livenessHandler(recorder, request)
+			response := recorder.Result()
+			defer response.Body.Close()
+
+			checkStatusCode(t, 200, response.StatusCode)
+
+		}
+
+		t.Log("when http method other than get is sent")
+		{
+			request := httptest.NewRequest(http.MethodPost, "localhost:8080/liveness", nil)
+			recorder := httptest.NewRecorder()
+
+			livenessHandler(recorder, request)
+			response := recorder.Result()
+			defer response.Body.Close()
+
+			checkStatusCode(t, http.StatusMethodNotAllowed, response.StatusCode)
+		}
+	}
+
+}
+
+func TestReadinessHandler(t *testing.T) {
+
+	t.Log("given the need to test the readiness handler, serving the application's readiness check")
 	{
 		request := httptest.NewRequest(http.MethodGet, "localhost:8080/readiness", nil)
-		recorder := httptest.NewRecorder()
 
 		t.Log("\twhen initial state is given")
 		{
+			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 			response := recorder.Result()
 			defer response.Body.Close()
@@ -32,6 +64,7 @@ func TestReadinessCheck(t *testing.T) {
 		{
 			RaiseNotReady()
 
+			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 
 			response := recorder.Result()
@@ -61,6 +94,7 @@ func TestReadinessCheck(t *testing.T) {
 		{
 			RaiseReady()
 
+			recorder := httptest.NewRecorder()
 			recorder = httptest.NewRecorder()
 
 			readinessHandler(recorder, request)
