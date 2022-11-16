@@ -77,11 +77,19 @@ func (sg *statusGatherer) gather() {
 	for {
 		element := <-sg.elements
 		if element == quitStatusGathering {
-			sg.status[statusKeyRunnerFinished] = true
+			sg.statusMutex.Lock()
+			{
+				sg.status[statusKeyRunnerFinished] = true
+			}
+			sg.statusMutex.Unlock()
 			close(sg.elements)
 			return
 		} else {
-			sg.status[element.key] = element.value
+			sg.statusMutex.Lock()
+			{
+				sg.status[element.key] = element.value
+			}
+			sg.statusMutex.Unlock()
 		}
 	}
 
@@ -90,7 +98,7 @@ func (sg *statusGatherer) gather() {
 func (l *testLoop[t]) init(lc *testLoopConfig[t], sg *statusGatherer) {
 	l.config = lc
 	l.sg = sg
-	api.RegisterRunner(lc.id, l.sg.getStatus)
+	api.RegisterRunner(lc.source, l.sg.getStatus)
 }
 
 func (l *testLoop[t]) run() {
