@@ -98,7 +98,7 @@ func (sg *statusGatherer) gather() {
 func (l *testLoop[t]) init(lc *testLoopConfig[t], sg *statusGatherer) {
 	l.config = lc
 	l.sg = sg
-	api.RegisterRunner(lc.source, l.sg.getStatus)
+	api.RegisterTestLoop(lc.source, l.sg.getStatus)
 }
 
 func (l *testLoop[t]) run() {
