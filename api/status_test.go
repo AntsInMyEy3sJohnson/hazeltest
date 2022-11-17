@@ -11,6 +11,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 	{
 		t.Log("\twhen no test loop has been registered")
 		{
+			testLoopStatusFunctions = sync.Map{}
 			assembledStatus := assembleTestLoopStatus()
 
 			msg := "\t\tassembled status must be empty"
