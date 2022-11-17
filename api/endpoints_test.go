@@ -23,7 +23,9 @@ func TestLivenessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, 200, response.StatusCode)
+			expectedStatusCode := http.StatusOK
+			msg := fmt.Sprintf("\t\tliveness handlet must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 
 		}
 
@@ -35,7 +37,9 @@ func TestLivenessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, http.StatusMethodNotAllowed, response.StatusCode)
+			expectedStatusCode := http.StatusMethodNotAllowed
+			msg := fmt.Sprintf("\t\tliveness handler must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 
 		}
 	}
@@ -56,7 +60,9 @@ func TestReadinessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, http.StatusMethodNotAllowed, response.StatusCode)
+			expectedStatusCode := http.StatusMethodNotAllowed
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 		}
 
 		t.Log("\twhen initial state is given")
@@ -66,7 +72,9 @@ func TestReadinessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, 503, response.StatusCode)
+			expectedStatusCode := http.StatusServiceUnavailable
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 
 		}
 
@@ -80,10 +88,12 @@ func TestReadinessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, 503, response.StatusCode)
+			expectedStatusCode := http.StatusServiceUnavailable
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 
 			data, err := tryResponseRead(response.Body)
-			msg := "\t\tresponse body must be readable"
+			msg = "\t\tresponse body must be readable"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
@@ -112,10 +122,12 @@ func TestReadinessHandler(t *testing.T) {
 			response := recorder.Result()
 			defer response.Body.Close()
 
-			checkStatusCode(t, 200, response.StatusCode)
+			expectedStatusCode := http.StatusOK
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
 
 			data, err := tryResponseRead(response.Body)
-			msg := "\t\tresponse body must be readable"
+			msg = "\t\tresponse body must be readable"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
@@ -153,9 +165,7 @@ func TestReadinessHandler(t *testing.T) {
 
 }
 
-func checkStatusCode(t *testing.T, expected, actual int) {
-
-	msg := fmt.Sprintf("\t\tendpoint must return http status %d", expected)
+func checkStatusCode(t *testing.T, expected, actual int, msg string) {
 
 	if expected == actual {
 		t.Log(msg, checkMark)
