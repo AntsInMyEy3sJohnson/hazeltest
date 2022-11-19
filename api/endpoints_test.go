@@ -58,22 +58,34 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded artifact must be empty map"
-			if len(decodedData) == 0 {
+			msg = "\t\tdecoded map must contain top-level keys for map and queue test loops"
+			if len(decodedData) == 2 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
+			if _, ok := decodedData[string(Maps)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, Maps)
+			}
+
+			if _, ok := decodedData[string(Queues)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, Queues)
+			}
+
 		}
 
-		t.Log("\twhen two test loops have registered")
+		t.Log("\twhen two map test loops have registered")
 		{
-			RegisterTestLoop(sourcePokedexRunner, func() map[string]interface{} {
-				return dummyStatusPokedexTestLoop
+			RegisterTestLoop(Maps, sourceMapPokedexRunner, func() map[string]interface{} {
+				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoop(sourceLoadRunner, func() map[string]interface{} {
-				return dummyStatusLoadTestLoop
+			RegisterTestLoop(Maps, sourceMapLoadRunner, func() map[string]interface{} {
+				return dummyStatusMapLoadTestLoop
 			})
 
 			request := httptest.NewRequest(http.MethodGet, "localhost:8080/status", nil)
@@ -98,30 +110,50 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for both registered test loops"
-			if _, okSourcePokedex := decodedData[sourcePokedexRunner]; okSourcePokedex {
+			msg = "\t\tdecoded map must contain top-level keys for map and queue test loops"
+			if len(decodedData) == 2 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, sourcePokedexRunner)
+				t.Fatal(msg, ballotX)
 			}
-			if _, okSourceLoad := decodedData[sourceLoadRunner]; okSourceLoad {
+
+			if _, ok := decodedData[string(Maps)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, sourceLoadRunner)
+				t.Fatal(msg, ballotX, Maps)
+			}
+
+			if _, ok := decodedData[string(Queues)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, Queues)
+			}
+
+			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
+			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(Maps)].(map[string]interface{})[sourceMapPokedexRunner]
+			if okPokedex {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
+			}
+
+			statusLoadRunnerTestLoop, okLoad := decodedData[string(Maps)].(map[string]interface{})[sourceMapLoadRunner]
+			if okLoad {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, sourceMapLoadRunner)
 			}
 
 			msg = "\t\tnested maps must be equal to registered status"
-			statusPokedexTestLoop := decodedData[sourcePokedexRunner].(map[string]interface{})
-			parseNumberValuesBackToInt(statusPokedexTestLoop)
-			if ok, detail := mapsEqualInContent(dummyStatusPokedexTestLoop, statusPokedexTestLoop); ok {
+			parseNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]interface{}))
+			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, statusPokedexRunnerTestLoop.(map[string]interface{})); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			statusLoadTestLoop := decodedData[sourceLoadRunner].(map[string]interface{})
-			parseNumberValuesBackToInt(statusLoadTestLoop)
-			if ok, detail := mapsEqualInContent(dummyStatusLoadTestLoop, statusLoadTestLoop); ok {
+			parseNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]interface{}))
+			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]interface{})); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)

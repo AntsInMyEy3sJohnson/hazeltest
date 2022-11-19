@@ -4,30 +4,53 @@ import (
 	"sync"
 )
 
-var (
-	testLoopStatusFunctions sync.Map
+type TestLoopType string
+
+const (
+	Maps   TestLoopType = "maps"
+	Queues TestLoopType = "queues"
 )
 
-func RegisterTestLoop(source string, queryStatusFunc func() map[string]interface{}) {
+var (
+	mapTestLoopStatusFunctions   sync.Map
+	queueTestLoopStatusFunctions sync.Map
+)
 
-	testLoopStatusFunctions.Store(source, queryStatusFunc)
+func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]interface{}) {
+
+	if t == Maps {
+		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
+	} else {
+		queueTestLoopStatusFunctions.Store(source, queryStatusFunc)
+	}
 
 }
 
-func assembleTestLoopStatus() map[string]interface{} {
+func assembleTestLoopStatus() map[TestLoopType]interface{} {
 
-	testLoopStatus := make(map[string]interface{})
+	mapTestLoopStatus := map[string]interface{}{}
+	populateWithRunnerStatus(mapTestLoopStatus, &mapTestLoopStatusFunctions)
 
-	testLoopStatusFunctions.Range(func(key, value any) bool {
+	queueTestLoopStatus := map[string]interface{}{}
+	populateWithRunnerStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
+
+	return map[TestLoopType]interface{}{
+		Maps:   mapTestLoopStatus,
+		Queues: queueTestLoopStatus,
+	}
+
+}
+
+func populateWithRunnerStatus(target map[string]interface{}, statusFunctionsMap *sync.Map) {
+
+	statusFunctionsMap.Range(func(key, value any) bool {
 		runnerStatus := value.(func() map[string]interface{})()
 		if runnerStatus != nil {
-			testLoopStatus[key.(string)] = runnerStatus
+			target[key.(string)] = runnerStatus
 		} else {
-			testLoopStatus[key.(string)] = map[string]interface{}{}
+			target[key.(string)] = map[string]interface{}{}
 		}
 		return true
 	})
-
-	return testLoopStatus
 
 }

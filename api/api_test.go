@@ -3,11 +3,15 @@ package api
 import "fmt"
 
 const (
-	sourcePokedexRunner = "pokedexrunner"
-	sourceLoadRunner    = "loadrunner"
+	sourceMapPokedexRunner = "pokedexrunner"
+	sourceMapLoadRunner    = "loadrunner"
+	sourceQueueTweetRunner = "tweetrunner"
+	sourceQueueLoadRunner  = "loadrunner"
 )
+
 const (
 	statusKeyNumMaps        = "numMaps"
+	statusKeyNumQueues      = "numQueues"
 	statusKeyNumRuns        = "numRuns"
 	statusKeyTotalRuns      = "totalRuns"
 	statusKeyRunnerFinished = "runnerFinished"
@@ -19,16 +23,28 @@ const (
 )
 
 var (
-	dummyStatusPokedexTestLoop = map[string]interface{}{
+	dummyStatusMapPokedexTestLoop = map[string]interface{}{
 		statusKeyNumMaps:        10,
 		statusKeyNumRuns:        1000,
 		statusKeyTotalRuns:      10 * 1000,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusLoadTestLoop = map[string]interface{}{
+	dummyStatusMapLoadTestLoop = map[string]interface{}{
 		statusKeyNumMaps:        5,
 		statusKeyNumRuns:        100,
 		statusKeyTotalRuns:      5 * 100,
+		statusKeyRunnerFinished: false,
+	}
+	dummyStatusQueueTweetTestLoop = map[string]interface{}{
+		statusKeyNumQueues:      2,
+		statusKeyNumRuns:        500,
+		statusKeyTotalRuns:      2 * 500,
+		statusKeyRunnerFinished: false,
+	}
+	dummyStatusQueueLoadTestLoop = map[string]interface{}{
+		statusKeyNumQueues:      10,
+		statusKeyNumRuns:        500,
+		statusKeyTotalRuns:      10 * 500,
 		statusKeyRunnerFinished: false,
 	}
 )
