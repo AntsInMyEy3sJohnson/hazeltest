@@ -1,6 +1,8 @@
 package status
 
-import "sync"
+import (
+	"sync"
+)
 
 type (
 	Update struct {
@@ -8,9 +10,16 @@ type (
 		Value interface{}
 	}
 	Gatherer struct {
-		m       sync.Mutex
+		l       locker
 		status  map[string]interface{}
 		updates chan Update
+	}
+	locker interface {
+		lock()
+		unlock()
+	}
+	mutexLocker struct {
+		m sync.Mutex
 	}
 )
 
@@ -22,9 +31,24 @@ var (
 	quitStatusGathering = Update{}
 )
 
+func (l *mutexLocker) lock() {
+
+	l.m.Lock()
+
+}
+
+func (l *mutexLocker) unlock() {
+
+	l.m.Unlock()
+
+}
+
 func NewGatherer() *Gatherer {
 
 	return &Gatherer{
+		l: &mutexLocker{
+			m: sync.Mutex{},
+		},
 		status:  map[string]interface{}{},
 		updates: make(chan Update),
 	}
@@ -33,11 +57,11 @@ func NewGatherer() *Gatherer {
 
 func (g *Gatherer) InsertSynchronously(u Update) {
 
-	g.m.Lock()
+	g.l.lock()
 	{
 		g.status[u.Key] = u.Value
 	}
-	g.m.Unlock()
+	g.l.unlock()
 
 }
 
@@ -45,13 +69,13 @@ func (g *Gatherer) GetStatusCopy() map[string]interface{} {
 
 	mapCopy := make(map[string]interface{}, len(g.status))
 
-	g.m.Lock()
+	g.l.lock()
 	{
 		for k, v := range g.status {
 			mapCopy[k] = v
 		}
 	}
-	g.m.Unlock()
+	g.l.unlock()
 
 	return mapCopy
 
@@ -64,19 +88,19 @@ func (g *Gatherer) Listen() {
 	for {
 		update := <-g.updates
 		if update == quitStatusGathering {
-			g.m.Lock()
+			g.l.lock()
 			{
 				g.status[updateKeyRunnerFinished] = true
 			}
-			g.m.Unlock()
+			g.l.unlock()
 			close(g.updates)
 			return
 		} else {
-			g.m.Lock()
+			g.l.lock()
 			{
 				g.status[update.Key] = update.Value
 			}
-			g.m.Unlock()
+			g.l.unlock()
 		}
 
 	}
@@ -92,11 +116,11 @@ func (g *Gatherer) StopListen() {
 func (g *Gatherer) ListeningStopped() bool {
 
 	var result bool
-	g.m.Lock()
+	g.l.lock()
 	{
 		result = g.status[updateKeyRunnerFinished].(bool)
 	}
-	g.m.Unlock()
+	g.l.unlock()
 
 	return result
 
