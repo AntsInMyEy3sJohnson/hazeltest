@@ -3,6 +3,7 @@ package maps
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"hazeltest/status"
 	"sync"
 	"testing"
 	"time"
@@ -65,7 +66,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
-			waitForStatusGatheringDone(tl.sg.elements)
+			waitForStatusGatheringDone(tl.g)
 
 			expectedNumSetInvocations := len(theFellowship)
 			expectedNumGetInvocations := len(theFellowship)
@@ -92,7 +93,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -107,7 +108,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
-			waitForStatusGatheringDone(tl.sg.elements)
+			waitForStatusGatheringDone(tl.g)
 
 			expectedNumSetInvocations := len(theFellowship) * 10
 			expectedNumGetInvocations := len(theFellowship) * 10
@@ -134,7 +135,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -149,7 +150,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
-			waitForStatusGatheringDone(tl.sg.elements)
+			waitForStatusGatheringDone(tl.g)
 
 			msg := "\t\tno invocations on map must have been attempted"
 
@@ -165,7 +166,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -180,7 +181,7 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
-			waitForStatusGatheringDone(tl.sg.elements)
+			waitForStatusGatheringDone(tl.g)
 
 			msg := "\t\tno remove invocations must have been attempted"
 
@@ -201,7 +202,7 @@ func TestRun(t *testing.T) {
 			msg = "\t\tvalues in test loop status must be correct"
 
 			expectedRuns := numMaps * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, expectedRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -217,11 +218,11 @@ func TestRun(t *testing.T) {
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
-			waitForStatusGatheringDone(tl.sg.elements)
+			waitForStatusGatheringDone(tl.g)
 
 			msg := "\t\tinitial status must contain correct values anyway"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.sg.getStatus(), numMaps, numRuns, 0, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, 0, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -274,11 +275,11 @@ func TestRun(t *testing.T) {
 
 }
 
-func waitForStatusGatheringDone(elements chan statusElement) {
+func waitForStatusGatheringDone(g *status.Gatherer) {
 
 	for {
-		if _, ok := <-elements; !ok {
-			break
+		if done := g.ListeningStopped(); done {
+			return
 		}
 	}
 
@@ -322,19 +323,10 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := testLoop[string]{}
-	sg := assembleStatusGatherer()
-	tl.init(&tlc, &sg)
+	g := status.NewGatherer()
+	tl.init(&tlc, g)
 
 	return tl
-
-}
-
-func assembleStatusGatherer() statusGatherer {
-
-	return statusGatherer{
-		status:   make(map[string]interface{}),
-		elements: make(chan statusElement),
-	}
 
 }
 

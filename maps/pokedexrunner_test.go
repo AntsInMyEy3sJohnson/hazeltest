@@ -1,12 +1,13 @@
 package maps
 
 import (
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyPokedexTestLoop struct{}
 
-func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon], _ *statusGatherer) {
+func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon], _ *status.Gatherer) {
 	// No-op
 }
 

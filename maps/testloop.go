@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/status"
 	"math/rand"
 	"sync"
 	"time"
@@ -17,12 +18,12 @@ type (
 	getElementID       func(element interface{}) string
 	deserializeElement func(element interface{}) error
 	looper[t any]      interface {
-		init(lc *testLoopConfig[t], sg *statusGatherer)
+		init(lc *testLoopConfig[t], g *status.Gatherer)
 		run()
 	}
 	testLoop[t any] struct {
 		config *testLoopConfig[t]
-		sg     *statusGatherer
+		g      *status.Gatherer
 	}
 	testLoopConfig[t any] struct {
 		id                     uuid.UUID
@@ -34,15 +35,6 @@ type (
 		getElementIdFunc       getElementID
 		deserializeElementFunc deserializeElement
 	}
-	statusElement struct {
-		key   string
-		value interface{}
-	}
-	statusGatherer struct {
-		statusMutex sync.Mutex
-		status      map[string]interface{}
-		elements    chan statusElement
-	}
 )
 
 const (
@@ -52,61 +44,16 @@ const (
 	statusKeyRunnerFinished = "runnerFinished"
 )
 
-var (
-	quitStatusGathering = statusElement{}
-)
-
-func (sg *statusGatherer) getStatus() map[string]interface{} {
-
-	mapCopy := make(map[string]interface{}, len(sg.status))
-
-	sg.statusMutex.Lock()
-	{
-		for k, v := range sg.status {
-			mapCopy[k] = v
-		}
-	}
-	sg.statusMutex.Unlock()
-
-	return mapCopy
-
-}
-
-func (sg *statusGatherer) gather() {
-
-	for {
-		element := <-sg.elements
-		if element == quitStatusGathering {
-			sg.statusMutex.Lock()
-			{
-				sg.status[statusKeyRunnerFinished] = true
-			}
-			sg.statusMutex.Unlock()
-			close(sg.elements)
-			return
-		} else {
-			sg.statusMutex.Lock()
-			{
-				sg.status[element.key] = element.value
-			}
-			sg.statusMutex.Unlock()
-		}
-	}
-
-}
-
-func (l *testLoop[t]) init(lc *testLoopConfig[t], sg *statusGatherer) {
+func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
-	l.sg = sg
-	api.RegisterTestLoop(api.Maps, lc.source, l.sg.getStatus)
+	l.g = g
+	api.RegisterTestLoop(api.Maps, lc.source, l.g.GetStatusCopy)
 }
 
 func (l *testLoop[t]) run() {
 
-	go l.sg.gather()
-	defer func() {
-		l.sg.elements <- quitStatusGathering
-	}()
+	go l.g.Listen()
+	defer l.g.StopListen()
 
 	l.insertLoopWithInitialStatus()
 
@@ -142,17 +89,12 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	numMaps := c.runnerConfig.numMaps
 	numRuns := c.runnerConfig.numRuns
 
-	l.sg.statusMutex.Lock()
-	{
-		// Insert initial state synchronously -- other goroutines starting afterwards might have to rely on it,
-		// so better incur additional processing time for synchronous initial insertion rather than build around
-		// possibility initial state has not been fully provided
-		l.sg.status[statusKeyNumMaps] = numMaps
-		l.sg.status[statusKeyNumRuns] = numRuns
-		l.sg.status[statusKeyTotalRuns] = uint32(numMaps) * numRuns
-		l.sg.status[statusKeyRunnerFinished] = false
-	}
-	l.sg.statusMutex.Unlock()
+	// Insert initial state synchronously -- other goroutines starting afterwards might have to rely on it,
+	// so better incur additional processing time for synchronous initial insertion rather than build around
+	// possibility initial state has not been fully provided
+	l.g.InsertSynchronously(status.Update{Key: statusKeyNumMaps, Value: numMaps})
+	l.g.InsertSynchronously(status.Update{Key: statusKeyNumRuns, Value: numRuns})
+	l.g.InsertSynchronously(status.Update{Key: statusKeyTotalRuns, Value: uint32(numMaps) * numRuns})
 
 }
 

@@ -2,12 +2,13 @@ package maps
 
 import (
 	"fmt"
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyLoadTestLoop struct{}
 
-func (d dummyLoadTestLoop) init(_ *testLoopConfig[loadElement], _ *statusGatherer) {
+func (d dummyLoadTestLoop) init(_ *testLoopConfig[loadElement], _ *status.Gatherer) {
 	// No-op
 }
 
