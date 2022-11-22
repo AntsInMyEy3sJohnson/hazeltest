@@ -81,7 +81,7 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 
 		t.Log("\tonce listener is quit")
 		{
-			g.updates <- quitStatusGathering
+			g.Updates <- quitStatusGathering
 
 			// Wait for update to be processed and goroutine to be stopped
 			for {
@@ -147,7 +147,7 @@ func TestGatherer_Listen(t *testing.T) {
 			g := &Gatherer{
 				l:       l,
 				status:  map[string]interface{}{},
-				updates: make(chan Update),
+				Updates: make(chan Update),
 			}
 
 			wg := &stateExposingWaitGroup{
@@ -179,7 +179,7 @@ func TestGatherer_Listen(t *testing.T) {
 			t.Log("\t\tupon stop signal")
 			{
 				msg = "\t\t\tlistener must set runner finished to true"
-				g.updates <- quitStatusGathering
+				g.Updates <- quitStatusGathering
 
 				// Wait for gatherer to finish status update
 				for {
@@ -196,7 +196,7 @@ func TestGatherer_Listen(t *testing.T) {
 
 				msg = "\t\t\tlistener must close channel"
 
-				if _, channelOpen := <-g.updates; !channelOpen {
+				if _, channelOpen := <-g.Updates; !channelOpen {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -282,7 +282,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			}
 
 			g := NewGatherer()
-			g.InsertSynchronously(u)
+			g.insertSynchronously(u)
 
 			msg := "\t\tinserted update must be present in status map"
 			if v, ok := g.status[key]; ok && v == value {
@@ -304,7 +304,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			g := &Gatherer{
 				l:       l,
 				status:  map[string]interface{}{},
-				updates: make(chan Update),
+				Updates: make(chan Update),
 			}
 			upper := 100
 			wg := sync.WaitGroup{}
@@ -312,7 +312,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					g.InsertSynchronously(Update{
+					g.insertSynchronously(Update{
 						Key:   key,
 						Value: rand.Intn(100),
 					})

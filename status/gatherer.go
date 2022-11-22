@@ -14,7 +14,7 @@ type (
 		status map[string]interface{}
 		// Not strictly required as of current status gathering needs, but foundation for more sophisticated gathering
 		// --> TODO Write issue for that
-		updates chan Update
+		Updates chan Update
 	}
 	locker interface {
 		lock()
@@ -52,18 +52,8 @@ func NewGatherer() *Gatherer {
 			m: sync.Mutex{},
 		},
 		status:  map[string]interface{}{},
-		updates: make(chan Update),
+		Updates: make(chan Update),
 	}
-
-}
-
-func (g *Gatherer) InsertSynchronously(u Update) {
-
-	g.l.lock()
-	{
-		g.status[u.Key] = u.Value
-	}
-	g.l.unlock()
 
 }
 
@@ -85,16 +75,16 @@ func (g *Gatherer) AssembleStatusCopy() map[string]interface{} {
 
 func (g *Gatherer) Listen() {
 
-	g.InsertSynchronously(Update{Key: updateKeyRunnerFinished, Value: false})
+	g.insertSynchronously(Update{Key: updateKeyRunnerFinished, Value: false})
 
 	for {
-		update := <-g.updates
+		update := <-g.Updates
 		if update == quitStatusGathering {
-			g.InsertSynchronously(Update{Key: updateKeyRunnerFinished, Value: true})
-			close(g.updates)
+			g.insertSynchronously(Update{Key: updateKeyRunnerFinished, Value: true})
+			close(g.Updates)
 			return
 		} else {
-			g.InsertSynchronously(update)
+			g.insertSynchronously(update)
 		}
 
 	}
@@ -103,7 +93,7 @@ func (g *Gatherer) Listen() {
 
 func (g *Gatherer) StopListen() {
 
-	g.updates <- quitStatusGathering
+	g.Updates <- quitStatusGathering
 
 }
 
@@ -121,5 +111,15 @@ func (g *Gatherer) ListeningStopped() bool {
 	g.l.unlock()
 
 	return result
+
+}
+
+func (g *Gatherer) insertSynchronously(u Update) {
+
+	g.l.lock()
+	{
+		g.status[u.Key] = u.Value
+	}
+	g.l.unlock()
 
 }

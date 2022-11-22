@@ -52,8 +52,8 @@ func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 
 func (l *testLoop[t]) run() {
 
-	go l.g.Listen()
 	defer l.g.StopListen()
+	go l.g.Listen()
 
 	l.insertLoopWithInitialStatus()
 
@@ -89,12 +89,9 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	numMaps := c.runnerConfig.numMaps
 	numRuns := c.runnerConfig.numRuns
 
-	// Insert initial state synchronously -- other goroutines starting afterwards might have to rely on it,
-	// so better incur additional processing time for synchronous initial insertion rather than build around
-	// possibility initial state has not been fully provided
-	l.g.InsertSynchronously(status.Update{Key: statusKeyNumMaps, Value: numMaps})
-	l.g.InsertSynchronously(status.Update{Key: statusKeyNumRuns, Value: numRuns})
-	l.g.InsertSynchronously(status.Update{Key: statusKeyTotalRuns, Value: uint32(numMaps) * numRuns})
+	l.g.Updates <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
+	l.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
+	l.g.Updates <- status.Update{Key: statusKeyTotalRuns, Value: uint32(numMaps) * numRuns}
 
 }
 
