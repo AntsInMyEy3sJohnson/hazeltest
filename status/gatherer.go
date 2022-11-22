@@ -10,8 +10,10 @@ type (
 		Value interface{}
 	}
 	Gatherer struct {
-		l       locker
-		status  map[string]interface{}
+		l      locker
+		status map[string]interface{}
+		// Not strictly required as of current status gathering needs, but foundation for more sophisticated gathering
+		// --> TODO Write issue for that
 		updates chan Update
 	}
 	locker interface {
@@ -88,11 +90,7 @@ func (g *Gatherer) Listen() {
 	for {
 		update := <-g.updates
 		if update == quitStatusGathering {
-			g.l.lock()
-			{
-				g.status[updateKeyRunnerFinished] = true
-			}
-			g.l.unlock()
+			g.InsertSynchronously(Update{Key: updateKeyRunnerFinished, Value: true})
 			close(g.updates)
 			return
 		} else {
