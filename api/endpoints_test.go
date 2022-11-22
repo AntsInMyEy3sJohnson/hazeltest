@@ -25,7 +25,11 @@ func TestStatusHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen no test loops have registered yet")
@@ -39,7 +43,11 @@ func TestStatusHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 			data, err := tryResponseRead(response.Body)
 			msg = "\t\tresponse must be readable"
@@ -97,7 +105,11 @@ func TestStatusHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 			data, _ := tryResponseRead(response.Body)
 
@@ -178,7 +190,11 @@ func TestLivenessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tliveness handlet must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 		}
 
@@ -192,7 +208,11 @@ func TestLivenessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\tliveness handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 		}
 	}
@@ -215,7 +235,11 @@ func TestReadinessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen initial state is given")
@@ -227,7 +251,11 @@ func TestReadinessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusServiceUnavailable
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 		}
 
@@ -243,7 +271,11 @@ func TestReadinessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusServiceUnavailable
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 			data, err := tryResponseRead(response.Body)
 			msg = "\t\tresponse body must be readable"
@@ -277,7 +309,11 @@ func TestReadinessHandler(t *testing.T) {
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
-			checkStatusCode(t, expectedStatusCode, response.StatusCode, msg)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
 			data, err := tryResponseRead(response.Body)
 			msg = "\t\tresponse body must be readable"
@@ -323,16 +359,6 @@ func parseNumberValuesBackToInt(m map[string]interface{}) {
 	m[statusKeyNumMaps] = int(m[statusKeyNumMaps].(float64))
 	m[statusKeyNumRuns] = int(m[statusKeyNumRuns].(float64))
 	m[statusKeyTotalRuns] = int(m[statusKeyTotalRuns].(float64))
-
-}
-
-func checkStatusCode(t *testing.T, expected, actual int, msg string) {
-
-	if expected == actual {
-		t.Log(msg, checkMark)
-	} else {
-		t.Fatal(msg, ballotX)
-	}
 
 }
 
