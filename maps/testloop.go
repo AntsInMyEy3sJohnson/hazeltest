@@ -47,7 +47,7 @@ const (
 func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
 	l.g = g
-	api.RegisterTestLoop(api.Maps, lc.source, l.g.GetStatusCopy)
+	api.RegisterTestLoop(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {

@@ -93,7 +93,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -135,7 +135,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -166,7 +166,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -202,7 +202,7 @@ func TestRun(t *testing.T) {
 			msg = "\t\tvalues in test loop status must be correct"
 
 			expectedRuns := numMaps * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -222,7 +222,7 @@ func TestRun(t *testing.T) {
 
 			msg := "\t\tinitial status must contain correct values anyway"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.GetStatusCopy(), numMaps, numRuns, 0, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, 0, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)

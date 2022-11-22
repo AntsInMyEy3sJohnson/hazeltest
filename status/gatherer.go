@@ -65,7 +65,7 @@ func (g *Gatherer) InsertSynchronously(u Update) {
 
 }
 
-func (g *Gatherer) GetStatusCopy() map[string]interface{} {
+func (g *Gatherer) AssembleStatusCopy() map[string]interface{} {
 
 	mapCopy := make(map[string]interface{}, len(g.status))
 

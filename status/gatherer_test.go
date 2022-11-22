@@ -93,7 +93,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 
 }
 
-func TestGatherer_GetStatusCopy(t *testing.T) {
+func TestGatherer_AssembleStatusCopy(t *testing.T) {
 
 	t.Log("given the need to test retrieving a copy of the gatherer's current status")
 	{
@@ -101,7 +101,7 @@ func TestGatherer_GetStatusCopy(t *testing.T) {
 		{
 			g := NewGatherer()
 
-			statusCopy := g.GetStatusCopy()
+			statusCopy := g.AssembleStatusCopy()
 			msg := "\t\tcopy must be empty, too"
 
 			if len(statusCopy) == 0 {
@@ -122,7 +122,7 @@ func TestGatherer_GetStatusCopy(t *testing.T) {
 			u2 := Update{"anotherKey", "anotherValue"}
 			g.status[u2.Key] = u2.Value
 
-			statusCopy := g.GetStatusCopy()
+			statusCopy := g.AssembleStatusCopy()
 
 			msg := "\t\tcopy and underlying status must contain same elements"
 			if equal, detail := mapsEqualInContent(g.status, statusCopy); equal {
