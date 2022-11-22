@@ -94,11 +94,7 @@ func (g *Gatherer) Listen() {
 			close(g.updates)
 			return
 		} else {
-			g.l.lock()
-			{
-				g.status[update.Key] = update.Value
-			}
-			g.l.unlock()
+			g.InsertSynchronously(update)
 		}
 
 	}
@@ -116,7 +112,11 @@ func (g *Gatherer) ListeningStopped() bool {
 	var result bool
 	g.l.lock()
 	{
-		result = g.status[updateKeyRunnerFinished].(bool)
+		if v, ok := g.status[updateKeyRunnerFinished]; ok {
+			result = v.(bool)
+		} else {
+			result = false
+		}
 	}
 	g.l.unlock()
 

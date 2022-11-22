@@ -14,7 +14,7 @@ type (
 		numLocks, numUnlocks int
 	}
 	stateExposingWaitGroup struct {
-		sync.WaitGroup
+		wg    sync.WaitGroup
 		count int32
 	}
 )
@@ -24,18 +24,18 @@ const (
 	ballotX   = "\u2717"
 )
 
-func (wg *stateExposingWaitGroup) add(delta int) {
-	atomic.AddInt32(&wg.count, int32(delta))
-	wg.WaitGroup.Add(delta)
+func (s *stateExposingWaitGroup) add(delta int) {
+	atomic.AddInt32(&s.count, int32(delta))
+	s.wg.Add(delta)
 }
 
-func (wg *stateExposingWaitGroup) done() {
-	atomic.AddInt32(&wg.count, -1)
-	wg.WaitGroup.Done()
+func (s *stateExposingWaitGroup) done() {
+	atomic.AddInt32(&s.count, -1)
+	s.wg.Done()
 }
 
-func (wg *stateExposingWaitGroup) waitingCount() int {
-	return int(atomic.LoadInt32(&wg.count))
+func (s *stateExposingWaitGroup) waitingCount() int {
+	return int(atomic.LoadInt32(&s.count))
 }
 
 func (l *testLocker) lock() {
@@ -49,6 +49,87 @@ func (l *testLocker) unlock() {
 
 	l.numUnlocks++
 	l.m.Unlock()
+
+}
+
+func TestGatherer_ListeningStopped(t *testing.T) {
+
+	t.Log("given the need to test the gatherer's ability to assert it has stopped its listener")
+	{
+		g := NewGatherer()
+		wg := &stateExposingWaitGroup{
+			wg:    sync.WaitGroup{},
+			count: 0,
+		}
+		t.Log("\tif listener is active")
+		{
+			wg.add(1)
+			go func() {
+				defer wg.done()
+				g.Listen()
+			}()
+
+			msg := "\t\tmethod must report listening has not stopped"
+
+			if !g.ListeningStopped() {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\tonce listener is quit")
+		{
+			g.updates <- quitStatusGathering
+
+			// Wait for update to be processed and goroutine to be stopped
+			for {
+				if wg.waitingCount() == 0 {
+					break
+				}
+			}
+
+			msg := "\t\tmethod must report listening has stopped"
+			if g.ListeningStopped() {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
+func TestGatherer_StopListen(t *testing.T) {
+
+	t.Log("given the need to test the gatherer's exposed method to stop listening for updates")
+	{
+		t.Log("\twhen listener runs on goroutine")
+		{
+			g := NewGatherer()
+			wg := &stateExposingWaitGroup{
+				wg:    sync.WaitGroup{},
+				count: 0,
+			}
+			wg.add(1)
+			go func() {
+				defer wg.done()
+				g.Listen()
+			}()
+
+			g.StopListen()
+
+			msg := "\t\tinvoking stop listen must cause listening to cease"
+
+			if wg.waitingCount() == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
 
 }
 
@@ -70,8 +151,8 @@ func TestGatherer_Listen(t *testing.T) {
 			}
 
 			wg := &stateExposingWaitGroup{
-				WaitGroup: sync.WaitGroup{},
-				count:     0,
+				wg:    sync.WaitGroup{},
+				count: 0,
 			}
 			wg.add(1)
 			go func() {
