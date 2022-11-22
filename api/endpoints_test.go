@@ -244,6 +244,7 @@ func TestReadinessHandler(t *testing.T) {
 
 		t.Log("\twhen initial state is given")
 		{
+			r = &readiness{false, false, 0}
 			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 			response := recorder.Result()
