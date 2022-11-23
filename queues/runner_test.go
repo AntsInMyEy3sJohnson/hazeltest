@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	testConfig = map[string]interface{}{
+	testConfig = map[string]any{
 		runnerKeyPath + ".enabled":                                                 true,
 		runnerKeyPath + ".numQueues":                                               5,
 		runnerKeyPath + ".appendQueueIndexToQueueName":                             true,

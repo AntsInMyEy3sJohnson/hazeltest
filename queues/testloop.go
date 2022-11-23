@@ -118,9 +118,9 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 
 }
 
-func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[string]interface{} {
+func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[string]any {
 
-	return map[string]interface{}{
+	return map[string]any{
 		statusKeyOperationEnabled: o.enabled,
 		statusKeyNumRuns:          o.numRuns,
 		statusKeyBatchSize:        o.batchSize,

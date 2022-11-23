@@ -58,7 +58,7 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tresponse body must be valid json"
-			var decodedData map[string]interface{}
+			var decodedData map[string]any
 			err = json.Unmarshal(data, &decodedData)
 			if err == nil {
 				t.Log(msg, checkMark)
@@ -89,10 +89,10 @@ func TestStatusHandler(t *testing.T) {
 
 		t.Log("\twhen two map test loops have registered")
 		{
-			RegisterTestLoop(MapTestLoopType, sourceMapPokedexRunner, func() map[string]interface{} {
+			RegisterTestLoop(MapTestLoopType, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoop(MapTestLoopType, sourceMapLoadRunner, func() map[string]interface{} {
+			RegisterTestLoop(MapTestLoopType, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
 
@@ -114,7 +114,7 @@ func TestStatusHandler(t *testing.T) {
 			data, _ := tryResponseRead(response.Body)
 
 			msg = "\t\tresponse body must be valid json"
-			var decodedData map[string]interface{}
+			var decodedData map[string]any
 			err := json.Unmarshal(data, &decodedData)
 			if err == nil {
 				t.Log(msg, checkMark)
@@ -142,14 +142,14 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
-			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(MapTestLoopType)].(map[string]interface{})[sourceMapPokedexRunner]
+			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(MapTestLoopType)].(map[string]any)[sourceMapPokedexRunner]
 			if okPokedex {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			statusLoadRunnerTestLoop, okLoad := decodedData[string(MapTestLoopType)].(map[string]interface{})[sourceMapLoadRunner]
+			statusLoadRunnerTestLoop, okLoad := decodedData[string(MapTestLoopType)].(map[string]any)[sourceMapLoadRunner]
 			if okLoad {
 				t.Log(msg, checkMark)
 			} else {
@@ -157,15 +157,15 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tnested maps must be equal to registered status"
-			parseNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]interface{}))
-			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, statusPokedexRunnerTestLoop.(map[string]interface{})); ok {
+			parseNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]any))
+			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, statusPokedexRunnerTestLoop.(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			parseNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]interface{}))
-			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]interface{})); ok {
+			parseNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]any))
+			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -325,7 +325,7 @@ func TestReadinessHandler(t *testing.T) {
 			}
 
 			msg = "\t\tbody of returned payload must be valid json"
-			var decodedData map[string]interface{}
+			var decodedData map[string]any
 			err = json.Unmarshal(data, &decodedData)
 			if err == nil {
 				t.Log(msg, checkMark)
@@ -355,7 +355,7 @@ func TestReadinessHandler(t *testing.T) {
 
 }
 
-func parseNumberValuesBackToInt(m map[string]interface{}) {
+func parseNumberValuesBackToInt(m map[string]any) {
 
 	m[statusKeyNumMaps] = int(m[statusKeyNumMaps].(float64))
 	m[statusKeyNumRuns] = int(m[statusKeyNumRuns].(float64))

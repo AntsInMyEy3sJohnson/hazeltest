@@ -41,7 +41,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.load.enabled": false,
 				},
 			}
@@ -59,7 +59,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.load.enabled": true,
 				},
 			}

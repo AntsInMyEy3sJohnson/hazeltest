@@ -12,7 +12,7 @@ import (
 type (
 	testConfigPropertyAssigner struct {
 		returnError bool
-		dummyConfig map[string]interface{}
+		dummyConfig map[string]any
 	}
 	dummyHzQueueStore struct {
 		q                       *dummyHzQueue

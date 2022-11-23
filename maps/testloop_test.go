@@ -43,13 +43,13 @@ var (
 
 const statusKeyRunnerFinished = "runnerFinished"
 
-func fellowshipMemberName(element interface{}) string {
+func fellowshipMemberName(element any) string {
 
 	return element.(string)
 
 }
 
-func deserializeFellowshipMember(_ interface{}) error {
+func deserializeFellowshipMember(_ any) error {
 
 	return nil
 
@@ -287,7 +287,7 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func statusContainsExpectedValues(status map[string]interface{}, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
+func statusContainsExpectedValues(status map[string]any, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
 
 	if numMapsFromStatus, ok := status[statusKeyNumMaps]; !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)

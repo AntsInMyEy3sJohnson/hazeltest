@@ -10,7 +10,7 @@ import (
 type (
 	testConfigPropertyAssigner struct {
 		returnError bool
-		dummyConfig map[string]interface{}
+		dummyConfig map[string]any
 	}
 	dummyHzMapStore struct {
 		m                     *dummyHzMap
@@ -57,7 +57,7 @@ func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hzMap, error) {
 	return d.m, nil
 }
 
-func (m *dummyHzMap) ContainsKey(_ context.Context, key interface{}) (bool, error) {
+func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 
 	dummyMapOperationLock.Lock()
 	{
@@ -77,7 +77,7 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key interface{}) (bool, erro
 
 }
 
-func (m *dummyHzMap) Set(_ context.Context, key interface{}, value interface{}) error {
+func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 
 	dummyMapOperationLock.Lock()
 	{
@@ -96,7 +96,7 @@ func (m *dummyHzMap) Set(_ context.Context, key interface{}, value interface{}) 
 
 }
 
-func (m *dummyHzMap) Get(_ context.Context, key interface{}) (interface{}, error) {
+func (m *dummyHzMap) Get(_ context.Context, key any) (any, error) {
 
 	dummyMapOperationLock.Lock()
 	{
@@ -118,7 +118,7 @@ func (m *dummyHzMap) Get(_ context.Context, key interface{}) (interface{}, error
 
 }
 
-func (m *dummyHzMap) Remove(_ context.Context, key interface{}) (interface{}, error) {
+func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 
 	dummyMapOperationLock.Lock()
 	{

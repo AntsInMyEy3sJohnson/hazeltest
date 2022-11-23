@@ -114,14 +114,14 @@ func (r *pokedexRunner) appendState(s state) {
 
 }
 
-func getPokemonID(element interface{}) string {
+func getPokemonID(element any) string {
 
 	pokemon := element.(pokemon)
 	return fmt.Sprintf("%d", pokemon.ID)
 
 }
 
-func deserializePokemon(elementFromHZ interface{}) error {
+func deserializePokemon(elementFromHZ any) error {
 
 	_, ok := elementFromHZ.(pokemon)
 	if !ok {

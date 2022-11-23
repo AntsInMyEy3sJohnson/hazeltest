@@ -15,8 +15,8 @@ import (
 )
 
 type (
-	getElementID       func(element interface{}) string
-	deserializeElement func(element interface{}) error
+	getElementID       func(element any) string
+	deserializeElement func(element any) error
 	looper[t any]      interface {
 		init(lc *testLoopConfig[t], g *status.Gatherer)
 		run()

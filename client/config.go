@@ -56,11 +56,11 @@ var (
 )
 
 var (
-	commandLineArgs map[string]interface{}
+	commandLineArgs map[string]any
 	//go:embed defaultConfig.yaml
 	defaultConfigFile  embed.FS
-	defaultConfig      map[string]interface{}
-	userSuppliedConfig map[string]interface{}
+	defaultConfig      map[string]any
+	userSuppliedConfig map[string]any
 	lp                 *logging.LogProvider
 )
 
@@ -159,7 +159,7 @@ func ParseConfigs() error {
 
 }
 
-func RetrieveArgValue(arg string) interface{} {
+func RetrieveArgValue(arg string) any {
 
 	return commandLineArgs[arg]
 
@@ -216,7 +216,7 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 	}
 
 	currentPathElement := pathElements[0]
-	sourceMap, ok := m[currentPathElement].(map[string]interface{})
+	sourceMap, ok := m[currentPathElement].(map[string]any)
 
 	if !ok {
 		return nil, fmt.Errorf("error upon attempt to parse value at '%s' into map for further processing", currentPathElement)
@@ -228,7 +228,7 @@ func retrieveConfigValueFromMap(m map[string]any, keyPath string) (any, error) {
 
 }
 
-func parseCommandLineArgs() (map[string]interface{}, error) {
+func parseCommandLineArgs() (map[string]any, error) {
 
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
@@ -239,7 +239,7 @@ func parseCommandLineArgs() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	target := make(map[string]interface{})
+	target := make(map[string]any)
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
 
@@ -249,24 +249,24 @@ func parseCommandLineArgs() (map[string]interface{}, error) {
 
 }
 
-func parseDefaultConfigFile(o fileOpener) (map[string]interface{}, error) {
+func parseDefaultConfigFile(o fileOpener) (map[string]any, error) {
 
 	return decodeConfigFile(defaultConfigFilePath, o.open)
 
 }
 
-func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]interface{}, error) {
+func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]any, error) {
 
 	if filePath == defaultConfigFilePath {
 		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
-		return map[string]interface{}{}, nil
+		return map[string]any{}, nil
 	}
 
 	return decodeConfigFile(filePath, o.open)
 
 }
 
-func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser, error)) (map[string]interface{}, error) {
+func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser, error)) (map[string]any, error) {
 
 	r, err := openFileFunc(path)
 
@@ -281,7 +281,7 @@ func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser
 		}
 	}(r)
 
-	target := make(map[string]interface{})
+	target := make(map[string]any)
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.ErrorLevel)
 		return nil, err

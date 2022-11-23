@@ -40,7 +40,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.pokedex.enabled": false,
 				},
 			}
@@ -58,7 +58,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.pokedex.enabled": true,
 				},
 			}

@@ -16,7 +16,7 @@ var (
 	queueTestLoopStatusFunctions sync.Map
 )
 
-func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]interface{}) {
+func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]any) {
 
 	if t == MapTestLoopType {
 		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
@@ -26,29 +26,29 @@ func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[
 
 }
 
-func assembleTestLoopStatus() map[TestLoopType]interface{} {
+func assembleTestLoopStatus() map[TestLoopType]any {
 
-	mapTestLoopStatus := map[string]interface{}{}
+	mapTestLoopStatus := map[string]any{}
 	populateWithRunnerStatus(mapTestLoopStatus, &mapTestLoopStatusFunctions)
 
-	queueTestLoopStatus := map[string]interface{}{}
+	queueTestLoopStatus := map[string]any{}
 	populateWithRunnerStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
 
-	return map[TestLoopType]interface{}{
+	return map[TestLoopType]any{
 		MapTestLoopType:   mapTestLoopStatus,
 		QueueTestLoopType: queueTestLoopStatus,
 	}
 
 }
 
-func populateWithRunnerStatus(target map[string]interface{}, statusFunctionsMap *sync.Map) {
+func populateWithRunnerStatus(target map[string]any, statusFunctionsMap *sync.Map) {
 
 	statusFunctionsMap.Range(func(key, value any) bool {
-		runnerStatus := value.(func() map[string]interface{})()
+		runnerStatus := value.(func() map[string]any)()
 		if runnerStatus != nil {
 			target[key.(string)] = runnerStatus
 		} else {
-			target[key.(string)] = map[string]interface{}{}
+			target[key.(string)] = map[string]any{}
 		}
 		return true
 	})

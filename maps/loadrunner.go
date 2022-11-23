@@ -107,14 +107,14 @@ func populateLoadElements() []loadElement {
 
 }
 
-func getLoadElementID(element interface{}) string {
+func getLoadElementID(element any) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
 
 }
 
-func deserializeLoadElement(elementFromHz interface{}) error {
+func deserializeLoadElement(elementFromHz any) error {
 
 	_, ok := elementFromHz.(loadElement)
 
