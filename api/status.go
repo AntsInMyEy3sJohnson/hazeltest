@@ -7,8 +7,8 @@ import (
 type TestLoopType string
 
 const (
-	Maps   TestLoopType = "maps"
-	Queues TestLoopType = "queues"
+	MapTestLoopType   TestLoopType = "maps"
+	QueueTestLoopType TestLoopType = "queues"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 
 func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]interface{}) {
 
-	if t == Maps {
+	if t == MapTestLoopType {
 		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
 	} else {
 		queueTestLoopStatusFunctions.Store(source, queryStatusFunc)
@@ -35,8 +35,8 @@ func assembleTestLoopStatus() map[TestLoopType]interface{} {
 	populateWithRunnerStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
 
 	return map[TestLoopType]interface{}{
-		Maps:   mapTestLoopStatus,
-		Queues: queueTestLoopStatus,
+		MapTestLoopType:   mapTestLoopStatus,
+		QueueTestLoopType: queueTestLoopStatus,
 	}
 
 }
