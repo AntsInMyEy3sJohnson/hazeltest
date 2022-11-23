@@ -2,6 +2,7 @@ package queues
 
 import (
 	"container/list"
+	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
 	"math"
@@ -75,6 +76,13 @@ func TestRun(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\ttest loop status must be correct"
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
+
 		}
 	}
 
@@ -101,6 +109,13 @@ func TestRun(t *testing.T) {
 			t.Fatal(msg, ballotX)
 		}
 
+		msg = "\t\ttest loop status must be correct"
+		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, key, detail)
+		}
+
 	}
 
 	t.Log("\twhen poll is configured but put is not")
@@ -117,6 +132,13 @@ func TestRun(t *testing.T) {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\ttest loop status must be correct"
+		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, key, detail)
 		}
 
 	}
@@ -136,6 +158,13 @@ func TestRun(t *testing.T) {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\ttest loop status must be correct"
+		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, key, detail)
 		}
 
 	}
@@ -207,6 +236,47 @@ func TestRun(t *testing.T) {
 		}
 
 	}
+
+}
+
+func statusContainsExpectedValues(status map[string]interface{}, expectedNumQueues int, expectedPutStatus, expectedPollStatus *operationConfig) (bool, string, string) {
+
+	if numQueuesFromStatus, ok := status[statusKeyNumQueues]; ok && numQueuesFromStatus != expectedNumQueues {
+		return false, statusKeyNumQueues, fmt.Sprintf("want: %d; got: %d", expectedNumQueues, numQueuesFromStatus)
+	}
+
+	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(put)].(map[string]interface{}), expectedNumQueues, expectedPutStatus); !ok {
+		return false, fmt.Sprintf("%s.%s", string(put), key), detail
+	}
+
+	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(poll)].(map[string]interface{}), expectedNumQueues, expectedPollStatus); !ok {
+		return false, fmt.Sprintf("%s.%s", string(poll), key), detail
+	}
+
+	return true, "", ""
+
+}
+
+func operationConfigStatusContainsExpectedValues(status map[string]interface{}, expectedNumQueues int, expectedStatus *operationConfig) (bool, string, string) {
+
+	if enabledFromStatus, ok := status[statusKeyOperationEnabled]; ok && enabledFromStatus != expectedStatus.enabled {
+		return false, statusKeyOperationEnabled, fmt.Sprintf("want: %t; got: %t", expectedStatus.enabled, enabledFromStatus)
+	}
+
+	if numRunsFromStatus, ok := status[statusKeyNumRuns]; ok && numRunsFromStatus != expectedStatus.numRuns {
+		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedStatus.numRuns, numRunsFromStatus)
+	}
+
+	if batchSizeFromStatus, ok := status[statusKeyBatchSize]; ok && batchSizeFromStatus != expectedStatus.batchSize {
+		return false, statusKeyBatchSize, fmt.Sprintf("want: %d; got: %d", expectedStatus.batchSize, batchSizeFromStatus)
+	}
+
+	expectedTotalRuns := uint32(expectedNumQueues) * expectedStatus.numRuns
+	if totalNumRunsFromStatus, ok := status[statusKeyTotalNumRuns]; ok && totalNumRunsFromStatus != expectedTotalRuns {
+		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalNumRunsFromStatus)
+	}
+
+	return true, "", ""
 
 }
 
