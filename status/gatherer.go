@@ -13,7 +13,7 @@ type (
 		l      locker
 		status map[string]interface{}
 		// Not strictly required as of current status gathering needs, but foundation for more sophisticated gathering
-		// --> TODO Write issue for that
+		// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
 		Updates chan Update
 	}
 	locker interface {
