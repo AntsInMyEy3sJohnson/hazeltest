@@ -3,6 +3,7 @@ package queues
 import (
 	"container/list"
 	"github.com/google/uuid"
+	"hazeltest/status"
 	"math"
 	"testing"
 	"time"
@@ -213,7 +214,7 @@ func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerCo
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}
-	tl.init(&tlc)
+	tl.init(&tlc, status.NewGatherer())
 
 	return tl
 

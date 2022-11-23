@@ -1,12 +1,13 @@
 package queues
 
 import (
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyTweetRunnerTestLoop struct{}
 
-func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet]) {
+func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet], _ *status.Gatherer) {
 	// No-op
 }
 
