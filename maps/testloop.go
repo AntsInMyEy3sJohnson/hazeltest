@@ -38,16 +38,15 @@ type (
 )
 
 const (
-	statusKeyNumMaps        = "numMaps"
-	statusKeyNumRuns        = "numRuns"
-	statusKeyTotalRuns      = "totalRuns"
-	statusKeyRunnerFinished = "runnerFinished"
+	statusKeyNumMaps      = "numMaps"
+	statusKeyNumRuns      = "numRuns"
+	statusKeyTotalNumRuns = "totalNumRuns"
 )
 
 func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
 	l.g = g
-	api.RegisterTestLoop(api.Maps, lc.source, l.g.AssembleStatusCopy)
+	api.RegisterTestLoop(api.MapTestLoopType, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {
@@ -87,11 +86,11 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	c := l.config
 
 	numMaps := c.runnerConfig.numMaps
-	numRuns := c.runnerConfig.numRuns
-
 	l.g.Updates <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
+
+	numRuns := c.runnerConfig.numRuns
 	l.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
-	l.g.Updates <- status.Update{Key: statusKeyTotalRuns, Value: uint32(numMaps) * numRuns}
+	l.g.Updates <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
 
 }
 

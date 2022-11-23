@@ -41,6 +41,8 @@ var (
 	}
 )
 
+const statusKeyRunnerFinished = "runnerFinished"
+
 func fellowshipMemberName(element interface{}) string {
 
 	return element.(string)
@@ -295,8 +297,8 @@ func statusContainsExpectedValues(status map[string]interface{}, expectedNumMaps
 		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
 	}
 
-	if totalRunsFromStatus, ok := status[statusKeyTotalRuns]; !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
-		return false, statusKeyTotalRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
+	if totalRunsFromStatus, ok := status[statusKeyTotalNumRuns]; !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
+		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
 	if runnerFinishedFromStatus, ok := status[statusKeyRunnerFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
@@ -323,8 +325,7 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := testLoop[string]{}
-	g := status.NewGatherer()
-	tl.init(&tlc, g)
+	tl.init(&tlc, status.NewGatherer())
 
 	return tl
 
