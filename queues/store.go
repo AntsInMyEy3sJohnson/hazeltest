@@ -8,8 +8,8 @@ import (
 
 type (
 	hzQueue interface {
-		Put(ctx context.Context, element interface{}) error
-		Poll(ctx context.Context) (interface{}, error)
+		Put(ctx context.Context, element any) error
+		Poll(ctx context.Context) (any, error)
 		RemainingCapacity(ctx context.Context) (int, error)
 		Destroy(ctx context.Context) error
 	}

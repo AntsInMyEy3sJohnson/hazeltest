@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/status"
 	"math/rand"
 	"sync"
 	"time"
@@ -14,15 +15,15 @@ import (
 )
 
 type (
-	getElementID       func(element interface{}) string
-	deserializeElement func(element interface{}) error
+	getElementID       func(element any) string
+	deserializeElement func(element any) error
 	looper[t any]      interface {
-		init(lc *testLoopConfig[t], sg *statusGatherer)
+		init(lc *testLoopConfig[t], g *status.Gatherer)
 		run()
 	}
 	testLoop[t any] struct {
 		config *testLoopConfig[t]
-		sg     *statusGatherer
+		g      *status.Gatherer
 	}
 	testLoopConfig[t any] struct {
 		id                     uuid.UUID
@@ -34,58 +35,24 @@ type (
 		getElementIdFunc       getElementID
 		deserializeElementFunc deserializeElement
 	}
-	statusElement struct {
-		key   string
-		value interface{}
-	}
-	statusGatherer struct {
-		status   sync.Map
-		elements chan statusElement
-	}
 )
 
 const (
-	statusKeyNumMaps           = "numMaps"
-	statusKeyNumRuns           = "numRuns"
-	statusKeyTotalRuns         = "totalRuns"
-	statusKeyTotalRunsFinished = "totalRunsFinished"
+	statusKeyNumMaps      = "numMaps"
+	statusKeyNumRuns      = "numRuns"
+	statusKeyTotalNumRuns = "totalNumRuns"
 )
 
-var (
-	quitStatusGathering = statusElement{}
-)
-
-func (sg *statusGatherer) getStatus() *sync.Map {
-
-	return &sg.status
-
-}
-
-func (sg *statusGatherer) gather() {
-
-	for {
-		element := <-sg.elements
-		if element == quitStatusGathering {
-			return
-		} else {
-			sg.status.Store(element.key, element.value)
-		}
-	}
-
-}
-
-func (l *testLoop[t]) init(lc *testLoopConfig[t], sg *statusGatherer) {
+func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
-	l.sg = sg
-	api.RegisterRunner(lc.id, l.sg.getStatus)
+	l.g = g
+	api.RegisterTestLoop(api.MapTestLoopType, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {
 
-	go l.sg.gather()
-	defer func() {
-		l.sg.elements <- quitStatusGathering
-	}()
+	defer l.g.StopListen()
+	go l.g.Listen()
 
 	l.insertLoopWithInitialStatus()
 
@@ -119,26 +86,11 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	c := l.config
 
 	numMaps := c.runnerConfig.numMaps
-	l.sg.elements <- statusElement{
-		key:   statusKeyNumMaps,
-		value: numMaps,
-	}
+	l.g.Updates <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
 
 	numRuns := c.runnerConfig.numRuns
-	l.sg.elements <- statusElement{
-		key:   statusKeyNumRuns,
-		value: numRuns,
-	}
-
-	l.sg.elements <- statusElement{
-		key:   statusKeyTotalRuns,
-		value: uint32(numMaps) * numRuns,
-	}
-
-	l.sg.elements <- statusElement{
-		key:   statusKeyTotalRunsFinished,
-		value: uint32(0),
-	}
+	l.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
+	l.g.Updates <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
 
 }
 
@@ -148,14 +100,10 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
 
-	numRunsTotal := l.config.runnerConfig.numRuns
-	numRunsSentToStatus := uint32(0)
 	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
-			numRunsSentToStatus += updateStep
-			l.increaseTotalRunsCompleted(updateStep)
-			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d -- test loop status updated", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
+			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 		lp.LogInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
@@ -178,24 +126,6 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 	}
 
 	lp.LogInternalStateEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
-	l.increaseTotalRunsCompleted(numRunsTotal - numRunsSentToStatus)
-
-}
-
-func (l *testLoop[t]) increaseTotalRunsCompleted(increase uint32) {
-
-	var newTotalRunsCompleted uint32
-
-	if currentTotalRunsCompleted, ok := l.sg.status.Load(statusKeyTotalRunsFinished); ok {
-		newTotalRunsCompleted = currentTotalRunsCompleted.(uint32) + increase
-	} else {
-		newTotalRunsCompleted = increase
-	}
-
-	l.sg.elements <- statusElement{
-		key:   statusKeyTotalRunsFinished,
-		value: newTotalRunsCompleted,
-	}
 
 }
 

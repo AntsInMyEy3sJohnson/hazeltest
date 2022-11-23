@@ -9,8 +9,8 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/loadsupport"
+	"hazeltest/status"
 	"strconv"
-	"sync"
 )
 
 type (
@@ -72,11 +72,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{uuid.New(), r.source, r.mapStore, loadRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
 
-	sg := &statusGatherer{
-		status:   sync.Map{},
-		elements: make(chan statusElement),
-	}
-	r.l.init(lc, sg)
+	r.l.init(lc, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -111,14 +107,14 @@ func populateLoadElements() []loadElement {
 
 }
 
-func getLoadElementID(element interface{}) string {
+func getLoadElementID(element any) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
 
 }
 
-func deserializeLoadElement(elementFromHz interface{}) error {
+func deserializeLoadElement(elementFromHz any) error {
 
 	_, ok := elementFromHz.(loadElement)
 

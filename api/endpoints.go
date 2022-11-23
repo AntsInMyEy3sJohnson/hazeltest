@@ -7,6 +7,7 @@ import (
 	"hazeltest/client"
 	"hazeltest/logging"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -24,7 +25,6 @@ type readiness struct {
 var (
 	l  *liveness
 	r  *readiness
-	s  status
 	lp *logging.LogProvider
 	m  sync.Mutex
 )
@@ -33,7 +33,6 @@ func init() {
 
 	l = &liveness{true}
 	r = &readiness{false, false, 0}
-	s = status{[]TestLoopStatus{}}
 
 	lp = &logging.LogProvider{ClientID: client.ID()}
 
@@ -41,13 +40,18 @@ func init() {
 
 func Serve() {
 
+	port := 8080
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: ":" + strconv.Itoa(port),
 	}
 	http.HandleFunc("/liveness", livenessHandler)
 	http.HandleFunc("/readiness", readinessHandler)
 	http.HandleFunc("/status", statusHandler)
-	server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		lp.LogApiEvent(fmt.Sprintf("unable to serve api on port %d", port), log.ErrorLevel)
+		return
+	}
 
 }
 
@@ -84,23 +88,11 @@ func statusHandler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case methodGet:
-		updateStatus(&s)
-		bytes, _ := json.Marshal(s)
-		w.Write(bytes)
+		testLoopStatus := assembleTestLoopStatus()
+		bytes, _ := json.Marshal(testLoopStatus)
+		_, _ = w.Write(bytes)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-
-}
-
-func updateStatus(s *status) {
-
-	if len(Loops) > 0 {
-		values := make([]TestLoopStatus, 0, len(Loops))
-		for _, v := range Loops {
-			values = append(values, *v)
-		}
-		s.TestLoops = values
 	}
 
 }
@@ -110,7 +102,7 @@ func livenessHandler(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case methodGet:
 		bytes, _ := json.Marshal(l)
-		w.Write(bytes)
+		_, _ = w.Write(bytes)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -123,7 +115,7 @@ func readinessHandler(w http.ResponseWriter, req *http.Request) {
 	case methodGet:
 		if r.Up {
 			bytes, _ := json.Marshal(r)
-			w.Write(bytes)
+			_, _ = w.Write(bytes)
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}

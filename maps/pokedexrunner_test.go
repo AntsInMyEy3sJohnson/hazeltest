@@ -1,12 +1,13 @@
 package maps
 
 import (
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyPokedexTestLoop struct{}
 
-func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon], _ *statusGatherer) {
+func (d dummyPokedexTestLoop) init(_ *testLoopConfig[pokemon], _ *status.Gatherer) {
 	// No-op
 }
 
@@ -39,7 +40,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.pokedex.enabled": false,
 				},
 			}
@@ -57,7 +58,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.pokedex.enabled": true,
 				},
 			}

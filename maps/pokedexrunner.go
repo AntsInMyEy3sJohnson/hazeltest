@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
-	"sync"
+	"hazeltest/status"
 )
 
 type (
@@ -98,11 +98,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	sg := &statusGatherer{
-		status:   sync.Map{},
-		elements: make(chan statusElement),
-	}
-	r.l.init(lc, sg)
+	r.l.init(lc, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -118,14 +114,14 @@ func (r *pokedexRunner) appendState(s state) {
 
 }
 
-func getPokemonID(element interface{}) string {
+func getPokemonID(element any) string {
 
 	pokemon := element.(pokemon)
 	return fmt.Sprintf("%d", pokemon.ID)
 
 }
 
-func deserializePokemon(elementFromHZ interface{}) error {
+func deserializePokemon(elementFromHZ any) error {
 
 	_, ok := elementFromHZ.(pokemon)
 	if !ok {

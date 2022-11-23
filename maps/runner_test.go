@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	testConfig = map[string]interface{}{
+	testConfig = map[string]any{
 		runnerKeyPath + ".enabled":                                      true,
 		runnerKeyPath + ".numMaps":                                      10,
 		runnerKeyPath + ".appendMapIndexToMapName":                      true,
@@ -56,7 +56,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen property assignment yields an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{true, map[string]interface{}{}}
+			propertyAssigner = testConfigPropertyAssigner{true, map[string]any{}}
 			_, err := b.populateConfig()
 
 			msg := "\t\terror should be returned"
@@ -71,7 +71,7 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
-func configValuesAsExpected(rc *runnerConfig, expected map[string]interface{}) bool {
+func configValuesAsExpected(rc *runnerConfig, expected map[string]any) bool {
 
 	return rc.enabled == expected[runnerKeyPath+".enabled"] &&
 		rc.numMaps == expected[runnerKeyPath+".numMaps"] &&

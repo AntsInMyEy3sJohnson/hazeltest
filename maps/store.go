@@ -8,10 +8,10 @@ import (
 
 type (
 	hzMap interface {
-		ContainsKey(ctx context.Context, key interface{}) (bool, error)
-		Set(ctx context.Context, key interface{}, value interface{}) error
-		Get(ctx context.Context, key interface{}) (interface{}, error)
-		Remove(ctx context.Context, key interface{}) (interface{}, error)
+		ContainsKey(ctx context.Context, key any) (bool, error)
+		Set(ctx context.Context, key any, value any) error
+		Get(ctx context.Context, key any) (any, error)
+		Remove(ctx context.Context, key any) (any, error)
 		Destroy(ctx context.Context) error
 	}
 	hzMapStore interface {

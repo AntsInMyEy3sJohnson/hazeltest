@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/status"
 	"math/rand"
 	"sync"
 	"time"
@@ -13,11 +15,12 @@ import (
 
 type (
 	looper[t any] interface {
-		init(lc *testLoopConfig[t])
+		init(lc *testLoopConfig[t], g *status.Gatherer)
 		run()
 	}
 	testLoop[t any] struct {
 		config *testLoopConfig[t]
+		g      *status.Gatherer
 	}
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
@@ -31,23 +34,33 @@ type (
 )
 
 const (
+	statusKeyOperationEnabled = "enabled"
+	statusKeyNumQueues        = "numQueues"
+	statusKeyNumRuns          = "numRuns"
+	statusKeyBatchSize        = "batchSize"
+	statusKeyTotalNumRuns     = "totalNumRuns"
+)
+
+const (
 	put  = operation("put")
 	poll = operation("poll")
 )
 
-func (l *testLoop[t]) init(lc *testLoopConfig[t]) {
+func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
+	l.g = g
+	api.RegisterTestLoop(api.QueueTestLoopType, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {
 
-	// TODO Implement integration with api.TestLoopStatus -- but make it so api pulls what it needs rather than the test loop pushing it
-	// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/8
+	defer l.g.StopListen()
+	go l.g.Listen()
 
-	c := l.config
-	ctx := l.config.ctx
+	l.insertLoopWithInitialStatus()
 
 	var numQueuesWg sync.WaitGroup
+	c := l.config
 	for i := 0; i < c.runnerConfig.numQueues; i++ {
 		numQueuesWg.Add(1)
 		go func(i int) {
@@ -56,12 +69,12 @@ func (l *testLoop[t]) run() {
 			queueName := l.assembleQueueName(i)
 			lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
 			start := time.Now()
-			q, err := l.config.hzQueueStore.GetQueue(ctx, queueName)
+			q, err := l.config.hzQueueStore.GetQueue(l.config.ctx, queueName)
 			if err != nil {
 				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 			}
 			defer func() {
-				_ = q.Destroy(ctx)
+				_ = q.Destroy(l.config.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
@@ -91,6 +104,28 @@ func (l *testLoop[t]) run() {
 	}
 
 	numQueuesWg.Wait()
+
+}
+
+func (l *testLoop[t]) insertLoopWithInitialStatus() {
+
+	c := l.config
+
+	numQueues := c.runnerConfig.numQueues
+	l.g.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
+	l.g.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
+	l.g.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
+
+}
+
+func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[string]any {
+
+	return map[string]any{
+		statusKeyOperationEnabled: o.enabled,
+		statusKeyNumRuns:          o.numRuns,
+		statusKeyBatchSize:        o.batchSize,
+		statusKeyTotalNumRuns:     uint32(numQueues) * o.numRuns,
+	}
 
 }
 

@@ -2,12 +2,13 @@ package maps
 
 import (
 	"fmt"
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyLoadTestLoop struct{}
 
-func (d dummyLoadTestLoop) init(_ *testLoopConfig[loadElement], _ *statusGatherer) {
+func (d dummyLoadTestLoop) init(_ *testLoopConfig[loadElement], _ *status.Gatherer) {
 	// No-op
 }
 
@@ -40,7 +41,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.load.enabled": false,
 				},
 			}
@@ -58,7 +59,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"maptests.load.enabled": true,
 				},
 			}

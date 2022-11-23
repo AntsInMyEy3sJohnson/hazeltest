@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"hazeltest/status"
 	"io/fs"
 )
 
@@ -67,7 +68,9 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	ctx := context.TODO()
 
 	r.queueStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
-	defer r.queueStore.Shutdown(ctx)
+	defer func() {
+		_ = r.queueStore.Shutdown(ctx)
+	}()
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
@@ -76,7 +79,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	lp.LogInternalStateEvent("started tweets queue loop", log.InfoLevel)
 
 	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
-	r.l.init(lc)
+	r.l.init(lc, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()

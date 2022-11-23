@@ -8,6 +8,7 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/loadsupport"
+	"hazeltest/status"
 )
 
 type (
@@ -56,7 +57,9 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	ctx := context.TODO()
 
 	r.queueStore.InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
-	defer r.queueStore.Shutdown(ctx)
+	defer func() {
+		_ = r.queueStore.Shutdown(ctx)
+	}()
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
@@ -66,7 +69,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	r.l.init(lc)
+	r.l.init(lc, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()

@@ -1,35 +1,56 @@
 package api
 
 import (
-	"github.com/google/uuid"
 	"sync"
 )
 
-type TestLoopStatus struct {
-	Source            string
-	NumMaps           int
-	NumRuns           uint32
-	TotalRuns         uint32
-	TotalRunsFinished uint32
-}
+type TestLoopType string
 
-type status struct {
-	TestLoops []TestLoopStatus
-}
-
-var (
-	Loops                 map[uuid.UUID]*TestLoopStatus
-	runnerStatusFunctions sync.Map
+const (
+	MapTestLoopType   TestLoopType = "maps"
+	QueueTestLoopType TestLoopType = "queues"
 )
 
-func init() {
+var (
+	mapTestLoopStatusFunctions   sync.Map
+	queueTestLoopStatusFunctions sync.Map
+)
 
-	Loops = make(map[uuid.UUID]*TestLoopStatus)
+func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]any) {
+
+	if t == MapTestLoopType {
+		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
+	} else {
+		queueTestLoopStatusFunctions.Store(source, queryStatusFunc)
+	}
 
 }
 
-func RegisterRunner(id uuid.UUID, queryStatusFunc func() *sync.Map) {
+func assembleTestLoopStatus() map[TestLoopType]any {
 
-	runnerStatusFunctions.Store(id, queryStatusFunc())
+	mapTestLoopStatus := map[string]any{}
+	populateWithRunnerStatus(mapTestLoopStatus, &mapTestLoopStatusFunctions)
+
+	queueTestLoopStatus := map[string]any{}
+	populateWithRunnerStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
+
+	return map[TestLoopType]any{
+		MapTestLoopType:   mapTestLoopStatus,
+		QueueTestLoopType: queueTestLoopStatus,
+	}
+
+}
+
+func populateWithRunnerStatus(target map[string]any, statusFunctionsMap *sync.Map) {
+
+	statusFunctionsMap.Range(func(key, value any) bool {
+		runnerStatus := value.(func() map[string]any)()
+		if runnerStatus != nil {
+			target[key.(string)] = runnerStatus
+		} else {
+			target[key.(string)] = map[string]any{}
+		}
+		return true
+	})
 
 }

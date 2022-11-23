@@ -1,12 +1,13 @@
 package queues
 
 import (
+	"hazeltest/status"
 	"testing"
 )
 
 type dummyTweetRunnerTestLoop struct{}
 
-func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet]) {
+func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet], _ *status.Gatherer) {
 	// No-op
 }
 
@@ -39,7 +40,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"queuetests.tweets.enabled": false,
 				},
 			}

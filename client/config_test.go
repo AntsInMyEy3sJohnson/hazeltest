@@ -13,7 +13,7 @@ import (
 
 type (
 	testConfigOpener struct {
-		m map[string]interface{}
+		m map[string]any
 	}
 	erroneousTestConfigOpener struct{}
 	testReadCloser            struct {
@@ -29,16 +29,16 @@ const (
 )
 
 var (
-	mapTestsPokedexWithNumMapsUserSupplied = map[string]interface{}{
-		"mapTests": map[string]interface{}{
-			"pokedex": map[string]interface{}{
+	mapTestsPokedexWithNumMapsUserSupplied = map[string]any{
+		"mapTests": map[string]any{
+			"pokedex": map[string]any{
 				"numMaps": 10,
 			},
 		},
 	}
-	mapTestsPokedexWithNumMapsDefault = map[string]interface{}{
-		"mapTests": map[string]interface{}{
-			"pokedex": map[string]interface{}{
+	mapTestsPokedexWithNumMapsDefault = map[string]any{
+		"mapTests": map[string]any{
+			"pokedex": map[string]any{
 				"numMaps": 5,
 			},
 		},
