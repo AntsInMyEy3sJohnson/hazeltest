@@ -34,10 +34,11 @@ type (
 )
 
 const (
-	statusKeyNumQueues    = "numQueues"
-	statusKeyNumRuns      = "numRuns"
-	statusKeyBatchSize    = "batchSize"
-	statusKeyTotalNumRuns = "totalNumRuns"
+	statusKeyOperationEnabled = "enabled"
+	statusKeyNumQueues        = "numQueues"
+	statusKeyNumRuns          = "numRuns"
+	statusKeyBatchSize        = "batchSize"
+	statusKeyTotalNumRuns     = "totalNumRuns"
 )
 
 const (
@@ -55,6 +56,8 @@ func (l *testLoop[t]) run() {
 
 	defer l.g.StopListen()
 	go l.g.Listen()
+
+	l.insertLoopWithInitialStatus()
 
 	var numQueuesWg sync.WaitGroup
 	c := l.config
@@ -118,9 +121,10 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[string]interface{} {
 
 	return map[string]interface{}{
-		statusKeyNumRuns:      o.numRuns,
-		statusKeyBatchSize:    o.batchSize,
-		statusKeyTotalNumRuns: uint32(numQueues) * o.numRuns,
+		statusKeyOperationEnabled: o.enabled,
+		statusKeyNumRuns:          o.numRuns,
+		statusKeyBatchSize:        o.batchSize,
+		statusKeyTotalNumRuns:     uint32(numQueues) * o.numRuns,
 	}
 
 }
