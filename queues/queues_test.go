@@ -73,7 +73,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	return nil
 }
 
-func (d *dummyHzQueue) Put(_ context.Context, element interface{}) error {
+func (d *dummyHzQueue) Put(_ context.Context, element any) error {
 
 	dummyQueueOperationLock.Lock()
 	{
@@ -86,7 +86,7 @@ func (d *dummyHzQueue) Put(_ context.Context, element interface{}) error {
 
 }
 
-func (d *dummyHzQueue) Poll(_ context.Context) (interface{}, error) {
+func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
 
 	var element *list.Element
 	dummyQueueOperationLock.Lock()

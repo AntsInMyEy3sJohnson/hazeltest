@@ -23,25 +23,25 @@ const (
 )
 
 var (
-	dummyStatusMapPokedexTestLoop = map[string]interface{}{
+	dummyStatusMapPokedexTestLoop = map[string]any{
 		statusKeyNumMaps:        10,
 		statusKeyNumRuns:        1000,
 		statusKeyTotalRuns:      10 * 1000,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusMapLoadTestLoop = map[string]interface{}{
+	dummyStatusMapLoadTestLoop = map[string]any{
 		statusKeyNumMaps:        5,
 		statusKeyNumRuns:        100,
 		statusKeyTotalRuns:      5 * 100,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusQueueTweetTestLoop = map[string]interface{}{
+	dummyStatusQueueTweetTestLoop = map[string]any{
 		statusKeyNumQueues:      2,
 		statusKeyNumRuns:        500,
 		statusKeyTotalRuns:      2 * 500,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusQueueLoadTestLoop = map[string]interface{}{
+	dummyStatusQueueLoadTestLoop = map[string]any{
 		statusKeyNumQueues:      10,
 		statusKeyNumRuns:        500,
 		statusKeyTotalRuns:      10 * 500,
@@ -49,7 +49,7 @@ var (
 	}
 )
 
-func mapsEqualInContent(reference map[string]interface{}, candidate map[string]interface{}) (bool, string) {
+func mapsEqualInContent(reference map[string]any, candidate map[string]any) (bool, string) {
 
 	if len(reference) != len(candidate) {
 		return false, "given maps do not have same length, hence cannot have equal content"

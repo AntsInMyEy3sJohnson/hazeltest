@@ -40,7 +40,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"queuetests.load.enabled": false,
 				},
 			}
@@ -58,7 +58,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 		{
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]interface{}{
+				dummyConfig: map[string]any{
 					"queuetests.load.enabled": true,
 				},
 			}

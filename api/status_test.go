@@ -181,7 +181,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, sourceMapLoadRunner)
 			}
 
-			assembledStatusQueues := assembledStatus[QueueTestLoopType].(map[string]interface{})
+			assembledStatusQueues := assembledStatus[QueueTestLoopType].(map[string]any)
 			if _, ok := assembledStatusQueues[sourceQueueTweetRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -189,13 +189,13 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			}
 
 			msg = "\t\tstatus map must be empty"
-			if len(assembledStatusMaps[sourceMapLoadRunner].(map[string]interface{})) == 0 {
+			if len(assembledStatusMaps[sourceMapLoadRunner].(map[string]any)) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapLoadRunner)
 			}
 
-			if len(assembledStatusQueues[sourceQueueTweetRunner].(map[string]interface{})) == 0 {
+			if len(assembledStatusQueues[sourceQueueTweetRunner].(map[string]any)) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceQueueTweetRunner)
@@ -213,7 +213,7 @@ func resetMaps() {
 
 }
 
-func checkTopLevelElement(t *testing.T, topLevelElementKey TestLoopType, assembledStatus map[TestLoopType]interface{}, msg string) {
+func checkTopLevelElement(t *testing.T, topLevelElementKey TestLoopType, assembledStatus map[TestLoopType]any, msg string) {
 
 	if _, ok := assembledStatus[topLevelElementKey]; ok {
 		t.Log(msg, checkMark)

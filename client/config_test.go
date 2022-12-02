@@ -675,7 +675,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 
 		t.Log("\twhen providing a config map not containing a nested map")
 		{
-			defaultConfig = map[string]interface{}{
+			defaultConfig = map[string]any{
 				"mapTests": []int{1, 2, 3, 4, 5},
 			}
 			userSuppliedConfig = nil

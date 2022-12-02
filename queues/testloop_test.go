@@ -239,17 +239,17 @@ func TestRun(t *testing.T) {
 
 }
 
-func statusContainsExpectedValues(status map[string]interface{}, expectedNumQueues int, expectedPutStatus, expectedPollStatus *operationConfig) (bool, string, string) {
+func statusContainsExpectedValues(status map[string]any, expectedNumQueues int, expectedPutStatus, expectedPollStatus *operationConfig) (bool, string, string) {
 
 	if numQueuesFromStatus, ok := status[statusKeyNumQueues]; ok && numQueuesFromStatus != expectedNumQueues {
 		return false, statusKeyNumQueues, fmt.Sprintf("want: %d; got: %d", expectedNumQueues, numQueuesFromStatus)
 	}
 
-	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(put)].(map[string]interface{}), expectedNumQueues, expectedPutStatus); !ok {
+	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(put)].(map[string]any), expectedNumQueues, expectedPutStatus); !ok {
 		return false, fmt.Sprintf("%s.%s", string(put), key), detail
 	}
 
-	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(poll)].(map[string]interface{}), expectedNumQueues, expectedPollStatus); !ok {
+	if ok, key, detail := operationConfigStatusContainsExpectedValues(status[string(poll)].(map[string]any), expectedNumQueues, expectedPollStatus); !ok {
 		return false, fmt.Sprintf("%s.%s", string(poll), key), detail
 	}
 
@@ -257,7 +257,7 @@ func statusContainsExpectedValues(status map[string]interface{}, expectedNumQueu
 
 }
 
-func operationConfigStatusContainsExpectedValues(status map[string]interface{}, expectedNumQueues int, expectedStatus *operationConfig) (bool, string, string) {
+func operationConfigStatusContainsExpectedValues(status map[string]any, expectedNumQueues int, expectedStatus *operationConfig) (bool, string, string) {
 
 	if enabledFromStatus, ok := status[statusKeyOperationEnabled]; ok && enabledFromStatus != expectedStatus.enabled {
 		return false, statusKeyOperationEnabled, fmt.Sprintf("want: %t; got: %t", expectedStatus.enabled, enabledFromStatus)

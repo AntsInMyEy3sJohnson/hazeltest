@@ -146,7 +146,7 @@ func TestGatherer_Listen(t *testing.T) {
 			}
 			g := &Gatherer{
 				l:       l,
-				status:  map[string]interface{}{},
+				status:  map[string]any{},
 				Updates: make(chan Update),
 			}
 
@@ -303,7 +303,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			}
 			g := &Gatherer{
 				l:       l,
-				status:  map[string]interface{}{},
+				status:  map[string]any{},
 				Updates: make(chan Update),
 			}
 			upper := 100
@@ -332,7 +332,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 
 }
 
-func mapsEqualInContent(reference map[string]interface{}, candidate map[string]interface{}) (bool, string) {
+func mapsEqualInContent(reference map[string]any, candidate map[string]any) (bool, string) {
 
 	if len(reference) != len(candidate) {
 		return false, "given maps do not have same length, hence cannot have equal content"

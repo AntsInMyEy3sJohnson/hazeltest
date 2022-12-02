@@ -7,11 +7,11 @@ import (
 type (
 	Update struct {
 		Key   string
-		Value interface{}
+		Value any
 	}
 	Gatherer struct {
 		l      locker
-		status map[string]interface{}
+		status map[string]any
 		// Not strictly required as of current status gathering needs, but foundation for more sophisticated gathering
 		// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
 		Updates chan Update
@@ -51,15 +51,15 @@ func NewGatherer() *Gatherer {
 		l: &mutexLocker{
 			m: sync.Mutex{},
 		},
-		status:  map[string]interface{}{},
+		status:  map[string]any{},
 		Updates: make(chan Update),
 	}
 
 }
 
-func (g *Gatherer) AssembleStatusCopy() map[string]interface{} {
+func (g *Gatherer) AssembleStatusCopy() map[string]any {
 
-	mapCopy := make(map[string]interface{}, len(g.status))
+	mapCopy := make(map[string]any, len(g.status))
 
 	g.l.lock()
 	{
@@ -86,7 +86,6 @@ func (g *Gatherer) Listen() {
 		} else {
 			g.insertSynchronously(update)
 		}
-
 	}
 
 }

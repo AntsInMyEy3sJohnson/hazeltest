@@ -76,7 +76,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen property assigning a property yields an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]interface{}{}}
+			propertyAssigner = testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]any{}}
 			_, err := b.populateConfig()
 
 			msg := "\t\terror should be returned"
@@ -117,9 +117,9 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
-func copyTestConfig() map[string]interface{} {
+func copyTestConfig() map[string]any {
 
-	mapCopy := make(map[string]interface{})
+	mapCopy := make(map[string]any)
 	for k, v := range testConfig {
 		mapCopy[k] = v
 	}
@@ -128,7 +128,7 @@ func copyTestConfig() map[string]interface{} {
 
 }
 
-func configValuesAsExpected(rc *runnerConfig, expected map[string]interface{}) bool {
+func configValuesAsExpected(rc *runnerConfig, expected map[string]any) bool {
 
 	var runnerKeyPath = "testQueueRunner"
 
