@@ -2,6 +2,7 @@ package main
 
 import (
 	"hazeltest/api"
+	"hazeltest/chaos"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"hazeltest/maps"
@@ -34,7 +35,7 @@ func main() {
 	hzMemberList := strings.Split(hzMembers, ",")
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 
 	go func() {
 		defer wg.Done()
@@ -53,6 +54,11 @@ func main() {
 		defer wg.Done()
 		queueTester := queues.QueueTester{HzCluster: hzCluster, HzMembers: hzMemberList}
 		queueTester.TestQueues()
+	}()
+
+	go func() {
+		defer wg.Done()
+		chaos.RunMonkey()
 	}()
 
 	wg.Wait()
