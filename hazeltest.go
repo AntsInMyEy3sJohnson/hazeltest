@@ -58,7 +58,7 @@ func main() {
 
 	go func() {
 		defer wg.Done()
-		chaos.RunMonkey()
+		chaos.RunMonkeys()
 	}()
 
 	wg.Wait()
