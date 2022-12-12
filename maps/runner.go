@@ -53,13 +53,12 @@ const (
 var (
 	runners          []runner
 	propertyAssigner client.ConfigPropertyAssigner
+	lp               *logging.LogProvider
 )
 
 func register(r runner) {
 	runners = append(runners, r)
 }
-
-var lp *logging.LogProvider
 
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
