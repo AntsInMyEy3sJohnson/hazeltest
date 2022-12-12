@@ -68,6 +68,68 @@ func (c testCloser) Close() error {
 
 }
 
+func TestValidatePercentage(t *testing.T) {
+
+	t.Log("given the need to test the float percentage validation function")
+	{
+		path := "chaosMonkeys.podKiller.chaosProbability"
+		t.Log("\twhen providing a semantically correct value that can be parsed into a float")
+		{
+			for _, v := range []float32{0.0001, 1.0, 0.5} {
+				err := ValidatePercentage(path, v)
+
+				msg := "\t\tno error should occur"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Error(msg, ballotX)
+				}
+			}
+		}
+
+		correctTypeOfErrorMsg := "\t\terror of correct type should be returned"
+		pathInErrorStringMsg := "\t\tpath should be contained in error string"
+		t.Log("\twhen providing a value that can be parsed into a float, but does not represent a percentage value and is therefore semantically incorrect")
+		{
+			for _, v := range []float32{-1, -0.1, 1.1, 2} {
+				err := ValidatePercentage(path, v)
+
+				if err != nil && errors.As(err, &FailedValueCheck{}) {
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
+				} else {
+					t.Error(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Error(pathInErrorStringMsg, ballotX)
+				}
+			}
+		}
+
+		t.Log("\twhen providing a value that cannot be parsed into a float")
+		{
+			for _, v := range []any{false, "blubb", []int{1, 2, 3}, map[string]int{"hello": 1, "goodbye": 2}} {
+				err := ValidatePercentage(path, v)
+
+				if err != nil && errors.As(err, &FailedParse{}) {
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
+				} else {
+					t.Error(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Error(pathInErrorStringMsg, ballotX)
+				}
+			}
+		}
+	}
+
+}
+
 func TestValidateString(t *testing.T) {
 
 	t.Log("given the need to test the string validation function")

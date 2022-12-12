@@ -134,6 +134,19 @@ func ValidateString(path string, a any) error {
 
 }
 
+func ValidatePercentage(path string, a any) error {
+
+	// TODO Implement test for this
+	if f, ok := a.(float32); !ok {
+		return FailedParse{"float32", path}
+	} else if f < 0.0 || f > 1.0 {
+		return FailedValueCheck{"expected float expressing percentage, i. e. 0.0 <= <number> <= 1.0", path}
+	}
+
+	return nil
+
+}
+
 func ParseConfigs() error {
 
 	if args, err := parseCommandLineArgs(); err != nil {
