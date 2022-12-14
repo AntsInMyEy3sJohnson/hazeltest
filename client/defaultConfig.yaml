@@ -4,6 +4,17 @@ chaosMonkeys:
     enabled: true
     stopWhenRunnersFinished: true
     chaosProbability: 0.6
+    memberAccess:
+      # Can take the value of one of the sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
+      mode: k8sOutOfCluster
+      k8sOutOfCluster:
+        # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
+        # In non-default cases, the absolute path of the file to be used can be specified.
+        kubeconfig: default
+        namespace: hazelcastplatform
+        labelSelector: app.kubernetes.io/name=hazelcastimdg
+      k8sInCluster:
+        labelSelector: app.kubernetes.io/name=hazelcastimdg
     sleep:
       enabled: true
       durationSeconds: 600

@@ -31,6 +31,10 @@ type (
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
 	}
+	memberAccessConfig struct {
+		mode   string
+		config map[string]any
+	}
 	sleepConfig struct {
 		enabled          bool
 		durationSeconds  int
@@ -40,6 +44,7 @@ type (
 		enabled                 bool
 		stopWhenRunnersFinished bool
 		chaosProbability        float32
+		accessConfig            *memberAccessConfig
 		sleep                   *sleepConfig
 		memberGrace             *sleepConfig
 	}
