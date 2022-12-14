@@ -1,10 +1,25 @@
+# TODO Write documentation
+chaosMonkeys:
+  memberKiller:
+    enabled: true
+    stopWhenRunnersFinished: true
+    chaosProbability: 0.6
+    sleep:
+      enabled: true
+      durationSeconds: 600
+      enableRandomness: false
+    memberGrace:
+      enabled: true
+      durationSeconds: 30
+      enableRandomness: true
+
 queuetests:
   # 'queuetests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
   # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
     # The TweetRunner will not be run when this is set to 'false'.
-    enabled: true
+    enabled: false
     # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
     # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
     numQueues: 5
@@ -90,7 +105,7 @@ queuetests:
           durationMs: 2000
           enableRandomness: true
   load:
-    enabled: true
+    enabled: false
     numQueues: 10
     # Controls how many entries the queue load runner will use (this property is not available on the tweet runner because
     # the tweet runner works on a static data set, hence the number of elements as well as their size are given). The
@@ -145,7 +160,7 @@ queuetests:
 maptests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
-    enabled: true
+    enabled: false
     # The runner will spawn one goroutine for each map
     numMaps: 5
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
@@ -181,7 +196,7 @@ maptests:
         durationMs: 2000
         enableRandomness: true
   load:
-    enabled: true
+    enabled: false
     numMaps: 2
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
