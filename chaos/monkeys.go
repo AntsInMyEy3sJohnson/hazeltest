@@ -31,9 +31,17 @@ type (
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
 	}
+	memberAccessMode            string
+	k8sOutOfClusterMemberAccess struct {
+		kubeconfig, namespace, labelSelector string
+	}
+	k8sInClusterMemberAccess struct {
+		labelSelector string
+	}
 	memberAccessConfig struct {
-		mode   string
-		config map[string]any
+		memberAccessMode
+		k8sOutOfClusterMemberAccess
+		k8sInClusterMemberAccess
 	}
 	sleepConfig struct {
 		enabled          bool
@@ -48,6 +56,11 @@ type (
 		sleep                   *sleepConfig
 		memberGrace             *sleepConfig
 	}
+)
+
+const (
+	macK8sOutOfCluster memberAccessMode = "k8sOutOfCluster"
+	macK8sInCluster    memberAccessMode = "k8sInCluster"
 )
 
 var (
@@ -158,6 +171,13 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		})
 	})
 
+	var hzMemberAccessMode string
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess.mode", client.ValidateString, func(a any) {
+			hzMemberAccessMode = a.(string)
+		})
+	})
+
 	var sleepEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
 		return propertyAssigner.Assign(b.monkeyKeyPath+".sleep.enabled", client.ValidateBool, func(a any) {
@@ -206,10 +226,16 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		}
 	}
 
+	mac, err := b.populateMemberAccessConfig(hzMemberAccessMode)
+	if err != nil {
+		return nil, err
+	}
+
 	return &monkeyConfig{
 		enabled:                 enabled,
 		stopWhenRunnersFinished: stopWhenRunnersFinished,
 		chaosProbability:        chaosProbability,
+		accessConfig:            mac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
@@ -221,6 +247,66 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 			enableRandomness: memberGraceEnableRandomness,
 		},
 	}, nil
+
+}
+
+func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*memberAccessConfig, error) {
+
+	var assignmentOps []func() error
+
+	switch accessMode {
+	case string(macK8sOutOfCluster):
+		mac := macK8sOutOfCluster
+		var kubeConfig string
+		assignmentOps = append(assignmentOps, func() error {
+			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeConfig", client.ValidateString, func(a any) {
+				kubeConfig = a.(string)
+			})
+		})
+		var namespace string
+		assignmentOps = append(assignmentOps, func() error {
+			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".namespace", client.ValidateString, func(a any) {
+				namespace = a.(string)
+			})
+		})
+		var labelSelector string
+		assignmentOps = append(assignmentOps, func() error {
+			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+				labelSelector = a.(string)
+			})
+		})
+		for _, f := range assignmentOps {
+			if err := f(); err != nil {
+				return nil, err
+			}
+		}
+		return &memberAccessConfig{
+			memberAccessMode: mac,
+			k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{
+				kubeconfig:    kubeConfig,
+				namespace:     namespace,
+				labelSelector: labelSelector,
+			},
+			k8sInClusterMemberAccess: k8sInClusterMemberAccess{},
+		}, nil
+	case string(macK8sInCluster):
+		mac := macK8sInCluster
+		var labelSelector string
+		if err := propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+			labelSelector = a.(string)
+		}); err != nil {
+			return nil, err
+		}
+		return &memberAccessConfig{
+			memberAccessMode:            mac,
+			k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{},
+			k8sInClusterMemberAccess: k8sInClusterMemberAccess{
+				labelSelector: labelSelector,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown hazelcast member access mode: %s", accessMode)
+	}
 
 }
 
