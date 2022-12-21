@@ -136,7 +136,6 @@ func ValidateString(path string, a any) error {
 
 func ValidatePercentage(path string, a any) error {
 
-	// TODO Implement test for this
 	if f, ok := a.(float32); !ok {
 		return FailedParse{"float32", path}
 	} else if f < 0.0 || f > 1.0 {
