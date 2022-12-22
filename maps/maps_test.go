@@ -163,6 +163,8 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 			return err
 		}
 		assign(value)
+	} else {
+		return fmt.Errorf("test error: unable to find value in dummy config for given key path '%s'", keyPath)
 	}
 
 	return nil
