@@ -31,7 +31,6 @@ type (
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
 	}
-	memberAccessMode            string
 	k8sOutOfClusterMemberAccess struct {
 		kubeconfig, namespace, labelSelector string
 	}
@@ -39,7 +38,7 @@ type (
 		labelSelector string
 	}
 	memberAccessConfig struct {
-		memberAccessMode
+		memberAccessMode string
 		k8sOutOfClusterMemberAccess
 		k8sInClusterMemberAccess
 	}
@@ -51,7 +50,7 @@ type (
 	monkeyConfig struct {
 		enabled                 bool
 		stopWhenRunnersFinished bool
-		chaosProbability        float32
+		chaosProbability        float64
 		accessConfig            *memberAccessConfig
 		sleep                   *sleepConfig
 		memberGrace             *sleepConfig
@@ -59,8 +58,8 @@ type (
 )
 
 const (
-	macK8sOutOfCluster memberAccessMode = "k8sOutOfCluster"
-	macK8sInCluster    memberAccessMode = "k8sInCluster"
+	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
+	k8sInClusterAccessMode    = "k8sInCluster"
 )
 
 var (
@@ -104,7 +103,7 @@ func (m *memberKillerMonkey) causeChaos() {
 	for {
 		sleep(mc.sleep)
 
-		f := rand.Float32()
+		f := rand.Float64()
 		if f <= mc.chaosProbability {
 			member, err := m.chooser.choose()
 			if err != nil {
@@ -164,10 +163,10 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		})
 	})
 
-	var chaosProbability float32
+	var chaosProbability float64
 	assignmentOps = append(assignmentOps, func() error {
 		return propertyAssigner.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
-			chaosProbability = a.(float32)
+			chaosProbability = a.(float64)
 		})
 	})
 
@@ -226,7 +225,7 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		}
 	}
 
-	mac, err := b.populateMemberAccessConfig(hzMemberAccessMode)
+	ac, err := b.populateMemberAccessConfig(hzMemberAccessMode)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +234,7 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		enabled:                 enabled,
 		stopWhenRunnersFinished: stopWhenRunnersFinished,
 		chaosProbability:        chaosProbability,
-		accessConfig:            mac,
+		accessConfig:            ac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
@@ -255,12 +254,11 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 	var assignmentOps []func() error
 
 	switch accessMode {
-	case string(macK8sOutOfCluster):
-		mac := macK8sOutOfCluster
-		var kubeConfig string
+	case k8sOutOfClusterAccessMode:
+		var kubeconfig string
 		assignmentOps = append(assignmentOps, func() error {
-			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeConfig", client.ValidateString, func(a any) {
-				kubeConfig = a.(string)
+			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeconfig", client.ValidateString, func(a any) {
+				kubeconfig = a.(string)
 			})
 		})
 		var namespace string
@@ -281,16 +279,15 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 			}
 		}
 		return &memberAccessConfig{
-			memberAccessMode: mac,
+			memberAccessMode: accessMode,
 			k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{
-				kubeconfig:    kubeConfig,
+				kubeconfig:    kubeconfig,
 				namespace:     namespace,
 				labelSelector: labelSelector,
 			},
 			k8sInClusterMemberAccess: k8sInClusterMemberAccess{},
 		}, nil
-	case string(macK8sInCluster):
-		mac := macK8sInCluster
+	case k8sInClusterAccessMode:
 		var labelSelector string
 		if err := propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
 			labelSelector = a.(string)
@@ -298,7 +295,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 			return nil, err
 		}
 		return &memberAccessConfig{
-			memberAccessMode:            mac,
+			memberAccessMode:            accessMode,
 			k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{},
 			k8sInClusterMemberAccess: k8sInClusterMemberAccess{
 				labelSelector: labelSelector,
