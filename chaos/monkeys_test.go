@@ -2,6 +2,7 @@ package chaos
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -18,23 +19,7 @@ const (
 )
 
 var (
-	monkeyKeyPath = "memberKiller"
-	testConfig    = map[string]any{
-		monkeyKeyPath + ".enabled":                                    true,
-		monkeyKeyPath + ".stopWhenRunnersFinished":                    true,
-		monkeyKeyPath + ".chaosProbability":                           0.6,
-		monkeyKeyPath + ".memberAccess.mode":                          "k8sOutOfCluster",
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
-		monkeyKeyPath + ".memberAccess.k8sOufOfCluster.namespace":     "hazelcastplatform",
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": "app.kubernetes.io/name=hazelcastimdg",
-		monkeyKeyPath + ".memberAccess.k8sInCluster.labelSelector":    "app.kubernetes.io/name=hazelcastimdg",
-		monkeyKeyPath + ".sleep.enabled":                              true,
-		monkeyKeyPath + ".sleep.durationSeconds":                      600,
-		monkeyKeyPath + ".sleep.enableRandomness":                     false,
-		monkeyKeyPath + ".memberGrace.enabled":                        true,
-		monkeyKeyPath + ".memberGrace.durationSeconds":                30,
-		monkeyKeyPath + ".memberGrace.enableRandomness":               true,
-	}
+	monkeyKeyPath = "testChaosMonkey"
 )
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
@@ -48,6 +33,8 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 			return err
 		}
 		assign(value)
+	} else {
+		return fmt.Errorf("test error: unable to find value in dummy config for given key path '%s'", keyPath)
 	}
 
 	return nil
@@ -59,8 +46,9 @@ func TestPopulateConfig(t *testing.T) {
 	t.Log("given the need to test populating the chaos monkey config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: monkeyKeyPath}
-		t.Log("\twhen property assignment does not yield an error")
+		t.Log("\twhen k8s ouf-of-cluster config is given and no property assignment yields an error")
 		{
+			testConfig := assembleTestConfig(k8sOutOfClusterAccessMode)
 			propertyAssigner = testConfigPropertyAssigner{false, testConfig}
 			mc, err := b.populateConfig()
 
@@ -68,7 +56,7 @@ func TestPopulateConfig(t *testing.T) {
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, err)
 			}
 
 			msg = "\t\tconfig should be returned"
@@ -89,21 +77,51 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
+func assembleTestConfig(memberAccessMode string) map[string]any {
+
+	return map[string]any{
+		monkeyKeyPath + ".enabled":                                    true,
+		monkeyKeyPath + ".stopWhenRunnersFinished":                    true,
+		monkeyKeyPath + ".chaosProbability":                           0.6,
+		monkeyKeyPath + ".memberAccess.mode":                          memberAccessMode,
+		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
+		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
+		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": "app.kubernetes.io/name=hazelcastimdg",
+		monkeyKeyPath + ".memberAccess.k8sInCluster.labelSelector":    "app.kubernetes.io/name=hazelcastimdg",
+		monkeyKeyPath + ".sleep.enabled":                              true,
+		monkeyKeyPath + ".sleep.durationSeconds":                      600,
+		monkeyKeyPath + ".sleep.enableRandomness":                     false,
+		monkeyKeyPath + ".memberGrace.enabled":                        true,
+		monkeyKeyPath + ".memberGrace.durationSeconds":                30,
+		monkeyKeyPath + ".memberGrace.enableRandomness":               true,
+	}
+
+}
+
 func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
-	return mc.enabled == expected[monkeyKeyPath+".enabled"] &&
+	allButAccessModeAsExpected := mc.enabled == expected[monkeyKeyPath+".enabled"] &&
 		mc.stopWhenRunnersFinished == expected[monkeyKeyPath+".stopWhenRunnersFinished"] &&
 		mc.chaosProbability == expected[monkeyKeyPath+".chaosProbability"] &&
-		string(mc.accessConfig.memberAccessMode) == expected[monkeyKeyPath+".memberAccess.mode"] &&
-		mc.accessConfig.k8sOutOfClusterMemberAccess.kubeconfig == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
-		mc.accessConfig.k8sOutOfClusterMemberAccess.namespace == expected[monkeyKeyPath+".memberAccess.k8sOufOfCluster.namespace"] &&
-		mc.accessConfig.k8sOutOfClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"] &&
-		mc.accessConfig.k8sInClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"] &&
+		mc.accessConfig.memberAccessMode == expected[monkeyKeyPath+".memberAccess.mode"] &&
 		mc.sleep.enabled == expected[monkeyKeyPath+".sleep.enabled"] &&
 		mc.sleep.durationSeconds == expected[monkeyKeyPath+".sleep.durationSeconds"] &&
 		mc.sleep.enableRandomness == expected[monkeyKeyPath+".sleep.enableRandomness"] &&
 		mc.memberGrace.enabled == expected[monkeyKeyPath+".memberGrace.enabled"] &&
 		mc.memberGrace.durationSeconds == expected[monkeyKeyPath+".memberGrace.durationSeconds"] &&
 		mc.memberGrace.enableRandomness == expected[monkeyKeyPath+".memberGrace.enableRandomness"]
+
+	var accessModeAsExpected bool
+	if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sOutOfClusterAccessMode {
+		accessModeAsExpected = mc.accessConfig.k8sOutOfClusterMemberAccess.kubeconfig == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
+			mc.accessConfig.k8sOutOfClusterMemberAccess.namespace == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
+			mc.accessConfig.k8sOutOfClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
+	} else if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sInClusterAccessMode {
+		accessModeAsExpected = mc.accessConfig.k8sInClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
+	} else {
+		return false
+	}
+
+	return allButAccessModeAsExpected && accessModeAsExpected
 
 }
