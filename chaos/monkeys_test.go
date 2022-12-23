@@ -1,21 +1,24 @@
 package chaos
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
 type (
 	testConfigPropertyAssigner struct {
-		returnError bool
 		dummyConfig map[string]any
 	}
 )
 
 const (
-	checkMark = "\u2713"
-	ballotX   = "\u2717"
+	checkMark               = "\u2713"
+	ballotX                 = "\u2717"
+	validChaosProbability   = 0.6
+	invalidChaosProbability = -0.1
+	validLabelSelector      = "app.kubernetes.io/name=hazelcastimdg"
+	invalidLabelSelector    = ""
 )
 
 var (
@@ -23,10 +26,6 @@ var (
 )
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
-
-	if a.returnError {
-		return errors.New("something somewhere went terribly wrong")
-	}
 
 	if value, ok := a.dummyConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
@@ -46,10 +45,10 @@ func TestPopulateConfig(t *testing.T) {
 	t.Log("given the need to test populating the chaos monkey config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: monkeyKeyPath}
-		t.Log("\twhen k8s ouf-of-cluster config is given and no property assignment yields an error")
+		t.Log("\twhen k8s ouf-of-cluster access mode is given and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(k8sOutOfClusterAccessMode)
-			propertyAssigner = testConfigPropertyAssigner{false, testConfig}
+			testConfig := assembleTestConfig(validChaosProbability, k8sOutOfClusterAccessMode, validLabelSelector)
+			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
 			msg := "\t\tno errors should be returned"
@@ -73,21 +72,125 @@ func TestPopulateConfig(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+
+		t.Log("\twhen k8s in-cluster access mode is given and no property assignment yields an error")
+		{
+			testConfig := assembleTestConfig(validChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			propertyAssigner = testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig()
+
+			msg := "\t\tno errors should be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tconfig should be returned"
+			if mc != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tconfig should contain correct values"
+			if configValuesAsExpected(mc, testConfig) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen top-level property assignment yields an error")
+		{
+			testConfig := assembleTestConfig(invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			propertyAssigner = testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig()
+
+			msg := "\t\terror should be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tconfig should be nil"
+			if mc == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen k8s access mode property assignment yields an error")
+		{
+			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+				t.Logf("\t\t%s", accessMode)
+				{
+					testConfig := assembleTestConfig(validChaosProbability, accessMode, invalidLabelSelector)
+					propertyAssigner = testConfigPropertyAssigner{testConfig}
+					mc, err := b.populateConfig()
+
+					msg := "\t\t\terror should be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tconfig should be nil"
+					if mc == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+
+		t.Log("\twhen unknown k8s hazelcast member access mode is given")
+		{
+			unknownAccessMode := "someUnknownAccessMode"
+			testConfig := assembleTestConfig(validChaosProbability, unknownAccessMode, validLabelSelector)
+			propertyAssigner = testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig()
+
+			msg := "\t\terror should be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror should contain information on unknown access mode"
+			if strings.Contains(err.Error(), unknownAccessMode) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err, unknownAccessMode)
+			}
+
+			msg = "\t\tconfig should be nil"
+			if mc == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
 
 }
 
-func assembleTestConfig(memberAccessMode string) map[string]any {
+func assembleTestConfig(chaosProbability float64, memberAccessMode, labelSelector string) map[string]any {
 
 	return map[string]any{
 		monkeyKeyPath + ".enabled":                                    true,
 		monkeyKeyPath + ".stopWhenRunnersFinished":                    true,
-		monkeyKeyPath + ".chaosProbability":                           0.6,
+		monkeyKeyPath + ".chaosProbability":                           chaosProbability,
 		monkeyKeyPath + ".memberAccess.mode":                          memberAccessMode,
 		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
 		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": "app.kubernetes.io/name=hazelcastimdg",
-		monkeyKeyPath + ".memberAccess.k8sInCluster.labelSelector":    "app.kubernetes.io/name=hazelcastimdg",
+		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
+		monkeyKeyPath + ".memberAccess.k8sInCluster.labelSelector":    labelSelector,
 		monkeyKeyPath + ".sleep.enabled":                              true,
 		monkeyKeyPath + ".sleep.durationSeconds":                      600,
 		monkeyKeyPath + ".sleep.enableRandomness":                     false,
