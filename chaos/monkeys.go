@@ -15,10 +15,10 @@ type (
 		identifier string
 	}
 	hzMemberChooser interface {
-		choose() (hzMember, error)
+		choose(ac memberAccessConfig) (hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(member hzMember) error
+		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
 	}
 	monkey interface {
 		init(c hzMemberChooser, k hzMemberKiller)
@@ -105,13 +105,13 @@ func (m *memberKillerMonkey) causeChaos() {
 
 		f := rand.Float64()
 		if f <= mc.chaosProbability {
-			member, err := m.chooser.choose()
+			member, err := m.chooser.choose(*mc.accessConfig)
 			if err != nil {
 				lp.LogInternalStateEvent("unable to choose hazelcast member to kill -- will try again in next iteration", log.WarnLevel)
 				continue
 			}
 
-			err = m.killer.kill(member)
+			err = m.killer.kill(member, *mc.accessConfig, *mc.memberGrace)
 			if err != nil {
 				lp.LogInternalStateEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
 			}
