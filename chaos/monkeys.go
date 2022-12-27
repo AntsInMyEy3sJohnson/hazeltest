@@ -51,6 +51,7 @@ type (
 		enabled                 bool
 		stopWhenRunnersFinished bool
 		chaosProbability        float64
+		targetOnlyActive        bool
 		accessConfig            *memberAccessConfig
 		sleep                   *sleepConfig
 		memberGrace             *sleepConfig
@@ -170,6 +171,13 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		})
 	})
 
+	var targetOnlyActive bool
+	assignmentOps = append(assignmentOps, func() error {
+		return propertyAssigner.Assign(b.monkeyKeyPath+".targetOnlyActive", client.ValidateBool, func(a any) {
+			targetOnlyActive = a.(bool)
+		})
+	})
+
 	var hzMemberAccessMode string
 	assignmentOps = append(assignmentOps, func() error {
 		return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess.mode", client.ValidateString, func(a any) {
@@ -234,6 +242,7 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		enabled:                 enabled,
 		stopWhenRunnersFinished: stopWhenRunnersFinished,
 		chaosProbability:        chaosProbability,
+		targetOnlyActive:        targetOnlyActive,
 		accessConfig:            ac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
