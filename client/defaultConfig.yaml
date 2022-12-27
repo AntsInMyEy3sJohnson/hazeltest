@@ -5,7 +5,7 @@ chaosMonkeys:
     stopWhenRunnersFinished: true
     chaosProbability: 0.6
     memberAccess:
-      # Can take the value of one of the sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
+      # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sOutOfCluster
       targetOnlyActive: true
       k8sOutOfCluster:
