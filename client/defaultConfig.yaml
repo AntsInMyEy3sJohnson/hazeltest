@@ -4,10 +4,10 @@ chaosMonkeys:
     enabled: true
     stopWhenRunnersFinished: true
     chaosProbability: 0.6
-    targetOnlyActive: true
     memberAccess:
       # Can take the value of one of the sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sOutOfCluster
+      targetOnlyActive: true
       k8sOutOfCluster:
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.

@@ -186,8 +186,8 @@ func assembleTestConfig(chaosProbability float64, memberAccessMode, labelSelecto
 		monkeyKeyPath + ".enabled":                                    true,
 		monkeyKeyPath + ".stopWhenRunnersFinished":                    true,
 		monkeyKeyPath + ".chaosProbability":                           chaosProbability,
-		monkeyKeyPath + ".targetOnlyActive":                           true,
 		monkeyKeyPath + ".memberAccess.mode":                          memberAccessMode,
+		monkeyKeyPath + ".memberAccess.targetOnlyActive":              true,
 		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
 		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
 		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
@@ -207,8 +207,8 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 	allButAccessModeAsExpected := mc.enabled == expected[monkeyKeyPath+".enabled"] &&
 		mc.stopWhenRunnersFinished == expected[monkeyKeyPath+".stopWhenRunnersFinished"] &&
 		mc.chaosProbability == expected[monkeyKeyPath+".chaosProbability"] &&
-		mc.targetOnlyActive == expected[monkeyKeyPath+".targetOnlyActive"] &&
 		mc.accessConfig.memberAccessMode == expected[monkeyKeyPath+".memberAccess.mode"] &&
+		mc.accessConfig.targetOnlyActive == expected[monkeyKeyPath+".memberAccess.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[monkeyKeyPath+".sleep.enabled"] &&
 		mc.sleep.durationSeconds == expected[monkeyKeyPath+".sleep.durationSeconds"] &&
 		mc.sleep.enableRandomness == expected[monkeyKeyPath+".sleep.enableRandomness"] &&
