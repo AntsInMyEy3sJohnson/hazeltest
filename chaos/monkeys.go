@@ -108,7 +108,13 @@ func (m *memberKillerMonkey) causeChaos() {
 		if f <= mc.chaosProbability {
 			member, err := m.chooser.choose(*mc.accessConfig)
 			if err != nil {
-				lp.LogInternalStateEvent("unable to choose hazelcast member to kill -- will try again in next iteration", log.WarnLevel)
+				var msg string
+				if err == noMemberFoundError {
+					msg = "no hazelcast member available to be killed -- will try again in next iteration"
+				} else {
+					msg = "unable to choose hazelcast member to kill -- will try again in next iteration"
+				}
+				lp.LogInternalStateEvent(msg, log.WarnLevel)
 				continue
 			}
 

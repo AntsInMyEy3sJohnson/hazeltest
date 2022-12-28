@@ -2,7 +2,9 @@ package chaos
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -18,7 +20,8 @@ type (
 )
 
 var (
-	k8sConfig *rest.Config
+	k8sConfig          *rest.Config
+	noMemberFoundError = errors.New("unable to identify hazelcast member to be terminated")
 )
 
 func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
@@ -93,10 +96,51 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 
 	pods := podList.Items
 
-	randomIndex := rand.Intn(len(pods))
-	podToKill := pods[randomIndex]
+	if len(pods) == 0 {
+		return hzMember{}, noMemberFoundError
+	}
+
+	var podToKill v1.Pod
+	podFound := false
+
+	if ac.targetOnlyActive {
+		for i := 0; i < len(pods); i++ {
+			candidate := selectRandomPodFromList(pods)
+			if isPodReady(candidate) {
+				podToKill = candidate
+				podFound = true
+				break
+			}
+		}
+		if !podFound {
+			return hzMember{}, noMemberFoundError
+		}
+	} else {
+		podToKill = selectRandomPodFromList(pods)
+	}
 
 	return hzMember{podToKill.Name}, nil
+
+}
+
+func selectRandomPodFromList(pods []v1.Pod) v1.Pod {
+
+	randomIndex := rand.Intn(len(pods))
+	return pods[randomIndex]
+
+}
+
+func isPodReady(p v1.Pod) bool {
+
+	podConditions := p.Status.Conditions
+
+	for _, condition := range podConditions {
+		if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
 
 }
 
