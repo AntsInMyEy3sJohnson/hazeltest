@@ -13,8 +13,6 @@ type (
 )
 
 const (
-	checkMark               = "\u2713"
-	ballotX                 = "\u2717"
 	validChaosProbability   = 0.6
 	invalidChaosProbability = -0.1
 	validLabelSelector      = "app.kubernetes.io/name=hazelcastimdg"

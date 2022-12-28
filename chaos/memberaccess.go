@@ -15,12 +15,21 @@ import (
 )
 
 type (
-	k8sHzMemberChooser struct{}
-	k8sHzMemberKiller  struct{}
+	k8sConfigProvider interface {
+		getOrInit(ac memberAccessConfig) (*rest.Config, error)
+	}
+	defaultK8sConfigProvider struct {
+		config *rest.Config
+	}
+	k8sHzMemberChooser struct {
+		configProvider k8sConfigProvider
+	}
+	k8sHzMemberKiller struct {
+		configProvider k8sConfigProvider
+	}
 )
 
 var (
-	k8sConfig          *rest.Config
 	noMemberFoundError = errors.New("unable to identify hazelcast member to be terminated")
 )
 
@@ -37,42 +46,43 @@ func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
 
 }
 
-func initK8sConfig(ac memberAccessConfig) (*rest.Config, error) {
+func (i *defaultK8sConfigProvider) getOrInit(ac memberAccessConfig) (*rest.Config, error) {
 
-	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
-		var kubeconfig string
-		if ac.k8sOutOfClusterMemberAccess.kubeconfig == "default" {
-			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	if i.config == nil {
+		if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+			var kubeconfig string
+			if ac.k8sOutOfClusterMemberAccess.kubeconfig == "default" {
+				kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+			} else {
+				kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
+			}
+			config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+			if err != nil {
+				// TODO Add logging
+				return nil, err
+			}
+			i.config = config
+		} else if ac.memberAccessMode == k8sInClusterAccessMode {
+			config, err := rest.InClusterConfig()
+			if err != nil {
+				return nil, err
+			}
+			i.config = config
 		} else {
-			kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
+			// TODO Introduce dedicated error types?
+			return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 		}
-		config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-		if err != nil {
-			// TODO Add logging
-			return nil, err
-		}
-		return config, nil
-	} else if ac.memberAccessMode == k8sInClusterAccessMode {
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-		return config, nil
-	} else {
-		// TODO Introduce dedicated error types?
-		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 	}
+
+	return i.config, nil
 
 }
 
 func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, error) {
 
-	if k8sConfig == nil {
-		if config, err := initK8sConfig(ac); err != nil {
-			return hzMember{}, err
-		} else {
-			k8sConfig = config
-		}
+	k8sConfig, err := chooser.configProvider.getOrInit(ac)
+	if err != nil {
+		return hzMember{}, err
 	}
 
 	clientset, err := kubernetes.NewForConfig(k8sConfig)
@@ -146,12 +156,9 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
 
-	if k8sConfig == nil {
-		if config, err := initK8sConfig(ac); err != nil {
-			return err
-		} else {
-			k8sConfig = config
-		}
+	k8sConfig, err := killer.configProvider.getOrInit(ac)
+	if err != nil {
+		return err
 	}
 
 	clientset, err := kubernetes.NewForConfig(k8sConfig)
