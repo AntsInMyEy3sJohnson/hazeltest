@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"math/rand"
 	"path/filepath"
@@ -18,7 +19,7 @@ type (
 		buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error)
 		buildForInClusterAccess() (*rest.Config, error)
 	}
-	k8sClientSetInitializer interface {
+	k8sClientsetInitializer interface {
 		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
 	}
 	k8sPodLister interface {
@@ -27,18 +28,19 @@ type (
 	k8sPodDeleter interface {
 		delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error
 	}
-	defaultK8sClientSetInitializer struct {
+	defaultK8sConfigBuilder        struct{}
+	defaultK8sClientsetInitializer struct {
 		k8sConfigBuilder
 		cs *kubernetes.Clientset
 	}
 	defaultK8sPodLister  struct{}
 	defaultK8sPodDeleter struct{}
 	k8sHzMemberChooser   struct {
-		k8sClientSetInitializer
+		k8sClientsetInitializer
 		k8sPodLister
 	}
 	k8sHzMemberKiller struct {
-		k8sClientSetInitializer
+		k8sClientsetInitializer
 		k8sPodDeleter
 	}
 )
@@ -56,6 +58,27 @@ func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
 		return ac.k8sInClusterMemberAccess.labelSelector, nil
 	default:
 		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
+	}
+
+}
+
+func (builder *defaultK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error) {
+
+	if config, err := clientcmd.BuildConfigFromFlags(masterUrl, kubeconfigPath); err != nil {
+		// TODO Add logging
+		return nil, err
+	} else {
+		return config, nil
+	}
+
+}
+
+func (builder *defaultK8sConfigBuilder) buildForInClusterAccess() (*rest.Config, error) {
+
+	if config, err := rest.InClusterConfig(); err != nil {
+		return nil, err
+	} else {
+		return config, err
 	}
 
 }
@@ -80,7 +103,7 @@ func (deleter *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx contex
 
 }
 
-func (w *defaultK8sClientSetInitializer) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
+func (w *defaultK8sClientsetInitializer) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
 
 	if w.cs != nil {
 		return w.cs, nil
@@ -193,7 +216,7 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
 
-	clientset, err := killer.k8sClientSetInitializer.getOrInit(ac)
+	clientset, err := killer.k8sClientsetInitializer.getOrInit(ac)
 
 	namespace := ac.namespace
 	ctx := context.TODO()
