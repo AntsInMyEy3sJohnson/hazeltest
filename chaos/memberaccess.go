@@ -8,24 +8,38 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"math/rand"
 	"path/filepath"
 )
 
 type (
-	k8sConfigProvider interface {
-		getOrInit(ac memberAccessConfig) (*rest.Config, error)
+	k8sConfigBuilder interface {
+		buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error)
+		buildForInClusterAccess() (*rest.Config, error)
 	}
-	defaultK8sConfigProvider struct {
-		config *rest.Config
+	k8sClientSetInitializer interface {
+		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
 	}
-	k8sHzMemberChooser struct {
-		configProvider k8sConfigProvider
+	k8sPodLister interface {
+		list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
+	}
+	k8sPodDeleter interface {
+		delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error
+	}
+	defaultK8sClientSetInitializer struct {
+		k8sConfigBuilder
+		cs *kubernetes.Clientset
+	}
+	defaultK8sPodLister  struct{}
+	defaultK8sPodDeleter struct{}
+	k8sHzMemberChooser   struct {
+		k8sClientSetInitializer
+		k8sPodLister
 	}
 	k8sHzMemberKiller struct {
-		configProvider k8sConfigProvider
+		k8sClientSetInitializer
+		k8sPodDeleter
 	}
 )
 
@@ -46,46 +60,69 @@ func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
 
 }
 
-func (i *defaultK8sConfigProvider) getOrInit(ac memberAccessConfig) (*rest.Config, error) {
+func (lister *defaultK8sPodLister) list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 
-	if i.config == nil {
-		if ac.memberAccessMode == k8sOutOfClusterAccessMode {
-			var kubeconfig string
-			if ac.k8sOutOfClusterMemberAccess.kubeconfig == "default" {
-				kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
-			} else {
-				kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
-			}
-			config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-			if err != nil {
-				// TODO Add logging
-				return nil, err
-			}
-			i.config = config
-		} else if ac.memberAccessMode == k8sInClusterAccessMode {
-			config, err := rest.InClusterConfig()
-			if err != nil {
-				return nil, err
-			}
-			i.config = config
-		} else {
-			// TODO Introduce dedicated error types?
-			return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
-		}
+	if podList, err := cs.CoreV1().Pods(namespace).List(ctx, listOptions); err != nil {
+		return nil, err
+	} else {
+		return podList, nil
 	}
 
-	return i.config, nil
+}
+
+func (deleter *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error {
+
+	if err := cs.CoreV1().Pods(namespace).Delete(ctx, name, deleteOptions); err != nil {
+		return err
+	} else {
+		return nil
+	}
+
+}
+
+func (w *defaultK8sClientSetInitializer) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
+
+	if w.cs != nil {
+		return w.cs, nil
+	}
+
+	var config *rest.Config
+	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+		var kubeconfig string
+		if ac.k8sOutOfClusterMemberAccess.kubeconfig == "default" {
+			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+		} else {
+			kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
+		}
+		if c, err := w.buildForOutOfClusterAccess("", kubeconfig); err != nil {
+			return nil, err
+		} else {
+			config = c
+		}
+	} else if ac.memberAccessMode == k8sInClusterAccessMode {
+		if c, err := w.buildForInClusterAccess(); err != nil {
+			return nil, err
+		} else {
+			config = c
+		}
+	} else {
+		// TODO Introduce dedicated error types?
+		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
+	}
+
+	if cs, err := kubernetes.NewForConfig(config); err != nil {
+		return nil, err
+	} else {
+		w.cs = cs
+	}
+
+	return w.cs, nil
 
 }
 
 func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, error) {
 
-	k8sConfig, err := chooser.configProvider.getOrInit(ac)
-	if err != nil {
-		return hzMember{}, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	clientset, err := chooser.getOrInit(ac)
 	if err != nil {
 		return hzMember{}, err
 	}
@@ -99,7 +136,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 	}
 
 	ctx := context.TODO()
-	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	podList, err := chooser.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return hzMember{}, err
 	}
@@ -156,21 +193,10 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
 
-	k8sConfig, err := killer.configProvider.getOrInit(ac)
-	if err != nil {
-		return err
-	}
-
-	clientset, err := kubernetes.NewForConfig(k8sConfig)
+	clientset, err := killer.k8sClientSetInitializer.getOrInit(ac)
 
 	namespace := ac.namespace
-	podInterface := clientset.CoreV1().Pods(namespace)
-
 	ctx := context.TODO()
-	podToKill, err := podInterface.Get(ctx, m.identifier, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
 
 	var gracePeriod int
 	if memberGrace.enabled {
@@ -184,7 +210,7 @@ func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberG
 	}
 
 	g := int64(gracePeriod)
-	err = podInterface.Delete(ctx, podToKill.Name, metav1.DeleteOptions{GracePeriodSeconds: &g})
+	err = killer.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
 
 	if err != nil {
 		return err
