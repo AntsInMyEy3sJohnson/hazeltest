@@ -14,13 +14,14 @@ type (
 	testK8sClientsetInitializer struct {
 		k8sConfigBuilder
 	}
-	testK8sPodLister struct{}
+	testK8sPodLister struct {
+		podsToReturn []v1.Pod
+	}
 )
 
 var (
 	testBuilder              = &testK8sConfigBuilder{}
 	testClientsetInitializer = &testK8sClientsetInitializer{testBuilder}
-	testPodLister            = &testK8sPodLister{}
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(_, _ string) (*rest.Config, error) {
@@ -43,7 +44,25 @@ func (t *testK8sClientsetInitializer) getOrInit(_ memberAccessConfig) (*kubernet
 
 func (l *testK8sPodLister) list(_ *kubernetes.Clientset, _ context.Context, _ string, _ metav1.ListOptions) (*v1.PodList, error) {
 
-	return &v1.PodList{}, nil
+	return &v1.PodList{Items: l.podsToReturn}, nil
+
+}
+
+func assembleReadyPod(name string) v1.Pod {
+
+	return v1.Pod{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       v1.PodSpec{},
+		Status: v1.PodStatus{
+			Conditions: []v1.PodCondition{
+				{
+					Type:   v1.PodReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+		},
+	}
 
 }
 
@@ -53,7 +72,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 	{
 		t.Log("\twhen member to be killed can be identified")
 		{
-			memberChooser := k8sHzMemberChooser{testClientsetInitializer, testPodLister}
+			pods := []v1.Pod{assembleReadyPod("hazelcastimdg-0"), assembleReadyPod("hazelcastimdg-1"), assembleReadyPod("hazelcastimdg-2")}
+			memberChooser := k8sHzMemberChooser{testClientsetInitializer, &testK8sPodLister{pods}}
 			_, err := memberChooser.choose(assembleDummyAccessConfig())
 
 			msg := "\t\tno error must be returned"
