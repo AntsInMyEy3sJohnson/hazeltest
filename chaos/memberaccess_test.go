@@ -102,7 +102,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsInitializer, podLister}
-			member, err := memberChooser.choose(assembleDummyAccessConfig())
+			member, err := memberChooser.choose(assembleDummyAccessConfig(true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == clientsetInitError {
@@ -127,7 +127,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen label selector cannot be determined")
 		{
-			ac := assembleDummyAccessConfig()
+			ac := assembleDummyAccessConfig(true)
 			ac.memberAccessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csInitializer, podLister}
@@ -158,7 +158,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
 			memberChooser := k8sHzMemberChooser{csInitializer, podLister}
-			member, err := memberChooser.choose(assembleDummyAccessConfig())
+			member, err := memberChooser.choose(assembleDummyAccessConfig(true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == podListError {
@@ -185,7 +185,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			memberChooser := k8sHzMemberChooser{csInitializer,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig())
+			member, err := memberChooser.choose(assembleDummyAccessConfig(true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == noMemberFoundError {
@@ -207,7 +207,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csInitializer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig())
+			member, err := memberChooser.choose(assembleDummyAccessConfig(true))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -229,7 +229,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csInitializer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig())
+			member, err := memberChooser.choose(assembleDummyAccessConfig(true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == noMemberFoundError {
@@ -245,15 +245,37 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+		t.Log("\twhen pods are present and target only active is not activated")
+		{
+			pod := assemblePod("hazelcastimdg-0", false)
+			pods := []v1.Pod{pod}
+			memberChooser := k8sHzMemberChooser{csInitializer,
+				&testK8sPodLister{pods, false, 0}}
+			member, err := memberChooser.choose(assembleDummyAccessConfig(false))
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tname of chosen member must correspond to name of given pod"
+			if member.identifier == pod.Name {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
 
 }
 
-func assembleDummyAccessConfig() memberAccessConfig {
+func assembleDummyAccessConfig(targetOnlyActive bool) memberAccessConfig {
 
 	return memberAccessConfig{
 		memberAccessMode: k8sOutOfClusterAccessMode,
-		targetOnlyActive: true,
+		targetOnlyActive: targetOnlyActive,
 		k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{
 			kubeconfig:    "default",
 			namespace:     "hazelcastplatform",
