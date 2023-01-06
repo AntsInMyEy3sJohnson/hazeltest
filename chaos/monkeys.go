@@ -335,19 +335,19 @@ func RunMonkeys() {
 			m := monkeys[i]
 			// The only mode for accessing hazelcast members is currently through kubernetes, and as long as that's the
 			// case, we can safely hard-code the member chooser and member killer
-			configBuilder := defaultK8sConfigBuilder{}
+			// Member chooser and member killer share the same Kubernetes clientset
+			clientsetProvider := &defaultK8sClientsetProvider{
+				k8sConfigBuilder:        &defaultK8sConfigBuilder{},
+				k8sClientsetInitializer: &defaultK8sClientsetInitializer{},
+			}
 			m.init(
 				&k8sHzMemberChooser{
-					k8sClientsetInitializer: &defaultK8sClientsetInitializer{
-						k8sConfigBuilder: &configBuilder,
-					},
-					k8sPodLister: &defaultK8sPodLister{},
+					k8sClientsetProvider: clientsetProvider,
+					k8sPodLister:         &defaultK8sPodLister{},
 				},
 				&k8sHzMemberKiller{
-					k8sClientsetInitializer: &defaultK8sClientsetInitializer{
-						k8sConfigBuilder: &configBuilder,
-					},
-					k8sPodDeleter: &defaultK8sPodDeleter{},
+					k8sClientsetProvider: clientsetProvider,
+					k8sPodDeleter:        &defaultK8sPodDeleter{},
 				},
 			)
 			m.causeChaos()
