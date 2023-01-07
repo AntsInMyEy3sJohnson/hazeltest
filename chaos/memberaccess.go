@@ -105,10 +105,10 @@ func (deleter *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx contex
 
 }
 
-func (w *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
+func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
 
-	if w.cs != nil {
-		return w.cs, nil
+	if p.cs != nil {
+		return p.cs, nil
 	}
 
 	var config *rest.Config
@@ -119,13 +119,13 @@ func (w *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		} else {
 			kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
 		}
-		if c, err := w.buildForOutOfClusterAccess("", kubeconfig); err != nil {
+		if c, err := p.buildForOutOfClusterAccess("", kubeconfig); err != nil {
 			return nil, err
 		} else {
 			config = c
 		}
 	} else if ac.memberAccessMode == k8sInClusterAccessMode {
-		if c, err := w.buildForInClusterAccess(); err != nil {
+		if c, err := p.buildForInClusterAccess(); err != nil {
 			return nil, err
 		} else {
 			config = c
@@ -135,13 +135,13 @@ func (w *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 	}
 
-	if cs, err := w.init(config); err != nil {
+	if cs, err := p.init(config); err != nil {
 		return nil, err
 	} else {
-		w.cs = cs
+		p.cs = cs
 	}
 
-	return w.cs, nil
+	return p.cs, nil
 
 }
 
