@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"math"
 	"strings"
 	"testing"
 )
@@ -33,12 +34,18 @@ type (
 		returnError    bool
 		numInvocations int
 	}
+	testK8sPodDeleter struct {
+		returnError        bool
+		numInvocations     int
+		gracePeriodSeconds int64
+	}
 )
 
 var (
 	clientsetInitError = errors.New("lo and behold, the error everyone told you was never going to happen")
-	podListError       = errors.New("another impossible error")
-	configBuildError   = errors.New("another one")
+	configBuildError   = errors.New("another impossible error")
+	podListError       = errors.New("another one")
+	podDeleteError     = errors.New("and yet another one")
 )
 
 var (
@@ -110,6 +117,19 @@ func (l *testK8sPodLister) list(_ *kubernetes.Clientset, _ context.Context, _ st
 	}
 
 	return &v1.PodList{Items: l.podsToReturn}, nil
+
+}
+
+func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _, _ string, deleteOptions metav1.DeleteOptions) error {
+
+	d.numInvocations++
+	d.gracePeriodSeconds = *deleteOptions.GracePeriodSeconds
+
+	if d.returnError {
+		return podDeleteError
+	}
+
+	return nil
 
 }
 
@@ -501,7 +521,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			memberChooser := k8sHzMemberChooser{csProvider,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == noMemberFoundError {
@@ -587,6 +607,156 @@ func TestChooseMemberOnK8s(t *testing.T) {
 
 }
 
+func TestKillMemberOnK8s(t *testing.T) {
+
+	t.Log("given the need to test killing a hazelcast member on kubernetes")
+	{
+		t.Log("\twhen clientset initialization yields an error")
+		{
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{
+				k8sClientsetProvider: errCsProvider,
+				k8sPodDeleter:        deleter,
+			}
+
+			err := killer.kill(
+				hzMember{"hazelcastimdg-0"},
+				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleMemberGraceSleepConfig(true, true, 42),
+			)
+
+			msg := "\t\terror must be returned"
+			if err != nil && err == clientsetInitError {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have no invocations"
+			if deleter.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen member grace is enabled with randomness")
+		{
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{
+				k8sClientsetProvider: csProvider,
+				k8sPodDeleter:        deleter,
+			}
+
+			memberGraceSeconds := math.MaxInt - 1
+			err := killer.kill(
+				hzMember{"hazelcastimdg-0"},
+				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
+			)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have one invocation"
+			if deleter.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeletion must be invoked with non-zero random member grace seconds"
+			if deleter.gracePeriodSeconds > 0 && deleter.gracePeriodSeconds != int64(memberGraceSeconds) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen member grace is enabled without randomness")
+		{
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{
+				k8sClientsetProvider: csProvider,
+				k8sPodDeleter:        deleter,
+			}
+
+			memberGraceSeconds := 42
+			err := killer.kill(
+				hzMember{"hazelcastimdg-0"},
+				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
+			)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeletion must be invoked with number equal to pre-configured number"
+			if deleter.gracePeriodSeconds == int64(memberGraceSeconds) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen member grace is disabled")
+		{
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{
+				k8sClientsetProvider: csProvider,
+				k8sPodDeleter:        deleter,
+			}
+
+			err := killer.kill(
+				hzMember{"hazelcastimdg-0"},
+				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleMemberGraceSleepConfig(false, false, 42),
+			)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeletion must be invoked with member grace zero"
+			if deleter.gracePeriodSeconds == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen pod deletion yields an error")
+		{
+			deleter := &testK8sPodDeleter{returnError: true}
+			killer := &k8sHzMemberKiller{
+				k8sClientsetProvider: csProvider,
+				k8sPodDeleter:        deleter,
+			}
+
+			err := killer.kill(
+				hzMember{"hazelcastimdg-0"},
+				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleMemberGraceSleepConfig(false, false, 42),
+			)
+
+			msg := "\t\terror must be returned"
+			if err != nil && err == podDeleteError {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func assemblePod(name string, ready bool) v1.Pod {
 
 	var readyCondition v1.ConditionStatus
@@ -608,6 +778,16 @@ func assemblePod(name string, ready bool) v1.Pod {
 				},
 			},
 		},
+	}
+
+}
+
+func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeconds int) sleepConfig {
+
+	return sleepConfig{
+		enabled:          enabled,
+		durationSeconds:  durationSeconds,
+		enableRandomness: enableRandomness,
 	}
 
 }
