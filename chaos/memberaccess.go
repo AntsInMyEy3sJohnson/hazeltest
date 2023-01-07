@@ -218,7 +218,10 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
 
-	clientset, err := killer.k8sClientsetProvider.getOrInit(ac)
+	clientset, err := killer.getOrInit(ac)
+	if err != nil {
+		return err
+	}
 
 	namespace := ac.namespace
 	ctx := context.TODO()
