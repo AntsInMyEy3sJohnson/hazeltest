@@ -19,8 +19,11 @@ type (
 		masterUrl                   string
 		kubeconfig                  string
 	}
-	testK8sClientsetInitializer struct{}
-	testK8sClientsetProvider    struct {
+	testK8sClientsetInitializer struct {
+		returnError bool
+		numInits    int
+	}
+	testK8sClientsetProvider struct {
 		k8sConfigBuilder
 		k8sClientsetInitializer
 		returnError bool
@@ -78,13 +81,19 @@ func (b *testK8sConfigBuilder) buildForInClusterAccess() (*rest.Config, error) {
 
 func (i *testK8sClientsetInitializer) init(_ *rest.Config) (*kubernetes.Clientset, error) {
 
+	i.numInits++
+
+	if i.returnError {
+		return nil, clientsetInitError
+	}
+
 	return emptyClientset, nil
 
 }
 
-func (t *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.Clientset, error) {
+func (p *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.Clientset, error) {
 
-	if t.returnError {
+	if p.returnError {
 		return nil, clientsetInitError
 	}
 
@@ -110,7 +119,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 	{
 		t.Log("\twhen k8s out-of-cluster access mode is given")
 		{
-			t.Log("\t\twhen kubeconfig is set to default")
+			t.Log("\t\twhen config builder does not yield an error and default kubeconfig is given")
 			{
 				builder := &testK8sConfigBuilder{}
 				initializer := &testK8sClientsetInitializer{}
@@ -135,6 +144,13 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
+				msg = "\t\t\tclientset state must be set"
+				if provider.cs != nil && provider.cs == cs {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 				msg = "\t\t\tmaster url and kubeconfig must have been passed correctly"
 				if builder.masterUrl == "" && strings.Contains(builder.kubeconfig, ".kube/config") {
 					t.Log(msg, checkMark)
@@ -142,7 +158,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\t\tconfig build for out-of-cluster access must have expected number of invocations"
+				msg = "\t\t\tconfig build for out-of-cluster access must have one invocation"
 				if builder.numBuildsOutOfClusterAccess == 1 {
 					t.Log(msg, checkMark)
 				} else {
@@ -155,8 +171,15 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX)
 				}
+
+				msg = "\t\t\tinitializer must have one invocation"
+				if initializer.numInits == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
-			t.Log("\t\twhen non-default kubeconfig is given")
+			t.Log("\t\twhen config builder does not yield an error and non-default kubeconfig is given")
 			{
 				builder := &testK8sConfigBuilder{}
 				initializer := &testK8sClientsetInitializer{}
@@ -199,6 +222,188 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
+				msg = "\t\t\tclientset state must be nil"
+				if provider.cs == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen k8s in-cluster mode is given")
+		{
+			t.Log("\t\twhen config builder does not yield an error")
+			{
+				builder := &testK8sConfigBuilder{returnError: false}
+				initializer := &testK8sClientsetInitializer{}
+				provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+
+				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tclientset must be returned"
+				if cs != nil && cs == emptyClientset {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tclientset state must be set"
+				if provider.cs != nil && provider.cs == cs {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tconfig build for in-cluster access must have one invocation"
+				if builder.numBuildsInClusterAccess == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tconfig build for out-of-cluster access must have no invocations"
+				if builder.numBuildsOutOfClusterAccess == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen config builder yields an error")
+			{
+				builder := &testK8sConfigBuilder{returnError: true}
+				initializer := &testK8sClientsetInitializer{}
+				provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+
+				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
+
+				msg := "\t\t\terror must be returned"
+				if err != nil && err == configBuildError {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tclientset must be nil"
+				if cs == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tclientset state must be nil"
+				if provider.cs == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen unknown k8s access mode is given")
+		{
+			provider := &defaultK8sClientsetProvider{}
+
+			unknownAccessMode := "someUnknownMemberAccessMode"
+			cs, err := provider.getOrInit(assembleDummyAccessConfig(unknownAccessMode, "default", true))
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror must contain access mode in question"
+			if strings.Contains(err.Error(), unknownAccessMode) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclientset must be nil"
+			if cs == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclientset state must be nil"
+			if provider.cs == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen clientset has already been set")
+		{
+			builder := &testK8sConfigBuilder{}
+			initializer := &testK8sClientsetInitializer{}
+			provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+			provider.cs = emptyClientset
+
+			cs, err := provider.getOrInit(assembleDummyAccessConfig("something", "default", true))
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclientset state must be returned"
+			if cs != nil && cs == emptyClientset {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tconfig builder must have no invocations"
+			if builder.numBuildsOutOfClusterAccess == 0 && builder.numBuildsInClusterAccess == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tinitializer must have no invocation"
+			if initializer.numInits == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+		t.Log("\twhen clientset initialization yields an error")
+		{
+			initializer := &testK8sClientsetInitializer{returnError: true}
+			provider := &defaultK8sClientsetProvider{k8sConfigBuilder: &testK8sConfigBuilder{}, k8sClientsetInitializer: initializer}
+
+			cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "", true))
+
+			msg := "\t\terror must be returned"
+			if err != nil && err == clientsetInitError {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclientset must be nil"
+			if cs == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclientset state must be nil"
+			if provider.cs == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -213,7 +418,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsProvider, podLister}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == clientsetInitError {
