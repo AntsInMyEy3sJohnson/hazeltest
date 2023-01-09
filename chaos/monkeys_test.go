@@ -216,11 +216,11 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
 	var accessModeAsExpected bool
 	if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sOutOfClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sOutOfClusterMemberAccess.kubeconfig == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
-			mc.accessConfig.k8sOutOfClusterMemberAccess.namespace == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
-			mc.accessConfig.k8sOutOfClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
+		accessModeAsExpected = mc.accessConfig.k8sOutOfCluster.kubeconfig == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
+			mc.accessConfig.k8sOutOfCluster.namespace == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
+			mc.accessConfig.k8sOutOfCluster.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
 	} else if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sInClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sInClusterMemberAccess.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
+		accessModeAsExpected = mc.accessConfig.k8sInCluster.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
 	} else {
 		return false
 	}
