@@ -34,9 +34,9 @@ type (
 	defaultK8sConfigBuilder        struct{}
 	defaultK8sClientsetInitializer struct{}
 	defaultK8sClientsetProvider    struct {
-		k8sConfigBuilder
-		k8sClientsetInitializer
-		cs *kubernetes.Clientset
+		configBuilder        k8sConfigBuilder
+		clientsetInitializer k8sClientsetInitializer
+		cs                   *kubernetes.Clientset
 	}
 	defaultK8sPodLister  struct{}
 	defaultK8sPodDeleter struct{}
@@ -119,13 +119,13 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		} else {
 			kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
 		}
-		if c, err := p.buildForOutOfClusterAccess("", kubeconfig); err != nil {
+		if c, err := p.configBuilder.buildForOutOfClusterAccess("", kubeconfig); err != nil {
 			return nil, err
 		} else {
 			config = c
 		}
 	} else if ac.memberAccessMode == k8sInClusterAccessMode {
-		if c, err := p.buildForInClusterAccess(); err != nil {
+		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
 			return nil, err
 		} else {
 			config = c
@@ -135,7 +135,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 	}
 
-	if cs, err := p.init(config); err != nil {
+	if cs, err := p.clientsetInitializer.init(config); err != nil {
 		return nil, err
 	} else {
 		p.cs = cs

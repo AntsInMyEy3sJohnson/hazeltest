@@ -144,8 +144,8 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				builder := &testK8sConfigBuilder{}
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{
-					k8sConfigBuilder:        builder,
-					k8sClientsetInitializer: initializer,
+					configBuilder:        builder,
+					clientsetInitializer: initializer,
 				}
 
 				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
@@ -204,8 +204,8 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				builder := &testK8sConfigBuilder{}
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{
-					k8sConfigBuilder:        builder,
-					k8sClientsetInitializer: initializer,
+					configBuilder:        builder,
+					clientsetInitializer: initializer,
 				}
 
 				_, _ = provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig, true))
@@ -222,8 +222,8 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				builder := &testK8sConfigBuilder{returnError: true}
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{
-					k8sConfigBuilder:        builder,
-					k8sClientsetInitializer: initializer,
+					configBuilder:        builder,
+					clientsetInitializer: initializer,
 				}
 
 				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
@@ -256,7 +256,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			{
 				builder := &testK8sConfigBuilder{returnError: false}
 				initializer := &testK8sClientsetInitializer{}
-				provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
 				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
 
@@ -299,7 +299,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			{
 				builder := &testK8sConfigBuilder{returnError: true}
 				initializer := &testK8sClientsetInitializer{}
-				provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
 				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
 
@@ -364,7 +364,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 		{
 			builder := &testK8sConfigBuilder{}
 			initializer := &testK8sClientsetInitializer{}
-			provider := &defaultK8sClientsetProvider{k8sConfigBuilder: builder, k8sClientsetInitializer: initializer}
+			provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 			provider.cs = emptyClientset
 
 			cs, err := provider.getOrInit(assembleDummyAccessConfig("something", "default", true))
@@ -401,7 +401,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 		t.Log("\twhen clientset initialization yields an error")
 		{
 			initializer := &testK8sClientsetInitializer{returnError: true}
-			provider := &defaultK8sClientsetProvider{k8sConfigBuilder: &testK8sConfigBuilder{}, k8sClientsetInitializer: initializer}
+			provider := &defaultK8sClientsetProvider{configBuilder: &testK8sConfigBuilder{}, clientsetInitializer: initializer}
 
 			cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "", true))
 
