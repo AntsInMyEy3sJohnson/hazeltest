@@ -340,14 +340,17 @@ func RunMonkeys() {
 				configBuilder:        &defaultK8sConfigBuilder{},
 				clientsetInitializer: &defaultK8sClientsetInitializer{},
 			}
+			namespaceDiscoverer := &defaultK8sNamespaceDiscoverer{}
 			m.init(
 				&k8sHzMemberChooser{
-					k8sClientsetProvider: clientsetProvider,
-					k8sPodLister:         &defaultK8sPodLister{},
+					clientsetProvider:   clientsetProvider,
+					namespaceDiscoverer: namespaceDiscoverer,
+					podLister:           &defaultK8sPodLister{},
 				},
 				&k8sHzMemberKiller{
-					k8sClientsetProvider: clientsetProvider,
-					k8sPodDeleter:        &defaultK8sPodDeleter{},
+					clientsetProvider:   clientsetProvider,
+					namespaceDiscoverer: namespaceDiscoverer,
+					podDeleter:          &defaultK8sPodDeleter{},
 				},
 			)
 			m.causeChaos()
