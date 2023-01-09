@@ -40,8 +40,8 @@ type (
 	memberAccessConfig struct {
 		memberAccessMode string
 		targetOnlyActive bool
-		k8sOutOfClusterMemberAccess
-		k8sInClusterMemberAccess
+		k8sOutOfCluster  k8sOutOfClusterMemberAccess
+		k8sInCluster     k8sInClusterMemberAccess
 	}
 	sleepConfig struct {
 		enabled          bool
@@ -294,7 +294,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 				return nil, err
 			}
 		}
-		ac.k8sOutOfClusterMemberAccess = k8sOutOfClusterMemberAccess{
+		ac.k8sOutOfCluster = k8sOutOfClusterMemberAccess{
 			kubeconfig:    kubeconfig,
 			namespace:     namespace,
 			labelSelector: labelSelector,
@@ -311,7 +311,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 				return nil, err
 			}
 		}
-		ac.k8sInClusterMemberAccess = k8sInClusterMemberAccess{
+		ac.k8sInCluster = k8sInClusterMemberAccess{
 			labelSelector: labelSelector,
 		}
 	default:
@@ -337,8 +337,8 @@ func RunMonkeys() {
 			// case, we can safely hard-code the member chooser and member killer
 			// Member chooser and member killer share the same Kubernetes clientset
 			clientsetProvider := &defaultK8sClientsetProvider{
-				k8sConfigBuilder:        &defaultK8sConfigBuilder{},
-				k8sClientsetInitializer: &defaultK8sClientsetInitializer{},
+				configBuilder:        &defaultK8sConfigBuilder{},
+				clientsetInitializer: &defaultK8sClientsetInitializer{},
 			}
 			m.init(
 				&k8sHzMemberChooser{
