@@ -29,6 +29,9 @@ type (
 		k8sClientsetInitializer
 		returnError bool
 	}
+	testK8sNamespaceDiscoverer struct {
+		returnError bool
+	}
 	testK8sPodLister struct {
 		podsToReturn   []v1.Pod
 		returnError    bool
@@ -42,21 +45,24 @@ type (
 )
 
 var (
-	clientsetInitError = errors.New("lo and behold, the error everyone told you was never going to happen")
-	configBuildError   = errors.New("another impossible error")
-	podListError       = errors.New("another one")
-	podDeleteError     = errors.New("and yet another one")
+	clientsetInitError            = errors.New("lo and behold, the error everyone told you was never going to happen")
+	configBuildError              = errors.New("another impossible error")
+	podListError                  = errors.New("another one")
+	podDeleteError                = errors.New("and yet another one")
+	namespaceNotDiscoverableError = errors.New("and here goes your sanity")
 )
 
 var (
-	testBuilder              = &testK8sConfigBuilder{}
-	testClientsetInitializer = &testK8sClientsetInitializer{}
-	csProvider               = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
-	errCsProvider            = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
-	emptyMember              = hzMember{}
-	emptyClientset           = &kubernetes.Clientset{}
-	defaultKubeconfig        = "default"
-	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
+	testBuilder                  = &testK8sConfigBuilder{}
+	testClientsetInitializer     = &testK8sClientsetInitializer{}
+	testNamespaceDiscoverer      = &testK8sNamespaceDiscoverer{}
+	csProvider                   = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
+	errCsProvider                = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
+	emptyMember                  = hzMember{}
+	emptyClientset               = &kubernetes.Clientset{}
+	defaultKubeconfig            = "default"
+	nonDefaultKubeconfig         = "/some/path/to/a/custom/kubeconfig"
+	inClusterAccessModeNamespace = "hazelcastplatform"
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -105,6 +111,20 @@ func (p *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.
 	}
 
 	return &kubernetes.Clientset{}, nil
+
+}
+
+func (d *testK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, error) {
+
+	if d.returnError {
+		return "", namespaceNotDiscoverableError
+	}
+
+	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+		return ac.k8sOutOfCluster.namespace, nil
+	}
+
+	return inClusterAccessModeNamespace, nil
 
 }
 
@@ -437,7 +457,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen clientset cannot be initialized")
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
-			memberChooser := k8sHzMemberChooser{errCsProvider, podLister}
+			memberChooser := k8sHzMemberChooser{errCsProvider, testNamespaceDiscoverer, podLister}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
@@ -466,7 +486,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			ac := assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true)
 			ac.memberAccessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
-			memberChooser := k8sHzMemberChooser{csProvider, podLister}
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
 			member, err := memberChooser.choose(ac)
 
 			msg := "\t\terror must be returned"
@@ -493,7 +513,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen pod lister returns error")
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
-			memberChooser := k8sHzMemberChooser{csProvider, podLister}
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
@@ -519,7 +539,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen no pods are present")
 		{
-			memberChooser := k8sHzMemberChooser{csProvider,
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
@@ -541,7 +561,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			pod := assemblePod("hazelcastimdg-0", true)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider,
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
 
@@ -563,7 +583,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			pod := assemblePod("hazelcastimdg-0", false)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider,
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
 
@@ -585,7 +605,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			pod := assemblePod("hazelcastimdg-0", false)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider,
+			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, false))
 
@@ -615,8 +635,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 		{
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
-				k8sClientsetProvider: errCsProvider,
-				k8sPodDeleter:        deleter,
+				clientsetProvider:   errCsProvider,
+				namespaceDiscoverer: testNamespaceDiscoverer,
+				podDeleter:          deleter,
 			}
 
 			err := killer.kill(
@@ -643,8 +664,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 		{
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
-				k8sClientsetProvider: csProvider,
-				k8sPodDeleter:        deleter,
+				clientsetProvider:   csProvider,
+				namespaceDiscoverer: testNamespaceDiscoverer,
+				podDeleter:          deleter,
 			}
 
 			memberGraceSeconds := math.MaxInt - 1
@@ -679,8 +701,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 		{
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
-				k8sClientsetProvider: csProvider,
-				k8sPodDeleter:        deleter,
+				clientsetProvider:   csProvider,
+				namespaceDiscoverer: testNamespaceDiscoverer,
+				podDeleter:          deleter,
 			}
 
 			memberGraceSeconds := 42
@@ -708,8 +731,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 		{
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
-				k8sClientsetProvider: csProvider,
-				k8sPodDeleter:        deleter,
+				clientsetProvider:   csProvider,
+				namespaceDiscoverer: testNamespaceDiscoverer,
+				podDeleter:          deleter,
 			}
 
 			err := killer.kill(
@@ -736,8 +760,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 		{
 			deleter := &testK8sPodDeleter{returnError: true}
 			killer := &k8sHzMemberKiller{
-				k8sClientsetProvider: csProvider,
-				k8sPodDeleter:        deleter,
+				clientsetProvider:   csProvider,
+				namespaceDiscoverer: testNamespaceDiscoverer,
+				podDeleter:          deleter,
 			}
 
 			err := killer.kill(
@@ -797,12 +822,12 @@ func assembleDummyAccessConfig(memberAccessMode, kubeconfig string, targetOnlyAc
 	return memberAccessConfig{
 		memberAccessMode: memberAccessMode,
 		targetOnlyActive: targetOnlyActive,
-		k8sOutOfClusterMemberAccess: k8sOutOfClusterMemberAccess{
+		k8sOutOfCluster: k8sOutOfClusterMemberAccess{
 			kubeconfig:    kubeconfig,
 			namespace:     "hazelcastplatform",
 			labelSelector: "app.kubernetes.io/name=hazelcastimdg",
 		},
-		k8sInClusterMemberAccess: k8sInClusterMemberAccess{},
+		k8sInCluster: k8sInClusterMemberAccess{},
 	}
 
 }
