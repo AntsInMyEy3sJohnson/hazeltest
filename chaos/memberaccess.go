@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -11,7 +12,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"math/rand"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
 type (
@@ -24,6 +27,9 @@ type (
 	}
 	k8sClientsetProvider interface {
 		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
+	}
+	k8sNamespaceDiscoverer interface {
+		discover() (string, error)
 	}
 	k8sPodLister interface {
 		list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
@@ -38,15 +44,18 @@ type (
 		clientsetInitializer k8sClientsetInitializer
 		cs                   *kubernetes.Clientset
 	}
-	defaultK8sPodLister  struct{}
-	defaultK8sPodDeleter struct{}
-	k8sHzMemberChooser   struct {
-		k8sClientsetProvider
-		k8sPodLister
+	defaultK8sNamespaceDiscoverer struct{}
+	defaultK8sPodLister           struct{}
+	defaultK8sPodDeleter          struct{}
+	k8sHzMemberChooser            struct {
+		clientsetProvider   k8sClientsetProvider
+		namespaceDiscoverer k8sNamespaceDiscoverer
+		podLister           k8sPodLister
 	}
 	k8sHzMemberKiller struct {
-		k8sClientsetProvider
-		k8sPodDeleter
+		clientsetProvider   k8sClientsetProvider
+		namespaceDiscoverer k8sNamespaceDiscoverer
+		podDeleter          k8sPodDeleter
 	}
 )
 
@@ -58,22 +67,22 @@ func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
 
 	switch ac.memberAccessMode {
 	case k8sOutOfClusterAccessMode:
-		return ac.k8sOutOfClusterMemberAccess.labelSelector, nil
+		return ac.k8sOutOfCluster.labelSelector, nil
 	case k8sInClusterAccessMode:
-		return ac.k8sInClusterMemberAccess.labelSelector, nil
+		return ac.k8sInCluster.labelSelector, nil
 	default:
 		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 	}
 
 }
 
-func (builder *defaultK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error) {
+func (b *defaultK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error) {
 
 	return clientcmd.BuildConfigFromFlags(masterUrl, kubeconfigPath)
 
 }
 
-func (builder *defaultK8sConfigBuilder) buildForInClusterAccess() (*rest.Config, error) {
+func (b *defaultK8sConfigBuilder) buildForInClusterAccess() (*rest.Config, error) {
 
 	return rest.InClusterConfig()
 
@@ -85,7 +94,25 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 
 }
 
-func (lister *defaultK8sPodLister) list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
+func (d *defaultK8sNamespaceDiscoverer) discover() (string, error) {
+
+	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
+		return ns, nil
+	}
+
+	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
+		return "", err
+	} else {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			return ns, nil
+		}
+	}
+
+	return "", errors.New("kubernetes namespace discovery failed: namespace neither present in environment variable 'POD_NAMESPACE' nor in serviceaccount file")
+
+}
+
+func (l *defaultK8sPodLister) list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 
 	if podList, err := cs.CoreV1().Pods(namespace).List(ctx, listOptions); err != nil {
 		return nil, err
@@ -95,7 +122,7 @@ func (lister *defaultK8sPodLister) list(cs *kubernetes.Clientset, ctx context.Co
 
 }
 
-func (deleter *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error {
+func (d *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error {
 
 	if err := cs.CoreV1().Pods(namespace).Delete(ctx, name, deleteOptions); err != nil {
 		return err
@@ -114,10 +141,10 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 	var config *rest.Config
 	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
 		var kubeconfig string
-		if ac.k8sOutOfClusterMemberAccess.kubeconfig == "default" {
+		if ac.k8sOutOfCluster.kubeconfig == "default" {
 			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
 		} else {
-			kubeconfig = ac.k8sOutOfClusterMemberAccess.kubeconfig
+			kubeconfig = ac.k8sOutOfCluster.kubeconfig
 		}
 		if c, err := p.configBuilder.buildForOutOfClusterAccess("", kubeconfig); err != nil {
 			return nil, err
@@ -147,12 +174,22 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 
 func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, error) {
 
-	clientset, err := chooser.getOrInit(ac)
+	clientset, err := chooser.clientsetProvider.getOrInit(ac)
 	if err != nil {
 		return hzMember{}, err
 	}
 
-	namespace := ac.namespace
+	var namespace string
+	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+		namespace = ac.k8sOutOfCluster.namespace
+	} else {
+		if ns, err := chooser.namespaceDiscoverer.discover(); err != nil {
+			return hzMember{}, err
+		} else {
+			namespace = ns
+		}
+	}
+
 	var labelSelector string
 	if s, err := determineK8sLabelSelector(ac); err != nil {
 		return hzMember{}, err
@@ -161,7 +198,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 	}
 
 	ctx := context.TODO()
-	podList, err := chooser.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
+	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return hzMember{}, err
 	}
@@ -218,12 +255,22 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
 
-	clientset, err := killer.getOrInit(ac)
+	clientset, err := killer.clientsetProvider.getOrInit(ac)
 	if err != nil {
 		return err
 	}
 
-	namespace := ac.namespace
+	var namespace string
+	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+		namespace = ac.k8sOutOfCluster.namespace
+	} else {
+		if ns, err := killer.namespaceDiscoverer.discover(); err != nil {
+			return err
+		} else {
+			namespace = ns
+		}
+	}
+
 	ctx := context.TODO()
 
 	var gracePeriod int
@@ -238,7 +285,7 @@ func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberG
 	}
 
 	g := int64(gracePeriod)
-	err = killer.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
+	err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
 
 	if err != nil {
 		return err
