@@ -29,7 +29,7 @@ type (
 		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
 	}
 	k8sNamespaceDiscoverer interface {
-		discover() (string, error)
+		discover(ac memberAccessConfig) (string, error)
 	}
 	k8sPodLister interface {
 		list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
@@ -94,21 +94,26 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 
 }
 
-func (d *defaultK8sNamespaceDiscoverer) discover() (string, error) {
+func (d *defaultK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, error) {
 
-	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
-		return ns, nil
-	}
-
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
-		return "", err
-	} else {
-		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+	switch ac.memberAccessMode {
+	case k8sOutOfClusterAccessMode:
+		return ac.k8sOutOfCluster.namespace, nil
+	case k8sInClusterAccessMode:
+		if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
 			return ns, nil
 		}
+		if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
+			return "", err
+		} else {
+			if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+				return ns, nil
+			}
+		}
+		return "", errors.New("kubernetes namespace discovery failed: namespace neither present in environment variable 'POD_NAMESPACE' nor in serviceaccount file")
+	default:
+		return "", fmt.Errorf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.memberAccessMode)
 	}
-
-	return "", errors.New("kubernetes namespace discovery failed: namespace neither present in environment variable 'POD_NAMESPACE' nor in serviceaccount file")
 
 }
 
@@ -179,15 +184,9 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 		return hzMember{}, err
 	}
 
-	var namespace string
-	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
-		namespace = ac.k8sOutOfCluster.namespace
-	} else {
-		if ns, err := chooser.namespaceDiscoverer.discover(); err != nil {
-			return hzMember{}, err
-		} else {
-			namespace = ns
-		}
+	namespace, err := chooser.namespaceDiscoverer.discover(ac)
+	if err != nil {
+		return hzMember{}, err
 	}
 
 	var labelSelector string
@@ -260,15 +259,9 @@ func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberG
 		return err
 	}
 
-	var namespace string
-	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
-		namespace = ac.k8sOutOfCluster.namespace
-	} else {
-		if ns, err := killer.namespaceDiscoverer.discover(); err != nil {
-			return err
-		} else {
-			namespace = ns
-		}
+	namespace, err := killer.namespaceDiscoverer.discover(ac)
+	if err != nil {
+		return err
 	}
 
 	ctx := context.TODO()
