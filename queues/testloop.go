@@ -67,7 +67,7 @@ func (l *testLoop[t]) run() {
 			defer numQueuesWg.Done()
 
 			queueName := l.assembleQueueName(i)
-			lp.LogInternalStateEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
 			start := time.Now()
 			q, err := l.config.hzQueueStore.GetQueue(l.config.ctx, queueName)
 			if err != nil {
@@ -149,13 +149,13 @@ func (l testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueN
 			sleep(config.sleepBetweenRuns, "betweenRuns", queueName, o)
 		}
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
-			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), log.InfoLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), log.InfoLevel)
 		}
 		queueFunction(q, queueName)
-		lp.LogInternalStateEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), log.TraceLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), log.TraceLevel)
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber), log.InfoLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber), log.InfoLevel)
 
 }
 
@@ -167,15 +167,15 @@ func (l testLoop[t]) putElements(q hzQueue, queueName string) {
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
 		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
-			lp.LogInternalStateEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
 		} else if remaining == 0 {
-			lp.LogInternalStateEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
 		} else {
 			err := q.Put(l.config.ctx, e)
 			if err != nil {
-				lp.LogInternalStateEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
+				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 			} else {
-				lp.LogInternalStateEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
+				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
 			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {
@@ -192,11 +192,11 @@ func (l testLoop[t]) pollElements(q hzQueue, queueName string) {
 	for i := 0; i < len(l.config.elements); i++ {
 		valueFromQueue, err := q.Poll(l.config.ctx)
 		if err != nil {
-			lp.LogInternalStateEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
 		} else if valueFromQueue == nil {
-			lp.LogInternalStateEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
 		} else {
-			lp.LogInternalStateEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)
 		}
 		if i > 0 && i%pollConfig.batchSize == 0 {
 			sleep(pollConfig.sleepBetweenActionBatches, "betweenActionBatches", queueName, "poll")
@@ -234,7 +234,7 @@ func sleep(sleepConfig *sleepConfig, kind string, queueName string, o operation)
 		} else {
 			sleepDuration = sleepConfig.durationMs
 		}
-		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepDuration, kind, queueName, o), log.TraceLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'", sleepDuration, kind, queueName, o), log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 

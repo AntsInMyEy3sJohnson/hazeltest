@@ -263,7 +263,7 @@ func (t *QueueTester) TestQueues() {
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateEvent,
+		"kind":   logging.RunnerEvent,
 		"client": client.ID(),
 	}).Trace(msg)
 

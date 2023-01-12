@@ -64,13 +64,13 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	config, err := populatePokedexConfig()
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -93,8 +93,8 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
+	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
@@ -104,7 +104,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
+	lp.LogRunnerEvent("finished pokedex maps loop", log.InfoLevel)
 
 }
 
@@ -154,7 +154,7 @@ func parsePokedexFile() (*pokedex, error) {
 	}
 	defer func() {
 		if err := pokedexJson.Close(); err != nil {
-			lp.LogInternalStateEvent("unable to close pokedex json file", log.WarnLevel)
+			lp.LogRunnerEvent("unable to close pokedex json file", log.WarnLevel)
 		}
 	}()
 
@@ -165,7 +165,7 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	lp.LogInternalStateEvent("parsed pokedex file", log.TraceLevel)
+	lp.LogRunnerEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
 

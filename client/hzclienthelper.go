@@ -53,7 +53,7 @@ func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName stri
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
-		"kind":   logging.InternalStateEvent,
+		"kind":   logging.RunnerEvent,
 		"client": ID(),
 	}).Info(msg)
 

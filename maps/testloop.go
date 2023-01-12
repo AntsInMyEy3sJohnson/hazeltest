@@ -62,7 +62,7 @@ func (l *testLoop[t]) run() {
 		go func(i int) {
 			defer wg.Done()
 			mapName := l.assembleMapName(i)
-			lp.LogInternalStateEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
 			m, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
 			if err != nil {
@@ -103,9 +103,9 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
 		sleep(sleepBetweenRunsConfig)
 		if i > 0 && i%updateStep == 0 {
-			lp.LogInternalStateEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
-		lp.LogInternalStateEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
@@ -125,7 +125,7 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 		}
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
 
 }
 
@@ -147,7 +147,7 @@ func (l testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 		numNewlyIngested++
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("stored %d items in hazelcast map '%s'", numNewlyIngested, mapName), log.TraceLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("stored %d items in hazelcast map '%s'", numNewlyIngested, mapName), log.TraceLevel)
 
 	return nil
 
@@ -170,7 +170,7 @@ func (l testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 		}
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.config.elements), mapName), log.TraceLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.config.elements), mapName), log.TraceLevel)
 
 	return nil
 
@@ -199,7 +199,7 @@ func (l testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 		removed++
 	}
 
-	lp.LogInternalStateEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", removed, mapName), log.TraceLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", removed, mapName), log.TraceLevel)
 
 	return nil
 
@@ -233,7 +233,7 @@ func sleep(sleepConfig *sleepConfig) {
 		} else {
 			sleepDuration = sleepConfig.durationMs
 		}
-		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepDuration), log.TraceLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepDuration), log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 

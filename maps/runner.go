@@ -192,7 +192,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ID()
-	lp.LogInternalStateEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("%s: maptester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
