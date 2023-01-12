@@ -81,6 +81,7 @@ func register(m monkey) {
 
 func (m *memberKillerMonkey) init(c hzMemberChooser, k hzMemberKiller) {
 
+	// TODO Should one chaos monkey operate on one context.Context?
 	m.chooser = c
 	m.killer = k
 
@@ -91,11 +92,12 @@ func (m *memberKillerMonkey) causeChaos() {
 	// TODO Add state transitions
 	mc, err := populateMemberKillerMonkeyConfig()
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for member killer chaos monkey -- aborting", log.ErrorLevel)
+		lp.LogChaosMonkeyEvent("unable to populate config for member killer chaos monkey -- aborting", log.ErrorLevel)
+		return
 	}
 
 	if !mc.enabled {
-		lp.LogInternalStateEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
+		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
 		return
 	}
 
@@ -114,13 +116,13 @@ func (m *memberKillerMonkey) causeChaos() {
 				} else {
 					msg = "unable to choose hazelcast member to kill -- will try again in next iteration"
 				}
-				lp.LogInternalStateEvent(msg, log.WarnLevel)
+				lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
 				continue
 			}
 
 			err = m.killer.kill(member, *mc.accessConfig, *mc.memberGrace)
 			if err != nil {
-				lp.LogInternalStateEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
+				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
 			}
 		}
 	}
@@ -136,7 +138,7 @@ func sleep(sc *sleepConfig) {
 		} else {
 			sleepDuration = sc.durationSeconds
 		}
-		lp.LogInternalStateEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Second)
 	}
 
@@ -325,7 +327,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 func RunMonkeys() {
 
 	clientID := client.ID()
-	lp.LogInternalStateEvent(fmt.Sprintf("%s: starting %d chaos monkey/-s", clientID, len(monkeys)), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("%s: starting %d chaos monkey/-s", clientID, len(monkeys)), log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(monkeys); i++ {

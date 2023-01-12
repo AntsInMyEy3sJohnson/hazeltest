@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,11 +60,15 @@ type (
 	}
 )
 
+const (
+	k8sNamespaceEnvVariable = "POD_NAMESPACE"
+)
+
 var (
 	noMemberFoundError = errors.New("unable to identify hazelcast member to be terminated")
 )
 
-func determineK8sLabelSelector(ac memberAccessConfig) (string, error) {
+func labelSelectorFromConfig(ac memberAccessConfig) (string, error) {
 
 	switch ac.memberAccessMode {
 	case k8sOutOfClusterAccessMode:
@@ -96,13 +101,17 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 
 func (d *defaultK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, error) {
 
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.memberAccessMode), log.TraceLevel)
+
 	switch ac.memberAccessMode {
 	case k8sOutOfClusterAccessMode:
 		return ac.k8sOutOfCluster.namespace, nil
 	case k8sInClusterAccessMode:
-		if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), log.TraceLevel)
+		if ns, ok := os.LookupEnv(k8sNamespaceEnvVariable); ok {
 			return ns, nil
 		}
+		lp.LogChaosMonkeyEvent("attempting to look up kubernetes namespace using pod-mounted file", log.TraceLevel)
 		if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
 			return "", err
 		} else {
@@ -110,9 +119,13 @@ func (d *defaultK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string,
 				return ns, nil
 			}
 		}
-		return "", errors.New("kubernetes namespace discovery failed: namespace neither present in environment variable 'POD_NAMESPACE' nor in serviceaccount file")
+		msg := fmt.Sprintf("kubernetes namespace discovery failed: namespace neither present in environment variable '%s' nor in serviceaccount file", k8sNamespaceEnvVariable)
+		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
+		return "", errors.New(msg)
 	default:
-		return "", fmt.Errorf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.memberAccessMode)
+		msg := fmt.Sprintf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.memberAccessMode)
+		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
+		return "", errors.New(msg)
 	}
 
 }
@@ -140,8 +153,11 @@ func (d *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Cont
 func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
 
 	if p.cs != nil {
+		lp.LogChaosMonkeyEvent("kubernetes clientset already present -- returning previously initialized state", log.TraceLevel)
 		return p.cs, nil
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.memberAccessMode), log.InfoLevel)
 
 	var config *rest.Config
 	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
@@ -151,27 +167,35 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		} else {
 			kubeconfig = ac.k8sOutOfCluster.kubeconfig
 		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("using kubeconfig path '%s' to initialize kubernetes rest.config", kubeconfig), log.TraceLevel)
 		if c, err := p.configBuilder.buildForOutOfClusterAccess("", kubeconfig); err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.memberAccessMode, err.Error()), log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
 	} else if ac.memberAccessMode == k8sInClusterAccessMode {
 		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.memberAccessMode, err.Error()), log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
 	} else {
-		// TODO Introduce dedicated error types?
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("cannot initialize kubernetes clientset for unknown or unsupported access mode '%s'", ac.memberAccessMode), log.ErrorLevel)
 		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized rest.config for accessing kubernetes in mode '%s'", ac.memberAccessMode), log.TraceLevel)
 
 	if cs, err := p.clientsetInitializer.init(config); err != nil {
 		return nil, err
 	} else {
+		lp.LogChaosMonkeyEvent("initializing clientset using rest.config", log.TraceLevel)
 		p.cs = cs
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized kubernetes clientset for access mode '%s'", ac.memberAccessMode), log.InfoLevel)
 
 	return p.cs, nil
 
@@ -179,32 +203,43 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 
 func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, error) {
 
+	lp.LogChaosMonkeyEvent("choosing hazelcast member", log.InfoLevel)
+
 	clientset, err := chooser.clientsetProvider.getOrInit(ac)
 	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
 		return hzMember{}, err
 	}
 
+	// TODO Save namespace in namespace discoverer
 	namespace, err := chooser.namespaceDiscoverer.discover(ac)
 	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
 		return hzMember{}, err
 	}
 
 	var labelSelector string
-	if s, err := determineK8sLabelSelector(ac); err != nil {
+	if s, err := labelSelectorFromConfig(ac); err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: could not determine label selector: %s", err.Error()), log.ErrorLevel)
 		return hzMember{}, err
 	} else {
 		labelSelector = s
 	}
 
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast member", labelSelector, namespace), log.InfoLevel)
+
 	ctx := context.TODO()
 	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: could not list pods: %s", err.Error()), log.ErrorLevel)
 		return hzMember{}, err
 	}
 
 	pods := podList.Items
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
 	if len(pods) == 0 {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.ErrorLevel)
 		return hzMember{}, noMemberFoundError
 	}
 
@@ -212,6 +247,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 	podFound := false
 
 	if ac.targetOnlyActive {
+		lp.LogChaosMonkeyEvent("targetOnlyActive enabled -- trying to find active (ready) hazelcast member pod", log.TraceLevel)
 		for i := 0; i < len(pods); i++ {
 			candidate := selectRandomPodFromList(pods)
 			if isPodReady(candidate) {
@@ -221,12 +257,15 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 			}
 		}
 		if !podFound {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("out of %d candidate pods, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods)), log.ErrorLevel)
 			return hzMember{}, noMemberFoundError
 		}
 	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("targetOnlyActive disabled -- randomly choosing one out of %d pods", len(pods)), log.TraceLevel)
 		podToKill = selectRandomPodFromList(pods)
 	}
 
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose hazelcast member: %s", podToKill.Name), log.InfoLevel)
 	return hzMember{podToKill.Name}, nil
 
 }
