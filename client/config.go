@@ -267,7 +267,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
 
-	lp.LogInternalStateEvent(fmt.Sprintf("command line arguments parsed: %v\n", target), log.InfoLevel)
+	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
 
 	return target, nil
 
@@ -282,7 +282,7 @@ func parseDefaultConfigFile(o fileOpener) (map[string]any, error) {
 func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]any, error) {
 
 	if filePath == defaultConfigFilePath {
-		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
+		lp.LogConfigEvent("N/A", "command-line", "user did not supply custom configuration file", log.InfoLevel)
 		return map[string]any{}, nil
 	}
 
