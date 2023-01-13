@@ -94,7 +94,7 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 
 }
 
-func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
+func (l *testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 	updateStep := uint32(50)
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
@@ -129,7 +129,7 @@ func (l testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 }
 
-func (l testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
+func (l *testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.config.elements {
@@ -153,7 +153,7 @@ func (l testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
+func (l *testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 	for _, v := range l.config.elements {
 		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
@@ -176,7 +176,7 @@ func (l testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
+func (l *testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(l.config.elements))
 	removed := 0
@@ -205,7 +205,7 @@ func (l testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l testLoop[t]) assembleMapName(mapIndex int) string {
+func (l *testLoop[t]) assembleMapName(mapIndex int) string {
 
 	c := l.config
 
