@@ -25,8 +25,9 @@ type (
 		causeChaos()
 	}
 	memberKillerMonkey struct {
-		chooser hzMemberChooser
-		killer  hzMemberKiller
+		stateList []state
+		chooser   hzMemberChooser
+		killer    hzMemberKiller
 	}
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
@@ -98,19 +99,24 @@ func (m *memberKillerMonkey) init(c hzMemberChooser, k hzMemberKiller) {
 
 func (m *memberKillerMonkey) causeChaos() {
 
-	// TODO Add state transitions
+	m.appendState(start)
+
 	mc, err := populateMemberKillerMonkeyConfig()
 	if err != nil {
 		lp.LogChaosMonkeyEvent("unable to populate config for member killer chaos monkey -- aborting", log.ErrorLevel)
 		return
 	}
+	m.appendState(populateConfigComplete)
 
 	if !mc.enabled {
 		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	m.appendState(checkEnabledComplete)
 
 	// TODO Make API readiness dependent on chaos monkey state?
+	m.appendState(raiseReadyComplete)
+	m.appendState(chaosStart)
 
 	updateStep := uint32(50)
 	for i := uint32(0); i < mc.numRuns; i++ {
@@ -142,6 +148,15 @@ func (m *memberKillerMonkey) causeChaos() {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.TraceLevel)
 		}
 	}
+
+	m.appendState(chaosComplete)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loops", mc.numRuns), log.InfoLevel)
+
+}
+
+func (m *memberKillerMonkey) appendState(s state) {
+
+	m.stateList = append(m.stateList, s)
 
 }
 
