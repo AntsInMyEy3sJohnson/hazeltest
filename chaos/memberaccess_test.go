@@ -53,16 +53,18 @@ var (
 )
 
 var (
-	testBuilder              = &testK8sConfigBuilder{}
-	testClientsetInitializer = &testK8sClientsetInitializer{}
-	testNamespaceDiscoverer  = &testK8sNamespaceDiscoverer{}
-	csProvider               = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
-	errCsProvider            = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
-	emptyMember              = hzMember{}
-	emptyClientset           = &kubernetes.Clientset{}
-	defaultKubeconfig        = "default"
-	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
-	hazelcastNamespace       = "hazelcastplatform"
+	testBuilder                = &testK8sConfigBuilder{}
+	testClientsetInitializer   = &testK8sClientsetInitializer{}
+	testNamespaceDiscoverer    = &testK8sNamespaceDiscoverer{}
+	errTestNamespaceDiscoverer = &testK8sNamespaceDiscoverer{true}
+	csProvider                 = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
+	errCsProvider              = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
+	emptyMember                = hzMember{}
+	emptyClientset             = &kubernetes.Clientset{}
+	defaultKubeconfig          = "default"
+	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
+	hazelcastNamespace         = "hazelcastplatform"
+	dummyAccessConfig          = assembleDummyAccessConfig(k8sInClusterAccessMode, "", true)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -350,7 +352,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
-				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
+				cs, err := provider.getOrInit(dummyAccessConfig)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -393,7 +395,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
-				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true))
+				cs, err := provider.getOrInit(dummyAccessConfig)
 
 				msg := "\t\t\terror must be returned"
 				if err != nil && err == configBuildError {
@@ -495,7 +497,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			initializer := &testK8sClientsetInitializer{returnError: true}
 			provider := &defaultK8sClientsetProvider{configBuilder: &testK8sConfigBuilder{}, clientsetInitializer: initializer}
 
-			cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sInClusterAccessMode, "", true))
+			cs, err := provider.getOrInit(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == clientsetInitError {
@@ -553,9 +555,36 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+		t.Log("\twhen namespace discovery is not successful")
+		{
+			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
+			memberChooser := k8sHzMemberChooser{csProvider, errTestNamespaceDiscoverer, nil}
+			member, err := memberChooser.choose(dummyAccessConfig)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tempty member must be returned"
+			if member == emptyMember {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod lister must have no invocations"
+			if podLister.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 		t.Log("\twhen label selector cannot be determined")
 		{
-			ac := assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true)
+			ac := dummyAccessConfig
 			ac.memberAccessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
@@ -586,7 +615,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == podListError {
@@ -635,7 +664,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(dummyAccessConfig)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -657,7 +686,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == noMemberFoundError {
@@ -727,6 +756,27 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			msg = "\t\tdeleter must have no invocations"
 			if deleter.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen namespace discovery is not successful")
+		{
+			podDeleter := &testK8sPodDeleter{false, 0, 42}
+			killer := k8sHzMemberKiller{csProvider, errTestNamespaceDiscoverer, podDeleter}
+
+			err := killer.kill(hzMember{}, dummyAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod deleter must have no invocations"
+			if podDeleter.numInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
