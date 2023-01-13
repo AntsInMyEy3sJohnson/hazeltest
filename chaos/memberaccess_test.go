@@ -53,16 +53,16 @@ var (
 )
 
 var (
-	testBuilder                  = &testK8sConfigBuilder{}
-	testClientsetInitializer     = &testK8sClientsetInitializer{}
-	testNamespaceDiscoverer      = &testK8sNamespaceDiscoverer{}
-	csProvider                   = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
-	errCsProvider                = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
-	emptyMember                  = hzMember{}
-	emptyClientset               = &kubernetes.Clientset{}
-	defaultKubeconfig            = "default"
-	nonDefaultKubeconfig         = "/some/path/to/a/custom/kubeconfig"
-	inClusterAccessModeNamespace = "hazelcastplatform"
+	testBuilder              = &testK8sConfigBuilder{}
+	testClientsetInitializer = &testK8sClientsetInitializer{}
+	testNamespaceDiscoverer  = &testK8sNamespaceDiscoverer{}
+	csProvider               = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
+	errCsProvider            = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
+	emptyMember              = hzMember{}
+	emptyClientset           = &kubernetes.Clientset{}
+	defaultKubeconfig        = "default"
+	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
+	hazelcastNamespace       = "hazelcastplatform"
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -114,7 +114,7 @@ func (p *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.
 
 }
 
-func (d *testK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, error) {
+func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (string, error) {
 
 	if d.returnError {
 		return "", namespaceNotDiscoverableError
@@ -124,7 +124,7 @@ func (d *testK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, er
 		return ac.k8sOutOfCluster.namespace, nil
 	}
 
-	return inClusterAccessModeNamespace, nil
+	return hazelcastNamespace, nil
 
 }
 
@@ -150,6 +150,78 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 	}
 
 	return nil
+
+}
+
+func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
+
+	t.Log("given the need to test the default namespace discoverer")
+	{
+		t.Log("\twhen namespace discovery is successful")
+		{
+			discoverer := &defaultK8sNamespaceDiscoverer{}
+			namespace, err := discoverer.getOrDiscover(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, "default", false))
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\texpected value for namespace must be returned"
+			if namespace == hazelcastNamespace {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace state must be set in discoverer"
+			if discoverer.discoveredNamespace == hazelcastNamespace {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\twhen queried again, discoverer must return previously discovered namespace"
+			ac := assembleDummyAccessConfig(k8sOutOfClusterAccessMode, "default", false)
+			ac.k8sOutOfCluster.namespace = "another-namespace"
+
+			namespace, err = discoverer.getOrDiscover(ac)
+
+			if namespace == hazelcastNamespace {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen namespace discovery is not successful")
+		{
+			discoverer := &defaultK8sNamespaceDiscoverer{}
+			namespace, err := discoverer.getOrDiscover(assembleDummyAccessConfig("some-non-existing-access-mode", "default", false))
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace must be empty"
+			if namespace == "" {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdiscoverer must have empty namespace state"
+			if discoverer.discoveredNamespace == "" {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
 
 }
 

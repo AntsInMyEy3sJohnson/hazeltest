@@ -30,7 +30,7 @@ type (
 		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
 	}
 	k8sNamespaceDiscoverer interface {
-		discover(ac memberAccessConfig) (string, error)
+		getOrDiscover(ac memberAccessConfig) (string, error)
 	}
 	k8sPodLister interface {
 		list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
@@ -45,10 +45,12 @@ type (
 		clientsetInitializer k8sClientsetInitializer
 		cs                   *kubernetes.Clientset
 	}
-	defaultK8sNamespaceDiscoverer struct{}
-	defaultK8sPodLister           struct{}
-	defaultK8sPodDeleter          struct{}
-	k8sHzMemberChooser            struct {
+	defaultK8sNamespaceDiscoverer struct {
+		discoveredNamespace string
+	}
+	defaultK8sPodLister  struct{}
+	defaultK8sPodDeleter struct{}
+	k8sHzMemberChooser   struct {
 		clientsetProvider   k8sClientsetProvider
 		namespaceDiscoverer k8sNamespaceDiscoverer
 		podLister           k8sPodLister
@@ -99,24 +101,31 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 
 }
 
-func (d *defaultK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string, error) {
+func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (string, error) {
+
+	if d.discoveredNamespace != "" {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("namespace has already been populated -- returning '%s'", d.discoveredNamespace), log.TraceLevel)
+		return d.discoveredNamespace, nil
+	}
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.memberAccessMode), log.TraceLevel)
 
+	var namespace string
+
 	switch ac.memberAccessMode {
 	case k8sOutOfClusterAccessMode:
-		return ac.k8sOutOfCluster.namespace, nil
+		namespace = ac.k8sOutOfCluster.namespace
 	case k8sInClusterAccessMode:
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), log.TraceLevel)
 		if ns, ok := os.LookupEnv(k8sNamespaceEnvVariable); ok {
-			return ns, nil
+			namespace = ns
 		}
 		lp.LogChaosMonkeyEvent("attempting to look up kubernetes namespace using pod-mounted file", log.TraceLevel)
 		if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
 			return "", err
 		} else {
 			if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
-				return ns, nil
+				namespace = ns
 			}
 		}
 		msg := fmt.Sprintf("kubernetes namespace discovery failed: namespace neither present in environment variable '%s' nor in serviceaccount file", k8sNamespaceEnvVariable)
@@ -127,6 +136,9 @@ func (d *defaultK8sNamespaceDiscoverer) discover(ac memberAccessConfig) (string,
 		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
 		return "", errors.New(msg)
 	}
+
+	d.discoveredNamespace = namespace
+	return namespace, nil
 
 }
 
@@ -211,8 +223,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 		return hzMember{}, err
 	}
 
-	// TODO Save namespace in namespace discoverer
-	namespace, err := chooser.namespaceDiscoverer.discover(ac)
+	namespace, err := chooser.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
 		return hzMember{}, err
@@ -298,7 +309,7 @@ func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberG
 		return err
 	}
 
-	namespace, err := killer.namespaceDiscoverer.discover(ac)
+	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
 		return err
 	}
