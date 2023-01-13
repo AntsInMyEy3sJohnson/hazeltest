@@ -2,12 +2,12 @@
 chaosMonkeys:
   memberKiller:
     enabled: true
-    stopWhenRunnersFinished: true
+    numRuns: 100
     chaosProbability: 0.6
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sOutOfCluster
-      targetOnlyActive: true
+      targetOnlyActive: false
       k8sOutOfCluster:
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.
@@ -17,7 +17,7 @@ chaosMonkeys:
       k8sInCluster:
         labelSelector: app.kubernetes.io/name=hazelcastimdg
     sleep:
-      enabled: true
+      enabled: false
       durationSeconds: 600
       enableRandomness: false
     memberGrace:
