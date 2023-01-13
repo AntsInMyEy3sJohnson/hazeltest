@@ -182,7 +182,7 @@ func assembleTestConfig(chaosProbability float64, memberAccessMode, labelSelecto
 
 	return map[string]any{
 		monkeyKeyPath + ".enabled":                                    true,
-		monkeyKeyPath + ".stopWhenRunnersFinished":                    true,
+		monkeyKeyPath + ".numRuns":                                    uint32(10_000),
 		monkeyKeyPath + ".chaosProbability":                           chaosProbability,
 		monkeyKeyPath + ".memberAccess.mode":                          memberAccessMode,
 		monkeyKeyPath + ".memberAccess.targetOnlyActive":              true,
@@ -203,7 +203,7 @@ func assembleTestConfig(chaosProbability float64, memberAccessMode, labelSelecto
 func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
 	allButAccessModeAsExpected := mc.enabled == expected[monkeyKeyPath+".enabled"] &&
-		mc.stopWhenRunnersFinished == expected[monkeyKeyPath+".stopWhenRunnersFinished"] &&
+		mc.numRuns == expected[monkeyKeyPath+".numRuns"] &&
 		mc.chaosProbability == expected[monkeyKeyPath+".chaosProbability"] &&
 		mc.accessConfig.memberAccessMode == expected[monkeyKeyPath+".memberAccess.mode"] &&
 		mc.accessConfig.targetOnlyActive == expected[monkeyKeyPath+".memberAccess.targetOnlyActive"] &&
