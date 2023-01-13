@@ -49,18 +49,28 @@ type (
 		enableRandomness bool
 	}
 	monkeyConfig struct {
-		enabled                 bool
-		stopWhenRunnersFinished bool
-		chaosProbability        float64
-		accessConfig            *memberAccessConfig
-		sleep                   *sleepConfig
-		memberGrace             *sleepConfig
+		enabled          bool
+		numRuns          uint32
+		chaosProbability float64
+		accessConfig     *memberAccessConfig
+		sleep            *sleepConfig
+		memberGrace      *sleepConfig
 	}
+	state string
 )
 
 const (
 	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
 	k8sInClusterAccessMode    = "k8sInCluster"
+)
+
+const (
+	start                  state = "start"
+	populateConfigComplete state = "populateConfigComplete"
+	checkEnabledComplete   state = "checkEnabledComplete"
+	raiseReadyComplete     state = "raiseReadyComplete"
+	chaosStart             state = "chaosStart"
+	chaosComplete          state = "chaosComplete"
 )
 
 var (
@@ -81,7 +91,6 @@ func register(m monkey) {
 
 func (m *memberKillerMonkey) init(c hzMemberChooser, k hzMemberKiller) {
 
-	// TODO Should one chaos monkey operate on one context.Context?
 	m.chooser = c
 	m.killer = k
 
@@ -103,11 +112,16 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	// TODO Make API readiness dependent on chaos monkey state?
 
-	for {
+	updateStep := uint32(50)
+	for i := uint32(0); i < mc.numRuns; i++ {
 		sleep(mc.sleep)
-
+		if i > 0 && i%updateStep == 0 {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
+		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.TraceLevel)
 		f := rand.Float64()
 		if f <= mc.chaosProbability {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
 			member, err := m.chooser.choose(*mc.accessConfig)
 			if err != nil {
 				var msg string
@@ -124,6 +138,8 @@ func (m *memberKillerMonkey) causeChaos() {
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
 			}
+		} else {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.TraceLevel)
 		}
 	}
 
@@ -165,10 +181,10 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		})
 	})
 
-	var stopWhenRunnersFinished bool
+	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".stopWhenRunnersFinished", client.ValidateBool, func(a any) {
-			stopWhenRunnersFinished = a.(bool)
+		return propertyAssigner.Assign(b.monkeyKeyPath+".numRuns", client.ValidateInt, func(a any) {
+			numRuns = uint32(a.(int))
 		})
 	})
 
@@ -240,10 +256,10 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 	}
 
 	return &monkeyConfig{
-		enabled:                 enabled,
-		stopWhenRunnersFinished: stopWhenRunnersFinished,
-		chaosProbability:        chaosProbability,
-		accessConfig:            ac,
+		enabled:          enabled,
+		numRuns:          numRuns,
+		chaosProbability: chaosProbability,
+		accessConfig:     ac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
