@@ -25,6 +25,7 @@ chaosMonkeys:
       durationSeconds: 30
       enableRandomness: true
 
+# TODO CamelCase or lower-case 'chaosMonkeys' -- as it stands right now, the naming scheme is inconsistent
 queuetests:
   # 'queuetests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
