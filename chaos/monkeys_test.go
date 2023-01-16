@@ -1,12 +1,20 @@
 package chaos
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 )
 
 type (
+	testHzMemberChooser struct {
+		returnError bool
+		memberID    string
+	}
+	testHzMemberKiller struct {
+		returnError bool
+	}
 	testConfigPropertyAssigner struct {
 		dummyConfig map[string]any
 	}
@@ -20,8 +28,32 @@ const (
 )
 
 var (
-	monkeyKeyPath = "testChaosMonkey"
+	hzMemberID          = "hazelcastimdg-0"
+	memberChooser       = &testHzMemberChooser{returnError: false, memberID: hzMemberID}
+	errMemberChooser    = &testHzMemberChooser{returnError: true}
+	testMonkeyKeyPath   = "testChaosMonkey"
+	memberKillerKeyPath = "chaosMonkeys.memberKiller"
 )
+
+func (k *testHzMemberKiller) kill(_ hzMember, _ memberAccessConfig, _ sleepConfig) error {
+
+	if k.returnError {
+		return errors.New("yet another error that should have been completely impossible")
+	}
+
+	return nil
+
+}
+
+func (c *testHzMemberChooser) choose(_ memberAccessConfig) (hzMember, error) {
+
+	if c.returnError {
+		return hzMember{}, errors.New("awesome error")
+	}
+
+	return hzMember{c.memberID}, nil
+
+}
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
 
@@ -38,14 +70,36 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
+func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
+
+	t.Log("given the need to test the member killer monkey's ability to cause chaos")
+	{
+		t.Log("\twhen populating the member killer config returns an error")
+		{
+			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)}
+			m := memberKillerMonkey{chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+
+			m.causeChaos()
+
+			msg := "\t\tstate transitions must contain only start state"
+			if len(m.stateList) == 1 && m.stateList[0] == start {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestPopulateConfig(t *testing.T) {
 
 	t.Log("given the need to test populating the chaos monkey config")
 	{
-		b := monkeyConfigBuilder{monkeyKeyPath: monkeyKeyPath}
+		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
 		t.Log("\twhen k8s ouf-of-cluster access mode is given and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(validChaosProbability, k8sOutOfClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, k8sOutOfClusterAccessMode, validLabelSelector)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -73,7 +127,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen k8s in-cluster access mode is given and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(validChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, k8sInClusterAccessMode, validLabelSelector)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -101,7 +155,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen top-level property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -125,7 +179,7 @@ func TestPopulateConfig(t *testing.T) {
 			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
 				t.Logf("\t\t%s", accessMode)
 				{
-					testConfig := assembleTestConfig(validChaosProbability, accessMode, invalidLabelSelector)
+					testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, accessMode, invalidLabelSelector)
 					propertyAssigner = testConfigPropertyAssigner{testConfig}
 					mc, err := b.populateConfig()
 
@@ -149,7 +203,7 @@ func TestPopulateConfig(t *testing.T) {
 		t.Log("\twhen unknown k8s hazelcast member access mode is given")
 		{
 			unknownAccessMode := "someUnknownAccessMode"
-			testConfig := assembleTestConfig(validChaosProbability, unknownAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, unknownAccessMode, validLabelSelector)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -178,49 +232,49 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
-func assembleTestConfig(chaosProbability float64, memberAccessMode, labelSelector string) map[string]any {
+func assembleTestConfig(keyPath string, chaosProbability float64, memberAccessMode, labelSelector string) map[string]any {
 
 	return map[string]any{
-		monkeyKeyPath + ".enabled":                                    true,
-		monkeyKeyPath + ".numRuns":                                    uint32(10_000),
-		monkeyKeyPath + ".chaosProbability":                           chaosProbability,
-		monkeyKeyPath + ".memberAccess.mode":                          memberAccessMode,
-		monkeyKeyPath + ".memberAccess.targetOnlyActive":              true,
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
-		monkeyKeyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
-		monkeyKeyPath + ".memberAccess.k8sInCluster.labelSelector":    labelSelector,
-		monkeyKeyPath + ".sleep.enabled":                              true,
-		monkeyKeyPath + ".sleep.durationSeconds":                      600,
-		monkeyKeyPath + ".sleep.enableRandomness":                     false,
-		monkeyKeyPath + ".memberGrace.enabled":                        true,
-		monkeyKeyPath + ".memberGrace.durationSeconds":                30,
-		monkeyKeyPath + ".memberGrace.enableRandomness":               true,
+		keyPath + ".enabled":                                    true,
+		keyPath + ".numRuns":                                    10000,
+		keyPath + ".chaosProbability":                           chaosProbability,
+		keyPath + ".memberAccess.mode":                          memberAccessMode,
+		keyPath + ".memberAccess.targetOnlyActive":              true,
+		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
+		keyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
+		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
+		keyPath + ".memberAccess.k8sInCluster.labelSelector":    labelSelector,
+		keyPath + ".sleep.enabled":                              true,
+		keyPath + ".sleep.durationSeconds":                      600,
+		keyPath + ".sleep.enableRandomness":                     false,
+		keyPath + ".memberGrace.enabled":                        true,
+		keyPath + ".memberGrace.durationSeconds":                30,
+		keyPath + ".memberGrace.enableRandomness":               true,
 	}
 
 }
 
 func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
-	allButAccessModeAsExpected := mc.enabled == expected[monkeyKeyPath+".enabled"] &&
-		mc.numRuns == expected[monkeyKeyPath+".numRuns"] &&
-		mc.chaosProbability == expected[monkeyKeyPath+".chaosProbability"] &&
-		mc.accessConfig.memberAccessMode == expected[monkeyKeyPath+".memberAccess.mode"] &&
-		mc.accessConfig.targetOnlyActive == expected[monkeyKeyPath+".memberAccess.targetOnlyActive"] &&
-		mc.sleep.enabled == expected[monkeyKeyPath+".sleep.enabled"] &&
-		mc.sleep.durationSeconds == expected[monkeyKeyPath+".sleep.durationSeconds"] &&
-		mc.sleep.enableRandomness == expected[monkeyKeyPath+".sleep.enableRandomness"] &&
-		mc.memberGrace.enabled == expected[monkeyKeyPath+".memberGrace.enabled"] &&
-		mc.memberGrace.durationSeconds == expected[monkeyKeyPath+".memberGrace.durationSeconds"] &&
-		mc.memberGrace.enableRandomness == expected[monkeyKeyPath+".memberGrace.enableRandomness"]
+	allButAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
+		mc.numRuns == expected[testMonkeyKeyPath+".numRuns"] &&
+		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
+		mc.accessConfig.memberAccessMode == expected[testMonkeyKeyPath+".memberAccess.mode"] &&
+		mc.accessConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberAccess.targetOnlyActive"] &&
+		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
+		mc.sleep.durationSeconds == expected[testMonkeyKeyPath+".sleep.durationSeconds"] &&
+		mc.sleep.enableRandomness == expected[testMonkeyKeyPath+".sleep.enableRandomness"] &&
+		mc.memberGrace.enabled == expected[testMonkeyKeyPath+".memberGrace.enabled"] &&
+		mc.memberGrace.durationSeconds == expected[testMonkeyKeyPath+".memberGrace.durationSeconds"] &&
+		mc.memberGrace.enableRandomness == expected[testMonkeyKeyPath+".memberGrace.enableRandomness"]
 
 	var accessModeAsExpected bool
 	if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sOutOfClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sOutOfCluster.kubeconfig == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
-			mc.accessConfig.k8sOutOfCluster.namespace == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
-			mc.accessConfig.k8sOutOfCluster.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
+		accessModeAsExpected = mc.accessConfig.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
+			mc.accessConfig.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
+			mc.accessConfig.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
 	} else if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sInClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sInCluster.labelSelector == expected[monkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
+		accessModeAsExpected = mc.accessConfig.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
 	} else {
 		return false
 	}
