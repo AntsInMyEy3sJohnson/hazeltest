@@ -9,11 +9,13 @@ import (
 
 type (
 	testHzMemberChooser struct {
-		returnError bool
-		memberID    string
+		returnError    bool
+		memberID       string
+		numInvocations int
 	}
 	testHzMemberKiller struct {
-		returnError bool
+		returnError    bool
+		numInvocations int
 	}
 	testConfigPropertyAssigner struct {
 		dummyConfig map[string]any
@@ -28,14 +30,27 @@ const (
 )
 
 var (
-	hzMemberID          = "hazelcastimdg-0"
-	memberChooser       = &testHzMemberChooser{returnError: false, memberID: hzMemberID}
-	errMemberChooser    = &testHzMemberChooser{returnError: true}
-	testMonkeyKeyPath   = "testChaosMonkey"
-	memberKillerKeyPath = "chaosMonkeys.memberKiller"
+	hzMemberID           = "hazelcastimdg-0"
+	memberChooser        = &testHzMemberChooser{returnError: false, memberID: hzMemberID}
+	errMemberChooser     = &testHzMemberChooser{returnError: true}
+	testMonkeyKeyPath    = "testChaosMonkey"
+	memberKillerKeyPath  = "chaosMonkeys.memberKiller"
+	completeRunStateList = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, chaosStart, chaosComplete}
+	sleepEnabled         = sleepConfig{
+		enabled:          true,
+		durationSeconds:  10,
+		enableRandomness: false,
+	}
+	sleepDisabled = sleepConfig{
+		enabled:          false,
+		durationSeconds:  1,
+		enableRandomness: false,
+	}
 )
 
 func (k *testHzMemberKiller) kill(_ hzMember, _ memberAccessConfig, _ sleepConfig) error {
+
+	k.numInvocations++
 
 	if k.returnError {
 		return errors.New("yet another error that should have been completely impossible")
@@ -46,6 +61,8 @@ func (k *testHzMemberKiller) kill(_ hzMember, _ memberAccessConfig, _ sleepConfi
 }
 
 func (c *testHzMemberChooser) choose(_ memberAccessConfig) (hzMember, error) {
+
+	c.numInvocations++
 
 	if c.returnError {
 		return hzMember{}, errors.New("awesome error")
@@ -76,7 +93,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 	{
 		t.Log("\twhen populating the member killer config returns an error")
 		{
-			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)}
+			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
 			m := memberKillerMonkey{chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
 
 			m.causeChaos()
@@ -86,6 +103,51 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+		}
+		genericMsg := "\t\tstate transitions must be correct"
+		t.Log("\twhen monkey is disabled")
+		{
+			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
+			propertyAssigner = &testConfigPropertyAssigner{testConfig}
+			m := memberKillerMonkey{chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+
+			m.causeChaos()
+
+			if detail, ok := checkMonkeyStateTransitions([]state{start, populateConfigComplete}, m.stateList); ok {
+				t.Log(genericMsg, checkMark)
+			} else {
+				t.Fatal(genericMsg, ballotX, detail)
+			}
+		}
+		t.Log("\twhen non-zero num runs are configured")
+		{
+			numRuns := 10
+			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, 1.0, numRuns, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
+			chooser := &testHzMemberChooser{}
+			killer := &testHzMemberKiller{}
+			m := memberKillerMonkey{chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
+				t.Log(genericMsg, checkMark)
+			} else {
+				t.Fatal(genericMsg, ballotX, detail)
+			}
+
+			msg := "\t\tmember chooser must have expected number of invocations"
+			if chooser.numInvocations == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", chooser.numInvocations, numRuns))
+			}
+
+			msg = "\t\tmember killer must have expected number of invocations"
+			if killer.numInvocations == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", killer.numInvocations, numRuns))
 			}
 		}
 	}
@@ -99,7 +161,15 @@ func TestPopulateConfig(t *testing.T) {
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
 		t.Log("\twhen k8s ouf-of-cluster access mode is given and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, k8sOutOfClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(
+				testMonkeyKeyPath,
+				true,
+				validChaosProbability,
+				10,
+				k8sOutOfClusterAccessMode,
+				validLabelSelector,
+				sleepDisabled,
+			)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -127,7 +197,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen k8s in-cluster access mode is given and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -155,7 +225,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen top-level property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(testMonkeyKeyPath, invalidChaosProbability, k8sInClusterAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -179,7 +249,7 @@ func TestPopulateConfig(t *testing.T) {
 			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
 				t.Logf("\t\t%s", accessMode)
 				{
-					testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, accessMode, invalidLabelSelector)
+					testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, accessMode, invalidLabelSelector, sleepDisabled)
 					propertyAssigner = testConfigPropertyAssigner{testConfig}
 					mc, err := b.populateConfig()
 
@@ -203,7 +273,7 @@ func TestPopulateConfig(t *testing.T) {
 		t.Log("\twhen unknown k8s hazelcast member access mode is given")
 		{
 			unknownAccessMode := "someUnknownAccessMode"
-			testConfig := assembleTestConfig(testMonkeyKeyPath, validChaosProbability, unknownAccessMode, validLabelSelector)
+			testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, unknownAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig()
 
@@ -232,11 +302,27 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
-func assembleTestConfig(keyPath string, chaosProbability float64, memberAccessMode, labelSelector string) map[string]any {
+func checkMonkeyStateTransitions(expected []state, actual []state) (string, bool) {
+
+	if len(expected) != len(actual) {
+		return fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual)), false
+	}
+
+	for i, expectedValue := range expected {
+		if actual[i] != expectedValue {
+			return fmt.Sprintf("expected '%s' in index '%d', got '%s'", expectedValue, i, actual[i]), false
+		}
+	}
+
+	return "", true
+
+}
+
+func assembleTestConfig(keyPath string, enabled bool, chaosProbability float64, numRuns int, memberAccessMode, labelSelector string, sleep sleepConfig) map[string]any {
 
 	return map[string]any{
-		keyPath + ".enabled":                                    true,
-		keyPath + ".numRuns":                                    10000,
+		keyPath + ".enabled":                                    enabled,
+		keyPath + ".numRuns":                                    numRuns,
 		keyPath + ".chaosProbability":                           chaosProbability,
 		keyPath + ".memberAccess.mode":                          memberAccessMode,
 		keyPath + ".memberAccess.targetOnlyActive":              true,
@@ -244,9 +330,9 @@ func assembleTestConfig(keyPath string, chaosProbability float64, memberAccessMo
 		keyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
 		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
 		keyPath + ".memberAccess.k8sInCluster.labelSelector":    labelSelector,
-		keyPath + ".sleep.enabled":                              true,
-		keyPath + ".sleep.durationSeconds":                      600,
-		keyPath + ".sleep.enableRandomness":                     false,
+		keyPath + ".sleep.enabled":                              sleep.enabled,
+		keyPath + ".sleep.durationSeconds":                      sleep.durationSeconds,
+		keyPath + ".sleep.enableRandomness":                     sleep.enableRandomness,
 		keyPath + ".memberGrace.enabled":                        true,
 		keyPath + ".memberGrace.durationSeconds":                30,
 		keyPath + ".memberGrace.enableRandomness":               true,
@@ -257,7 +343,7 @@ func assembleTestConfig(keyPath string, chaosProbability float64, memberAccessMo
 func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
 	allButAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
-		mc.numRuns == expected[testMonkeyKeyPath+".numRuns"] &&
+		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
 		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
 		mc.accessConfig.memberAccessMode == expected[testMonkeyKeyPath+".memberAccess.mode"] &&
 		mc.accessConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberAccess.targetOnlyActive"] &&
