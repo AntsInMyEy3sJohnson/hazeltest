@@ -16,6 +16,7 @@ type (
 	testHzMemberKiller struct {
 		returnError    bool
 		numInvocations int
+		givenHzMember  hzMember
 	}
 	testConfigPropertyAssigner struct {
 		dummyConfig map[string]any
@@ -30,9 +31,6 @@ const (
 )
 
 var (
-	hzMemberID           = "hazelcastimdg-0"
-	memberChooser        = &testHzMemberChooser{returnError: false, memberID: hzMemberID}
-	errMemberChooser     = &testHzMemberChooser{returnError: true}
 	testMonkeyKeyPath    = "testChaosMonkey"
 	memberKillerKeyPath  = "chaosMonkeys.memberKiller"
 	completeRunStateList = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, chaosStart, chaosComplete}
@@ -48,13 +46,15 @@ var (
 	}
 )
 
-func (k *testHzMemberKiller) kill(_ hzMember, _ memberAccessConfig, _ sleepConfig) error {
+func (k *testHzMemberKiller) kill(member hzMember, _ memberAccessConfig, _ sleepConfig) error {
 
 	k.numInvocations++
 
 	if k.returnError {
 		return errors.New("yet another error that should have been completely impossible")
 	}
+
+	k.givenHzMember = member
 
 	return nil
 
@@ -120,11 +120,21 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Fatal(genericMsg, ballotX, detail)
 			}
 		}
-		t.Log("\twhen non-zero num runs are configured")
+		t.Log("\twhen non-zero number of runs is configured")
 		{
-			numRuns := 10
-			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, 1.0, numRuns, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
-			chooser := &testHzMemberChooser{}
+			numRuns := 9
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					numRuns,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+			hzMemberID := "hazelcastimdg-ß"
+			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{chooser: chooser, killer: killer}
 
@@ -148,6 +158,103 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", killer.numInvocations, numRuns))
+			}
+
+			msg = "\t\tkiller's invocation argument must contain previously chosen hazelcast member"
+			if killer.givenHzMember.identifier == hzMemberID {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, killer.givenHzMember.identifier)
+			}
+		}
+		t.Log("\twhen chaos probability is given as 0.0")
+		{
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					0.0,
+					9,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+			chooser := &testHzMemberChooser{}
+			killer := &testHzMemberKiller{}
+			m := memberKillerMonkey{chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
+				t.Log(genericMsg, checkMark)
+			} else {
+				t.Fatal(genericMsg, ballotX, detail)
+			}
+
+			msg := "\t\truns must be skipped"
+			if chooser.numInvocations == 0 && killer.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen chooser yields error")
+		{
+			numRuns := 3
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					numRuns,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+			chooser := &testHzMemberChooser{returnError: true}
+			killer := &testHzMemberKiller{}
+			m := memberKillerMonkey{chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			msg := "\t\tchooser invocation must be re-tried in next run"
+			if chooser.numInvocations == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tkiller must not be invoked"
+			if killer.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen killer yields an error")
+		{
+			numRuns := 3
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					numRuns,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+			chooser := &testHzMemberChooser{}
+			killer := &testHzMemberKiller{returnError: true}
+			m := memberKillerMonkey{chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			msg := "\t\tinvocations of both chooser and killer must be retried in next run"
+			if chooser.numInvocations == numRuns && killer.numInvocations == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
