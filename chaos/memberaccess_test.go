@@ -155,6 +155,42 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
+func TestSelectRandomPodFromList(t *testing.T) {
+
+	t.Log("given the need to test random pod selection")
+	{
+		t.Log("\twhen multiple pods are provided")
+		{
+			podSelected := map[string]bool{
+				"hazelcastimdg-0": false,
+				"hazelcastimdg-1": false,
+				"hazelcastimdg-2": false,
+			}
+			var pods []v1.Pod
+			for k := range podSelected {
+				pods = append(pods, assemblePod(k, false))
+			}
+			msg := "\t\tpod from list must be returned"
+			for i := 0; i < 10; i++ {
+				selected := selectRandomPodFromList(pods)
+				if _, ok := podSelected[selected.Name]; ok {
+					podSelected[selected.Name] = true
+				} else {
+					t.Fatal(msg, ballotX, selected.Name)
+				}
+			}
+			msg = "\t\teach pod must have been selected at least once"
+			for k, v := range podSelected {
+				if v {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
+			}
+		}
+	}
+}
+
 func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 
 	t.Log("given the need to test the default namespace discoverer")
