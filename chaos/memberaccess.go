@@ -343,7 +343,7 @@ func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberG
 		return err
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' using grace period seconds %d", m.identifier, gracePeriod), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
 	return nil
 
 }
