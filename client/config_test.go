@@ -145,7 +145,7 @@ func TestValidateString(t *testing.T) {
 
 	t.Log("given the need to test the string validation function")
 	{
-		path := "maptests.load.mapPrefix.prefix"
+		path := "mapTests.load.mapPrefix.prefix"
 
 		t.Log("\twhen providing a value that can be parsed into a string")
 		{
@@ -206,7 +206,7 @@ func TestValidateInt(t *testing.T) {
 
 	t.Log("given the need to test the int validation function")
 	{
-		path := "queuetests.tweets.numQueues"
+		path := "queueTests.tweets.numQueues"
 		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
 		{
 			for _, v := range []int{1, 5, 42} {
@@ -269,7 +269,7 @@ func TestValidateBool(t *testing.T) {
 
 	t.Log("given the need to test the bool validation function")
 	{
-		path := "maptests.pokedex.enabled"
+		path := "mapTests.pokedex.enabled"
 		t.Log("\twhen providing a value that can be parsed into a bool")
 		{
 			err := ValidateBool(path, true)

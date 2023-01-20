@@ -244,7 +244,7 @@ func populateConfig(runnerKeyPath string, queueBaseName string) (*runnerConfig, 
 func (t *QueueTester) TestQueues() {
 
 	clientID := client.ID()
-	logInternalStateInfo(fmt.Sprintf("%s: queuetester starting %d runner/-s", clientID, len(runners)))
+	logInternalStateInfo(fmt.Sprintf("%s: queue tester starting %d runner/-s", clientID, len(runners)))
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {

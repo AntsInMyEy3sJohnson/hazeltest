@@ -128,7 +128,7 @@ func deserializeLoadElement(elementFromHz any) error {
 
 func populateLoadConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
-	runnerKeyPath := "maptests.load"
+	runnerKeyPath := "mapTests.load"
 
 	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
 		numEntriesPerMap = a.(int)

@@ -42,7 +42,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"maptests.load.enabled": false,
+					"mapTests.load.enabled": false,
 				},
 			}
 			r := loadRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
@@ -60,7 +60,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"maptests.load.enabled": true,
+					"mapTests.load.enabled": true,
 				},
 			}
 			r := loadRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}

@@ -41,7 +41,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"maptests.pokedex.enabled": false,
+					"mapTests.pokedex.enabled": false,
 				},
 			}
 			r := pokedexRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
@@ -59,7 +59,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"maptests.pokedex.enabled": true,
+					"mapTests.pokedex.enabled": true,
 				},
 			}
 			r := pokedexRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}

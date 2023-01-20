@@ -45,7 +45,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	config, err := populateConfig("queuetests.tweets", "tweets")
+	config, err := populateConfig("queueTests.tweets", "tweets")
 	if err != nil {
 		lp.LogRunnerEvent("unable to populate config for queue tweet runner -- aborting", log.ErrorLevel)
 		return

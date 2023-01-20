@@ -3,11 +3,11 @@ chaosMonkeys:
   memberKiller:
     enabled: true
     numRuns: 100
-    chaosProbability: 0.6
+    chaosProbability: 1.0
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sOutOfCluster
-      targetOnlyActive: false
+      targetOnlyActive: true
       k8sOutOfCluster:
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.
@@ -17,17 +17,16 @@ chaosMonkeys:
       k8sInCluster:
         labelSelector: app.kubernetes.io/name=hazelcastimdg
     sleep:
-      enabled: false
-      durationSeconds: 600
+      enabled: true
+      durationSeconds: 60
       enableRandomness: false
     memberGrace:
       enabled: true
       durationSeconds: 30
       enableRandomness: true
 
-# TODO CamelCase or lower-case 'chaosMonkeys' -- as it stands right now, the naming scheme is inconsistent
-queuetests:
-  # 'queuetests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
+queueTests:
+  # 'queueTests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
   # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
@@ -170,7 +169,7 @@ queuetests:
           enableRandomness: true
 
 # TODO Improve documentation: What datasource does each runner process?
-maptests:
+mapTests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
     enabled: false

@@ -41,7 +41,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"queuetests.tweets.enabled": false,
+					"queueTests.tweets.enabled": false,
 				},
 			}
 			r := tweetRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
@@ -59,7 +59,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"queuetests.tweets.enabled": true,
+					"queueTests.tweets.enabled": true,
 				},
 			}
 			r := tweetRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}

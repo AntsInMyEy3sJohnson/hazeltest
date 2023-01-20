@@ -134,7 +134,7 @@ func deserializePokemon(elementFromHZ any) error {
 
 func populatePokedexConfig() (*runnerConfig, error) {
 
-	runnerKeyPath := "maptests.pokedex"
+	runnerKeyPath := "mapTests.pokedex"
 
 	configBuilder := runnerConfigBuilder{
 		runnerKeyPath: runnerKeyPath,

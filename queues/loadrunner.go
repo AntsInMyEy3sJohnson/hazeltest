@@ -101,7 +101,7 @@ func populateLoadElements() []loadElement {
 
 func populateLoadConfig() (*runnerConfig, error) {
 
-	runnerKeyPath := "queuetests.load"
+	runnerKeyPath := "queueTests.load"
 
 	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
 		numLoadEntries = a.(int)

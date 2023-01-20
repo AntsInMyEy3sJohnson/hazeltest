@@ -41,7 +41,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"queuetests.load.enabled": false,
+					"queueTests.load.enabled": false,
 				},
 			}
 			r := loadRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
@@ -59,7 +59,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			propertyAssigner = testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"queuetests.load.enabled": true,
+					"queueTests.load.enabled": true,
 				},
 			}
 			r := loadRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}

@@ -32,7 +32,7 @@ env:
 
 config:
   # For documentation on these properties, please refer to <repo root>/client/config/defaultConfig.yaml
-  queuetests:
+  queueTests:
     tweets:
       enabled: true
       numQueues: 10
@@ -120,7 +120,7 @@ config:
             durationMs: 3500
             enableRandomness: true
 
-  maptests:
+  mapTests:
     pokedex:
       enabled: true
       numMaps: 10
