@@ -16,8 +16,8 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			assembledStatus := assembleTestLoopStatus()
 
 			msg := "\t\ttop-level map must still contain keys and map and queue status"
-			checkTopLevelElement(t, MapTestLoopType, assembledStatus, msg)
-			checkTopLevelElement(t, QueueTestLoopType, assembledStatus, msg)
+			checkTopLevelElement(t, MapTestLoopStatusType, assembledStatus, msg)
+			checkTopLevelElement(t, QueueTestLoopStatusType, assembledStatus, msg)
 
 			msg = "\t\tstatus registered for both maps and queues must be empty"
 
@@ -31,27 +31,27 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 
 		t.Log("\twhen non-empty status is provided for two map runners and two queue runners")
 		{
-			RegisterTestLoop(MapTestLoopType, sourceMapPokedexRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoop(MapTestLoopType, sourceMapLoadRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
-			RegisterTestLoop(QueueTestLoopType, sourceQueueTweetRunner, func() map[string]any {
+			RegisterStatusType(QueueTestLoopStatusType, sourceQueueTweetRunner, func() map[string]any {
 				return dummyStatusQueueTweetTestLoop
 			})
-			RegisterTestLoop(QueueTestLoopType, sourceQueueLoadRunner, func() map[string]any {
+			RegisterStatusType(QueueTestLoopStatusType, sourceQueueLoadRunner, func() map[string]any {
 				return dummyStatusQueueLoadTestLoop
 			})
 
 			assembledStatus := assembleTestLoopStatus()
 
 			msg := "\t\ttop-level map must contain keys for map and queue test loops"
-			checkTopLevelElement(t, MapTestLoopType, assembledStatus, msg)
-			checkTopLevelElement(t, QueueTestLoopType, assembledStatus, msg)
+			checkTopLevelElement(t, MapTestLoopStatusType, assembledStatus, msg)
+			checkTopLevelElement(t, QueueTestLoopStatusType, assembledStatus, msg)
 
 			msg = "\t\tmaps map must contain keys for both registered map-type sources"
-			assembledStatusMaps := assembledStatus[MapTestLoopType].(map[string]any)
+			assembledStatusMaps := assembledStatus[MapTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusMaps[sourceMapPokedexRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -64,7 +64,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			}
 
 			msg = "\t\tqueues map must contain keys for both registered queue-type source"
-			assembledStatusQueues := assembledStatus[QueueTestLoopType].(map[string]any)
+			assembledStatusQueues := assembledStatus[QueueTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusQueues[sourceQueueTweetRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -111,29 +111,29 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 		{
 			resetMaps()
 
-			RegisterTestLoop(MapTestLoopType, sourceMapPokedexRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapPokedexRunner, func() map[string]any {
 				return map[string]any{}
 			})
-			RegisterTestLoop(QueueTestLoopType, sourceQueueTweetRunner, func() map[string]any {
+			RegisterStatusType(QueueTestLoopStatusType, sourceQueueTweetRunner, func() map[string]any {
 				return map[string]any{}
 			})
 
 			assembledStatus := assembleTestLoopStatus()
 
 			msg := "\t\ttop-level map must contain keys for map and queue test loops"
-			checkTopLevelElement(t, MapTestLoopType, assembledStatus, msg)
-			checkTopLevelElement(t, QueueTestLoopType, assembledStatus, msg)
+			checkTopLevelElement(t, MapTestLoopStatusType, assembledStatus, msg)
+			checkTopLevelElement(t, QueueTestLoopStatusType, assembledStatus, msg)
 
 			msg = "\t\tmaps status must contain key for registered map test loop"
 
-			assembledStatusMaps := assembledStatus[MapTestLoopType].(map[string]any)
+			assembledStatusMaps := assembledStatus[MapTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusMaps[sourceMapPokedexRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			assembledStatusQueues := assembledStatus[QueueTestLoopType].(map[string]any)
+			assembledStatusQueues := assembledStatus[QueueTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusQueues[sourceQueueTweetRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -159,29 +159,29 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 		{
 			resetMaps()
 
-			RegisterTestLoop(MapTestLoopType, sourceMapLoadRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapLoadRunner, func() map[string]any {
 				return nil
 			})
-			RegisterTestLoop(QueueTestLoopType, sourceQueueTweetRunner, func() map[string]any {
+			RegisterStatusType(QueueTestLoopStatusType, sourceQueueTweetRunner, func() map[string]any {
 				return nil
 			})
 
 			assembledStatus := assembleTestLoopStatus()
 
 			msg := "\t\ttop-level element must be equal to source the test loop has been registered with"
-			checkTopLevelElement(t, MapTestLoopType, assembledStatus, msg)
-			checkTopLevelElement(t, QueueTestLoopType, assembledStatus, msg)
+			checkTopLevelElement(t, MapTestLoopStatusType, assembledStatus, msg)
+			checkTopLevelElement(t, QueueTestLoopStatusType, assembledStatus, msg)
 
 			msg = "\t\tmaps status must contain key for registered map test loop"
 
-			assembledStatusMaps := assembledStatus[MapTestLoopType].(map[string]any)
+			assembledStatusMaps := assembledStatus[MapTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusMaps[sourceMapLoadRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapLoadRunner)
 			}
 
-			assembledStatusQueues := assembledStatus[QueueTestLoopType].(map[string]any)
+			assembledStatusQueues := assembledStatus[QueueTestLoopStatusType].(map[string]any)
 			if _, ok := assembledStatusQueues[sourceQueueTweetRunner]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -213,7 +213,7 @@ func resetMaps() {
 
 }
 
-func checkTopLevelElement(t *testing.T, topLevelElementKey TestLoopType, assembledStatus map[TestLoopType]any, msg string) {
+func checkTopLevelElement(t *testing.T, topLevelElementKey StatusType, assembledStatus map[StatusType]any, msg string) {
 
 	if _, ok := assembledStatus[topLevelElementKey]; ok {
 		t.Log(msg, checkMark)

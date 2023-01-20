@@ -73,26 +73,26 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			if _, ok := decodedData[string(MapTestLoopType)]; ok {
+			if _, ok := decodedData[string(MapTestLoopStatusType)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, MapTestLoopType)
+				t.Fatal(msg, ballotX, MapTestLoopStatusType)
 			}
 
-			if _, ok := decodedData[string(QueueTestLoopType)]; ok {
+			if _, ok := decodedData[string(QueueTestLoopStatusType)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, QueueTestLoopType)
+				t.Fatal(msg, ballotX, QueueTestLoopStatusType)
 			}
 
 		}
 
 		t.Log("\twhen two map test loops have registered")
 		{
-			RegisterTestLoop(MapTestLoopType, sourceMapPokedexRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoop(MapTestLoopType, sourceMapLoadRunner, func() map[string]any {
+			RegisterStatusType(MapTestLoopStatusType, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
 
@@ -129,27 +129,27 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			if _, ok := decodedData[string(MapTestLoopType)]; ok {
+			if _, ok := decodedData[string(MapTestLoopStatusType)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, MapTestLoopType)
+				t.Fatal(msg, ballotX, MapTestLoopStatusType)
 			}
 
-			if _, ok := decodedData[string(QueueTestLoopType)]; ok {
+			if _, ok := decodedData[string(QueueTestLoopStatusType)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, QueueTestLoopType)
+				t.Fatal(msg, ballotX, QueueTestLoopStatusType)
 			}
 
 			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
-			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(MapTestLoopType)].(map[string]any)[sourceMapPokedexRunner]
+			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(MapTestLoopStatusType)].(map[string]any)[sourceMapPokedexRunner]
 			if okPokedex {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			statusLoadRunnerTestLoop, okLoad := decodedData[string(MapTestLoopType)].(map[string]any)[sourceMapLoadRunner]
+			statusLoadRunnerTestLoop, okLoad := decodedData[string(MapTestLoopStatusType)].(map[string]any)[sourceMapLoadRunner]
 			if okLoad {
 				t.Log(msg, checkMark)
 			} else {
