@@ -11,21 +11,25 @@ import (
 )
 
 type (
-	hzMember struct {
-		identifier string
-	}
 	hzMemberChooser interface {
 		choose(ac memberAccessConfig) (hzMember, error)
 	}
 	hzMemberKiller interface {
 		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
 	}
+	sleeper interface {
+		sleep(sc *sleepConfig)
+	}
 	monkey interface {
-		init(c hzMemberChooser, k hzMemberKiller)
+		init(s sleeper, c hzMemberChooser, k hzMemberKiller)
 		causeChaos()
+	}
+	hzMember struct {
+		identifier string
 	}
 	memberKillerMonkey struct {
 		stateList []state
+		s         sleeper
 		chooser   hzMemberChooser
 		killer    hzMemberKiller
 	}
@@ -57,7 +61,8 @@ type (
 		sleep            *sleepConfig
 		memberGrace      *sleepConfig
 	}
-	state string
+	defaultSleeper struct{}
+	state          string
 )
 
 const (
@@ -90,8 +95,24 @@ func register(m monkey) {
 	monkeys = append(monkeys, m)
 }
 
-func (m *memberKillerMonkey) init(c hzMemberChooser, k hzMemberKiller) {
+func (s *defaultSleeper) sleep(sc *sleepConfig) {
 
+	if sc.enabled {
+		var sleepDuration int
+		if sc.enableRandomness {
+			sleepDuration = rand.Intn(sc.durationSeconds + 1)
+		} else {
+			sleepDuration = sc.durationSeconds
+		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
+		time.Sleep(time.Duration(sleepDuration) * time.Second)
+	}
+
+}
+
+func (m *memberKillerMonkey) init(s sleeper, c hzMemberChooser, k hzMemberKiller) {
+
+	m.s = s
 	m.chooser = c
 	m.killer = k
 
@@ -120,7 +141,7 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	updateStep := uint32(50)
 	for i := uint32(0); i < mc.numRuns; i++ {
-		sleep(mc.sleep)
+		m.s.sleep(mc.sleep)
 		if i > 0 && i%updateStep == 0 {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
 		}
@@ -157,21 +178,6 @@ func (m *memberKillerMonkey) causeChaos() {
 func (m *memberKillerMonkey) appendState(s state) {
 
 	m.stateList = append(m.stateList, s)
-
-}
-
-func sleep(sc *sleepConfig) {
-
-	if sc.enabled {
-		var sleepDuration int
-		if sc.enableRandomness {
-			sleepDuration = rand.Intn(sc.durationSeconds + 1)
-		} else {
-			sleepDuration = sc.durationSeconds
-		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
-		time.Sleep(time.Duration(sleepDuration) * time.Second)
-	}
 
 }
 
@@ -375,6 +381,7 @@ func RunMonkeys() {
 			}
 			namespaceDiscoverer := &defaultK8sNamespaceDiscoverer{}
 			m.init(
+				&defaultSleeper{},
 				&k8sHzMemberChooser{
 					clientsetProvider:   clientsetProvider,
 					namespaceDiscoverer: namespaceDiscoverer,

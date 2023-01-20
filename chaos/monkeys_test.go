@@ -21,6 +21,9 @@ type (
 	testConfigPropertyAssigner struct {
 		dummyConfig map[string]any
 	}
+	testSleeper struct {
+		secondsSlept int
+	}
 )
 
 const (
@@ -34,17 +37,20 @@ var (
 	testMonkeyKeyPath    = "testChaosMonkey"
 	memberKillerKeyPath  = "chaosMonkeys.memberKiller"
 	completeRunStateList = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, chaosStart, chaosComplete}
-	sleepEnabled         = sleepConfig{
-		enabled:          true,
-		durationSeconds:  10,
-		enableRandomness: false,
-	}
-	sleepDisabled = sleepConfig{
+	sleepDisabled        = &sleepConfig{
 		enabled:          false,
 		durationSeconds:  1,
 		enableRandomness: false,
 	}
 )
+
+func (s *testSleeper) sleep(sc *sleepConfig) {
+
+	if sc.enabled {
+		s.secondsSlept += sc.durationSeconds
+	}
+
+}
 
 func (k *testHzMemberKiller) kill(member hzMember, _ memberAccessConfig, _ sleepConfig) error {
 
@@ -94,7 +100,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen populating the member killer config returns an error")
 		{
 			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
-			m := memberKillerMonkey{chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
 
 			m.causeChaos()
 
@@ -110,7 +116,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = &testConfigPropertyAssigner{testConfig}
-			m := memberKillerMonkey{chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
 
 			m.causeChaos()
 
@@ -136,7 +142,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			hzMemberID := "hazelcastimdg-ß"
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
 
 			m.causeChaos()
 
@@ -167,7 +173,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Fatal(msg, ballotX, killer.givenHzMember.identifier)
 			}
 		}
-		t.Log("\twhen chaos probability is given as 0.0")
+		t.Log("\twhen chaos probability is set to zero")
 		{
 			propertyAssigner = &testConfigPropertyAssigner{
 				assembleTestConfig(
@@ -181,7 +187,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
 
 			m.causeChaos()
 
@@ -213,7 +219,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{returnError: true}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
 
 			m.causeChaos()
 
@@ -246,12 +252,70 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
 
 			m.causeChaos()
 
 			msg := "\t\tinvocations of both chooser and killer must be retried in next run"
 			if chooser.numInvocations == numRuns && killer.numInvocations == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen sleep has been disabled")
+		{
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					10,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+			s := &testSleeper{}
+			chooser := &testHzMemberChooser{}
+			killer := &testHzMemberKiller{returnError: true}
+			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			msg := "\t\ttime slept must be zero"
+			if s.secondsSlept == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen static sleep has been enabled")
+		{
+			numRuns := 9
+			sc := &sleepConfig{
+				enabled:          true,
+				durationSeconds:  10,
+				enableRandomness: false,
+			}
+			propertyAssigner = &testConfigPropertyAssigner{
+				assembleTestConfig(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					numRuns,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sc,
+				)}
+			s := &testSleeper{}
+			chooser := &testHzMemberChooser{}
+			killer := &testHzMemberKiller{returnError: true}
+			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer}
+
+			m.causeChaos()
+
+			msg := "\t\ttime slept must be equal to number of runs into number of seconds given as sleep time"
+			if s.secondsSlept == numRuns*sc.durationSeconds {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -425,7 +489,7 @@ func checkMonkeyStateTransitions(expected []state, actual []state) (string, bool
 
 }
 
-func assembleTestConfig(keyPath string, enabled bool, chaosProbability float64, numRuns int, memberAccessMode, labelSelector string, sleep sleepConfig) map[string]any {
+func assembleTestConfig(keyPath string, enabled bool, chaosProbability float64, numRuns int, memberAccessMode, labelSelector string, sleep *sleepConfig) map[string]any {
 
 	return map[string]any{
 		keyPath + ".enabled":                                    enabled,
