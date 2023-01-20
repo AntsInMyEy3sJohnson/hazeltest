@@ -3,8 +3,10 @@ package chaos
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 type (
@@ -90,6 +92,73 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	}
 
 	return nil
+
+}
+
+func TestDefaultSleeperSleep(t *testing.T) {
+
+	t.Log("given the need to test the default sleeper")
+	{
+		t.Log("\twhen sleep has been disabled")
+		{
+			s := defaultSleeper{}
+
+			start := time.Now()
+			s.sleep(sleepDisabled)
+			elapsedSeconds := time.Since(start).Seconds()
+
+			msg := "\t\tno time must have been spent sleeping"
+			if elapsedSeconds < 0.01 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, elapsedSeconds)
+			}
+		}
+		t.Log("\twhen static sleep has been enabled")
+		{
+			s := defaultSleeper{}
+			sc := &sleepConfig{
+				enabled:          true,
+				durationSeconds:  1,
+				enableRandomness: false,
+			}
+
+			start := time.Now()
+			s.sleep(sc)
+			elapsedSeconds := time.Since(start).Seconds()
+
+			msg := "\t\tsleeper must have slept for given number of seconds"
+			if math.Abs(elapsedSeconds-float64(sc.durationSeconds)) < float64(sc.durationSeconds)*0.01 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%f != %d", elapsedSeconds, sc.durationSeconds))
+			}
+		}
+		t.Log("\twhen random sleep has been enabled")
+		{
+			s := defaultSleeper{}
+			sc := &sleepConfig{
+				enabled:          true,
+				durationSeconds:  1,
+				enableRandomness: true,
+			}
+
+			runs := 6
+			start := time.Now()
+			for i := 0; i < runs; i++ {
+				s.sleep(sc)
+			}
+			elapsedSeconds := time.Since(start).Seconds()
+
+			msg := "\t\ttime slept must be less than what it would be had the sleep been static"
+			if elapsedSeconds < float64(runs)*float64(sc.durationSeconds) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, elapsedSeconds)
+			}
+
+		}
+	}
 
 }
 
