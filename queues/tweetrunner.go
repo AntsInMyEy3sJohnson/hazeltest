@@ -37,7 +37,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
+	register(&tweetRunner{stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 
@@ -53,7 +53,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogRunnerEvent("tweetrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("tweet runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)

@@ -54,7 +54,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
+	register(&pokedexRunner{stateList: []state{}, name: "mapsPokedexRunner", source: "pokedexRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 }
 
@@ -70,7 +70,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogRunnerEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("pokedexRunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)

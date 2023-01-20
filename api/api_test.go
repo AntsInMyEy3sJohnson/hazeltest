@@ -3,10 +3,10 @@ package api
 import "fmt"
 
 const (
-	sourceMapPokedexRunner = "pokedexrunner"
-	sourceMapLoadRunner    = "loadrunner"
-	sourceQueueTweetRunner = "tweetrunner"
-	sourceQueueLoadRunner  = "loadrunner"
+	sourceMapPokedexRunner = "pokedexRunner"
+	sourceMapLoadRunner    = "loadRunner"
+	sourceQueueTweetRunner = "tweetRunner"
+	sourceQueueLoadRunner  = "loadRunner"
 )
 
 const (

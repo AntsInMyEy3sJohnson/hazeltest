@@ -33,7 +33,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "maps-loadrunner", source: "loadrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -49,8 +49,8 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	r.appendState(populateConfigComplete)
 
 	if !loadRunnerConfig.enabled {
-		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
-		lp.LogRunnerEvent("loadrunner not enabled -- won't run", log.InfoLevel)
+		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
+		lp.LogRunnerEvent("loadRunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -59,7 +59,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	r.mapStore.InitHazelcastClient(ctx, "maps-loadrunner", hzCluster, hzMembers)
+	r.mapStore.InitHazelcastClient(ctx, "mapsLoadRunner", hzCluster, hzMembers)
 	defer func() {
 		_ = r.mapStore.Shutdown(ctx)
 	}()
