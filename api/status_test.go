@@ -26,10 +26,11 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			msg = "\t\ttest loops map must still contains queues status"
 			if _, ok := assembledTestLoopsStatus[Queues]; ok {
 				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tstatus registered for both maps and queues must be empty"
-
 			if len(assembledTestLoopsStatus[Maps].(map[string]any)) == 0 && len(assembledTestLoopsStatus[Queues].(map[string]any)) == 0 {
 				t.Log(msg, checkMark)
 			} else {
