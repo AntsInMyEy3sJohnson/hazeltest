@@ -21,7 +21,9 @@ func TestStatusHandler(t *testing.T) {
 
 			livenessHandler(recorder, httptest.NewRequest(http.MethodPost, "localhost:8080/status", nil))
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
@@ -39,7 +41,9 @@ func TestStatusHandler(t *testing.T) {
 
 			statusHandler(recorder, request)
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
@@ -66,33 +70,35 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for map and queue test loops"
+			msg = "\t\tdecoded map must contain top-level keys for test loop and chaos monkey status contributors"
 			if len(decodedData) == 2 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			if _, ok := decodedData[string(MapTestLoopStatusType)]; ok {
+			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
+			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
+			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, MapTestLoopStatusType)
+				t.Fatal(msg, ballotX, Maps)
 			}
 
-			if _, ok := decodedData[string(QueueTestLoopStatusType)]; ok {
+			if _, ok := decodedTestLoopsData[string(Queues)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, QueueTestLoopStatusType)
+				t.Fatal(msg, ballotX, Queues)
 			}
 
 		}
 
 		t.Log("\twhen two map test loops have registered")
 		{
-			RegisterStatusType(MapTestLoopStatusType, sourceMapPokedexRunner, func() map[string]any {
+			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterStatusType(MapTestLoopStatusType, sourceMapLoadRunner, func() map[string]any {
+			RegisterTestLoopStatus(Maps, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
 
@@ -101,7 +107,9 @@ func TestStatusHandler(t *testing.T) {
 
 			statusHandler(recorder, request)
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
@@ -122,34 +130,36 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for map and queue test loops"
+			msg = "\t\tdecoded map must contain top-level keys for test loop and chaos monkey status contributors"
 			if len(decodedData) == 2 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			if _, ok := decodedData[string(MapTestLoopStatusType)]; ok {
+			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
+			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
+			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, MapTestLoopStatusType)
+				t.Fatal(msg, ballotX, Maps)
 			}
 
-			if _, ok := decodedData[string(QueueTestLoopStatusType)]; ok {
+			if _, ok := decodedTestLoopsData[string(Queues)]; ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, QueueTestLoopStatusType)
+				t.Fatal(msg, ballotX, Queues)
 			}
 
 			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
-			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(MapTestLoopStatusType)].(map[string]any)[sourceMapPokedexRunner]
+			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(TestLoopStatusType)].(map[string]any)[sourceMapPokedexRunner]
 			if okPokedex {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			statusLoadRunnerTestLoop, okLoad := decodedData[string(MapTestLoopStatusType)].(map[string]any)[sourceMapLoadRunner]
+			statusLoadRunnerTestLoop, okLoad := decodedData[string(TestLoopStatusType)].(map[string]any)[sourceMapLoadRunner]
 			if okLoad {
 				t.Log(msg, checkMark)
 			} else {
@@ -186,7 +196,9 @@ func TestLivenessHandler(t *testing.T) {
 
 			livenessHandler(recorder, httptest.NewRequest(http.MethodGet, "localhost:8080/liveness", nil))
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\tliveness handlet must return http status %d", expectedStatusCode)
@@ -204,7 +216,9 @@ func TestLivenessHandler(t *testing.T) {
 
 			livenessHandler(recorder, httptest.NewRequest(http.MethodPost, "localhost:8080/liveness", nil))
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\tliveness handler must return http status %d", expectedStatusCode)
@@ -231,7 +245,9 @@ func TestReadinessHandler(t *testing.T) {
 
 			readinessHandler(recorder, httptest.NewRequest(http.MethodPost, "localhost:8080/liveness", nil))
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusMethodNotAllowed
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
@@ -248,7 +264,9 @@ func TestReadinessHandler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusServiceUnavailable
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
@@ -268,7 +286,9 @@ func TestReadinessHandler(t *testing.T) {
 			readinessHandler(recorder, request)
 
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusServiceUnavailable
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
@@ -306,7 +326,9 @@ func TestReadinessHandler(t *testing.T) {
 			readinessHandler(recorder, request)
 
 			response := recorder.Result()
-			defer response.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
 
 			expectedStatusCode := http.StatusOK
 			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
