@@ -5,11 +5,16 @@ import (
 )
 
 type StatusType string
+type TestLoopDataStructure string
 
 const (
-	MapTestLoopStatusType   StatusType = "maps"
-	QueueTestLoopStatusType StatusType = "queues"
-	ChaosMonkeyStatusType   StatusType = "chaosMonkeys"
+	Maps   TestLoopDataStructure = "maps"
+	Queues TestLoopDataStructure = "queues"
+)
+
+const (
+	TestLoopStatusType    StatusType = "testLoops"
+	ChaosMonkeyStatusType StatusType = "chaosMonkeys"
 )
 
 var (
@@ -18,16 +23,20 @@ var (
 	chaosMonkeyStatusFunctions   sync.Map
 )
 
-func RegisterStatusType(t StatusType, source string, queryStatusFunc func() map[string]any) {
+func RegisterTestLoopStatus(s TestLoopDataStructure, source string, queryStatusFunc func() map[string]any) {
 
-	switch t {
-	case MapTestLoopStatusType:
+	switch s {
+	case Maps:
 		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
-	case QueueTestLoopStatusType:
+	case Queues:
 		queueTestLoopStatusFunctions.Store(source, queryStatusFunc)
-	case ChaosMonkeyStatusType:
-		chaosMonkeyStatusFunctions.Store(source, queryStatusFunc)
 	}
+
+}
+
+func RegisterChaosMonkeyStatus(source string, queryStatusFunc func() map[string]any) {
+
+	chaosMonkeyStatusFunctions.Store(source, queryStatusFunc)
 
 }
 
@@ -43,9 +52,11 @@ func assembleTestLoopStatus() map[StatusType]any {
 	populateWithStatus(chaosMonkeyStatus, &chaosMonkeyStatusFunctions)
 
 	return map[StatusType]any{
-		MapTestLoopStatusType:   mapTestLoopStatus,
-		QueueTestLoopStatusType: queueTestLoopStatus,
-		ChaosMonkeyStatusType:   chaosMonkeyStatus,
+		TestLoopStatusType: map[TestLoopDataStructure]any{
+			Maps:   mapTestLoopStatus,
+			Queues: queueTestLoopStatus,
+		},
+		ChaosMonkeyStatusType: chaosMonkeyStatus,
 	}
 
 }
