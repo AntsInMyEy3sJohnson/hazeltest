@@ -49,7 +49,7 @@ const (
 func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
 	l.config = lc
 	l.g = g
-	api.RegisterStatusType(api.QueueTestLoopStatusType, lc.source, l.g.AssembleStatusCopy)
+	api.RegisterTestLoopStatus(api.Queues, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {
@@ -129,7 +129,7 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
 
 	var config *operationConfig
 	var queueFunction func(queue hzQueue, queueName string)
@@ -159,7 +159,7 @@ func (l testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueN
 
 }
 
-func (l testLoop[t]) putElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 
 	elements := l.config.elements
 	putConfig := l.config.runnerConfig.putConfig
@@ -185,7 +185,7 @@ func (l testLoop[t]) putElements(q hzQueue, queueName string) {
 
 }
 
-func (l testLoop[t]) pollElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
 
 	pollConfig := l.config.runnerConfig.pollConfig
 
@@ -205,7 +205,7 @@ func (l testLoop[t]) pollElements(q hzQueue, queueName string) {
 
 }
 
-func (l testLoop[t]) assembleQueueName(queueIndex int) string {
+func (l *testLoop[t]) assembleQueueName(queueIndex int) string {
 
 	c := l.config
 
