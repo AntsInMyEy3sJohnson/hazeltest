@@ -152,14 +152,14 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
-			statusPokedexRunnerTestLoop, okPokedex := decodedData[string(TestLoopStatusType)].(map[string]any)[sourceMapPokedexRunner]
+			statusPokedexRunnerTestLoop, okPokedex := decodedTestLoopsData[string(Maps)].(map[string]any)[sourceMapPokedexRunner]
 			if okPokedex {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			statusLoadRunnerTestLoop, okLoad := decodedData[string(TestLoopStatusType)].(map[string]any)[sourceMapLoadRunner]
+			statusLoadRunnerTestLoop, okLoad := decodedTestLoopsData[string(Maps)].(map[string]any)[sourceMapLoadRunner]
 			if okLoad {
 				t.Log(msg, checkMark)
 			} else {
