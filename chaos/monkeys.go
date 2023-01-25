@@ -36,18 +36,6 @@ type (
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
 	}
-	k8sOutOfClusterMemberAccess struct {
-		kubeconfig, namespace, labelSelector string
-	}
-	k8sInClusterMemberAccess struct {
-		labelSelector string
-	}
-	memberAccessConfig struct {
-		memberAccessMode string
-		targetOnlyActive bool
-		k8sOutOfCluster  k8sOutOfClusterMemberAccess
-		k8sInCluster     k8sInClusterMemberAccess
-	}
 	sleepConfig struct {
 		enabled          bool
 		durationSeconds  int

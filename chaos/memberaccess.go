@@ -38,6 +38,18 @@ type (
 	k8sPodDeleter interface {
 		delete(cs *kubernetes.Clientset, ctx context.Context, namespace, name string, deleteOptions metav1.DeleteOptions) error
 	}
+	k8sOutOfClusterMemberAccess struct {
+		kubeconfig, namespace, labelSelector string
+	}
+	k8sInClusterMemberAccess struct {
+		labelSelector string
+	}
+	memberAccessConfig struct {
+		memberAccessMode string
+		targetOnlyActive bool
+		k8sOutOfCluster  k8sOutOfClusterMemberAccess
+		k8sInCluster     k8sInClusterMemberAccess
+	}
 	defaultK8sConfigBuilder        struct{}
 	defaultK8sClientsetInitializer struct{}
 	defaultK8sClientsetProvider    struct {
