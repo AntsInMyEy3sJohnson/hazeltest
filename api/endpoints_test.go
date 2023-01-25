@@ -116,7 +116,7 @@ func TestStatusHandler(t *testing.T) {
 			if response.StatusCode == expectedStatusCode {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, response.StatusCode)
 			}
 
 			data, _ := tryResponseRead(response.Body)
@@ -167,15 +167,127 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tnested maps must be equal to registered status"
-			parseNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]any))
+			parseRunnerNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]any))
 			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, statusPokedexRunnerTestLoop.(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			parseNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]any))
+			parseRunnerNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]any))
 			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]any)); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+		t.Log("\twhen only chaos monkey has registered")
+		{
+			resetMaps()
+
+			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
+				return dummyStatusMemberKillerMonkey
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "localhost:8080/status", nil)
+			recorder := httptest.NewRecorder()
+
+			statusHandler(recorder, request)
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			expectedStatusCode := http.StatusOK
+			msg := fmt.Sprintf("\t\tstatus handler must return http status %d", expectedStatusCode)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, response.StatusCode)
+			}
+
+			data, _ := tryResponseRead(response.Body)
+
+			msg = "\t\tresponse body must be valid json"
+			var decodedData map[string]any
+			err := json.Unmarshal(data, &decodedData)
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus map must contain exactly two elements"
+			if len(decodedData) == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus map must still contain top-level key for test loop status"
+			if _, ok := decodedData[string(TestLoopStatusType)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\ttest loop status map must still contain two top-level elements"
+			testLoopStatus := decodedData[string(TestLoopStatusType)].(map[string]any)
+
+			if len(testLoopStatus) == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\ttest loop status map must still contain top-level keys for maps and queues"
+			if _, ok := testLoopStatus[string(Maps)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, Maps)
+			}
+
+			if _, ok := testLoopStatus[string(Queues)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, Queues)
+			}
+
+			mapsStatus := testLoopStatus[string(Maps)].(map[string]any)
+			msg = "\t\tstatus for maps must be empty"
+			if len(mapsStatus) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			queuesStatus := testLoopStatus[string(Queues)].(map[string]any)
+			msg = "\t\tstatus for queues must be empty"
+			if len(queuesStatus) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus map must contain top-level key for chaos monkey status"
+			if _, ok := decodedData[string(ChaosMonkeyStatusType)]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tchaos monkey map must contain exactly one element"
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			if len(chaosMonkeyStatus) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tchaos monkey map must contain member killer status equal to given test status"
+			memberKillerStatus := chaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
+			parseChaosMonkeyNumberValuesBackToInt(memberKillerStatus)
+			if ok, detail := mapsEqualInContent(dummyStatusMemberKillerMonkey, memberKillerStatus); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -377,7 +489,14 @@ func TestReadinessHandler(t *testing.T) {
 
 }
 
-func parseNumberValuesBackToInt(m map[string]any) {
+func parseChaosMonkeyNumberValuesBackToInt(m map[string]any) {
+
+	m[statusKeyNumRuns] = int(m[statusKeyNumRuns].(float64))
+	m[statusKeyNumMembersKilled] = int(m[statusKeyNumMembersKilled].(float64))
+
+}
+
+func parseRunnerNumberValuesBackToInt(m map[string]any) {
 
 	m[statusKeyNumMaps] = int(m[statusKeyNumMaps].(float64))
 	m[statusKeyNumRuns] = int(m[statusKeyNumRuns].(float64))
