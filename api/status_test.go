@@ -14,9 +14,28 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			resetMaps()
 
 			assembledStatus := assembleTestLoopStatus()
+			msg := "\t\tstatus map must still contain two elements"
+			if len(assembledStatus) == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(assembledStatus))
+			}
+
+			msg = "\t\tstatus map must contain one key for test loop status and chaos monkey status each"
+			if _, ok := assembledStatus[TestLoopStatusType]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, TestLoopStatusType)
+			}
+			if _, ok := assembledStatus[ChaosMonkeyStatusType]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ChaosMonkeyStatusType)
+			}
+
 			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
 
-			msg := "\t\ttest loops map must still contain maps status"
+			msg = "\t\ttest loops map must still contain maps status"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -37,9 +56,17 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tstatus for chaos monkeys must be empty"
+			chaosMonkeyStatus := assembledStatus[ChaosMonkeyStatusType].(map[string]any)
+			if len(chaosMonkeyStatus) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(chaosMonkeyStatus))
+			}
+
 		}
 
-		t.Log("\twhen non-empty status is provided for two map runners and two queue runners")
+		t.Log("\twhen non-empty status is provided for two map runners, two queue runners, and one chaos monkey")
 		{
 			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
@@ -53,11 +80,33 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 			RegisterTestLoopStatus(Queues, sourceQueueLoadRunner, func() map[string]any {
 				return dummyStatusQueueLoadTestLoop
 			})
+			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
+				return dummyStatusMemberKillerMonkey
+			})
 
 			assembledStatus := assembleTestLoopStatus()
+			msg := "\t\tassembled map must contain two top-level keys"
+			if len(assembledStatus) == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(assembledStatus))
+			}
+
+			msg = "\t\tassembled map must contain one top-level key for test loop status and chaos monkey status each"
+			if _, ok := assembledStatus[TestLoopStatusType]; ok {
+				t.Log(msg, checkMark, TestLoopStatusType)
+			} else {
+				t.Fatal(msg, ballotX, TestLoopStatusType)
+			}
+			if _, ok := assembledStatus[ChaosMonkeyStatusType]; ok {
+				t.Log(msg, checkMark, ChaosMonkeyStatusType)
+			} else {
+				t.Fatal(msg, ballotX, ChaosMonkeyStatusType)
+			}
+
 			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
 
-			msg := "\t\ttest loops map must contain maps status"
+			msg = "\t\ttest loops map must contain maps status"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -125,6 +174,22 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 
+			msg = "\t\tchaos monkey status must contain exactly one key"
+			chaosMonkeyStatus := assembledStatus[ChaosMonkeyStatusType].(map[string]any)
+			if len(chaosMonkeyStatus) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tassembled member killer status must mirror given test status"
+			memberKillerStatus := chaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
+			if ok, detail := mapsEqualInContent(dummyStatusMemberKillerMonkey, memberKillerStatus); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
 		}
 
 		t.Log("\twhen function for querying status yields empty map")
@@ -135,6 +200,9 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				return map[string]any{}
 			})
 			RegisterTestLoopStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
+				return map[string]any{}
+			})
+			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return map[string]any{}
 			})
 
@@ -183,6 +251,21 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, sourceQueueTweetRunner)
 			}
 
+			msg = "\t\tchaos monkey status must contain exactly one key"
+			assembledChaosMonkeyStatus := assembledStatus[ChaosMonkeyStatusType].(map[string]any)
+			if len(assembledChaosMonkeyStatus) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(assembledChaosMonkeyStatus))
+			}
+
+			msg = "\t\tmember killer status must be empty"
+			memberKillerStatus := assembledChaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
+			if len(memberKillerStatus) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(memberKillerStatus))
+			}
 		}
 
 		t.Log("\twhen function for querying status yields nil")
@@ -193,6 +276,9 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				return nil
 			})
 			RegisterTestLoopStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
+				return nil
+			})
+			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return nil
 			})
 
@@ -241,6 +327,21 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, sourceQueueTweetRunner)
 			}
 
+			assembledChaosMonkeyStatus := assembledStatus[ChaosMonkeyStatusType].(map[string]any)
+			msg = "\t\tchaos monkey status must still contain top-level key for member killer monkey"
+			if _, ok := assembledChaosMonkeyStatus[sourceChaosMonkeyMemberKiller]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmember killer status must be empty"
+			memberKillerStatus := assembledChaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
+			if len(memberKillerStatus) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 	}
@@ -250,5 +351,5 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 func resetMaps() {
 	mapTestLoopStatusFunctions = sync.Map{}
 	queueTestLoopStatusFunctions = sync.Map{}
-
+	chaosMonkeyStatusFunctions = sync.Map{}
 }
