@@ -93,13 +93,18 @@ func TestStatusHandler(t *testing.T) {
 
 		}
 
-		t.Log("\twhen two map test loops have registered")
+		t.Log("\twhen two map test loops and one chaos monkey have registered")
 		{
+			resetMaps()
+
 			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
 			RegisterTestLoopStatus(Maps, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
+			})
+			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
+				return dummyStatusMemberKillerMonkey
 			})
 
 			request := httptest.NewRequest(http.MethodGet, "localhost:8080/status", nil)
@@ -130,7 +135,7 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for test loop and chaos monkey status contributors"
+			msg = "\t\tdecoded map must contain top-level keys for test loop status and chaos monkey status"
 			if len(decodedData) == 2 {
 				t.Log(msg, checkMark)
 			} else {
@@ -176,6 +181,23 @@ func TestStatusHandler(t *testing.T) {
 
 			parseRunnerNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]any))
 			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]any)); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+			msg = "\t\tchaos monkey map must contain exactly one element"
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			if len(chaosMonkeyStatus) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tchaos monkey map must contain member killer status equal to given test status"
+			memberKillerStatus := chaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
+			parseChaosMonkeyNumberValuesBackToInt(memberKillerStatus)
+			if ok, detail := mapsEqualInContent(dummyStatusMemberKillerMonkey, memberKillerStatus); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
