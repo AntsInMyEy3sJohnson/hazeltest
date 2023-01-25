@@ -170,7 +170,7 @@ func TestGatherer_Listen(t *testing.T) {
 
 			msg := "\t\trunner finished must be set to false in status"
 
-			if !(g.status[updateKeyRunnerFinished].(bool)) {
+			if !(g.status[updateKeyFinished].(bool)) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -188,7 +188,7 @@ func TestGatherer_Listen(t *testing.T) {
 					}
 				}
 
-				if g.status[updateKeyRunnerFinished].(bool) {
+				if g.status[updateKeyFinished].(bool) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)

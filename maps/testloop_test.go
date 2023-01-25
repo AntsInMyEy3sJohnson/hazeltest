@@ -41,7 +41,7 @@ var (
 	}
 )
 
-const statusKeyRunnerFinished = "runnerFinished"
+const statusKeyFinished = "finished"
 
 func fellowshipMemberName(element any) string {
 
@@ -301,8 +301,8 @@ func statusContainsExpectedValues(status map[string]any, expectedNumMaps, expect
 		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
-	if runnerFinishedFromStatus, ok := status[statusKeyRunnerFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
-		return false, statusKeyRunnerFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
+	if runnerFinishedFromStatus, ok := status[statusKeyFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
+		return false, statusKeyFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
 	}
 
 	return true, "", ""

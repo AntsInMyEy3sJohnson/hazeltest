@@ -26,7 +26,7 @@ type (
 )
 
 const (
-	updateKeyRunnerFinished = "runnerFinished"
+	updateKeyFinished = "finished"
 )
 
 var (
@@ -75,12 +75,12 @@ func (g *Gatherer) AssembleStatusCopy() map[string]any {
 
 func (g *Gatherer) Listen() {
 
-	g.insertSynchronously(Update{Key: updateKeyRunnerFinished, Value: false})
+	g.insertSynchronously(Update{Key: updateKeyFinished, Value: false})
 
 	for {
 		update := <-g.Updates
 		if update == quitStatusGathering {
-			g.insertSynchronously(Update{Key: updateKeyRunnerFinished, Value: true})
+			g.insertSynchronously(Update{Key: updateKeyFinished, Value: true})
 			close(g.Updates)
 			return
 		} else {
@@ -101,7 +101,7 @@ func (g *Gatherer) ListeningStopped() bool {
 	var result bool
 	g.l.lock()
 	{
-		if v, ok := g.status[updateKeyRunnerFinished]; ok {
+		if v, ok := g.status[updateKeyFinished]; ok {
 			result = v.(bool)
 		} else {
 			result = false
