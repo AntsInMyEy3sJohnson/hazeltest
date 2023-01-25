@@ -3,8 +3,10 @@ package chaos
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
+	"hazeltest/status"
 	"math/rand"
 	"sync"
 	"time"
@@ -21,17 +23,19 @@ type (
 		sleep(sc *sleepConfig)
 	}
 	monkey interface {
-		init(s sleeper, c hzMemberChooser, k hzMemberKiller)
+		init(s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer)
 		causeChaos()
 	}
 	hzMember struct {
 		identifier string
 	}
 	memberKillerMonkey struct {
-		stateList []state
-		s         sleeper
-		chooser   hzMemberChooser
-		killer    hzMemberKiller
+		stateList        []state
+		s                sleeper
+		chooser          hzMemberChooser
+		killer           hzMemberKiller
+		g                *status.Gatherer
+		numMembersKilled int
 	}
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
@@ -67,6 +71,11 @@ const (
 	chaosComplete          state = "chaosComplete"
 )
 
+const (
+	statusKeyNumRuns          = "numRuns"
+	statusKeyNumMembersKilled = "numMembersKilled"
+)
+
 var (
 	monkeys          []monkey
 	propertyAssigner client.ConfigPropertyAssigner
@@ -98,15 +107,23 @@ func (s *defaultSleeper) sleep(sc *sleepConfig) {
 
 }
 
-func (m *memberKillerMonkey) init(s sleeper, c hzMemberChooser, k hzMemberKiller) {
+func (m *memberKillerMonkey) init(s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer) {
 
 	m.s = s
 	m.chooser = c
 	m.killer = k
+	m.g = g
+	m.numMembersKilled = 0
+
+	// TODO If function to query status is the same for all status contributors, then why pass it in?
+	api.RegisterChaosMonkeyStatus("memberKiller", m.g.AssembleStatusCopy)
 
 }
 
 func (m *memberKillerMonkey) causeChaos() {
+
+	defer m.g.StopListen()
+	go m.g.Listen()
 
 	m.appendState(start)
 
@@ -122,6 +139,7 @@ func (m *memberKillerMonkey) causeChaos() {
 		return
 	}
 	m.appendState(checkEnabledComplete)
+	m.insertInitialStatus(mc)
 
 	// TODO Make API readiness dependent on chaos monkey state?
 	m.appendState(raiseReadyComplete)
@@ -152,6 +170,8 @@ func (m *memberKillerMonkey) causeChaos() {
 			err = m.killer.kill(member, *mc.accessConfig, *mc.memberGrace)
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
+			} else {
+				m.updateNumMembersKilled()
 			}
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.TraceLevel)
@@ -160,6 +180,20 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	m.appendState(chaosComplete)
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loops", mc.numRuns), log.InfoLevel)
+
+}
+
+func (m *memberKillerMonkey) updateNumMembersKilled() {
+
+	m.numMembersKilled++
+	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: m.numMembersKilled}
+
+}
+
+func (m *memberKillerMonkey) insertInitialStatus(mc *monkeyConfig) {
+
+	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: mc.numRuns}
+	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: 0}
 
 }
 
@@ -380,6 +414,7 @@ func RunMonkeys() {
 					namespaceDiscoverer: namespaceDiscoverer,
 					podDeleter:          &defaultK8sPodDeleter{},
 				},
+				status.NewGatherer(),
 			)
 			m.causeChaos()
 		}(i)
