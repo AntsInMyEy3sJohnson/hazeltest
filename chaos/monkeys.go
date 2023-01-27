@@ -187,7 +187,7 @@ func (m *memberKillerMonkey) causeChaos() {
 	}
 
 	m.appendState(chaosComplete)
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loops", mc.numRuns), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loop/-s", mc.numRuns), log.InfoLevel)
 
 }
 
