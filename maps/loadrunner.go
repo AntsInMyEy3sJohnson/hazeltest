@@ -15,6 +15,7 @@ import (
 
 type (
 	loadRunner struct {
+		assigner  client.ConfigPropertyAssigner
 		stateList []state
 		name      string
 		source    string
@@ -33,7 +34,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -41,7 +42,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	loadRunnerConfig, err := populateLoadConfig(propertyAssigner)
+	loadRunnerConfig, err := populateLoadConfig(r.assigner)
 	if err != nil {
 		lp.LogRunnerEvent("unable to populate config for map load runner -- aborting", log.ErrorLevel)
 		return
@@ -143,6 +144,7 @@ func populateLoadConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) 
 	}
 
 	configBuilder := runnerConfigBuilder{
+		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "load",
 	}

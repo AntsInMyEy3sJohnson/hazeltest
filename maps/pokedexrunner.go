@@ -10,11 +10,13 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"hazeltest/client"
 	"hazeltest/status"
 )
 
 type (
 	pokedexRunner struct {
+		assigner  client.ConfigPropertyAssigner
 		stateList []state
 		name      string
 		source    string
@@ -54,7 +56,7 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{}, name: "mapsPokedexRunner", source: "pokedexRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
+	register(&pokedexRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsPokedexRunner", source: "pokedexRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
 	gob.Register(pokemon{})
 }
 
@@ -62,7 +64,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	config, err := populatePokedexConfig()
+	config, err := populatePokedexConfig(r.assigner)
 	if err != nil {
 		lp.LogRunnerEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
 		return
@@ -132,11 +134,12 @@ func deserializePokemon(elementFromHZ any) error {
 
 }
 
-func populatePokedexConfig() (*runnerConfig, error) {
+func populatePokedexConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
 	runnerKeyPath := "mapTests.pokedex"
 
 	configBuilder := runnerConfigBuilder{
+		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "pokedex",
 	}

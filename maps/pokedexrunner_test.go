@@ -22,11 +22,11 @@ func TestRunPokedexMapTests(t *testing.T) {
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := "\t\tstate transitions must be correct"
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			r.runMapTests(hzCluster, hzMembers)
 
@@ -38,13 +38,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 		}
 		t.Log("\twhen runner has been disabled")
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			r.runMapTests(hzCluster, hzMembers)
 
@@ -56,13 +56,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 		}
 		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
 					"mapTests.pokedex.enabled": true,
 				},
 			}
-			r := pokedexRunner{stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			r.runMapTests(hzCluster, hzMembers)
 

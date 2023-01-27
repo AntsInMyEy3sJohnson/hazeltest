@@ -30,6 +30,7 @@ type (
 		enableRandomness bool
 	}
 	runnerConfigBuilder struct {
+		assigner      client.ConfigPropertyAssigner
 		runnerKeyPath string
 		mapBaseName   string
 	}
@@ -51,9 +52,8 @@ const (
 )
 
 var (
-	runners          []runner
-	propertyAssigner client.ConfigPropertyAssigner
-	lp               *logging.LogProvider
+	runners []runner
+	lp      *logging.LogProvider
 )
 
 func register(r runner) {
@@ -62,7 +62,6 @@ func register(r runner) {
 
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
-	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 }
 
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
@@ -71,91 +70,91 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".enabled", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".enabled", client.ValidateBool, func(a any) {
 			enabled = a.(bool)
 		})
 	})
 
 	var numMaps int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".numMaps", client.ValidateInt, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".numMaps", client.ValidateInt, func(a any) {
 			numMaps = a.(int)
 		})
 	})
 
 	var appendMapIndexToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendMapIndexToMapName", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".appendMapIndexToMapName", client.ValidateBool, func(a any) {
 			appendMapIndexToMapName = a.(bool)
 		})
 	})
 
 	var appendClientIdToMapName bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", client.ValidateBool, func(a any) {
 			appendClientIdToMapName = a.(bool)
 		})
 	})
 
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".numRuns", client.ValidateInt, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".numRuns", client.ValidateInt, func(a any) {
 			numRuns = uint32(a.(int))
 		})
 	})
 
 	var useMapPrefix bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", client.ValidateBool, func(a any) {
 			useMapPrefix = a.(bool)
 		})
 	})
 
 	var mapPrefix string
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", client.ValidateString, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", client.ValidateString, func(a any) {
 			mapPrefix = a.(string)
 		})
 	})
 
 	var sleepBetweenActionBatchesEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
 			sleepBetweenActionBatchesEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenActionBatchesDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
 			sleepBetweenActionBatchesDurationMs = a.(int)
 		})
 	})
 
 	var sleepBetweenActionBatchesEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
 			sleepBetweenActionBatchesEnableRandomness = a.(bool)
 		})
 	})
 
 	var sleepBetweenRunsEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enabled", client.ValidateBool, func(a any) {
 			sleepBetweenRunsEnabled = a.(bool)
 		})
 	})
 
 	var sleepBetweenRunsDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", client.ValidateInt, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.durationMs", client.ValidateInt, func(a any) {
 			sleepBetweenRunsDurationMs = a.(int)
 		})
 	})
 
 	var sleepBetweenRunsEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enableRandomness", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenRuns.enableRandomness", client.ValidateBool, func(a any) {
 			sleepBetweenRunsEnableRandomness = a.(bool)
 		})
 	})
