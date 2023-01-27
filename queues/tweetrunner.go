@@ -9,12 +9,14 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"hazeltest/client"
 	"hazeltest/status"
 	"io/fs"
 )
 
 type (
 	tweetRunner struct {
+		assigner   client.ConfigPropertyAssigner
 		stateList  []state
 		name       string
 		source     string
@@ -37,7 +39,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
+	register(&tweetRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 
@@ -45,7 +47,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	config, err := populateConfig("queueTests.tweets", "tweets")
+	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
 	if err != nil {
 		lp.LogRunnerEvent("unable to populate config for queue tweet runner -- aborting", log.ErrorLevel)
 		return

@@ -13,6 +13,7 @@ import (
 
 type (
 	loadRunner struct {
+		assigner   client.ConfigPropertyAssigner
 		stateList  []state
 		name       string
 		source     string
@@ -30,7 +31,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "queuesLoadrunner", source: "loadRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesLoadrunner", source: "loadRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -38,7 +39,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	c, err := populateLoadConfig()
+	c, err := populateLoadConfig(r.assigner)
 	if err != nil {
 		lp.LogRunnerEvent("unable to populate config for queue load runner -- aborting", log.ErrorLevel)
 		return
@@ -99,22 +100,22 @@ func populateLoadElements() []loadElement {
 
 }
 
-func populateLoadConfig() (*runnerConfig, error) {
+func populateLoadConfig(assigner client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
 	runnerKeyPath := "queueTests.load"
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
+	if err := assigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
 		numLoadEntries = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
+	if err := assigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
 		payloadSizeBytes = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	return populateConfig(runnerKeyPath, "load")
+	return populateConfig(assigner, runnerKeyPath, "load")
 
 }

@@ -22,11 +22,11 @@ func TestRunLoadQueueTests(t *testing.T) {
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := "\t\tstate transitions must be correct"
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := loadRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
 			r.runQueueTests(hzCluster, hzMembers)
 
@@ -38,13 +38,13 @@ func TestRunLoadQueueTests(t *testing.T) {
 		}
 		t.Log("\twhen runner has been disabled")
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
 					"queueTests.load.enabled": false,
 				},
 			}
-			r := loadRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
 			r.runQueueTests(hzCluster, hzMembers)
 
@@ -56,13 +56,13 @@ func TestRunLoadQueueTests(t *testing.T) {
 		}
 		t.Log("\twhen hazelcast queue store has been initialized and test loop has executed")
 		{
-			propertyAssigner = testConfigPropertyAssigner{
+			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
 					"queueTests.load.enabled": true,
 				},
 			}
-			r := loadRunner{stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
 			r.runQueueTests(hzCluster, hzMembers)
 
