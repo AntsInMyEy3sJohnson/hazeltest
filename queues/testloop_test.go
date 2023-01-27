@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
-	"math"
 	"testing"
-	"time"
 )
 
 var (
@@ -22,21 +20,10 @@ var (
 		"R2-D2",
 		"Darth Vader",
 	}
-	sleepDurationMs     = 10
 	sleepConfigDisabled = &sleepConfig{
 		enabled:          false,
 		durationMs:       0,
 		enableRandomness: false,
-	}
-	sleepConfigEnabled = &sleepConfig{
-		enabled:          true,
-		durationMs:       sleepDurationMs,
-		enableRandomness: false,
-	}
-	sleepConfigEnabledWithEnabledRandomness = &sleepConfig{
-		enabled:          true,
-		durationMs:       sleepDurationMs,
-		enableRandomness: true,
 	}
 )
 
@@ -169,21 +156,35 @@ func TestRun(t *testing.T) {
 
 	}
 
-	var elapsedMsSleepEnabled int64
-	t.Log("\twhen enabled sleep config is provided for sleep between runs")
+	t.Log("\twhen given sleep between run configs for put and poll are disabled")
 	{
-		id := uuid.New()
-		qs := assembleDummyQueueStore(false, 9)
-		numRunsPutAndPoll := 20
-		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigDisabled, sleepConfigEnabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		scBetweenRunsPut := &sleepConfig{}
+		scBetweenRunsPoll := &sleepConfig{}
+		rc := assembleRunnerConfig(true, 20, true, 20, scBetweenRunsPut, scBetweenRunsPoll)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
 
-		start := time.Now()
+		numInvocationsSleepBetweenRunsPut := 0
+		numInvocationsSleepBetweenRunsPoll := 0
+		sleepTimeFunc = func(sc *sleepConfig) int {
+			if sc == scBetweenRunsPut {
+				numInvocationsSleepBetweenRunsPut++
+			} else if sc == scBetweenRunsPoll {
+				numInvocationsSleepBetweenRunsPoll++
+			}
+			return 0
+		}
+
 		tl.run()
-		elapsedMsSleepEnabled = time.Since(start).Milliseconds()
 
-		msg := "\t\ttest run execution time must be at least number of runs into milliseconds slept after each run"
-		if elapsedMsSleepEnabled > int64(numRunsPutAndPoll*sleepDurationMs) {
+		msg := "\t\tsleep between runs for put must have zero invocations"
+		if numInvocationsSleepBetweenRunsPut == 0 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\tsleep between runs for poll must have zero invocations"
+		if numInvocationsSleepBetweenRunsPoll == 0 {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX)
@@ -191,50 +192,78 @@ func TestRun(t *testing.T) {
 
 	}
 
-	t.Log("\twhen enabled sleep config with enabled randomness is provided for sleep between runs")
+	t.Log("\twhen given sleep between run configs for put and poll are enabled")
 	{
-		id := uuid.New()
-		qs := assembleDummyQueueStore(false, 9)
-		numRunsPutAndPoll := 20
-		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigDisabled, sleepConfigEnabledWithEnabledRandomness)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		numRunsPut := 20
+		numRunsPoll := 21
+		scBetweenRunsPut := &sleepConfig{enabled: true}
+		scBetweenRunsPoll := &sleepConfig{enabled: true}
+		rc := assembleRunnerConfig(true, numRunsPut, true, numRunsPoll, scBetweenRunsPut, scBetweenRunsPoll)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
 
-		start := time.Now()
+		numInvocationsSleepBetweenRunsPut := 0
+		numInvocationsSleepBetweenRunsPoll := 0
+		sleepTimeFunc = func(sc *sleepConfig) int {
+			if sc == scBetweenRunsPut {
+				numInvocationsSleepBetweenRunsPut++
+			} else if sc == scBetweenRunsPoll {
+				numInvocationsSleepBetweenRunsPoll++
+			}
+			return 0
+		}
+
 		tl.run()
-		elapsedMs := time.Since(start).Milliseconds()
 
-		msg := "\t\ttest run execution time must be less than number of runs into given number of milliseconds to sleep " +
-			"due to random factor reducing actual time slept"
-		if elapsedMs < int64(numRunsPutAndPoll*sleepDurationMs) {
+		msg := "\t\tnumber of sleeps between runs for put must be equal to number of runs for put"
+		if numInvocationsSleepBetweenRunsPut == numRunsPut {
 			t.Log(msg, checkMark)
 		} else {
-			t.Fatal(msg, ballotX)
+			t.Fatal(msg, ballotX, numInvocationsSleepBetweenRunsPut)
+		}
+
+		msg = "\t\tnumber of sleeps between runs for poll must be equal to number of runs for pull"
+		if numInvocationsSleepBetweenRunsPoll == numRunsPoll {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, numInvocationsSleepBetweenRunsPoll)
 		}
 
 	}
-
-	t.Log("\twhen sleeps are enabled for both put config and poll config")
+	t.Log("\twhen initial delay sleep is enabled for both put and poll")
 	{
-		// Put and poll operations run concurrently, so when sleeps are enabled for both,
-		// the total execution time should still be roughly what it had been if only one of them
-		// had received an enabled sleep config
-		id := uuid.New()
-		qs := assembleDummyQueueStore(false, 9)
-		numRunsPutAndPoll := 20
-		rc := assembleRunnerConfig(true, numRunsPutAndPoll, true, numRunsPutAndPoll, sleepConfigEnabled, sleepConfigEnabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		scInitialDelayPut := &sleepConfig{enabled: true}
+		scInitialDelayPoll := &sleepConfig{enabled: true}
+		rc := assembleRunnerConfig(true, 20, true, 20, sleepConfigDisabled, sleepConfigDisabled)
+		rc.putConfig.initialDelay = scInitialDelayPut
+		rc.pollConfig.initialDelay = scInitialDelayPoll
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
 
-		start := time.Now()
+		numInvocationsInitialDelayPut := 0
+		numInvocationsInitialDelayPoll := 0
+		sleepTimeFunc = func(sc *sleepConfig) int {
+			if sc == scInitialDelayPut {
+				numInvocationsInitialDelayPut++
+			} else if sc == scInitialDelayPoll {
+				numInvocationsInitialDelayPoll++
+			}
+			return 0
+		}
+
 		tl.run()
-		elapsedMs := time.Since(start).Milliseconds()
 
-		msg := "\t\ttime slept must be roughly equal to time slept when only one kind of operation received enabled sleep config"
-		if math.Abs(float64(elapsedMs-elapsedMsSleepEnabled)) < float64(elapsedMsSleepEnabled)*0.1 {
+		msg := "\t\tput initial delay sleep must be invoked exactly once"
+		if numInvocationsInitialDelayPut == 1 {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX)
 		}
 
+		msg = "\t\tpoll initial delay sleep must be invoked exactly once"
+		if numInvocationsInitialDelayPoll == 1 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
 	}
 
 }
@@ -284,7 +313,7 @@ func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerCo
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}
-	tl.init(&tlc, status.NewGatherer())
+	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 
@@ -303,7 +332,7 @@ func assembleTestLoopConfig(id uuid.UUID, source string, qs hzQueueStore, rc *ru
 
 }
 
-func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRunsPoll int, sleepConfigPutBetweenRuns *sleepConfig, sleepConfigPollBetweenRuns *sleepConfig) runnerConfig {
+func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRunsPoll int, sleepConfigBetweenRunsPut *sleepConfig, sleepConfigBetweenRunsPoll *sleepConfig) runnerConfig {
 
 	putConfig := operationConfig{
 		enabled:                   enablePut,
@@ -311,7 +340,7 @@ func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRu
 		batchSize:                 1,
 		initialDelay:              sleepConfigDisabled,
 		sleepBetweenActionBatches: sleepConfigDisabled,
-		sleepBetweenRuns:          sleepConfigPutBetweenRuns,
+		sleepBetweenRuns:          sleepConfigBetweenRunsPut,
 	}
 	pollConfig := operationConfig{
 		enabled:                   enablePoll,
@@ -319,7 +348,7 @@ func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRu
 		batchSize:                 1,
 		initialDelay:              sleepConfigDisabled,
 		sleepBetweenActionBatches: sleepConfigDisabled,
-		sleepBetweenRuns:          sleepConfigPollBetweenRuns,
+		sleepBetweenRuns:          sleepConfigBetweenRunsPoll,
 	}
 	return runnerConfig{
 		enabled:                     true,

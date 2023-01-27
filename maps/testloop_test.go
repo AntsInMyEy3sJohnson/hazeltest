@@ -230,7 +230,7 @@ func TestRun(t *testing.T) {
 			sleepTimeFunc = func(sc *sleepConfig) int {
 				if sc == scBetweenRuns {
 					numInvocationsBetweenRuns++
-				} else {
+				} else if sc == scBetweenActionBatches {
 					numInvocationsBetweenActionBatches++
 				}
 				return 0
@@ -266,7 +266,7 @@ func TestRun(t *testing.T) {
 			sleepTimeFunc = func(sc *sleepConfig) int {
 				if sc == scBetweenRuns {
 					numInvocationsBetweenRuns++
-				} else {
+				} else if sc == scBetweenActionsBatches {
 					numInvocationsBetweenActionBatches++
 				}
 				return 0

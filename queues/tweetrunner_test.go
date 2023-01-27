@@ -7,7 +7,7 @@ import (
 
 type dummyTweetRunnerTestLoop struct{}
 
-func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet], _ *status.Gatherer) {
+func (d dummyTweetRunnerTestLoop) init(_ *testLoopConfig[tweet], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 

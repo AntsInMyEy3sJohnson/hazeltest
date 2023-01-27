@@ -70,7 +70,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
