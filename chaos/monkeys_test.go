@@ -171,7 +171,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen populating the member killer config returns an error")
 		{
 			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -196,7 +197,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = &testConfigPropertyAssigner{testConfig}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -230,7 +232,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			hzMemberID := "hazelcastimdg-ß"
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -284,7 +287,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -324,7 +328,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{returnError: true}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -365,7 +370,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -399,7 +405,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			s := &testSleeper{}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(s, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -432,7 +439,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			s := &testSleeper{}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer, g: status.NewGatherer()}
+			m := memberKillerMonkey{}
+			m.init(s, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 
