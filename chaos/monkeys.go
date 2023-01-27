@@ -35,7 +35,7 @@ type (
 		chooser          hzMemberChooser
 		killer           hzMemberKiller
 		g                *status.Gatherer
-		numMembersKilled int
+		numMembersKilled uint32
 	}
 	monkeyConfigBuilder struct {
 		monkeyKeyPath string
@@ -115,7 +115,6 @@ func (m *memberKillerMonkey) init(s sleeper, c hzMemberChooser, k hzMemberKiller
 	m.g = g
 	m.numMembersKilled = 0
 
-	// TODO If function to query status is the same for all status contributors, then why pass it in?
 	api.RegisterChaosMonkeyStatus("memberKiller", m.g.AssembleStatusCopy)
 
 }
@@ -124,6 +123,7 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	defer m.g.StopListen()
 	go m.g.Listen()
+	m.insertInitialStatus()
 
 	m.appendState(start)
 
@@ -133,13 +133,13 @@ func (m *memberKillerMonkey) causeChaos() {
 		return
 	}
 	m.appendState(populateConfigComplete)
+	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: mc.numRuns}
 
 	if !mc.enabled {
 		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	m.appendState(checkEnabledComplete)
-	m.insertInitialStatus(mc)
 
 	// TODO Make API readiness dependent on chaos monkey state?
 	m.appendState(raiseReadyComplete)
@@ -190,10 +190,10 @@ func (m *memberKillerMonkey) updateNumMembersKilled() {
 
 }
 
-func (m *memberKillerMonkey) insertInitialStatus(mc *monkeyConfig) {
+func (m *memberKillerMonkey) insertInitialStatus() {
 
-	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: mc.numRuns}
-	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: 0}
+	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: uint32(0)}
+	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: uint32(0)}
 
 }
 

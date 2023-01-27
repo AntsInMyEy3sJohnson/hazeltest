@@ -3,6 +3,7 @@ package chaos
 import (
 	"errors"
 	"fmt"
+	"hazeltest/status"
 	"math"
 	"strings"
 	"testing"
@@ -34,6 +35,8 @@ const (
 	validLabelSelector      = "app.kubernetes.io/name=hazelcastimdg"
 	invalidLabelSelector    = ""
 )
+
+const statusKeyFinished = "finished"
 
 var (
 	testMonkeyKeyPath    = "testChaosMonkey"
@@ -156,7 +159,6 @@ func TestDefaultSleeperSleep(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, elapsedSeconds)
 			}
-
 		}
 	}
 
@@ -169,9 +171,10 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen populating the member killer config returns an error")
 		{
 			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			msg := "\t\tstate transitions must contain only start state"
 			if len(m.stateList) == 1 && m.stateList[0] == start {
@@ -179,23 +182,39 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), 0, 0, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
+
 		}
 		genericMsg := "\t\tstate transitions must be correct"
 		t.Log("\twhen monkey is disabled")
 		{
 			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			propertyAssigner = &testConfigPropertyAssigner{testConfig}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: &testHzMemberChooser{}, killer: &testHzMemberKiller{}, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			if detail, ok := checkMonkeyStateTransitions([]state{start, populateConfigComplete}, m.stateList); ok {
 				t.Log(genericMsg, checkMark)
 			} else {
 				t.Fatal(genericMsg, ballotX, detail)
 			}
+
+			msg := "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), 10, 0, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
 		}
-		t.Log("\twhen non-zero number of runs is configured")
+		t.Log("\twhen non-zero number of runs is configured and chaos probability is 100 %")
 		{
 			numRuns := 9
 			propertyAssigner = &testConfigPropertyAssigner{
@@ -211,9 +230,10 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			hzMemberID := "hazelcastimdg-ß"
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -241,24 +261,33 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, killer.givenHzMember.identifier)
 			}
+
+			msg = "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, numRuns, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
+			}
 		}
 		t.Log("\twhen chaos probability is set to zero")
 		{
+			numRuns := 9
 			propertyAssigner = &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
 					0.0,
-					9,
+					numRuns,
 					k8sInClusterAccessMode,
 					validLabelSelector,
 					sleepDisabled,
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -271,6 +300,13 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
 		t.Log("\twhen chooser yields error")
@@ -288,9 +324,10 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{returnError: true}
 			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			msg := "\t\tchooser invocation must be re-tried in next run"
 			if chooser.numInvocations == numRuns {
@@ -304,6 +341,13 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
 		t.Log("\twhen killer yields an error")
@@ -321,15 +365,23 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				)}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: &testSleeper{}, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			msg := "\t\tinvocations of both chooser and killer must be retried in next run"
 			if chooser.numInvocations == numRuns && killer.numInvocations == numRuns {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmonkey status must contain expected values"
+			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
 		t.Log("\twhen sleep has been disabled")
@@ -347,9 +399,10 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			s := &testSleeper{}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
 
 			msg := "\t\ttime slept must be zero"
 			if s.secondsSlept == 0 {
@@ -379,7 +432,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			s := &testSleeper{}
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer}
+			m := memberKillerMonkey{s: s, chooser: chooser, killer: killer, g: status.NewGatherer()}
 
 			m.causeChaos()
 
@@ -542,6 +595,16 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
+func waitForStatusGatheringDone(g *status.Gatherer) {
+
+	for {
+		if done := g.ListeningStopped(); done {
+			break
+		}
+	}
+
+}
+
 func checkMonkeyStateTransitions(expected []state, actual []state) (string, bool) {
 
 	if len(expected) != len(actual) {
@@ -555,6 +618,25 @@ func checkMonkeyStateTransitions(expected []state, actual []state) (string, bool
 	}
 
 	return "", true
+
+}
+
+func statusContainsExpectedValues(status map[string]any, expectedNumRuns, expectedNumMembersKilled int,
+	expectedMonkeyFinished bool) (bool, string, string) {
+
+	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != uint32(expectedNumRuns) {
+		return false, statusKeyNumRuns, fmt.Sprintf("expected: %d, got: %d", expectedNumRuns, numRunsFromStatus)
+	}
+
+	if numMembersKilledFromStatus, ok := status[statusKeyNumMembersKilled]; !ok || numMembersKilledFromStatus != uint32(expectedNumMembersKilled) {
+		return false, statusKeyNumMembersKilled, fmt.Sprintf("expected: %d, got: %d", expectedNumMembersKilled, numMembersKilledFromStatus)
+	}
+
+	if monkeyFinishedFromStatus, ok := status[statusKeyFinished]; !ok || monkeyFinishedFromStatus != expectedMonkeyFinished {
+		return false, statusKeyFinished, fmt.Sprintf("expected: %t; got: %d", expectedMonkeyFinished, monkeyFinishedFromStatus)
+	}
+
+	return true, "", ""
 
 }
 
