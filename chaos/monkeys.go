@@ -23,13 +23,14 @@ type (
 		sleep(sc *sleepConfig)
 	}
 	monkey interface {
-		init(s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer)
+		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer)
 		causeChaos()
 	}
 	hzMember struct {
 		identifier string
 	}
 	memberKillerMonkey struct {
+		a                client.ConfigPropertyAssigner
 		stateList        []state
 		s                sleeper
 		chooser          hzMemberChooser
@@ -77,14 +78,12 @@ const (
 )
 
 var (
-	monkeys          []monkey
-	propertyAssigner client.ConfigPropertyAssigner
-	lp               *logging.LogProvider
+	monkeys []monkey
+	lp      *logging.LogProvider
 )
 
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
-	propertyAssigner = client.DefaultConfigPropertyAssigner{}
 	register(&memberKillerMonkey{})
 }
 
@@ -107,8 +106,9 @@ func (s *defaultSleeper) sleep(sc *sleepConfig) {
 
 }
 
-func (m *memberKillerMonkey) init(s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer) {
+func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer) {
 
+	m.a = a
 	m.s = s
 	m.chooser = c
 	m.killer = k
@@ -127,7 +127,7 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	m.appendState(start)
 
-	mc, err := populateMemberKillerMonkeyConfig()
+	mc, err := populateMemberKillerMonkeyConfig(m.a)
 	if err != nil {
 		lp.LogChaosMonkeyEvent("unable to populate config for member killer chaos monkey -- aborting", log.ErrorLevel)
 		return
@@ -203,86 +203,86 @@ func (m *memberKillerMonkey) appendState(s state) {
 
 }
 
-func populateMemberKillerMonkeyConfig() (*monkeyConfig, error) {
+func populateMemberKillerMonkeyConfig(a client.ConfigPropertyAssigner) (*monkeyConfig, error) {
 
 	monkeyKeyPath := "chaosMonkeys.memberKiller"
 
 	configBuilder := monkeyConfigBuilder{monkeyKeyPath: monkeyKeyPath}
 
-	return configBuilder.populateConfig()
+	return configBuilder.populateConfig(a)
 
 }
 
-func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
+func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*monkeyConfig, error) {
 
 	var assignmentOps []func() error
 
 	var enabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".enabled", client.ValidateBool, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".enabled", client.ValidateBool, func(a any) {
 			enabled = a.(bool)
 		})
 	})
 
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".numRuns", client.ValidateInt, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".numRuns", client.ValidateInt, func(a any) {
 			numRuns = uint32(a.(int))
 		})
 	})
 
 	var chaosProbability float64
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
 			chaosProbability = a.(float64)
 		})
 	})
 
 	var hzMemberAccessMode string
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess.mode", client.ValidateString, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".memberAccess.mode", client.ValidateString, func(a any) {
 			hzMemberAccessMode = a.(string)
 		})
 	})
 
 	var sleepEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".sleep.enabled", client.ValidateBool, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".sleep.enabled", client.ValidateBool, func(a any) {
 			sleepEnabled = a.(bool)
 		})
 	})
 
 	var sleepDurationSeconds int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".sleep.durationSeconds", client.ValidateInt, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".sleep.durationSeconds", client.ValidateInt, func(a any) {
 			sleepDurationSeconds = a.(int)
 		})
 	})
 
 	var sleepEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".sleep.enableRandomness", client.ValidateBool, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".sleep.enableRandomness", client.ValidateBool, func(a any) {
 			sleepEnableRandomness = a.(bool)
 		})
 	})
 
 	var memberGraceEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".memberGrace.enabled", client.ValidateBool, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".memberGrace.enabled", client.ValidateBool, func(a any) {
 			memberGraceEnabled = a.(bool)
 		})
 	})
 
 	var memberGraceDurationSeconds int
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".memberGrace.durationSeconds", client.ValidateInt, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".memberGrace.durationSeconds", client.ValidateInt, func(a any) {
 			memberGraceDurationSeconds = a.(int)
 		})
 	})
 
 	var memberGraceEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return propertyAssigner.Assign(b.monkeyKeyPath+".memberGrace.enableRandomness", client.ValidateBool, func(a any) {
+		return a.Assign(b.monkeyKeyPath+".memberGrace.enableRandomness", client.ValidateBool, func(a any) {
 			memberGraceEnableRandomness = a.(bool)
 		})
 	})
@@ -293,7 +293,7 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 		}
 	}
 
-	ac, err := b.populateMemberAccessConfig(hzMemberAccessMode)
+	ac, err := b.populateMemberAccessConfig(a, hzMemberAccessMode)
 	if err != nil {
 		return nil, err
 	}
@@ -317,14 +317,14 @@ func (b monkeyConfigBuilder) populateConfig() (*monkeyConfig, error) {
 
 }
 
-func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*memberAccessConfig, error) {
+func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode string) (*memberAccessConfig, error) {
 
 	var assignmentOps []func() error
 
 	ac := &memberAccessConfig{
 		memberAccessMode: accessMode,
 	}
-	if err := propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess.targetOnlyActive", client.ValidateBool, func(a any) {
+	if err := a.Assign(b.monkeyKeyPath+".memberAccess.targetOnlyActive", client.ValidateBool, func(a any) {
 		ac.targetOnlyActive = a.(bool)
 	}); err != nil {
 		return nil, err
@@ -334,19 +334,19 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 	case k8sOutOfClusterAccessMode:
 		var kubeconfig string
 		assignmentOps = append(assignmentOps, func() error {
-			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeconfig", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeconfig", client.ValidateString, func(a any) {
 				kubeconfig = a.(string)
 			})
 		})
 		var namespace string
 		assignmentOps = append(assignmentOps, func() error {
-			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".namespace", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".namespace", client.ValidateString, func(a any) {
 				namespace = a.(string)
 			})
 		})
 		var labelSelector string
 		assignmentOps = append(assignmentOps, func() error {
-			return propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
 				labelSelector = a.(string)
 			})
 		})
@@ -362,7 +362,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(accessMode string) (*mem
 		}
 	case k8sInClusterAccessMode:
 		var labelSelector string
-		if err := propertyAssigner.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+		if err := a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
 			labelSelector = a.(string)
 		}); err != nil {
 			return nil, err
@@ -403,6 +403,7 @@ func RunMonkeys() {
 			}
 			namespaceDiscoverer := &defaultK8sNamespaceDiscoverer{}
 			m.init(
+				&client.DefaultConfigPropertyAssigner{},
 				&defaultSleeper{},
 				&k8sHzMemberChooser{
 					clientsetProvider:   clientsetProvider,

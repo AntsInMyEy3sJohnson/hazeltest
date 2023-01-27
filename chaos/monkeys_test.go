@@ -170,9 +170,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 	{
 		t.Log("\twhen populating the member killer config returns an error")
 		{
-			propertyAssigner = &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
+			assigner := &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -196,9 +196,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen monkey is disabled")
 		{
 			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
-			propertyAssigner = &testConfigPropertyAssigner{testConfig}
+			assigner := &testConfigPropertyAssigner{testConfig}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -219,7 +219,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen non-zero number of runs is configured and chaos probability is 100 %")
 		{
 			numRuns := 9
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -233,7 +233,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -275,7 +275,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen chaos probability is set to zero")
 		{
 			numRuns := 9
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -288,7 +288,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -316,7 +316,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen chooser yields error")
 		{
 			numRuns := 3
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -329,7 +329,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{returnError: true}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -358,7 +358,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen killer yields an error")
 		{
 			numRuns := 3
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -371,7 +371,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(&testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -392,7 +392,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		}
 		t.Log("\twhen sleep has been disabled")
 		{
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -406,7 +406,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(s, chooser, killer, status.NewGatherer())
+			m.init(assigner, s, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -426,7 +426,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				durationSeconds:  10,
 				enableRandomness: false,
 			}
-			propertyAssigner = &testConfigPropertyAssigner{
+			assigner := &testConfigPropertyAssigner{
 				assembleTestConfig(
 					memberKillerKeyPath,
 					true,
@@ -440,7 +440,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(s, chooser, killer, status.NewGatherer())
+			m.init(assigner, s, chooser, killer, status.NewGatherer())
 
 			m.causeChaos()
 
@@ -471,8 +471,8 @@ func TestPopulateConfig(t *testing.T) {
 				validLabelSelector,
 				sleepDisabled,
 			)
-			propertyAssigner = testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig()
+			assigner := testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig(assigner)
 
 			msg := "\t\tno errors should be returned"
 			if err == nil {
@@ -499,8 +499,8 @@ func TestPopulateConfig(t *testing.T) {
 		t.Log("\twhen k8s in-cluster access mode is given and no property assignment yields an error")
 		{
 			testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
-			propertyAssigner = testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig()
+			assigner := testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig(assigner)
 
 			msg := "\t\tno errors should be returned"
 			if err == nil {
@@ -527,8 +527,8 @@ func TestPopulateConfig(t *testing.T) {
 		t.Log("\twhen top-level property assignment yields an error")
 		{
 			testConfig := assembleTestConfig(testMonkeyKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
-			propertyAssigner = testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig()
+			assigner := testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig(assigner)
 
 			msg := "\t\terror should be returned"
 			if err != nil {
@@ -551,8 +551,8 @@ func TestPopulateConfig(t *testing.T) {
 				t.Logf("\t\t%s", accessMode)
 				{
 					testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, accessMode, invalidLabelSelector, sleepDisabled)
-					propertyAssigner = testConfigPropertyAssigner{testConfig}
-					mc, err := b.populateConfig()
+					assigner := testConfigPropertyAssigner{testConfig}
+					mc, err := b.populateConfig(assigner)
 
 					msg := "\t\t\terror should be returned"
 					if err != nil {
@@ -575,8 +575,8 @@ func TestPopulateConfig(t *testing.T) {
 		{
 			unknownAccessMode := "someUnknownAccessMode"
 			testConfig := assembleTestConfig(testMonkeyKeyPath, true, validChaosProbability, 10, unknownAccessMode, validLabelSelector, sleepDisabled)
-			propertyAssigner = testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig()
+			assigner := testConfigPropertyAssigner{testConfig}
+			mc, err := b.populateConfig(assigner)
 
 			msg := "\t\terror should be returned"
 			if err != nil {
