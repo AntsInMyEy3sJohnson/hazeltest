@@ -13,14 +13,15 @@ import (
 )
 
 type (
-	hzMemberChooser interface {
+	evaluateTimeToSleep func(sc *sleepConfig) int
+	hzMemberChooser     interface {
 		choose(ac memberAccessConfig) (hzMember, error)
 	}
 	hzMemberKiller interface {
 		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
 	}
 	sleeper interface {
-		sleep(sc *sleepConfig)
+		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	monkey interface {
 		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer)
@@ -82,6 +83,18 @@ var (
 	lp      *logging.LogProvider
 )
 
+var (
+	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
+		var sleepDuration int
+		if sc.enableRandomness {
+			sleepDuration = rand.Intn(sc.durationSeconds + 1)
+		} else {
+			sleepDuration = sc.durationSeconds
+		}
+		return sleepDuration
+	}
+)
+
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
 	register(&memberKillerMonkey{})
@@ -91,15 +104,10 @@ func register(m monkey) {
 	monkeys = append(monkeys, m)
 }
 
-func (s *defaultSleeper) sleep(sc *sleepConfig) {
+func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 	if sc.enabled {
-		var sleepDuration int
-		if sc.enableRandomness {
-			sleepDuration = rand.Intn(sc.durationSeconds + 1)
-		} else {
-			sleepDuration = sc.durationSeconds
-		}
+		sleepDuration := sf(sc)
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Second)
 	}
@@ -147,7 +155,7 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	updateStep := uint32(50)
 	for i := uint32(0); i < mc.numRuns; i++ {
-		m.s.sleep(mc.sleep)
+		m.s.sleep(mc.sleep, sleepTimeFunc)
 		if i > 0 && i%updateStep == 0 {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
 		}

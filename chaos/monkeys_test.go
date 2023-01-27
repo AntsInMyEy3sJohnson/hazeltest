@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"hazeltest/status"
-	"math"
 	"strings"
 	"testing"
-	"time"
 )
 
 type (
@@ -49,7 +47,7 @@ var (
 	}
 )
 
-func (s *testSleeper) sleep(sc *sleepConfig) {
+func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 	if sc.enabled {
 		s.secondsSlept += sc.durationSeconds
@@ -106,18 +104,20 @@ func TestDefaultSleeperSleep(t *testing.T) {
 		{
 			s := defaultSleeper{}
 
-			start := time.Now()
-			s.sleep(sleepDisabled)
-			elapsedSeconds := time.Since(start).Seconds()
+			sleepInvoked := false
+			s.sleep(sleepDisabled, func(sc *sleepConfig) int {
+				sleepInvoked = true
+				return 0
+			})
 
-			msg := "\t\tno time must have been spent sleeping"
-			if elapsedSeconds < 0.01 {
+			msg := "\t\tsleep function must not have been invoked"
+			if !sleepInvoked {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, elapsedSeconds)
+				t.Fatal(msg, ballotX)
 			}
 		}
-		t.Log("\twhen static sleep has been enabled")
+		t.Log("\twhen sleep has been enabled")
 		{
 			s := defaultSleeper{}
 			sc := &sleepConfig{
@@ -126,38 +126,17 @@ func TestDefaultSleeperSleep(t *testing.T) {
 				enableRandomness: false,
 			}
 
-			start := time.Now()
-			s.sleep(sc)
-			elapsedSeconds := time.Since(start).Seconds()
+			sleepInvoked := false
+			s.sleep(sc, func(sc *sleepConfig) int {
+				sleepInvoked = true
+				return 0
+			})
 
-			msg := "\t\tsleeper must have slept for given number of seconds"
-			if math.Abs(elapsedSeconds-float64(sc.durationSeconds)) < float64(sc.durationSeconds)*0.01 {
+			msg := "\t\tsleep must have been invoked"
+			if sleepInvoked {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("%f != %d", elapsedSeconds, sc.durationSeconds))
-			}
-		}
-		t.Log("\twhen random sleep has been enabled")
-		{
-			s := defaultSleeper{}
-			sc := &sleepConfig{
-				enabled:          true,
-				durationSeconds:  1,
-				enableRandomness: true,
-			}
-
-			runs := 6
-			start := time.Now()
-			for i := 0; i < runs; i++ {
-				s.sleep(sc)
-			}
-			elapsedSeconds := time.Since(start).Seconds()
-
-			msg := "\t\ttime slept must be less than what it would be had the sleep been static"
-			if elapsedSeconds < float64(runs)*float64(sc.durationSeconds) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, elapsedSeconds)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
