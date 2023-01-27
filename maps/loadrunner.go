@@ -73,7 +73,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{uuid.New(), r.source, r.mapStore, loadRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
 
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()

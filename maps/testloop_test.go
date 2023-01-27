@@ -6,7 +6,6 @@ import (
 	"hazeltest/status"
 	"sync"
 	"testing"
-	"time"
 )
 
 const testSource = "theFellowship"
@@ -23,21 +22,10 @@ var (
 		"Pippin",
 		"Gimli",
 	}
-	sleepDurationMs     = 10
 	sleepConfigDisabled = &sleepConfig{
 		enabled:          false,
 		durationMs:       0,
 		enableRandomness: false,
-	}
-	sleepConfigEnabled = &sleepConfig{
-		enabled:          true,
-		durationMs:       sleepDurationMs,
-		enableRandomness: false,
-	}
-	sleepConfigEnabledWithEnabledRandomness = &sleepConfig{
-		enabled:          true,
-		durationMs:       sleepDurationMs,
-		enableRandomness: true,
 	}
 )
 
@@ -64,7 +52,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			numMaps, numRuns := 1, 1
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
@@ -105,7 +93,7 @@ func TestRun(t *testing.T) {
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
 			numMaps, numRuns := 10, 1
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -147,7 +135,7 @@ func TestRun(t *testing.T) {
 		t.Log("\twhen get map yields error")
 		{
 			numMaps, numRuns := 1, 1
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -178,7 +166,7 @@ func TestRun(t *testing.T) {
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
 			numMaps, numRuns := 1, 1
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
 
@@ -216,7 +204,7 @@ func TestRun(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
 			numMaps, numRuns := 0, 1
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled)
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
@@ -230,49 +218,76 @@ func TestRun(t *testing.T) {
 				t.Fatal(msg, ballotX, key, detail)
 			}
 		}
-
-		t.Log("\twhen an enabled sleep config is provided for sleep between runs")
+		t.Log("\twhen sleep configs for sleep between runs and sleep between action batches are disabled")
 		{
-			id := uuid.New()
-			ms := assembleDummyMapStore(false, false)
-			numRuns := 20
-			rc := assembleRunnerConfig(1, numRuns, sleepConfigEnabled)
-			tl := assembleTestLoop(id, testSource, ms, &rc)
+			scBetweenRuns := &sleepConfig{}
+			scBetweenActionBatches := &sleepConfig{}
+			rc := assembleRunnerConfig(1, 20, scBetweenRuns, scBetweenActionBatches)
+			tl := assembleTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
 
-			start := time.Now()
+			numInvocationsBetweenRuns := 0
+			numInvocationsBetweenActionBatches := 0
+			sleepTimeFunc = func(sc *sleepConfig) int {
+				if sc == scBetweenRuns {
+					numInvocationsBetweenRuns++
+				} else {
+					numInvocationsBetweenActionBatches++
+				}
+				return 0
+			}
+
 			tl.run()
-			elapsedMs := time.Since(start).Milliseconds()
 
-			msg := "\t\ttest run execution time must be at least the number of runs into the milliseconds slept after each run"
-			if elapsedMs >= int64(numRuns*sleepDurationMs) {
+			msg := "\t\tnumber of sleeps between runs must zero"
+			if numInvocationsBetweenRuns == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-		}
-
-		t.Log("\twhen an enabled sleep config with enabled randomness is provided for sleep between runs")
-		{
-			id := uuid.New()
-			ms := assembleDummyMapStore(false, false)
-			numRuns := 20
-			rc := assembleRunnerConfig(1, numRuns, sleepConfigEnabledWithEnabledRandomness)
-			tl := assembleTestLoop(id, testSource, ms, &rc)
-
-			start := time.Now()
-			tl.run()
-			elapsedMs := time.Since(start).Milliseconds()
-
-			msg := "\t\ttest run execution time must be less than the number of runs into the given number of " +
-				"milliseconds to sleep due to the random factor reducing the actual time slept"
-			if elapsedMs < int64(numRuns*sleepDurationMs) {
+			msg = "\t\tnumber of sleeps between action batches must be zero"
+			if numInvocationsBetweenActionBatches == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 		}
 
+		t.Log("\twhen sleep configs for sleep between runs and sleep between action batches are enabled")
+		{
+			numRuns := 20
+			scBetweenRuns := &sleepConfig{enabled: true}
+			scBetweenActionsBatches := &sleepConfig{enabled: true}
+			rc := assembleRunnerConfig(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
+			tl := assembleTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
+
+			numInvocationsBetweenRuns := 0
+			numInvocationsBetweenActionBatches := 0
+			sleepTimeFunc = func(sc *sleepConfig) int {
+				if sc == scBetweenRuns {
+					numInvocationsBetweenRuns++
+				} else {
+					numInvocationsBetweenActionBatches++
+				}
+				return 0
+			}
+
+			tl.run()
+
+			msg := "\t\tnumber of sleeps between runs must be equal to number of runs"
+			if numInvocationsBetweenRuns == numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnumber of sleeps between action batches must be equal to two times the number of runs"
+			if numInvocationsBetweenActionBatches == 2*numRuns {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
 
 }
@@ -325,7 +340,7 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := testLoop[string]{}
-	tl.init(&tlc, status.NewGatherer())
+	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 
@@ -357,7 +372,7 @@ func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet bool) dummy
 
 }
 
-func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenRuns *sleepConfig) runnerConfig {
+func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenRuns *sleepConfig, sleepBetweenActionBatches *sleepConfig) runnerConfig {
 
 	return runnerConfig{
 		enabled:                   true,
@@ -368,7 +383,7 @@ func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenRuns *sleepConfig) r
 		mapPrefix:                 "ht_",
 		appendMapIndexToMapName:   false,
 		appendClientIdToMapName:   false,
-		sleepBetweenActionBatches: sleepConfigDisabled,
+		sleepBetweenActionBatches: sleepBetweenActionBatches,
 		sleepBetweenRuns:          sleepBetweenRuns,
 	}
 

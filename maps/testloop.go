@@ -15,14 +15,19 @@ import (
 )
 
 type (
-	getElementID       func(element any) string
-	deserializeElement func(element any) error
-	looper[t any]      interface {
-		init(lc *testLoopConfig[t], g *status.Gatherer)
+	evaluateTimeToSleep func(sc *sleepConfig) int
+	getElementID        func(element any) string
+	deserializeElement  func(element any) error
+	looper[t any]       interface {
+		init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
 		run()
+	}
+	sleeper interface {
+		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	testLoop[t any] struct {
 		config *testLoopConfig[t]
+		s      sleeper
 		g      *status.Gatherer
 	}
 	testLoopConfig[t any] struct {
@@ -35,6 +40,7 @@ type (
 		getElementIdFunc       getElementID
 		deserializeElementFunc deserializeElement
 	}
+	defaultSleeper struct{}
 )
 
 const (
@@ -43,8 +49,21 @@ const (
 	statusKeyTotalNumRuns = "totalNumRuns"
 )
 
-func (l *testLoop[t]) init(lc *testLoopConfig[t], g *status.Gatherer) {
+var (
+	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
+		var sleepDuration int
+		if sc.enableRandomness {
+			sleepDuration = rand.Intn(sc.durationMs + 1)
+		} else {
+			sleepDuration = sc.durationMs
+		}
+		return sleepDuration
+	}
+)
+
+func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc
+	l.s = s
 	l.g = g
 	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
@@ -101,7 +120,7 @@ func (l *testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
 
 	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
-		sleep(sleepBetweenRunsConfig)
+		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc)
 		if i > 0 && i%updateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
@@ -111,13 +130,13 @@ func (l *testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
-		sleep(sleepBetweenActionBatchesConfig)
+		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
 		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
-		sleep(sleepBetweenActionBatchesConfig)
+		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
 		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
@@ -224,15 +243,10 @@ func (l *testLoop[t]) assembleMapName(mapIndex int) string {
 
 }
 
-func sleep(sleepConfig *sleepConfig) {
+func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
-	if sleepConfig.enabled {
-		var sleepDuration int
-		if sleepConfig.enableRandomness {
-			sleepDuration = rand.Intn(sleepConfig.durationMs + 1)
-		} else {
-			sleepDuration = sleepConfig.durationMs
-		}
+	if sc.enabled {
+		sleepDuration := sf(sc)
 		lp.LogRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepDuration), log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}

@@ -56,7 +56,14 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsPokedexRunner", source: "pokedexRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
+	register(&pokedexRunner{
+		assigner:  &client.DefaultConfigPropertyAssigner{},
+		stateList: []state{},
+		name:      "mapsPokedexRunner",
+		source:    "pokedexRunner",
+		mapStore:  &defaultHzMapStore{},
+		l:         &testLoop[pokemon]{},
+	})
 	gob.Register(pokemon{})
 }
 
@@ -100,7 +107,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
