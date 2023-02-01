@@ -140,9 +140,11 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (st
 				namespace = ns
 			}
 		}
-		msg := fmt.Sprintf("kubernetes namespace discovery failed: namespace neither present in environment variable '%s' nor in serviceaccount file", k8sNamespaceEnvVariable)
-		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
-		return "", errors.New(msg)
+		if namespace == "" {
+			msg := fmt.Sprintf("kubernetes namespace discovery failed: namespace neither present in environment variable '%s' nor in serviceaccount file", k8sNamespaceEnvVariable)
+			lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
+			return "", errors.New(msg)
+		}
 	default:
 		msg := fmt.Sprintf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.memberAccessMode)
 		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
