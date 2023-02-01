@@ -136,15 +136,18 @@ func ValidateString(path string, a any) error {
 
 func ValidatePercentage(path string, a any) error {
 
+	parsedInt, okInt := a.(int)
 	parsed32, ok32 := a.(float32)
 	parsed64, ok64 := a.(float64)
 
-	if !ok32 && !ok64 {
-		return FailedParse{"float32/float64", path}
+	if !okInt && !ok32 && !ok64 {
+		return FailedParse{"int/float32/float64", path}
 	}
 
 	var parsed float64
-	if ok32 {
+	if okInt {
+		parsed = float64(parsedInt)
+	} else if ok32 {
 		parsed = float64(parsed32)
 	} else {
 		parsed = parsed64

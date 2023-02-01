@@ -99,9 +99,21 @@ func TestValidatePercentage(t *testing.T) {
 				}
 			}
 		}
+		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
+		{
+			err := ValidatePercentage("", 1)
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 		correctTypeOfErrorMsg := "\t\terror of correct type should be returned"
 		pathInErrorStringMsg := "\t\tpath should be contained in error string"
-		t.Log("\twhen providing a value that can be parsed into a float, but does not represent a percentage value and is therefore semantically incorrect")
+		t.Log("\twhen providing a value that can be parsed into a float, but does not represent a " +
+			"percentage value and is therefore semantically incorrect")
 		{
 			for _, v := range []float32{-1, -0.1, 1.1, 2} {
 				err := ValidatePercentage(path, v)
@@ -119,7 +131,7 @@ func TestValidatePercentage(t *testing.T) {
 				}
 			}
 		}
-		t.Log("\twhen providing a value that cannot be parsed into a float")
+		t.Log("\twhen providing a value that cannot be parsed into either int, float32, or float64")
 		{
 			for _, v := range []any{false, "blubb", []int{1, 2, 3}, map[string]int{"hello": 1, "goodbye": 2}} {
 				err := ValidatePercentage(path, v)

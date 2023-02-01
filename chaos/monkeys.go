@@ -242,7 +242,16 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 	var chaosProbability float64
 	assignmentOps = append(assignmentOps, func() error {
 		return a.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
-			chaosProbability = a.(float64)
+			// TODO Refactor config assignment mechanism so it returns the parsed and validated value
+			// The assignment itself shouldn't have to parse the value again if it has already
+			// been parsed in the validation function
+			if v, ok := a.(int); ok {
+				chaosProbability = float64(v)
+			} else if v, ok := a.(float32); ok {
+				chaosProbability = float64(v)
+			} else if v, ok := a.(float64); ok {
+				chaosProbability = v
+			}
 		})
 	})
 
