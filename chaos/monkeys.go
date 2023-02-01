@@ -297,6 +297,7 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("failed to assign config property due to error: %s", err.Error()), log.ErrorLevel)
 			return nil, err
 		}
 	}
