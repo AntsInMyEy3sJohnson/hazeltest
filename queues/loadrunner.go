@@ -3,6 +3,7 @@ package queues
 import (
 	"context"
 	"encoding/gob"
+	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -41,7 +42,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	c, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogRunnerEvent("unable to populate config for queue load runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)

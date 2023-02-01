@@ -73,7 +73,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	config, err := populatePokedexConfig(r.assigner)
 	if err != nil {
-		lp.LogRunnerEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map pokedex runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)

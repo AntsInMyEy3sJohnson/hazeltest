@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -44,7 +45,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	loadRunnerConfig, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogRunnerEvent("unable to populate config for map load runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)

@@ -137,7 +137,7 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	mc, err := populateMemberKillerMonkeyConfig(m.a)
 	if err != nil {
-		lp.LogChaosMonkeyEvent("unable to populate config for member killer chaos monkey -- aborting", log.ErrorLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("aborting member killer monkey launch: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	m.appendState(populateConfigComplete)
@@ -306,7 +306,6 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("failed to assign config property due to error: %s", err.Error()), log.ErrorLevel)
 			return nil, err
 		}
 	}
