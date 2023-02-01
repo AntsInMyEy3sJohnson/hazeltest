@@ -6,7 +6,7 @@ chaosMonkeys:
     chaosProbability: 1.0
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
-      mode: k8sOutOfCluster
+      mode: k8sInCluster
       targetOnlyActive: true
       k8sOutOfCluster:
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
