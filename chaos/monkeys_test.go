@@ -45,6 +45,7 @@ var (
 		durationSeconds:  1,
 		enableRandomness: false,
 	}
+	noOpFunc = func() {}
 )
 
 func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
@@ -151,7 +152,16 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			assigner := &testConfigPropertyAssigner{assembleTestConfig(memberKillerKeyPath, true, invalidChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
+
+			raiseReadyInvoked := false
+			dummyReadyFunc := func() {
+				raiseReadyInvoked = true
+			}
+			raiseNotReadyInvoked := false
+			dummyNotReadyFunc := func() {
+				raiseNotReadyInvoked = true
+			}
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -170,6 +180,17 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Fatal(msg, ballotX, key, detail)
 			}
 
+			msg = "\t\tno api status function must have been invoked"
+			if !raiseReadyInvoked {
+				t.Log(msg, checkMark, "raiseReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseReadyFunc")
+			}
+			if !raiseNotReadyInvoked {
+				t.Log(msg, checkMark, "raiseNotReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
+			}
 		}
 		genericMsg := "\t\tstate transitions must be correct"
 		t.Log("\twhen monkey is disabled")
@@ -177,7 +198,16 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			testConfig := assembleTestConfig(memberKillerKeyPath, false, validChaosProbability, 10, k8sInClusterAccessMode, validLabelSelector, sleepDisabled)
 			assigner := &testConfigPropertyAssigner{testConfig}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer())
+
+			raiseReadyInvoked := false
+			dummyReadyFunc := func() {
+				raiseReadyInvoked = true
+			}
+			raiseNotReadyInvoked := false
+			dummyNotReadyFunc := func() {
+				raiseNotReadyInvoked = true
+			}
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -193,6 +223,18 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
+			}
+
+			msg = "\t\tno api status function must have been invoked"
+			if !raiseReadyInvoked {
+				t.Log(msg, checkMark, "raiseReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseReadyFunc")
+			}
+			if !raiseNotReadyInvoked {
+				t.Log(msg, checkMark, "raiseNotReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
 			}
 		}
 		t.Log("\twhen non-zero number of runs is configured and chaos probability is 100 %")
@@ -212,7 +254,16 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
+
+			raiseReadyInvoked := false
+			dummyReadyFunc := func() {
+				raiseReadyInvoked = true
+			}
+			raiseNotReadyInvoked := false
+			dummyNotReadyFunc := func() {
+				raiseNotReadyInvoked = true
+			}
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -250,6 +301,18 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
 			}
+
+			msg = "\t\tapi status function must have been invoked"
+			if raiseReadyInvoked {
+				t.Log(msg, checkMark, "raiseReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseReadyFunc")
+			}
+			if raiseNotReadyInvoked {
+				t.Log(msg, checkMark, "raiseNotReadyFunc")
+			} else {
+				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
+			}
 		}
 		t.Log("\twhen chaos probability is set to zero")
 		{
@@ -267,7 +330,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
+
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, notReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -308,7 +372,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{returnError: true}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -350,7 +414,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer())
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -385,7 +449,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer())
+			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -419,7 +483,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer())
+			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 

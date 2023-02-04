@@ -24,7 +24,8 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	monkey interface {
-		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer)
+		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer,
+			readyFunc raiseReady, notReadyFunc raiseNotReady)
 		causeChaos()
 	}
 	hzMember struct {
@@ -37,6 +38,8 @@ type (
 		chooser          hzMemberChooser
 		killer           hzMemberKiller
 		g                *status.Gatherer
+		readyFunc        raiseReady
+		notReadyFunc     raiseNotReady
 		numMembersKilled uint32
 	}
 	monkeyConfigBuilder struct {
@@ -57,6 +60,8 @@ type (
 	}
 	defaultSleeper struct{}
 	state          string
+	raiseReady     func()
+	raiseNotReady  func()
 )
 
 const (
@@ -93,6 +98,12 @@ var (
 		}
 		return sleepDuration
 	}
+	readyFunc raiseReady = func() {
+		api.RaiseReady()
+	}
+	notReadyFunc raiseNotReady = func() {
+		api.RaiseNotReady()
+	}
 )
 
 func init() {
@@ -114,7 +125,8 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 }
 
-func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer) {
+func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller,
+	g *status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
 
 	m.a = a
 	m.s = s
@@ -122,6 +134,8 @@ func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c 
 	m.killer = k
 	m.g = g
 	m.numMembersKilled = 0
+	m.readyFunc = readyFunc
+	m.notReadyFunc = notReadyFunc
 
 	api.RegisterChaosMonkeyStatus("memberKiller", m.g.AssembleStatusCopy)
 
@@ -147,11 +161,13 @@ func (m *memberKillerMonkey) causeChaos() {
 		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
 		return
 	}
+	m.notReadyFunc()
 	m.appendState(checkEnabledComplete)
 
-	// TODO Make API readiness dependent on chaos monkey state?
 	m.appendState(raiseReadyComplete)
 	m.appendState(chaosStart)
+
+	m.readyFunc()
 
 	updateStep := uint32(50)
 	for i := uint32(0); i < mc.numRuns; i++ {
@@ -433,6 +449,8 @@ func RunMonkeys() {
 					podDeleter:          &defaultK8sPodDeleter{},
 				},
 				status.NewGatherer(),
+				readyFunc,
+				notReadyFunc,
 			)
 			m.causeChaos()
 		}(i)
