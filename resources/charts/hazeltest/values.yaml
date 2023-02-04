@@ -5,7 +5,7 @@ image:
   organization: antsinmyey3sjohnson
   repository: hazeltest
   # 0.8.0
-  digest: bf3aa17c6130078da0882ecc78b8c7b65e4e64c26d57a753ae3704c12d2e131d
+  digest: 0c036f7945d308b17ae16cafce49c89631821b0afd4f8dc775efaf083b9da39b
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -42,7 +42,7 @@ config:
     memberKiller:
       enabled: true
       numRuns: 100
-      chaosProbability: 1.0
+      chaosProbability: 42
       memberAccess:
         # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
         mode: k8sInCluster
@@ -57,7 +57,7 @@ config:
           labelSelector: app.kubernetes.io/name=hazelcastimdg
       sleep:
         enabled: true
-        durationSeconds: 60
+        durationSeconds: 6
         enableRandomness: false
       memberGrace:
         enabled: true
