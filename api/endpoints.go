@@ -64,7 +64,7 @@ func RaiseNotReady() {
 		if !r.atLeastOneActorRegistered {
 			r.atLeastOneActorRegistered = true
 		}
-		lp.LogApiEvent(fmt.Sprintf("runner has raised 'not ready', number of non-ready runners now %d", r.numNonReadyActors), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
 	}
 	m.Unlock()
 
@@ -75,10 +75,10 @@ func RaiseReady() {
 	m.Lock()
 	{
 		r.numNonReadyActors--
-		lp.LogApiEvent(fmt.Sprintf("runner has raised readiness, number of non-ready runners now %d", r.numNonReadyActors), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
 		if r.numNonReadyActors == 0 && r.atLeastOneActorRegistered && !r.Up {
 			r.Up = true
-			lp.LogApiEvent("all runners ready", log.InfoLevel)
+			lp.LogApiEvent("all actors ready", log.InfoLevel)
 		}
 	}
 	m.Unlock()
