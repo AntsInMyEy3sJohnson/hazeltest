@@ -5,7 +5,9 @@ metadata:
   name: {{ .Release.Name }}-pod-deleter
   namespace: {{ .Release.Namespace }}
 rules:
-  - apiGroups: ["v1"]
+  - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["delete"]
+    verbs:
+      - "list"
+      - "delete"
 {{ end -}}
