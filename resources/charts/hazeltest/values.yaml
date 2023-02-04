@@ -59,7 +59,7 @@ config:
         enableRandomness: true
   queueTests:
     tweets:
-      enabled: true
+      enabled: false
       numQueues: 10
       appendQueueIndexToQueueName: true
       appendClientIdToQueueName: true
@@ -101,7 +101,7 @@ config:
             durationMs: 5000
             enableRandomness: true
     load:
-      enabled: true
+      enabled: false
       numQueues: 10
       numLoadEntries: 50
       payloadSizeBytes: 10
@@ -144,10 +144,9 @@ config:
             enabled: true
             durationMs: 3500
             enableRandomness: true
-
   mapTests:
     pokedex:
-      enabled: true
+      enabled: false
       numMaps: 10
       appendMapIndexToMapName: true
       appendClientIdToMapName: true
@@ -165,7 +164,7 @@ config:
           durationMs: 1000
           enableRandomness: true
     load:
-      enabled: true
+      enabled: false
       numMaps: 10
       numEntriesPerMap: 50000
       payloadSizeBytes: 1000000
