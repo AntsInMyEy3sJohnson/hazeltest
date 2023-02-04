@@ -1,28 +1,77 @@
-# TODO Write documentation
 chaosMonkeys:
+  # Kills Hazelcast members. As of Feb. 2023/v0.8.0 of Hazeltest, the member killer monkey
+  # can only target members running in a Kubernetes cluster, but you can choose between an
+  # in-cluster access mode and an out-of-cluster access mode, see below.
   memberKiller:
+    # Enables or disables the member killer monkey.
     enabled: true
+    # Configures the number of runs or iterations the monkey will perform. Note that
+    # number of runs != number of kills in case the chaos probability is set to something
+    # less than 1.0 (100%), but the number evaluated to decide whether the monkey should
+    # terminate is indeed the number of runs, and not the number of kills.
     numRuns: 100
-    chaosProbability: 1.0
+    # In each run, the monkey will strike with this probability. The provided number expresses
+    # a percentage, i.e. 1.0 corresponds to 100%. For this value to be semantically correct,
+    # therefore, it must be within the closed interval [0,1].
+    chaosProbability: 0.5
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sInCluster
+      # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
+      # true, the monkey will not kill Pods that haven't achieved readiness.
       targetOnlyActive: true
+      # Mode for accessing Hazelcast members from outside the Kubernetes cluster. To connect to the Kubernetes cluster,
+      # a kubeconfig file is used.
+      # Handy when testing Hazeltest configurations locally prior to a deployment via Helm. However, since the absolute
+      # path to the kubeconfig file can be specified by means of the corresponding property (see below), it might also
+      # be used for in-cluster access by mounting the kubeconfig file into the Hazeltest Pod and specifying the path
+      # accordingly.
       k8sOutOfCluster:
+        # Specifies the absolute path to the kubeconfig file to be used to connect to the Kubernetes cluster
+        # the target Hazelcast members run on.
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.
         kubeconfig: default
+        # The namespace in which to search for Hazelcast member Pods.
         namespace: hazelcastplatform
+        # The label selector to use for identifying the Hazelcast member Pods.
         labelSelector: app.kubernetes.io/name=hazelcastimdg
+      # Mode for accessing Hazelcast members from within the Kubernetes cluster. Useful when Hazeltest itself gets
+      # deployed to Kubernetes because, while member access can be achieved with out-of-cluster mode in combination
+      # with mounting the kubeconfig file and specifying its path accordingly, the in-cluster mode only relies on
+      # native Kubernetes RBAC artifacts to delete Hazelcast member Pods.
+      # (Note that for those artifacts to be rendered by the Helm chart, the 'features.useDeletePodsServiceAccount'
+      # property in the chart's values.yaml file has to be set to 'true'.)
+      # Hazeltest will attempt retrieve its current namespace by means of the POD_NAMESPACE environment variable and
+      # the '/var/run/secrets/kubernetes.io/serviceaccount/namespace' file mounted into the Pod by Kubernetes. If the
+      # namespace cannot be retrieved by these means, the monkey will report an error and terminate.
+      # Please note that the implication of this is that, regardless of how the namespace is retrieved, the Hazeltest
+      # Pod has to reside in the same namespace as the Hazelcast member Pods to be acted upon, i.e. cross-namespace
+      # actions on Hazelcast member Pods are not supported.
       k8sInCluster:
+        # Same as for out-of-cluster config.
         labelSelector: app.kubernetes.io/name=hazelcastimdg
+    # Configures the monkey's sleep behavior for between runs.
     sleep:
+      # Whether a sleep should be performed between runs.
       enabled: true
+      # The duration, in seconds, to sleep. (Mind the difference between this sleep config's duration and the various
+      # runner's sleeps, where the sleep is configured in milliseconds.)
       durationSeconds: 60
+      # Enables or disables randomness for this sleep configuration. If enabled, the amount of seconds to sleep will be
+      # determined randomly in the closed interval [0, <durationMs>]. If disabled, the sleep will be static, i.e.
+      # the monkey will simply sleep for the given amount of seconds.
       enableRandomness: false
+    # Configures deletion behavior. When enabled, the member killer monkey will kill the selected Hazelcast member
+    # using a grace period as defined by 'durationSeconds' and 'enableRandomness'.
     memberGrace:
+      # Whether members should be terminated gracefully at all.
       enabled: true
+      # Number of seconds for the graceful shutdown, if member grace has been enabled. Randomness can be enabled for
+      # this, however, see below.
       durationSeconds: 30
+      # Activates or deactivates randomness for the 'durationSeconds' property. The rules are the same as for the
+      # sleep configuration explained above.
       enableRandomness: true
 
 queueTests:
@@ -75,10 +124,10 @@ queueTests:
         initialDelay:
           enabled: false
           durationMs: 2000
-          # Enables or disables randomness for this sleep configuration. If disabled and given that the sleep config
-          # itself is enabled, the goroutine will sleep for the given amount of milliseconds. If enabled -- and again
-          # assuming the sleep config itself is enabled, too --, the amount of milliseconds to sleep will be determined
-          # randomly in the closed interval [0, <durationMs>].
+          # Enables or disables randomness for this sleep configuration. If enabled and assuming the sleep itself is
+          # enabled, the amount of milliseconds to sleep will be determined randomly in the closed interval
+          # [0, <durationMs>]. If disabled, on the other hand, the sleep will be static, i.e. the goroutine for this
+          # runner will simply sleep for the given amount of milliseconds.
           # Hint: For queue runners, it makes sense to disable randomness for the initial sleep, as a reduced amount of
           # milliseconds slept due to randomness might invalidate the purpose of the initial sleep, which is to give the
           # operation in question, normally the put operation, enough time to put some elements into its queues before
