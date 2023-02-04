@@ -154,7 +154,7 @@ func ValidatePercentage(path string, a any) error {
 	}
 
 	if parsed < 0.0 || parsed > 1.0 {
-		return FailedValueCheck{"expected float expressing percentage, i. e. 0.0 <= <number> <= 1.0", path}
+		return FailedValueCheck{"expected float expressing percentage, i.e. value expected to lie in closed interval between 0.0 and 1.0", path}
 	}
 
 	return nil
