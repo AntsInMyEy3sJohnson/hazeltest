@@ -198,7 +198,7 @@ func (m *memberKillerMonkey) causeChaos() {
 				m.updateNumMembersKilled()
 			}
 		} else {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.TraceLevel)
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
 		}
 	}
 
