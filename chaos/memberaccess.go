@@ -264,7 +264,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
 	if len(pods) == 0 {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.ErrorLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.WarnLevel)
 		return hzMember{}, noMemberFoundError
 	}
 
@@ -282,7 +282,13 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 			}
 		}
 		if !podFound {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("out of %d candidate pods, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods)), log.ErrorLevel)
+			var msg string
+			if len(pods) == 1 {
+				msg = "the only available pod was not ready (can only target ready pods because targetOnlyActive was enabled)"
+			} else {
+				msg = fmt.Sprintf("out of %d candidate pod/-s, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods))
+			}
+			lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
 			return hzMember{}, noMemberFoundError
 		}
 	} else {
