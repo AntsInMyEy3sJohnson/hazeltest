@@ -42,7 +42,7 @@ config:
     memberKiller:
       enabled: true
       numRuns: 100
-      chaosProbability: 42
+      chaosProbability: 0.5
       memberAccess:
         # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
         mode: k8sInCluster
@@ -57,18 +57,19 @@ config:
           labelSelector: app.kubernetes.io/name=hazelcastimdg
       sleep:
         enabled: true
-        durationSeconds: 6
-        enableRandomness: false
+        durationSeconds: 600
+        enableRandomness: true
       memberGrace:
         enabled: true
         durationSeconds: 30
         enableRandomness: true
+
   queueTests:
     tweets:
-      enabled: false
-      numQueues: 10
+      enabled: true
+      numQueues: 5
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: true
+      appendClientIdToQueueName: false
       queuePrefix:
         enabled: true
         prefix: "ht_"
@@ -107,12 +108,12 @@ config:
             durationMs: 5000
             enableRandomness: true
     load:
-      enabled: false
-      numQueues: 10
+      enabled: true
+      numQueues: 5
       numLoadEntries: 50
-      payloadSizeBytes: 10
+      payloadSizeBytes: 100
       appendQueueIndexToQueueName: true
-      appendClientIdToQueueName: true
+      appendClientIdToQueueName: false
       queuePrefix:
         enabled: true
         prefix: "ht_"
@@ -152,10 +153,10 @@ config:
             enableRandomness: true
   mapTests:
     pokedex:
-      enabled: false
+      enabled: true
       numMaps: 10
       appendMapIndexToMapName: true
-      appendClientIdToMapName: true
+      appendClientIdToMapName: false
       numRuns: 10000
       mapPrefix:
         enabled: true
@@ -170,12 +171,12 @@ config:
           durationMs: 1000
           enableRandomness: true
     load:
-      enabled: false
+      enabled: true
       numMaps: 10
-      numEntriesPerMap: 50000
-      payloadSizeBytes: 1000000
+      numEntriesPerMap: 500
+      payloadSizeBytes: 1000
       appendMapIndexToMapName: true
-      appendClientIdToMapName: true
+      appendClientIdToMapName: false
       numRuns: 10000
       mapPrefix:
         enabled: true
