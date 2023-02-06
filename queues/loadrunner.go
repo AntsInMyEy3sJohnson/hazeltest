@@ -3,6 +3,7 @@ package queues
 import (
 	"context"
 	"encoding/gob"
+	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -13,6 +14,7 @@ import (
 
 type (
 	loadRunner struct {
+		assigner   client.ConfigPropertyAssigner
 		stateList  []state
 		name       string
 		source     string
@@ -30,7 +32,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{stateList: []state{}, name: "queues-loadrunner", source: "loadrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesLoadrunner", source: "loadRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -38,16 +40,16 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	c, err := populateLoadConfig()
+	c, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for queue load runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !c.enabled {
-		// The source field being part of the generated log line can be used to disambiguate queues/loadrunner from maps/loadrunner
-		lp.LogInternalStateEvent("loadrunner not enabled -- won't run", log.InfoLevel)
+		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
+		lp.LogRunnerEvent("load runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -56,7 +58,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	ctx := context.TODO()
 
-	r.queueStore.InitHazelcastClient(ctx, "queues-loadrunner", hzCluster, hzMembers)
+	r.queueStore.InitHazelcastClient(ctx, "queuesLoadRunner", hzCluster, hzMembers)
 	defer func() {
 		_ = r.queueStore.Shutdown(ctx)
 	}()
@@ -64,18 +66,18 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("starting load test loop for queues", log.InfoLevel)
+	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogRunnerEvent("starting load test loop for queues", log.InfoLevel)
 
 	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogInternalStateEvent("finished queue load test loop", log.InfoLevel)
+	lp.LogRunnerEvent("finished queue load test loop", log.InfoLevel)
 
 }
 
@@ -99,22 +101,22 @@ func populateLoadElements() []loadElement {
 
 }
 
-func populateLoadConfig() (*runnerConfig, error) {
+func populateLoadConfig(assigner client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
-	runnerKeyPath := "queuetests.load"
+	runnerKeyPath := "queueTests.load"
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
+	if err := assigner.Assign(runnerKeyPath+".numLoadEntries", client.ValidateInt, func(a any) {
 		numLoadEntries = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	if err := propertyAssigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
+	if err := assigner.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
 		payloadSizeBytes = a.(int)
 	}); err != nil {
 		return nil, err
 	}
 
-	return populateConfig(runnerKeyPath, "load")
+	return populateConfig(assigner, runnerKeyPath, "load")
 
 }

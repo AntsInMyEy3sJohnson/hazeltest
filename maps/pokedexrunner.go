@@ -10,11 +10,13 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"hazeltest/client"
 	"hazeltest/status"
 )
 
 type (
 	pokedexRunner struct {
+		assigner  client.ConfigPropertyAssigner
 		stateList []state
 		name      string
 		source    string
@@ -54,7 +56,14 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{stateList: []state{}, name: "maps-pokedexrunner", source: "pokedexrunner", mapStore: &defaultHzMapStore{}, l: &testLoop[pokemon]{}})
+	register(&pokedexRunner{
+		assigner:  &client.DefaultConfigPropertyAssigner{},
+		stateList: []state{},
+		name:      "mapsPokedexRunner",
+		source:    "pokedexRunner",
+		mapStore:  &defaultHzMapStore{},
+		l:         &testLoop[pokemon]{},
+	})
 	gob.Register(pokemon{})
 }
 
@@ -62,15 +71,15 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	config, err := populatePokedexConfig()
+	config, err := populatePokedexConfig(r.assigner)
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for map pokedex runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map pokedex runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogInternalStateEvent("pokedexrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("pokedexRunner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -93,18 +102,18 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("starting pokedex maps loop", log.InfoLevel)
+	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
 	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogInternalStateEvent("finished pokedex maps loop", log.InfoLevel)
+	lp.LogRunnerEvent("finished pokedex maps loop", log.InfoLevel)
 
 }
 
@@ -132,11 +141,12 @@ func deserializePokemon(elementFromHZ any) error {
 
 }
 
-func populatePokedexConfig() (*runnerConfig, error) {
+func populatePokedexConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
-	runnerKeyPath := "maptests.pokedex"
+	runnerKeyPath := "mapTests.pokedex"
 
 	configBuilder := runnerConfigBuilder{
+		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   "pokedex",
 	}
@@ -154,7 +164,7 @@ func parsePokedexFile() (*pokedex, error) {
 	}
 	defer func() {
 		if err := pokedexJson.Close(); err != nil {
-			lp.LogInternalStateEvent("unable to close pokedex json file", log.WarnLevel)
+			lp.LogRunnerEvent("unable to close pokedex json file", log.WarnLevel)
 		}
 	}()
 
@@ -165,7 +175,7 @@ func parsePokedexFile() (*pokedex, error) {
 		return nil, err
 	}
 
-	lp.LogInternalStateEvent("parsed pokedex file", log.TraceLevel)
+	lp.LogRunnerEvent("parsed pokedex file", log.TraceLevel)
 
 	return &pokedex, nil
 

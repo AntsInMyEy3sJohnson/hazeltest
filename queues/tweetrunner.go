@@ -9,12 +9,14 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
+	"hazeltest/client"
 	"hazeltest/status"
 	"io/fs"
 )
 
 type (
 	tweetRunner struct {
+		assigner   client.ConfigPropertyAssigner
 		stateList  []state
 		name       string
 		source     string
@@ -37,7 +39,7 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{stateList: []state{}, name: "queues-tweetrunner", source: "tweetrunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
+	register(&tweetRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
 	gob.Register(tweet{})
 }
 
@@ -45,15 +47,15 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	config, err := populateConfig("queuetests.tweets", "tweets")
+	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
 	if err != nil {
-		lp.LogInternalStateEvent("unable to populate config for queue tweet runner -- aborting", log.ErrorLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of queue tweet runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogInternalStateEvent("tweetrunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("tweet runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -75,17 +77,17 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogInternalStateEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogInternalStateEvent("started tweets queue loop", log.InfoLevel)
+	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
+	lp.LogRunnerEvent("started tweets queue loop", log.InfoLevel)
 
 	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
-	r.l.init(lc, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
 	r.appendState(testLoopStart)
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogInternalStateEvent("finished tweet test loop", log.InfoLevel)
+	lp.LogRunnerEvent("finished tweet test loop", log.InfoLevel)
 
 }
 

@@ -29,7 +29,8 @@ func TestPopulateConfig(t *testing.T) {
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, mapBaseName: mapBaseName}
 		t.Log("\twhen property assignment does not yield an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{false, testConfig}
+			assigner := testConfigPropertyAssigner{false, testConfig}
+			b.assigner = assigner
 			rc, err := b.populateConfig()
 
 			msg := "\t\tno error should be returned"
@@ -56,7 +57,8 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen property assignment yields an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{true, map[string]any{}}
+			assigner := testConfigPropertyAssigner{true, map[string]any{}}
+			b.assigner = assigner
 			_, err := b.populateConfig()
 
 			msg := "\t\terror should be returned"

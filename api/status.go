@@ -4,44 +4,64 @@ import (
 	"sync"
 )
 
-type TestLoopType string
+type StatusType string
+type TestLoopDataStructure string
 
 const (
-	MapTestLoopType   TestLoopType = "maps"
-	QueueTestLoopType TestLoopType = "queues"
+	Maps   TestLoopDataStructure = "maps"
+	Queues TestLoopDataStructure = "queues"
+)
+
+const (
+	TestLoopStatusType    StatusType = "testLoops"
+	ChaosMonkeyStatusType StatusType = "chaosMonkeys"
 )
 
 var (
 	mapTestLoopStatusFunctions   sync.Map
 	queueTestLoopStatusFunctions sync.Map
+	chaosMonkeyStatusFunctions   sync.Map
 )
 
-func RegisterTestLoop(t TestLoopType, source string, queryStatusFunc func() map[string]any) {
+func RegisterTestLoopStatus(s TestLoopDataStructure, source string, queryStatusFunc func() map[string]any) {
 
-	if t == MapTestLoopType {
+	switch s {
+	case Maps:
 		mapTestLoopStatusFunctions.Store(source, queryStatusFunc)
-	} else {
+	case Queues:
 		queueTestLoopStatusFunctions.Store(source, queryStatusFunc)
 	}
 
 }
 
-func assembleTestLoopStatus() map[TestLoopType]any {
+func RegisterChaosMonkeyStatus(source string, queryStatusFunc func() map[string]any) {
+
+	chaosMonkeyStatusFunctions.Store(source, queryStatusFunc)
+
+}
+
+func assembleTestLoopStatus() map[StatusType]any {
 
 	mapTestLoopStatus := map[string]any{}
-	populateWithRunnerStatus(mapTestLoopStatus, &mapTestLoopStatusFunctions)
+	populateWithStatus(mapTestLoopStatus, &mapTestLoopStatusFunctions)
 
 	queueTestLoopStatus := map[string]any{}
-	populateWithRunnerStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
+	populateWithStatus(queueTestLoopStatus, &queueTestLoopStatusFunctions)
 
-	return map[TestLoopType]any{
-		MapTestLoopType:   mapTestLoopStatus,
-		QueueTestLoopType: queueTestLoopStatus,
+	chaosMonkeyStatus := map[string]any{}
+	populateWithStatus(chaosMonkeyStatus, &chaosMonkeyStatusFunctions)
+
+	return map[StatusType]any{
+		TestLoopStatusType: map[TestLoopDataStructure]any{
+			Maps:   mapTestLoopStatus,
+			Queues: queueTestLoopStatus,
+		},
+		ChaosMonkeyStatusType: chaosMonkeyStatus,
 	}
 
 }
 
-func populateWithRunnerStatus(target map[string]any, statusFunctionsMap *sync.Map) {
+func populateWithStatus(target map[string]any, statusFunctionsMap *sync.Map) {
 
 	statusFunctionsMap.Range(func(key, value any) bool {
 		runnerStatus := value.(func() map[string]any)()

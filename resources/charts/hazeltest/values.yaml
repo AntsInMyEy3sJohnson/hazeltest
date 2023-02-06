@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.7.0
-  digest: 9f2ab556c5c31e5e60ff84cbd6a107922c3a3be2c1cace4825af78347f14d4d6
+  # 0.8.0
+  digest: 0c036f7945d308b17ae16cafce49c89631821b0afd4f8dc775efaf083b9da39b
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -30,11 +30,42 @@ env:
   # Set this to TRACE if you want to make the people running your IT department's logging platform very angry
   logLevel: INFO
 
+features:
+  # Only set this to false if no chaos monkey runs with the 'k8sInCluster' hazelcast member access mode
+  # (The reason the template doesn't evaluate this directly is because a user might rely on one of the
+  # built-in config files to configure chaos monkeys and not provide a custom config in this yaml file)
+  useDeletePodsServiceAccount: true
+
 config:
-  # For documentation on these properties, please refer to <repo root>/client/config/defaultConfig.yaml
-  queuetests:
-    tweets:
+  # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
+  chaosMonkeys:
+    memberKiller:
       enabled: true
+      numRuns: 100
+      chaosProbability: 42
+      memberAccess:
+        # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
+        mode: k8sInCluster
+        targetOnlyActive: true
+        k8sOutOfCluster:
+          # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
+          # In non-default cases, the absolute path of the file to be used can be specified.
+          kubeconfig: default
+          namespace: hazelcastplatform
+          labelSelector: app.kubernetes.io/name=hazelcastimdg
+        k8sInCluster:
+          labelSelector: app.kubernetes.io/name=hazelcastimdg
+      sleep:
+        enabled: true
+        durationSeconds: 6
+        enableRandomness: false
+      memberGrace:
+        enabled: true
+        durationSeconds: 30
+        enableRandomness: true
+  queueTests:
+    tweets:
+      enabled: false
       numQueues: 10
       appendQueueIndexToQueueName: true
       appendClientIdToQueueName: true
@@ -76,7 +107,7 @@ config:
             durationMs: 5000
             enableRandomness: true
     load:
-      enabled: true
+      enabled: false
       numQueues: 10
       numLoadEntries: 50
       payloadSizeBytes: 10
@@ -119,10 +150,9 @@ config:
             enabled: true
             durationMs: 3500
             enableRandomness: true
-
-  maptests:
+  mapTests:
     pokedex:
-      enabled: true
+      enabled: false
       numMaps: 10
       appendMapIndexToMapName: true
       appendClientIdToMapName: true
@@ -140,7 +170,7 @@ config:
           durationMs: 1000
           enableRandomness: true
     load:
-      enabled: true
+      enabled: false
       numMaps: 10
       numEntriesPerMap: 50000
       payloadSizeBytes: 1000000

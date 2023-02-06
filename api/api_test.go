@@ -3,18 +3,21 @@ package api
 import "fmt"
 
 const (
-	sourceMapPokedexRunner = "pokedexrunner"
-	sourceMapLoadRunner    = "loadrunner"
-	sourceQueueTweetRunner = "tweetrunner"
-	sourceQueueLoadRunner  = "loadrunner"
-)
-
-const (
+	sourceMapPokedexRunner  = "pokedexRunner"
+	sourceMapLoadRunner     = "loadRunner"
+	sourceQueueTweetRunner  = "tweetRunner"
+	sourceQueueLoadRunner   = "loadRunner"
 	statusKeyNumMaps        = "numMaps"
 	statusKeyNumQueues      = "numQueues"
 	statusKeyNumRuns        = "numRuns"
 	statusKeyTotalRuns      = "totalRuns"
 	statusKeyRunnerFinished = "runnerFinished"
+)
+
+const (
+	sourceChaosMonkeyMemberKiller = "memberKiller"
+	statusKeyNumMembersKilled     = "numMembersKilled"
+	statusKeyMonkeyFinished       = "monkeyFinished"
 )
 
 const (
@@ -46,6 +49,14 @@ var (
 		statusKeyNumRuns:        500,
 		statusKeyTotalRuns:      10 * 500,
 		statusKeyRunnerFinished: false,
+	}
+)
+
+var (
+	dummyStatusMemberKillerMonkey = map[string]any{
+		statusKeyNumRuns:          100,
+		statusKeyNumMembersKilled: 15,
+		statusKeyMonkeyFinished:   false,
 	}
 )
 

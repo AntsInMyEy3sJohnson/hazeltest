@@ -68,11 +68,96 @@ func (c testCloser) Close() error {
 
 }
 
+func TestValidatePercentage(t *testing.T) {
+
+	t.Log("given the need to test the float percentage validation function")
+	{
+		path := "chaosMonkeys.podKiller.chaosProbability"
+		t.Log("\twhen providing a semantically correct value that can be parsed into a float32")
+		{
+			for _, v := range []float32{0.0001, 1.0, 0.5} {
+				err := ValidatePercentage(path, v)
+
+				msg := "\t\tno error should occur"
+				if err == nil {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+		}
+		t.Log("\twhen providing a semantically correct value that can be parsed into a float64")
+		{
+			for _, v := range []float64{0.00042, 1.0, 0.66} {
+				err := ValidatePercentage(path, v)
+
+				msg := "\t\tno error should occur"
+				if err == nil {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+		}
+		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
+		{
+			err := ValidatePercentage("", 1)
+
+			msg := "\t\tno error should occur"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		correctTypeOfErrorMsg := "\t\terror of correct type should be returned"
+		pathInErrorStringMsg := "\t\tpath should be contained in error string"
+		t.Log("\twhen providing a value that can be parsed into a float, but does not represent a " +
+			"percentage value and is therefore semantically incorrect")
+		{
+			for _, v := range []float32{-1, -0.1, 1.1, 2} {
+				err := ValidatePercentage(path, v)
+
+				if err != nil && errors.As(err, &FailedValueCheck{}) {
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
+				} else {
+					t.Fatal(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Fatal(pathInErrorStringMsg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen providing a value that cannot be parsed into either int, float32, or float64")
+		{
+			for _, v := range []any{false, "blubb", []int{1, 2, 3}, map[string]int{"hello": 1, "goodbye": 2}} {
+				err := ValidatePercentage(path, v)
+
+				if err != nil && errors.As(err, &FailedParse{}) {
+					t.Log(correctTypeOfErrorMsg, checkMark, v)
+				} else {
+					t.Fatal(correctTypeOfErrorMsg, ballotX, v)
+				}
+
+				if strings.Contains(err.Error(), path) {
+					t.Log(pathInErrorStringMsg, checkMark)
+				} else {
+					t.Fatal(pathInErrorStringMsg, ballotX)
+				}
+			}
+		}
+	}
+
+}
+
 func TestValidateString(t *testing.T) {
 
 	t.Log("given the need to test the string validation function")
 	{
-		path := "maptests.load.mapPrefix.prefix"
+		path := "mapTests.load.mapPrefix.prefix"
 
 		t.Log("\twhen providing a value that can be parsed into a string")
 		{
@@ -83,7 +168,7 @@ func TestValidateString(t *testing.T) {
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -96,13 +181,13 @@ func TestValidateString(t *testing.T) {
 			if err != nil && errors.As(err, &FailedValueCheck{}) {
 				t.Log(correctTypeOfErrorMsg, checkMark)
 			} else {
-				t.Error(correctTypeOfErrorMsg, ballotX)
+				t.Fatal(correctTypeOfErrorMsg, ballotX)
 			}
 
 			if strings.Contains(err.Error(), path) {
 				t.Log(pathInErrorStringMsg, checkMark)
 			} else {
-				t.Error(pathInErrorStringMsg, ballotX)
+				t.Fatal(pathInErrorStringMsg, ballotX)
 			}
 		}
 
@@ -115,13 +200,13 @@ func TestValidateString(t *testing.T) {
 				if err != nil && errors.As(err, &FailedParse{}) {
 					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(correctTypeOfErrorMsg, ballotX, v)
+					t.Fatal(correctTypeOfErrorMsg, ballotX, v)
 				}
 
 				if strings.Contains(err.Error(), path) {
 					t.Log(pathInErrorStringMsg, checkMark)
 				} else {
-					t.Error(pathInErrorStringMsg, ballotX)
+					t.Fatal(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
@@ -133,7 +218,7 @@ func TestValidateInt(t *testing.T) {
 
 	t.Log("given the need to test the int validation function")
 	{
-		path := "queuetests.tweets.numQueues"
+		path := "queueTests.tweets.numQueues"
 		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
 		{
 			for _, v := range []int{1, 5, 42} {
@@ -143,7 +228,7 @@ func TestValidateInt(t *testing.T) {
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
-					t.Error(msg, ballotX)
+					t.Fatal(msg, ballotX)
 				}
 			}
 		}
@@ -158,13 +243,13 @@ func TestValidateInt(t *testing.T) {
 				if err != nil && errors.As(err, &FailedValueCheck{}) {
 					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(correctTypeOfErrorMsg, ballotX, v)
+					t.Fatal(correctTypeOfErrorMsg, ballotX, v)
 				}
 
 				if strings.Contains(err.Error(), path) {
 					t.Log(pathInErrorStringMsg, checkMark)
 				} else {
-					t.Error(pathInErrorStringMsg, ballotX)
+					t.Fatal(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
@@ -177,13 +262,13 @@ func TestValidateInt(t *testing.T) {
 				if err != nil && errors.As(err, &FailedParse{}) {
 					t.Log(correctTypeOfErrorMsg, checkMark, v)
 				} else {
-					t.Error(correctTypeOfErrorMsg, ballotX, v)
+					t.Fatal(correctTypeOfErrorMsg, ballotX, v)
 				}
 
 				if strings.Contains(err.Error(), path) {
 					t.Log(pathInErrorStringMsg, checkMark)
 				} else {
-					t.Error(pathInErrorStringMsg, ballotX)
+					t.Fatal(pathInErrorStringMsg, ballotX)
 				}
 			}
 		}
@@ -196,7 +281,7 @@ func TestValidateBool(t *testing.T) {
 
 	t.Log("given the need to test the bool validation function")
 	{
-		path := "maptests.pokedex.enabled"
+		path := "mapTests.pokedex.enabled"
 		t.Log("\twhen providing a value that can be parsed into a bool")
 		{
 			err := ValidateBool(path, true)
@@ -205,7 +290,7 @@ func TestValidateBool(t *testing.T) {
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -217,7 +302,7 @@ func TestValidateBool(t *testing.T) {
 			if err != nil && errors.As(err, &FailedParse{}) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 
 			errorMessage := err.Error()
@@ -225,14 +310,14 @@ func TestValidateBool(t *testing.T) {
 			if strings.Contains(errorMessage, path) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\terror message should contain target type"
 			if strings.Contains(errorMessage, "bool") {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -281,14 +366,14 @@ func TestParseConfigs(t *testing.T) {
 			if len(defaultConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tuser-supplied config map should not be populated"
 			if len(userSuppliedConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -310,7 +395,7 @@ func TestParseConfigs(t *testing.T) {
 			if len(defaultConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -333,14 +418,14 @@ func TestParseConfigs(t *testing.T) {
 			if len(defaultConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tuser-supplied config map should be populated"
 			if len(userSuppliedConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -407,7 +492,7 @@ func TestRetrieveArgValue(t *testing.T) {
 			if actual == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -450,7 +535,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 			if target == expected {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -467,7 +552,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -499,7 +584,7 @@ func TestParseDefaultConfig(t *testing.T) {
 			if len(config) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -531,7 +616,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 			if len(config) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -550,7 +635,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 			if len(config) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -588,7 +673,7 @@ func TestDecodeConfigFile(t *testing.T) {
 			if len(target) > 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -609,7 +694,7 @@ func TestDecodeConfigFile(t *testing.T) {
 			if len(target) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -633,7 +718,7 @@ func TestDecodeConfigFile(t *testing.T) {
 			if len(target) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -669,7 +754,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 			if actual == expected {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -686,7 +771,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -721,7 +806,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 			if actual == expected {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 

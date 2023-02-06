@@ -17,9 +17,10 @@ type liveness struct {
 	Up bool
 }
 type readiness struct {
-	Up                         bool
-	atLeastOneRunnerRegistered bool
-	numNonReadyRunners         int
+	Up bool
+	// "actors" can be runners and chaos monkeys
+	atLeastOneActorRegistered bool
+	numNonReadyActors         int
 }
 
 var (
@@ -59,11 +60,11 @@ func RaiseNotReady() {
 
 	m.Lock()
 	{
-		r.numNonReadyRunners++
-		if !r.atLeastOneRunnerRegistered {
-			r.atLeastOneRunnerRegistered = true
+		r.numNonReadyActors++
+		if !r.atLeastOneActorRegistered {
+			r.atLeastOneActorRegistered = true
 		}
-		lp.LogApiEvent(fmt.Sprintf("runner has raised 'not ready', number of non-ready runners now %d", r.numNonReadyRunners), log.InfoLevel)
+		lp.LogApiEvent(fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
 	}
 	m.Unlock()
 
@@ -73,11 +74,11 @@ func RaiseReady() {
 
 	m.Lock()
 	{
-		r.numNonReadyRunners--
-		lp.LogApiEvent(fmt.Sprintf("runner has raised readiness, number of non-ready runners now %d", r.numNonReadyRunners), log.InfoLevel)
-		if r.numNonReadyRunners == 0 && r.atLeastOneRunnerRegistered && !r.Up {
+		r.numNonReadyActors--
+		lp.LogApiEvent(fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
+		if r.numNonReadyActors == 0 && r.atLeastOneActorRegistered && !r.Up {
 			r.Up = true
-			lp.LogApiEvent("all runners ready", log.InfoLevel)
+			lp.LogApiEvent("all actors ready", log.InfoLevel)
 		}
 	}
 	m.Unlock()

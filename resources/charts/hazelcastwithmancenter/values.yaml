@@ -9,7 +9,7 @@ platform:
     members:
       image: hazelcast/hazelcast:5.1.1
       imagePullPolicy: IfNotPresent
-      count: 3
+      count: 2
       ports:
         member: 5701
         metrics: 8080
@@ -17,14 +17,14 @@ platform:
         maxWaitSeconds: 60
       containerResources:
         requests:
-          cpu: "4"
-          memory: "7G"
+          cpu: "1"
+          memory: "2G"
         limits:
-          cpu: "6"
-          memory: "7G"
+          cpu: "1"
+          memory: "2G"
       jvmResources:
-        xmx: 5600m
-        xms: 5600m
+        xmx: 1600m
+        xms: 1600m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -114,8 +114,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "2"
-        memory: "12G"
+        cpu: "500m"
+        memory: "2G"
       limits:
-        cpu: "4"
-        memory: "12G"
+        cpu: "500m"
+        memory: "2G"

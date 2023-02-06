@@ -11,7 +11,8 @@ import (
 )
 
 const ApiEvent = "api event"
-const InternalStateEvent = "internal state event"
+const RunnerEvent = "runner event"
+const ChaosMonkeyEvent = "chaos monkey event"
 const TimingEvent = "timing event"
 const IoEvent = "io event"
 const HzEvent = "hazelcast event"
@@ -90,10 +91,20 @@ func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string
 
 }
 
-func (lp *LogProvider) LogInternalStateEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogChaosMonkeyEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": InternalStateEvent,
+		"kind": ChaosMonkeyEvent,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogRunnerEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": RunnerEvent,
 	}
 
 	lp.doLog(msg, fields, level)

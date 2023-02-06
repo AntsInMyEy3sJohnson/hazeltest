@@ -49,7 +49,8 @@ func TestPopulateConfig(t *testing.T) {
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, queueBaseName: queueBaseName}
 		t.Log("\twhen property assignment does not generate an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{returnError: false, dummyConfig: testConfig}
+			assigner := testConfigPropertyAssigner{returnError: false, dummyConfig: testConfig}
+			b.assigner = assigner
 			rc, err := b.populateConfig()
 
 			msg := "\t\tno error should be returned"
@@ -76,7 +77,8 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen property assigning a property yields an error")
 		{
-			propertyAssigner = testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]any{}}
+			assigner := testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]any{}}
+			b.assigner = assigner
 			_, err := b.populateConfig()
 
 			msg := "\t\terror should be returned"
@@ -93,7 +95,9 @@ func TestPopulateConfig(t *testing.T) {
 			testConfigCopy := copyTestConfig()
 			invalidValuePath := runnerKeyPath + ".numQueues"
 			testConfigCopy[invalidValuePath] = "boom!"
-			propertyAssigner = testConfigPropertyAssigner{returnError: false, dummyConfig: testConfigCopy}
+
+			assigner := testConfigPropertyAssigner{returnError: false, dummyConfig: testConfigCopy}
+			b.assigner = assigner
 
 			_, err := b.populateConfig()
 

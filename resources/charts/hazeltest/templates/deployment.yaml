@@ -24,6 +24,9 @@ spec:
       annotations:
         helmRevision: "{{ .Release.Revision }}"
     spec:
+      {{ if .Values.features.useDeletePodsServiceAccount -}}
+      serviceAccountName: {{ .Release.Name }}-pod-deleter
+      {{ end -}}
       volumes:
       - name: hazeltest-config
         configMap:
@@ -31,11 +34,11 @@ spec:
       containers:
       - name: hazeltest
         image: "{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.repository }}@sha256:{{ .Values.image.digest }}"
-        {{ if .Values.startupArgs }}
+        {{ if .Values.startupArgs -}}
         args: [{{ join "," .Values.startupArgs }}]
         {{ else }}
         args: ["-config-file=/data/config/custom-config.yaml"]
-        {{ end }}
+        {{ end -}}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - name: http

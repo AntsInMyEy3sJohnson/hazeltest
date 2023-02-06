@@ -134,6 +134,33 @@ func ValidateString(path string, a any) error {
 
 }
 
+func ValidatePercentage(path string, a any) error {
+
+	parsedInt, okInt := a.(int)
+	parsed32, ok32 := a.(float32)
+	parsed64, ok64 := a.(float64)
+
+	if !okInt && !ok32 && !ok64 {
+		return FailedParse{"int/float32/float64", path}
+	}
+
+	var parsed float64
+	if okInt {
+		parsed = float64(parsedInt)
+	} else if ok32 {
+		parsed = float64(parsed32)
+	} else {
+		parsed = parsed64
+	}
+
+	if parsed < 0.0 || parsed > 1.0 {
+		return FailedValueCheck{"expected float expressing percentage, i.e. value expected to lie in closed interval between 0.0 and 1.0", path}
+	}
+
+	return nil
+
+}
+
 func ParseConfigs() error {
 
 	if args, err := parseCommandLineArgs(); err != nil {
@@ -243,7 +270,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
 
-	lp.LogInternalStateEvent(fmt.Sprintf("command line arguments parsed: %v\n", target), log.InfoLevel)
+	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
 
 	return target, nil
 
@@ -258,7 +285,7 @@ func parseDefaultConfigFile(o fileOpener) (map[string]any, error) {
 func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]any, error) {
 
 	if filePath == defaultConfigFilePath {
-		lp.LogInternalStateEvent("user did not supply custom configuration file", log.InfoLevel)
+		lp.LogConfigEvent("N/A", "command-line", "user did not supply custom configuration file", log.InfoLevel)
 		return map[string]any{}, nil
 	}
 
