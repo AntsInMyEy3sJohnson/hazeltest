@@ -59,7 +59,7 @@ chaosMonkeys:
       # runner's sleeps, where the sleep is configured in milliseconds.)
       durationSeconds: 60
       # Enables or disables randomness for this sleep configuration. If enabled, the amount of seconds to sleep will be
-      # determined randomly in the closed interval [0, <durationMs>]. If disabled, the sleep will be static, i.e.
+      # determined randomly in the closed interval [0, <durationSeconds>]. If disabled, the sleep will be static, i.e.
       # the monkey will simply sleep for the given amount of seconds.
       enableRandomness: false
     # Configures deletion behavior. When enabled, the member killer monkey will kill the selected Hazelcast member
