@@ -7,7 +7,7 @@ platform:
     logging:
       level: INFO
     members:
-      image: hazelcast/hazelcast:5.1.1
+      image: hazelcast/hazelcast:5.2.1
       imagePullPolicy: IfNotPresent
       count: 2
       ports:
