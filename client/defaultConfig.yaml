@@ -4,7 +4,7 @@ chaosMonkeys:
   # in-cluster access mode and an out-of-cluster access mode, see below.
   memberKiller:
     # Enables or disables the member killer monkey.
-    enabled: true
+    enabled: false
     # Configures the number of runs or iterations the monkey will perform. Note that
     # number of runs != number of kills in case the chaos probability is set to something
     # less than 1.0 (100%), but the number evaluated to decide whether the monkey should
@@ -221,7 +221,7 @@ queueTests:
 mapTests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
-    enabled: false
+    enabled: true
     # The runner will spawn one goroutine for each map
     numMaps: 5
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
