@@ -336,19 +336,19 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) batchTestLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
-	tl := testLoop[string]{}
+	tl := batchTestLoop[string]{}
 	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) batchTestLoopConfig[string] {
 
-	return testLoopConfig[string]{
+	return batchTestLoopConfig[string]{
 		id:                     id,
 		source:                 source,
 		mapStore:               ms,

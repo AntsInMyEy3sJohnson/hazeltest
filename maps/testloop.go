@@ -19,18 +19,18 @@ type (
 	getElementID        func(element any) string
 	deserializeElement  func(element any) error
 	looper[t any]       interface {
-		init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
+		init(lc *batchTestLoopConfig[t], s sleeper, g *status.Gatherer)
 		run()
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
-	testLoop[t any] struct {
-		config *testLoopConfig[t]
+	batchTestLoop[t any] struct {
+		config *batchTestLoopConfig[t]
 		s      sleeper
 		g      *status.Gatherer
 	}
-	testLoopConfig[t any] struct {
+	batchTestLoopConfig[t any] struct {
 		id                     uuid.UUID
 		source                 string
 		mapStore               hzMapStore
@@ -61,14 +61,14 @@ var (
 	}
 )
 
-func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
+func (l *batchTestLoop[t]) init(lc *batchTestLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc
 	l.s = s
 	l.g = g
 	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
-func (l *testLoop[t]) run() {
+func (l *batchTestLoop[t]) run() {
 
 	defer l.g.StopListen()
 	go l.g.Listen()
@@ -100,7 +100,7 @@ func (l *testLoop[t]) run() {
 
 }
 
-func (l *testLoop[t]) insertLoopWithInitialStatus() {
+func (l *batchTestLoop[t]) insertLoopWithInitialStatus() {
 
 	c := l.config
 
@@ -113,7 +113,7 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 
 }
 
-func (l *testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
+func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 	updateStep := uint32(50)
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
@@ -148,7 +148,7 @@ func (l *testLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 }
 
-func (l *testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.config.elements {
@@ -172,7 +172,7 @@ func (l *testLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l *testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 	for _, v := range l.config.elements {
 		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
@@ -195,7 +195,7 @@ func (l *testLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l *testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 
 	numElementsToDelete := rand.Intn(len(l.config.elements))
 	removed := 0
@@ -224,7 +224,7 @@ func (l *testLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
 
 }
 
-func (l *testLoop[t]) assembleMapName(mapIndex int) string {
+func (l *batchTestLoop[t]) assembleMapName(mapIndex int) string {
 
 	c := l.config
 

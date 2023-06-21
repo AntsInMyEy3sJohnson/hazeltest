@@ -62,7 +62,7 @@ func init() {
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
 		mapStore:  &defaultHzMapStore{},
-		l:         &testLoop[pokemon]{},
+		l:         &batchTestLoop[pokemon]{},
 	})
 	gob.Register(pokemon{})
 }
@@ -105,7 +105,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
-	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
+	lc := &batchTestLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 

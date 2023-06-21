@@ -35,7 +35,7 @@ var (
 )
 
 func init() {
-	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &batchTestLoop[loadElement]{}})
 	gob.Register(loadElement{})
 }
 
@@ -72,7 +72,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
 
-	lc := &testLoopConfig[loadElement]{uuid.New(), r.source, r.mapStore, loadRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
+	lc := &batchTestLoopConfig[loadElement]{uuid.New(), r.source, r.mapStore, loadRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
