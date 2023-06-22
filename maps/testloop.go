@@ -19,18 +19,28 @@ type (
 	getElementID        func(element any) string
 	deserializeElement  func(element any) error
 	looper[t any]       interface {
-		init(lc *batchTestLoopConfig[t], s sleeper, g *status.Gatherer)
+		init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
 		run()
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
+
+	defaultSleeper struct{}
+)
+
+type (
 	batchTestLoop[t any] struct {
-		config *batchTestLoopConfig[t]
+		config *testLoopConfig[t]
 		s      sleeper
 		g      *status.Gatherer
 	}
-	batchTestLoopConfig[t any] struct {
+	boundaryTestLoop[t any] struct {
+		config *testLoopConfig[t]
+		s      sleeper
+		g      *status.Gatherer
+	}
+	testLoopConfig[t any] struct {
 		id                     uuid.UUID
 		source                 string
 		mapStore               hzMapStore
@@ -40,7 +50,6 @@ type (
 		getElementIdFunc       getElementID
 		deserializeElementFunc deserializeElement
 	}
-	defaultSleeper struct{}
 )
 
 const (
@@ -61,7 +70,19 @@ var (
 	}
 )
 
-func (l *batchTestLoop[t]) init(lc *batchTestLoopConfig[t], s sleeper, g *status.Gatherer) {
+func (l *boundaryTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
+	l.config = lc
+	l.s = s
+	l.g = g
+}
+
+func (l *boundaryTestLoop[t]) run() {
+
+	fmt.Println("hello from the boundary test loop!")
+
+}
+
+func (l *batchTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc
 	l.s = s
 	l.g = g

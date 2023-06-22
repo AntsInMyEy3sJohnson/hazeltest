@@ -9,7 +9,8 @@ import (
 )
 
 type (
-	runner interface {
+	runnerLoopType string
+	runner         interface {
 		runMapTests(hzCluster string, hzMembers []string)
 	}
 	runnerConfig struct {
@@ -21,6 +22,7 @@ type (
 		mapPrefix                 string
 		appendMapIndexToMapName   bool
 		appendClientIdToMapName   bool
+		loopType                  runnerLoopType
 		sleepBetweenActionBatches *sleepConfig
 		sleepBetweenRuns          *sleepConfig
 	}
@@ -41,11 +43,17 @@ type (
 	state string
 )
 
+const (
+	batch    runnerLoopType = "batch"
+	boundary runnerLoopType = "boundary"
+)
+
 // TODO include state in status endpoint
 const (
 	start                  state = "start"
 	populateConfigComplete state = "populateConfigComplete"
 	checkEnabledComplete   state = "checkEnabledComplete"
+	assignTestLoopComplete state = "assignTestLoopComplete"
 	raiseReadyComplete     state = "raiseReadyComplete"
 	testLoopStart          state = "testLoopStart"
 	testLoopComplete       state = "testLoopComplete"
@@ -94,6 +102,13 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		return b.assigner.Assign(b.runnerKeyPath+".appendClientIdToMapName", client.ValidateBool, func(a any) {
 			appendClientIdToMapName = a.(bool)
 		})
+	})
+
+	var loopType runnerLoopType
+	assignmentOps = append(assignmentOps, func() error {
+		// hard-code for testing
+		loopType = "boundary"
+		return nil
 	})
 
 	var numRuns uint32
@@ -174,6 +189,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		mapPrefix:               mapPrefix,
 		appendMapIndexToMapName: appendMapIndexToMapName,
 		appendClientIdToMapName: appendClientIdToMapName,
+		loopType:                loopType,
 		sleepBetweenActionBatches: &sleepConfig{
 			sleepBetweenActionBatchesEnabled,
 			sleepBetweenActionBatchesDurationMs,

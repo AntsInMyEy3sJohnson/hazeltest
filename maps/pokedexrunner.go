@@ -62,9 +62,21 @@ func init() {
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
 		mapStore:  &defaultHzMapStore{},
-		l:         &batchTestLoop[pokemon]{},
 	})
 	gob.Register(pokemon{})
+}
+
+func initializeTestLoop(rc *runnerConfig) (looper[pokemon], error) {
+
+	switch rc.loopType {
+	case batch:
+		return &batchTestLoop[pokemon]{}, nil
+	case boundary:
+		return &boundaryTestLoop[pokemon]{}, nil
+	default:
+		return nil, fmt.Errorf("no such runner runnerLoopType: %s", rc.loopType)
+	}
+
 }
 
 func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
@@ -92,6 +104,15 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
 
+	l, err := initializeTestLoop(config)
+	if err != nil {
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map pokedex runner: unable to initialize test loop: %s", err.Error()), log.ErrorLevel)
+		return
+	}
+	r.l = l
+
+	r.appendState(assignTestLoopComplete)
+
 	ctx := context.TODO()
 
 	r.mapStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
@@ -105,7 +126,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
-	lc := &batchTestLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
+	lc := &testLoopConfig[pokemon]{uuid.New(), r.source, r.mapStore, config, pokedex.Pokemon, ctx, getPokemonID, deserializePokemon}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
