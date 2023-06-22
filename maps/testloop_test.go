@@ -346,9 +346,9 @@ func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConf
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) batchTestLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopConfig[string] {
 
-	return batchTestLoopConfig[string]{
+	return testLoopConfig[string]{
 		id:                     id,
 		source:                 source,
 		mapStore:               ms,
