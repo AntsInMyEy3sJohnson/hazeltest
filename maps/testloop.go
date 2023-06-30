@@ -41,7 +41,7 @@ type (
 		currentMode       actionMode
 		lastAction        mapAction
 		nextAction        mapAction
-		numElementsStored int
+		numElementsStored uint32
 	}
 	testLoopConfig[t any] struct {
 		id                     uuid.UUID
@@ -61,6 +61,7 @@ type (
 )
 
 const (
+	updateStep            uint32     = 50
 	statusKeyNumMaps                 = "numMaps"
 	statusKeyNumRuns                 = "numRuns"
 	statusKeyTotalNumRuns            = "totalNumRuns"
@@ -91,23 +92,95 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.G
 
 func (l *boundaryTestLoop[t]) run() {
 
-	/*
-		Stuff I need:
-		- upper boundary --> from config
-		- lower boundary --> from config
-		- probability for boundary action --> from config
-		- total number of elements
-		- upper threshold of number of elements inserted
-		- lower threshold of number of elements inserted
-		- two possible action modes: FILL, DRAIN
-		- three possible actions: PUT, READ, REMOVE
-	*/
-
-	// Hard-code stuff to simplify things in first iteration
+	runWrapper(
+		l.config,
+		l.g,
+		assembleMapName,
+		l.runForMap,
+	)
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction() (int, error) {
+func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
+
+	// Hard-code stuff to simplify things in first iteration
+	upperBoundary := float32(0.8)
+	lowerBoundary := float32(0.2)
+
+	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
+
+	for i := uint32(0); i < l.config.runnerConfig.numRuns; i++ {
+		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc)
+		if i > 0 && i%updateStep == 0 {
+			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.config.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
+		}
+		l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.config.elements)), l.numElementsStored, l.currentMode)
+
+		actionProbability := float32(0.75)
+		l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
+
+		if err := l.executeMapAction(m, mapName, mapNumber); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
+		} else {
+			l.lastAction = l.nextAction
+		}
+	}
+
+	lp.LogRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
+
+}
+
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber int) error {
+
+	randomElement := l.config.elements[rand.Intn(len(l.config.elements))]
+	elementID := l.config.getElementIdFunc(randomElement)
+
+	key := assembleMapKey(mapNumber, elementID)
+
+	if l.nextAction == insert || l.nextAction == remove {
+		containsKey, err := m.ContainsKey(l.config.ctx, key)
+		if err != nil {
+			return err
+		}
+		if l.nextAction == insert && containsKey {
+			lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
+			return nil
+		}
+		if l.nextAction == remove && !containsKey {
+			lp.LogRunnerEvent(fmt.Sprintf("was asked to remove key '%s' from map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
+			return nil
+		}
+		if l.nextAction == read && !containsKey {
+			lp.LogRunnerEvent(fmt.Sprintf("was asked to read key '%s' in map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
+		}
+	}
+
+	switch l.nextAction {
+	case insert:
+		if err := m.Set(l.config.ctx, key, randomElement); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
+			return err
+		} else {
+			lp.LogRunnerEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.TraceLevel)
+		}
+	case remove:
+		if _, err := m.Remove(l.config.ctx, key); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
+			return err
+		} else {
+			lp.LogRunnerEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.TraceLevel)
+		}
+	case read:
+		if v, err := m.Get(l.config.ctx, key); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
+			return err
+		} else {
+			lp.LogRunnerEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
+		}
+
+	}
+
+	return nil
 
 }
 
@@ -161,54 +234,63 @@ func (l *batchTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gath
 	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
-func (l *batchTestLoop[t]) run() {
+func runWrapper[t any](c *testLoopConfig[t],
+	gatherer *status.Gatherer,
+	assembleMapNameFunc func(*runnerConfig, int) string,
+	runFunc func(hzMap, string, int)) {
 
-	defer l.g.StopListen()
-	go l.g.Listen()
+	defer gatherer.StopListen()
+	go gatherer.Listen()
 
-	l.insertLoopWithInitialStatus()
+	rc := c.runnerConfig
+	insertLoopWithInitialStatus(c, gatherer.Updates, uint32(rc.numMaps), rc.numRuns)
 
 	var wg sync.WaitGroup
-	for i := 0; i < l.config.runnerConfig.numMaps; i++ {
+	for i := 0; i < rc.numMaps; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			mapName := l.assembleMapName(i)
+			mapName := assembleMapNameFunc(c.runnerConfig, i)
 			lp.LogRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			m, err := l.config.mapStore.GetMap(l.config.ctx, mapName)
+			m, err := c.mapStore.GetMap(c.ctx, mapName)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
 				return
 			}
 			defer func() {
-				_ = m.Destroy(l.config.ctx)
+				_ = m.Destroy(c.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			l.runForMap(m, mapName, i)
+			runFunc(m, mapName, i)
 		}(i)
 	}
 	wg.Wait()
 
 }
 
-func (l *batchTestLoop[t]) insertLoopWithInitialStatus() {
+func (l *batchTestLoop[t]) run() {
 
-	c := l.config
+	runWrapper(
+		l.config,
+		l.g,
+		assembleMapName,
+		l.runForMap,
+	)
 
-	numMaps := c.runnerConfig.numMaps
-	l.g.Updates <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
+}
 
-	numRuns := c.runnerConfig.numRuns
-	l.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
-	l.g.Updates <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
+func insertLoopWithInitialStatus[t any](config *testLoopConfig[t], c chan status.Update, numMaps, numRuns uint32) {
+
+	c <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
+	c <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
+	c <- status.Update{Key: statusKeyTotalNumRuns, Value: numMaps * numRuns}
 
 }
 
 func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
-	updateStep := uint32(50)
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
 
@@ -317,18 +399,16 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) er
 
 }
 
-func (l *batchTestLoop[t]) assembleMapName(mapIndex int) string {
+func assembleMapName(rc *runnerConfig, mapIndex int) string {
 
-	c := l.config
-
-	mapName := c.runnerConfig.mapBaseName
-	if c.runnerConfig.useMapPrefix && c.runnerConfig.mapPrefix != "" {
-		mapName = fmt.Sprintf("%s%s", c.runnerConfig.mapPrefix, mapName)
+	mapName := rc.mapBaseName
+	if rc.useMapPrefix && rc.mapPrefix != "" {
+		mapName = fmt.Sprintf("%s%s", rc.mapPrefix, mapName)
 	}
-	if c.runnerConfig.appendMapIndexToMapName {
+	if rc.appendMapIndexToMapName {
 		mapName = fmt.Sprintf("%s-%d", mapName, mapIndex)
 	}
-	if c.runnerConfig.appendClientIdToMapName {
+	if rc.appendClientIdToMapName {
 		mapName = fmt.Sprintf("%s-%s", mapName, client.ID())
 	}
 
