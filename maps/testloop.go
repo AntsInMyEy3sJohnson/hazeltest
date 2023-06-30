@@ -25,7 +25,6 @@ type (
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
-
 	defaultSleeper struct{}
 )
 
@@ -36,9 +35,13 @@ type (
 		g      *status.Gatherer
 	}
 	boundaryTestLoop[t any] struct {
-		config *testLoopConfig[t]
-		s      sleeper
-		g      *status.Gatherer
+		config            *testLoopConfig[t]
+		s                 sleeper
+		g                 *status.Gatherer
+		currentMode       actionMode
+		lastAction        mapAction
+		nextAction        mapAction
+		numElementsStored int
 	}
 	testLoopConfig[t any] struct {
 		id                     uuid.UUID
@@ -52,10 +55,20 @@ type (
 	}
 )
 
+type (
+	actionMode string
+	mapAction  string
+)
+
 const (
-	statusKeyNumMaps      = "numMaps"
-	statusKeyNumRuns      = "numRuns"
-	statusKeyTotalNumRuns = "totalNumRuns"
+	statusKeyNumMaps                 = "numMaps"
+	statusKeyNumRuns                 = "numRuns"
+	statusKeyTotalNumRuns            = "totalNumRuns"
+	fill                  actionMode = "fill"
+	drain                 actionMode = "drain"
+	insert                mapAction  = "insert"
+	remove                mapAction  = "remove"
+	read                  mapAction  = "read"
 )
 
 var (
@@ -78,7 +91,66 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.G
 
 func (l *boundaryTestLoop[t]) run() {
 
-	fmt.Println("hello from the boundary test loop!")
+	/*
+		Stuff I need:
+		- upper boundary --> from config
+		- lower boundary --> from config
+		- probability for boundary action --> from config
+		- total number of elements
+		- upper threshold of number of elements inserted
+		- lower threshold of number of elements inserted
+		- two possible action modes: FILL, DRAIN
+		- three possible actions: PUT, READ, REMOVE
+	*/
+
+	// Hard-code stuff to simplify things in first iteration
+
+}
+
+func (l *boundaryTestLoop[t]) executeMapAction() (int, error) {
+
+}
+
+func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32) mapAction {
+
+	if lastAction == insert || lastAction == remove {
+		return read
+	}
+
+	hit := rand.Float32() < actionProbability
+
+	switch currentMode {
+	case fill:
+		if hit {
+			return insert
+		}
+		return remove
+	case drain:
+		if hit {
+			return remove
+		}
+		return insert
+	default:
+		return lastAction
+	}
+
+}
+
+func checkForModeChange(upperBoundary, lowerBoundary float32,
+	totalNumberOfElements, currentlyStoredNumberOfElements uint32, currentMode actionMode) actionMode {
+
+	total := float32(totalNumberOfElements)
+	current := float32(currentlyStoredNumberOfElements)
+
+	if current < total*lowerBoundary {
+		return fill
+	}
+
+	if current > total*upperBoundary {
+		return drain
+	}
+
+	return currentMode
 
 }
 
