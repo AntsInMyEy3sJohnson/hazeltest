@@ -76,7 +76,7 @@ func TestPopulateConfig(t *testing.T) {
 func configValuesAsExpected(rc *runnerConfig, expected map[string]any) bool {
 
 	return rc.enabled == expected[runnerKeyPath+".enabled"] &&
-		rc.numMaps == expected[runnerKeyPath+".numMaps"] &&
+		rc.numMaps == uint16(expected[runnerKeyPath+".numMaps"].(int)) &&
 		rc.numRuns == uint32(expected[runnerKeyPath+".numRuns"].(int)) &&
 		rc.mapBaseName == mapBaseName &&
 		rc.useMapPrefix == expected[runnerKeyPath+".mapPrefix.enabled"] &&

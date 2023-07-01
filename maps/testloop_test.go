@@ -51,7 +51,7 @@ func TestRun(t *testing.T) {
 		{
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
-			numMaps, numRuns := 1, 1
+			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
@@ -83,7 +83,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -92,7 +92,7 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
-			numMaps, numRuns := 10, 1
+			numMaps, numRuns := uint16(10), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
@@ -125,7 +125,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -134,7 +134,7 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen get map yields error")
 		{
-			numMaps, numRuns := 1, 1
+			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
@@ -156,7 +156,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, numMaps*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -165,7 +165,7 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
-			numMaps, numRuns := 1, 1
+			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true)
 			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
@@ -191,7 +191,7 @@ func TestRun(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			expectedRuns := numMaps * numRuns
+			expectedRuns := uint32(numMaps) * numRuns
 			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -203,7 +203,7 @@ func TestRun(t *testing.T) {
 		{
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false)
-			numMaps, numRuns := 0, 1
+			numMaps, numRuns := uint16(0), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(id, testSource, ms, &rc)
 
@@ -255,14 +255,14 @@ func TestRun(t *testing.T) {
 
 		t.Log("\twhen sleep configs for sleep between runs and sleep between action batches are enabled")
 		{
-			numRuns := 20
+			numRuns := uint32(20)
 			scBetweenRuns := &sleepConfig{enabled: true}
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
 			rc := assembleRunnerConfig(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
 			tl := assembleTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
 
-			numInvocationsBetweenRuns := 0
-			numInvocationsBetweenActionBatches := 0
+			numInvocationsBetweenRuns := uint32(0)
+			numInvocationsBetweenActionBatches := uint32(0)
 			sleepTimeFunc = func(sc *sleepConfig) int {
 				if sc == scBetweenRuns {
 					numInvocationsBetweenRuns++
@@ -302,17 +302,17 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func statusContainsExpectedValues(status map[string]any, expectedNumMaps, expectedNumRuns, expectedTotalRuns int, expectedRunnerFinished bool) (bool, string, string) {
+func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, string, string) {
 
 	if numMapsFromStatus, ok := status[statusKeyNumMaps]; !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
 	}
 
-	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != uint32(expectedNumRuns) {
+	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != expectedNumRuns {
 		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
 	}
 
-	if totalRunsFromStatus, ok := status[statusKeyTotalNumRuns]; !ok || totalRunsFromStatus != uint32(expectedTotalRuns) {
+	if totalRunsFromStatus, ok := status[statusKeyTotalNumRuns]; !ok || totalRunsFromStatus != expectedTotalRuns {
 		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
@@ -372,12 +372,12 @@ func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet bool) dummy
 
 }
 
-func assembleRunnerConfig(numMaps, numRuns int, sleepBetweenRuns *sleepConfig, sleepBetweenActionBatches *sleepConfig) runnerConfig {
+func assembleRunnerConfig(numMaps uint16, numRuns uint32, sleepBetweenRuns *sleepConfig, sleepBetweenActionBatches *sleepConfig) runnerConfig {
 
 	return runnerConfig{
 		enabled:                   true,
 		numMaps:                   numMaps,
-		numRuns:                   uint32(numRuns),
+		numRuns:                   numRuns,
 		mapBaseName:               "test",
 		useMapPrefix:              true,
 		mapPrefix:                 "ht_",

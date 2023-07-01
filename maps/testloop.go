@@ -101,7 +101,7 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
+func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	// Hard-code stuff to simplify things in first iteration
 	upperBoundary := float32(0.8)
@@ -130,7 +130,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) 
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber int) error {
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16) error {
 
 	randomElement := l.config.elements[rand.Intn(len(l.config.elements))]
 	elementID := l.config.getElementIdFunc(randomElement)
@@ -236,19 +236,19 @@ func (l *batchTestLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gath
 
 func runWrapper[t any](c *testLoopConfig[t],
 	gatherer *status.Gatherer,
-	assembleMapNameFunc func(*runnerConfig, int) string,
-	runFunc func(hzMap, string, int)) {
+	assembleMapNameFunc func(*runnerConfig, uint16) string,
+	runFunc func(hzMap, string, uint16)) {
 
 	defer gatherer.StopListen()
 	go gatherer.Listen()
 
 	rc := c.runnerConfig
-	insertLoopWithInitialStatus(c, gatherer.Updates, uint32(rc.numMaps), rc.numRuns)
+	insertLoopWithInitialStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
 	var wg sync.WaitGroup
-	for i := 0; i < rc.numMaps; i++ {
+	for i := uint16(0); i < rc.numMaps; i++ {
 		wg.Add(1)
-		go func(i int) {
+		go func(i uint16) {
 			defer wg.Done()
 			mapName := assembleMapNameFunc(c.runnerConfig, i)
 			lp.LogRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
@@ -281,15 +281,15 @@ func (l *batchTestLoop[t]) run() {
 
 }
 
-func insertLoopWithInitialStatus[t any](config *testLoopConfig[t], c chan status.Update, numMaps, numRuns uint32) {
+func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
 
 	c <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
 	c <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
-	c <- status.Update{Key: statusKeyTotalNumRuns, Value: numMaps * numRuns}
+	c <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
 
 }
 
-func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
+func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	sleepBetweenActionBatchesConfig := l.config.runnerConfig.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.config.runnerConfig.sleepBetweenRuns
@@ -323,7 +323,7 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber int) {
 
 }
 
-func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.config.elements {
@@ -347,7 +347,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber int) err
 
 }
 
-func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) error {
 
 	for _, v := range l.config.elements {
 		key := assembleMapKey(mapNumber, l.config.getElementIdFunc(v))
@@ -370,7 +370,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber int) error
 
 }
 
-func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) error {
+func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16) error {
 
 	numElementsToDelete := rand.Intn(len(l.config.elements))
 	removed := 0
@@ -399,7 +399,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber int) er
 
 }
 
-func assembleMapName(rc *runnerConfig, mapIndex int) string {
+func assembleMapName(rc *runnerConfig, mapIndex uint16) string {
 
 	mapName := rc.mapBaseName
 	if rc.useMapPrefix && rc.mapPrefix != "" {
@@ -426,7 +426,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 }
 
-func assembleMapKey(mapNumber int, elementID string) string {
+func assembleMapKey(mapNumber uint16, elementID string) string {
 
 	return fmt.Sprintf("%s-%d-%s", client.ID(), mapNumber, elementID)
 

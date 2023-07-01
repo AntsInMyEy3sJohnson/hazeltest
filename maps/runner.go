@@ -15,7 +15,7 @@ type (
 	}
 	runnerConfig struct {
 		enabled                   bool
-		numMaps                   int
+		numMaps                   uint16
 		numRuns                   uint32
 		mapBaseName               string
 		useMapPrefix              bool
@@ -83,10 +83,10 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
-	var numMaps int
+	var numMaps uint16
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".numMaps", client.ValidateInt, func(a any) {
-			numMaps = a.(int)
+			numMaps = uint16(a.(int))
 		})
 	})
 
