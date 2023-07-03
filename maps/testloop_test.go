@@ -43,9 +43,85 @@ func deserializeFellowshipMember(_ any) error {
 
 }
 
-func TestRun(t *testing.T) {
+func TestCheckForModeChange(t *testing.T) {
 
-	t.Log("given the need to test running the maps test loop")
+	t.Log("given the need to test checking for a mode change")
+	{
+		t.Log("\twhen the currently stored number of elements is less than the lower boundary")
+		{
+			nextMode := checkForModeChange(0.8, 0.2, 100, 19, drain)
+
+			msg := "\t\tmode check must yield fill as next mode"
+
+			if nextMode == fill {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+		t.Log("\twhen the currently stored number of elements is equal to lower boundary")
+		{
+			currentMode := drain
+			nextMode := checkForModeChange(0.8, 0.2, 100, 20, currentMode)
+
+			msg := "\t\tmode check must return current mode"
+
+			if nextMode == currentMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+		t.Log("\twhen the currently stored number of elements is in between the lower and the upper boundary")
+		{
+			currentMode := drain
+			nextMode := checkForModeChange(0.8, 0.2, 100, 50, currentMode)
+
+			msg := "\t\tmode check must return current mode"
+
+			if nextMode == currentMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+		t.Log("\twhen the currently stored number of elements is equal to the upper boundary")
+		{
+			currentMode := fill
+			nextMode := checkForModeChange(0.8, 0.2, 100, 80, currentMode)
+
+			msg := "\t\tmode check must return current mode"
+
+			if nextMode == currentMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+		t.Log("\twhen the currently stored number of elements is greater than the upper boundary")
+		{
+			nextMode := checkForModeChange(0.8, 0.2, 100, 81, fill)
+
+			msg := "\t\tmode check must return drain as next mode"
+
+			if nextMode == drain {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+	}
+
+}
+
+func TestRunWithBatchTestLoop(t *testing.T) {
+
+	t.Log("given the need to test running the maps batch test loop")
 	{
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{
@@ -53,7 +129,7 @@ func TestRun(t *testing.T) {
 			ms := assembleDummyMapStore(false, false)
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleTestLoop(id, testSource, ms, &rc)
+			tl := assembleBatchTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -95,7 +171,7 @@ func TestRun(t *testing.T) {
 			numMaps, numRuns := uint16(10), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false)
-			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -137,7 +213,7 @@ func TestRun(t *testing.T) {
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false)
-			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -168,7 +244,7 @@ func TestRun(t *testing.T) {
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true)
-			tl := assembleTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -205,7 +281,7 @@ func TestRun(t *testing.T) {
 			ms := assembleDummyMapStore(false, false)
 			numMaps, numRuns := uint16(0), uint32(1)
 			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleTestLoop(id, testSource, ms, &rc)
+			tl := assembleBatchTestLoop(id, testSource, ms, &rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -223,7 +299,7 @@ func TestRun(t *testing.T) {
 			scBetweenRuns := &sleepConfig{}
 			scBetweenActionBatches := &sleepConfig{}
 			rc := assembleRunnerConfig(1, 20, scBetweenRuns, scBetweenActionBatches)
-			tl := assembleTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
 
 			numInvocationsBetweenRuns := 0
 			numInvocationsBetweenActionBatches := 0
@@ -259,7 +335,7 @@ func TestRun(t *testing.T) {
 			scBetweenRuns := &sleepConfig{enabled: true}
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
 			rc := assembleRunnerConfig(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
-			tl := assembleTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false), &rc)
 
 			numInvocationsBetweenRuns := uint32(0)
 			numInvocationsBetweenActionBatches := uint32(0)
@@ -336,7 +412,16 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) batchTestLoop[string] {
+func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) boundaryTestLoop[string] {
+
+	tlc := assembleTestLoopConfig(id, source, rc, ms)
+	tl := boundaryTestLoop[string]{}
+	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
+
+	return tl
+}
+
+func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) batchTestLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, rc, ms)
 	tl := batchTestLoop[string]{}
