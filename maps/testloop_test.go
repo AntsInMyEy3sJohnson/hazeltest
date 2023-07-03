@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
+	"math"
+	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
 
 const testSource = "theFellowship"
@@ -41,6 +44,79 @@ func deserializeFellowshipMember(_ any) error {
 
 	return nil
 
+}
+
+func TestDetermineNextMapAction(t *testing.T) {
+
+	t.Log("given the need to test determining the next map action")
+	{
+		t.Log("\twhen the last action was a state-changing action")
+		{
+			nextMapAction := determineNextMapAction(fill, insert, 0.5)
+
+			msg := "\t\taction after insert must be read"
+			if nextMapAction == read {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			nextMapAction = determineNextMapAction(fill, remove, 0.5)
+
+			msg = "\t\taction after remove must be read"
+
+			if nextMapAction == read {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen current mode is fill")
+		{
+			insertCount := 0
+			deleteCount := 0
+
+			msg := "\t\tonly insert and remove are valid next map actions"
+			// Same seed as in main function
+			rand.Seed(time.Now().UnixNano())
+			numInvocations := 10_000
+			actionProbability := 0.75
+			for i := 0; i < numInvocations; i++ {
+				action := determineNextMapAction(fill, read, float32(actionProbability))
+				if action == insert {
+					insertCount++
+				} else if action == remove {
+					deleteCount++
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log(msg, checkMark)
+
+			numInvocationsAsFloat := float64(numInvocations)
+			insertCountAsFloat := float64(insertCount)
+			expectedNumberOfInserts := numInvocationsAsFloat * actionProbability
+			tolerance := 0.05
+			msg = fmt.Sprintf("\t\twith action probability of 75%%, must have roughly %d inserts for %d invocations", int(expectedNumberOfInserts), numInvocations)
+			if math.Abs(expectedNumberOfInserts-insertCountAsFloat) < float64(numInvocations)*tolerance {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, insertCount)
+			}
+
+			deleteCountAsFloat := float64(deleteCount)
+			expectedNumberOfDeletes := numInvocationsAsFloat * (1 - actionProbability)
+			msg = fmt.Sprintf("\t\tremaining 25%% must correspond to roughly %d deletes for %d invocations", int(expectedNumberOfDeletes), numInvocations)
+			if math.Abs(expectedNumberOfDeletes-deleteCountAsFloat) < float64(numInvocations)*tolerance {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, deleteCount)
+			}
+
+		}
+	}
 }
 
 func TestCheckForModeChange(t *testing.T) {
@@ -115,6 +191,26 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
+	}
+
+}
+
+func TestRunWithBoundaryTestLoop(t *testing.T) {
+
+	t.Log("given the need to test running the boundary test loop")
+	{
+		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
+		{
+			id := uuid.New()
+			numMaps, numRuns := uint16(1), uint32(1)
+
+			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			ms := assembleDummyMapStore(false, false)
+			tl := assembleBoundaryTestLoop(id, testSource, ms, &rc)
+
+			tl.run()
+			waitForStatusGatheringDone(tl.g)
+		}
 	}
 
 }
