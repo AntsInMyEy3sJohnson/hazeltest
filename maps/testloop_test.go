@@ -72,25 +72,22 @@ func TestDetermineNextMapAction(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen current mode is fill")
+		t.Log("\twhen last action was read and current mode is fill")
 		{
-
-			msg := "\t\tonly insert and remove are valid next map actions"
-
 			numInvocations := 10_000
 			actionProbability := 0.75
-			insertCount, removeCount, otherCount := generateMapActionResults(numInvocations, actionProbability)
+			insertCount, removeCount, otherCount := generateMapActionResults(fill, numInvocations, actionProbability)
 
+			msg := "\t\tonly insert and remove are valid next map actions"
 			if otherCount == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, fmt.Sprintf("%d invocations resulted in map action that was neither insert nor remove", otherCount))
 			}
 
-			tolerance := 0.05
-			actionHitsCorrect, nonActionHitsCorrect := checkMapActionResults(numInvocations, insertCount, removeCount, actionProbability, tolerance)
+			actionHitsCorrect, nonActionHitsCorrect := checkMapActionResults(fill, numInvocations, insertCount, removeCount, actionProbability)
 
-			msg = fmt.Sprintf("\t\twith action probability of %d %%, must have roughly %2.f inserts for %d invocations",
+			msg = fmt.Sprintf("\t\twith action probability of %d%%, must have roughly %2.f inserts for %d invocations",
 				int(actionProbability*100), float64(numInvocations)*actionProbability, numInvocations)
 			if actionHitsCorrect {
 				t.Log(msg, checkMark)
@@ -98,7 +95,40 @@ func TestDetermineNextMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX, insertCount)
 			}
 
-			msg = fmt.Sprintf("\t\tremaining %d %% must correspond to roughly %2.f deletes for %d invocations",
+			msg = fmt.Sprintf("\t\tremaining %d%% must correspond to roughly %2.f deletes for %d invocations",
+				int((1-actionProbability)*100), float64(numInvocations)*(1-actionProbability), numInvocations)
+			if nonActionHitsCorrect {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, removeCount)
+			}
+		}
+
+		t.Log("\twhen last action was read and current mode is drain")
+		{
+			numInvocations := 10_000
+			actionProbability := 0.60
+			insertCount, removeCount, otherCount := generateMapActionResults(drain, numInvocations, actionProbability)
+
+			msg := "\t\tonly insert and remove are valid next map actions"
+
+			if otherCount == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d invocations resulted in map action that was neither insert nor remove", otherCount))
+			}
+
+			actionHitsCorrect, nonActionHitsCorrect := checkMapActionResults(drain, numInvocations, insertCount, removeCount, actionProbability)
+
+			msg = fmt.Sprintf("\t\twith action probability of %d%%, must have roughly %2.f removes for %d invocations",
+				int(actionProbability*100), float64(numInvocations)*actionProbability, numInvocations)
+			if actionHitsCorrect {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, insertCount)
+			}
+
+			msg = fmt.Sprintf("\t\tremaining %d%% must correspond to roughly %2.f inserts for %d invocations",
 				int((1-actionProbability)*100), float64(numInvocations)*(1-actionProbability), numInvocations)
 			if nonActionHitsCorrect {
 				t.Log(msg, checkMark)
@@ -107,32 +137,32 @@ func TestDetermineNextMapAction(t *testing.T) {
 			}
 
 		}
-
-		t.Log("\twhen current mode is drain")
-		{
-
-		}
 	}
 }
 
-func checkMapActionResults(numInvocations, insertCount, removeCount int, actionProbability, tolerance float64) (bool, bool) {
+func checkMapActionResults(currentMode actionMode, numInvocations, insertCount, removeCount int, actionProbability float64) (bool, bool) {
 
 	numInvocationsAsFloat := float64(numInvocations)
 
-	insertCountAsFloat := float64(insertCount)
-	expectedNumberOfInserts := numInvocationsAsFloat * actionProbability
+	expectedNumberOfInserts := 0
+	expectedNumberOfDeletes := 0
+	if currentMode == fill {
+		expectedNumberOfInserts = int(numInvocationsAsFloat * actionProbability)
+		expectedNumberOfDeletes = int(numInvocationsAsFloat * (1 - actionProbability))
+	} else {
+		expectedNumberOfDeletes = int(numInvocationsAsFloat * actionProbability)
+		expectedNumberOfInserts = int(numInvocationsAsFloat * (1 - actionProbability))
+	}
 
-	deleteCountAsFloat := float64(removeCount)
-	expectedNumberOfDeletes := numInvocationsAsFloat * (1 - actionProbability)
-
-	actionHitsCorrect := math.Abs(expectedNumberOfInserts-insertCountAsFloat) < float64(numInvocations)*tolerance
-	nonActionHitsCorrect := math.Abs(expectedNumberOfDeletes-deleteCountAsFloat) < float64(numInvocations)*tolerance
+	tolerance := 0.05
+	actionHitsCorrect := math.Abs(float64(expectedNumberOfInserts)-float64(insertCount)) < float64(numInvocations)*tolerance
+	nonActionHitsCorrect := math.Abs(float64(expectedNumberOfDeletes)-float64(removeCount)) < float64(numInvocations)*tolerance
 
 	return actionHitsCorrect, nonActionHitsCorrect
 
 }
 
-func generateMapActionResults(numInvocations int, actionProbability float64) (int, int, int) {
+func generateMapActionResults(currentMode actionMode, numInvocations int, actionProbability float64) (int, int, int) {
 
 	// Same seed as in main function
 	rand.Seed(time.Now().UnixNano())
@@ -141,7 +171,7 @@ func generateMapActionResults(numInvocations int, actionProbability float64) (in
 	removeCount := 0
 	otherCount := 0
 	for i := 0; i < numInvocations; i++ {
-		action := determineNextMapAction(fill, read, float32(actionProbability))
+		action := determineNextMapAction(currentMode, read, float32(actionProbability))
 		if action == insert {
 			insertCount++
 		} else if action == remove {
