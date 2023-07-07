@@ -46,6 +46,60 @@ func deserializeFellowshipMember(_ any) error {
 
 }
 
+func TestExecuteMapAction(t *testing.T) {
+
+	t.Log("given the need to test executing a map action")
+	{
+		t.Log("\twhen next action is insert")
+		{
+			ms := assembleDummyMapStore(false, false)
+			rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+			tl.nextAction = insert
+
+			mapNumber := 0
+			mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
+			err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber))
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tcontains key check must have been executed once"
+			if ms.m.containsKeyInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.containsKeyInvocations))
+			}
+
+			msg = "\t\tset operation must have been executed once"
+			if ms.m.setInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.setInvocations))
+			}
+
+			msg = "\t\tmap must contain one element"
+			count := 0
+			ms.m.data.Range(func(_, _ any) bool {
+				count++
+				return true
+			})
+			if count == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 element, got %d", count))
+			}
+
+		}
+	}
+
+}
+
 func TestDetermineNextMapAction(t *testing.T) {
 
 	t.Log("given the need to test determining the next map action")
