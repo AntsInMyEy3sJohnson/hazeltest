@@ -50,7 +50,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 
 	t.Log("given the need to test determining the next map action")
 	{
-		t.Log("\twhen the last action was a state-changing action")
+		t.Log("\twhen last action was insert or remove")
 		{
 			nextMapAction := determineNextMapAction(fill, insert, 0.5)
 
@@ -136,6 +136,20 @@ func TestDetermineNextMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX, removeCount)
 			}
 
+		}
+
+		t.Log("\twhen unknown mode is provided")
+		{
+			var unknownMode actionMode = "awesomeActionMode"
+			lastAction := read
+			nextAction := determineNextMapAction(unknownMode, lastAction, 0.0)
+
+			msg := "\t\tnext action must be equal to last action"
+			if nextAction == lastAction {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%s', got '%s'", lastAction, nextAction))
+			}
 		}
 	}
 }
