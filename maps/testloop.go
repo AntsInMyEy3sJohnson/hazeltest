@@ -119,10 +119,15 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		actionProbability := float32(0.75)
 		l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
 
-		if err := l.executeMapAction(m, mapName, mapNumber); err != nil {
+		if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
 		} else {
-			l.lastAction = l.nextAction
+			if actionExecuted {
+				lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
+				l.lastAction = l.nextAction
+			} else {
+				lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
+			}
 		}
 	}
 
@@ -130,7 +135,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16) error {
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16) (bool, error) {
 
 	randomElement := l.config.elements[rand.Intn(len(l.config.elements))]
 	elementID := l.config.getElementIdFunc(randomElement)
@@ -140,15 +145,15 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	if l.nextAction == insert || l.nextAction == remove {
 		containsKey, err := m.ContainsKey(l.config.ctx, key)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if l.nextAction == insert && containsKey {
 			lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
-			return nil
+			return false, nil
 		}
 		if l.nextAction == remove && !containsKey {
 			lp.LogRunnerEvent(fmt.Sprintf("was asked to remove key '%s' from map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
-			return nil
+			return false, nil
 		}
 		if l.nextAction == read && !containsKey {
 			lp.LogRunnerEvent(fmt.Sprintf("was asked to read key '%s' in map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
@@ -159,28 +164,31 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	case insert:
 		if err := m.Set(l.config.ctx, key, randomElement); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
-			return err
+			return false, err
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.TraceLevel)
+			return true, nil
 		}
 	case remove:
 		if _, err := m.Remove(l.config.ctx, key); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
-			return err
+			return false, err
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.TraceLevel)
+			return true, nil
 		}
 	case read:
 		if v, err := m.Get(l.config.ctx, key); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
-			return err
+			return false, err
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
+			return true, nil
 		}
 
 	}
 
-	return nil
+	return false, nil
 
 }
 
