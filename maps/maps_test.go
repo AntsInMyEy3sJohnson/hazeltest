@@ -17,13 +17,15 @@ type (
 		returnErrorUponGetMap bool
 	}
 	dummyHzMap struct {
-		containsKeyInvocations int
-		setInvocations         int
-		getInvocations         int
-		removeInvocations      int
-		destroyInvocations     int
-		data                   *sync.Map
-		returnErrorUponGet     bool
+		containsKeyInvocations     int
+		setInvocations             int
+		getInvocations             int
+		removeInvocations          int
+		destroyInvocations         int
+		data                       *sync.Map
+		returnErrorUponGet         bool
+		returnErrorUponSet         bool
+		returnErrorUponContainsKey bool
 	}
 )
 
@@ -65,6 +67,10 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 	}
 	dummyMapOperationLock.Unlock()
 
+	if m.returnErrorUponContainsKey {
+		return false, errors.New("a deliberately returned error")
+	}
+
 	keyString, ok := key.(string)
 	if !ok {
 		return false, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
@@ -84,6 +90,10 @@ func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 		m.setInvocations++
 	}
 	dummyMapOperationLock.Unlock()
+
+	if m.returnErrorUponSet {
+		return errors.New("also a deliberately thrown error")
+	}
 
 	keyString, ok := key.(string)
 	if !ok {
