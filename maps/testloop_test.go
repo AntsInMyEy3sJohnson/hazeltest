@@ -194,6 +194,46 @@ func TestExecuteMapAction(t *testing.T) {
 
 			}
 		}
+		t.Log("\twhen next action is remove")
+		{
+			t.Log("\t\twhen target map does not contain key")
+			{
+				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				ms := assembleDummyMapStore(false, false, false, false)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl.nextAction = remove
+
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\taction must be reported as not executed"
+				if !actionExecuted {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tone check for key must have been performed"
+				if ms.m.containsKeyInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.containsKeyInvocations))
+				}
+
+				msg = "\t\t\tno remove must have been attempted"
+				if ms.m.removeInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 remove invocations, got %d", ms.m.removeInvocations))
+				}
+			}
+		}
 	}
 
 }
