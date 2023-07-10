@@ -142,22 +142,21 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 	key := assembleMapKey(mapNumber, elementID)
 
-	if l.nextAction == insert || l.nextAction == remove {
-		containsKey, err := m.ContainsKey(l.config.ctx, key)
-		if err != nil {
-			return false, err
-		}
-		if l.nextAction == insert && containsKey {
-			lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
-			return false, nil
-		}
-		if l.nextAction == remove && !containsKey {
-			lp.LogRunnerEvent(fmt.Sprintf("was asked to remove key '%s' from map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
-			return false, nil
-		}
-		if l.nextAction == read && !containsKey {
-			lp.LogRunnerEvent(fmt.Sprintf("was asked to read key '%s' in map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
-		}
+	containsKey, err := m.ContainsKey(l.config.ctx, key)
+	if err != nil {
+		return false, err
+	}
+	if l.nextAction == insert && containsKey {
+		lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
+		return false, nil
+	}
+	if l.nextAction == remove && !containsKey {
+		lp.LogRunnerEvent(fmt.Sprintf("was asked to remove key '%s' from map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
+		return false, nil
+	}
+	if l.nextAction == read && !containsKey {
+		lp.LogRunnerEvent(fmt.Sprintf("was asked to read key '%s' in map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
+		return false, nil
 	}
 
 	switch l.nextAction {
@@ -188,7 +187,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 	}
 
-	return false, nil
+	return false, fmt.Errorf("unknown map action: %s", l.nextAction)
 
 }
 
