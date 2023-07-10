@@ -26,6 +26,7 @@ type (
 		returnErrorUponGet         bool
 		returnErrorUponSet         bool
 		returnErrorUponContainsKey bool
+		returnErrorUponRemove      bool
 	}
 )
 
@@ -135,6 +136,10 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 		m.removeInvocations++
 	}
 	dummyMapOperationLock.Unlock()
+
+	if m.returnErrorUponRemove {
+		return nil, errors.New("lo and behold, an error")
+	}
 
 	keyString, ok := key.(string)
 	if !ok {
