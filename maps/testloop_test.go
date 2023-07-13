@@ -749,6 +749,9 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
+
+			_ = "\t\texpected invocations must have been executed on map"
+
 		}
 	}
 
