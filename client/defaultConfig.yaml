@@ -244,18 +244,40 @@ mapTests:
       prefix: "ht_"
     # Using sleeps, the pace with which this runner interacts with Hazelcast can be slowed down
     sleeps:
-      # Can be enabled to make the test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has 
-      # finished, meaning the next action batch will start only after a sleep of <durationMs>
-      betweenActionBatches:
-        enabled: false
-        durationMs: 2000
-        enableRandomness: true
       # Can be enabled to make the test loop sleep for the given duration after each of the <numRuns>. One run consists of three actions (e.g. ingest-read-delete),
       # so use this setting to tell the test loop to sleep after having finished the last action of run <n> and before commencing with the first action of run <n+1>
       betweenRuns:
         enabled: true
         durationMs: 2000
         enableRandomness: true
+    testLoops:
+      # Can take the value of one of the sub-objects below, i.e. either 'batch' or 'boundary'
+      type: boundary
+      batch:
+        sleeps:
+          # Can be enabled to make the batch test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has
+          # finished, meaning the next action batch will start only after a sleep of <durationMs>
+          betweenActionBatches:
+            enabled: false
+            durationMs: 2000
+            enableRandomness: true
+      boundary:
+        sleeps:
+          betweenOperationChains:
+            enabled: true
+            durationMs: 2000
+            enableRandomness: true
+        operationChain:
+          length: 1_000
+          resetAfterChain: true
+          boundaryDefinition:
+            upper:
+              mapFillPercentage: 0.8
+              enableRandomness: true
+            lower:
+              mapFillPercentage: 0.2
+              enableRandomness: true
+            actionTowardsBoundaryProbability: 0.75
   load:
     enabled: false
     numMaps: 2
