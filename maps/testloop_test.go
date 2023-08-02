@@ -1104,16 +1104,24 @@ func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet, returnErro
 func assembleRunnerConfig(numMaps uint16, numRuns uint32, sleepBetweenRuns *sleepConfig, sleepBetweenActionBatches *sleepConfig) runnerConfig {
 
 	return runnerConfig{
-		enabled:                   true,
-		numMaps:                   numMaps,
-		numRuns:                   numRuns,
-		mapBaseName:               "test",
-		useMapPrefix:              true,
-		mapPrefix:                 "ht_",
-		appendMapIndexToMapName:   false,
-		appendClientIdToMapName:   false,
-		sleepBetweenActionBatches: sleepBetweenActionBatches,
-		sleepBetweenRuns:          sleepBetweenRuns,
+		enabled:                 true,
+		numMaps:                 numMaps,
+		numRuns:                 numRuns,
+		mapBaseName:             "test",
+		useMapPrefix:            true,
+		mapPrefix:               "ht_",
+		appendMapIndexToMapName: false,
+		appendClientIdToMapName: false,
+		sleepBetweenRuns:        sleepBetweenRuns,
+		loopType:                boundary,
+		batch:                   &batchTestLoopConfig{sleepBetweenActionBatches},
+		boundary: &boundaryTestLoopConfig{
+			sleepBetweenOperationChains: nil,
+			operationChainLength:        0,
+			resetAfterChain:             false,
+			upper:                       nil,
+			lower:                       nil,
+		},
 	}
 
 }

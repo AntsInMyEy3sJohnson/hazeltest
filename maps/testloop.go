@@ -298,7 +298,7 @@ func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns u
 
 func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
-	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.sleepBetweenActionBatches
+	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.batch.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {

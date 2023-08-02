@@ -14,17 +14,18 @@ type (
 		runMapTests(hzCluster string, hzMembers []string)
 	}
 	runnerConfig struct {
-		enabled                   bool
-		numMaps                   uint16
-		numRuns                   uint32
-		mapBaseName               string
-		useMapPrefix              bool
-		mapPrefix                 string
-		appendMapIndexToMapName   bool
-		appendClientIdToMapName   bool
-		loopType                  runnerLoopType
-		sleepBetweenActionBatches *sleepConfig
-		sleepBetweenRuns          *sleepConfig
+		enabled                 bool
+		numMaps                 uint16
+		numRuns                 uint32
+		mapBaseName             string
+		useMapPrefix            bool
+		mapPrefix               string
+		appendMapIndexToMapName bool
+		appendClientIdToMapName bool
+		sleepBetweenRuns        *sleepConfig
+		loopType                runnerLoopType
+		boundary                *boundaryTestLoopConfig
+		batch                   *batchTestLoopConfig
 	}
 	sleepConfig struct {
 		enabled          bool
@@ -41,6 +42,26 @@ type (
 		HzMembers []string
 	}
 	state string
+)
+
+type (
+	batchTestLoopConfig struct {
+		sleepBetweenActionBatches *sleepConfig
+	}
+)
+
+type (
+	boundaryTestLoopConfig struct {
+		sleepBetweenOperationChains *sleepConfig
+		operationChainLength        int
+		resetAfterChain             bool
+		upper                       *boundaryDefinition
+		lower                       *boundaryDefinition
+	}
+	boundaryDefinition struct {
+		mapFillPercentage float32
+		enableRandomness  bool
+	}
 )
 
 const (
@@ -105,10 +126,21 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 	})
 
 	var loopType runnerLoopType
+	keyPath := b.runnerKeyPath + ".testLoop.type"
 	assignmentOps = append(assignmentOps, func() error {
-		// hard-code for testing
-		loopType = "boundary"
-		return nil
+		return b.assigner.Assign(keyPath, func(s string, a any) error {
+			if err := client.ValidateString(keyPath, a); err != nil {
+				return err
+			}
+			switch s {
+			case string(batch), string(boundary):
+				return nil
+			default:
+				return fmt.Errorf("test loop type expected to be one of '%s' or '%s', got '%s'", batch, boundary, s)
+			}
+		}, func(a any) {
+			loopType = runnerLoopType(a.(string))
+		})
 	})
 
 	var numRuns uint32
@@ -189,16 +221,25 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		mapPrefix:               mapPrefix,
 		appendMapIndexToMapName: appendMapIndexToMapName,
 		appendClientIdToMapName: appendClientIdToMapName,
-		loopType:                loopType,
-		sleepBetweenActionBatches: &sleepConfig{
-			sleepBetweenActionBatchesEnabled,
-			sleepBetweenActionBatchesDurationMs,
-			sleepBetweenActionBatchesEnableRandomness,
-		},
 		sleepBetweenRuns: &sleepConfig{
 			sleepBetweenRunsEnabled,
 			sleepBetweenRunsDurationMs,
 			sleepBetweenRunsEnableRandomness,
+		},
+		loopType: loopType,
+		boundary: &boundaryTestLoopConfig{
+			sleepBetweenOperationChains: nil,
+			operationChainLength:        0,
+			resetAfterChain:             false,
+			upper:                       nil,
+			lower:                       nil,
+		},
+		batch: &batchTestLoopConfig{
+			sleepBetweenActionBatches: &sleepConfig{
+				sleepBetweenActionBatchesEnabled,
+				sleepBetweenActionBatchesDurationMs,
+				sleepBetweenActionBatchesEnableRandomness,
+			},
 		},
 	}, nil
 
