@@ -250,7 +250,7 @@ mapTests:
         enabled: true
         durationMs: 2000
         enableRandomness: true
-    testLoops:
+    testLoop:
       # Can take the value of one of the sub-objects below, i.e. either 'batch' or 'boundary'
       type: boundary
       batch:
