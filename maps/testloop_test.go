@@ -1069,9 +1069,9 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runne
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
 
-	return testLoopConfig[string]{
+	return testLoopExecution[string]{
 		id:                     id,
 		source:                 source,
 		mapStore:               ms,
