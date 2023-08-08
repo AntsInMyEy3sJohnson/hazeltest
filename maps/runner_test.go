@@ -5,25 +5,48 @@ import (
 )
 
 var (
+	boundaryTestConfig = map[string]any{
+		runnerKeyPath + ".enabled":                                                                              true,
+		runnerKeyPath + ".numMaps":                                                                              5,
+		runnerKeyPath + ".appendMapIndexToMapName":                                                              true,
+		runnerKeyPath + ".appendClientIdToMapName":                                                              false,
+		runnerKeyPath + ".numRuns":                                                                              5_000,
+		runnerKeyPath + ".mapPrefix.enabled":                                                                    true,
+		runnerKeyPath + ".mapPrefix.prefix":                                                                     mapPrefix,
+		runnerKeyPath + ".sleeps.betweenRuns.enabled":                                                           true,
+		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                                                        2_000,
+		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                                                  true,
+		runnerKeyPath + ".testLoop.type":                                                                        "boundary",
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.length":                                              1_000,
+		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                                     true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          0.8,
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
+	}
 	batchTestConfig = map[string]any{
 		runnerKeyPath + ".enabled":                                                     true,
 		runnerKeyPath + ".numMaps":                                                     10,
 		runnerKeyPath + ".appendMapIndexToMapName":                                     true,
 		runnerKeyPath + ".appendClientIdToMapName":                                     false,
-		runnerKeyPath + ".numRuns":                                                     1000,
+		runnerKeyPath + ".numRuns":                                                     1_000,
 		runnerKeyPath + ".mapPrefix.enabled":                                           true,
 		runnerKeyPath + ".mapPrefix.prefix":                                            mapPrefix,
 		runnerKeyPath + ".sleeps.betweenRuns.enabled":                                  true,
-		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                               2500,
+		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                               2_500,
 		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                         true,
-		runnerKeyPath + ".testLoop.type":                                               "boundary",
+		runnerKeyPath + ".testLoop.type":                                               "batch",
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2000,
+		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
 	}
 )
 
-func TestPopulateConfig(t *testing.T) {
+func TestPopulateBatchConfig(t *testing.T) {
 
 	t.Log("given the need to test populating the map runner config")
 	{
