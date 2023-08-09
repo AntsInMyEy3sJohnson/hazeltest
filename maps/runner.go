@@ -52,11 +52,12 @@ type (
 
 type (
 	boundaryTestLoopConfig struct {
-		sleepBetweenOperationChains *sleepConfig
-		operationChainLength        int
-		resetAfterChain             bool
-		upper                       *boundaryDefinition
-		lower                       *boundaryDefinition
+		sleepBetweenOperationChains      *sleepConfig
+		operationChainLength             int
+		resetAfterChain                  bool
+		upper                            *boundaryDefinition
+		lower                            *boundaryDefinition
+		actionTowardsBoundaryProbability float32
 	}
 	boundaryDefinition struct {
 		mapFillPercentage float32
@@ -132,7 +133,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 			if err := client.ValidateString(keyPath, a); err != nil {
 				return err
 			}
-			switch s {
+			switch a {
 			case string(batch), string(boundary):
 				return nil
 			default:
