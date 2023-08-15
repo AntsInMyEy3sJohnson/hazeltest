@@ -1,0 +1,30 @@
+{{ if .Values.features.useSccOnOpenShift -}}
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ .Release.Name }}-allow-sys-ptrace
+  namespace: {{ .Release.Namespace }}
+allowPrivilegedContainer: false
+allowPrivilegeEscalation: false
+allowHostNetwork: false
+allowHostPorts: false
+allowHostIPC: false
+allowHostPID: false
+allowHostDirVolumePlugin: false
+readOnlyFileSystem: true
+requiredDropCapabilities:
+  - KILL
+  - MKNOD
+  - SETUID
+  - SETGID
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+fsGroup:
+  type: MustRunAs
+allowedCapabilities:
+  - SYS_PTRACE
+{{ end -}}

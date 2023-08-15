@@ -35,6 +35,7 @@ features:
   # (The reason the template doesn't evaluate this directly is because a user might rely on one of the
   # built-in config files to configure chaos monkeys and not provide a custom config in this yaml file)
   useDeletePodsServiceAccount: true
+  useSccOnOpenShift: false
 
 config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml

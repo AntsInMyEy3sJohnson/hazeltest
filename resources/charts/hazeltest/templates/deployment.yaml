@@ -25,7 +25,7 @@ spec:
         helmRevision: "{{ .Release.Revision }}"
     spec:
       {{ if .Values.features.useDeletePodsServiceAccount -}}
-      serviceAccountName: {{ .Release.Name }}-pod-deleter
+      serviceAccountName: {{ .Release.Name }}
       {{ end -}}
       volumes:
       - name: hazeltest-config
