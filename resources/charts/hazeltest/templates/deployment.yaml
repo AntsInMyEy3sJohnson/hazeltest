@@ -63,4 +63,10 @@ spec:
         volumeMounts:
         - name: hazeltest-config
           mountPath: /data/config
+        {{ if .Values.features.useSccOnOpenShift  -}}
+        securityContext:
+          capabilities:
+            add:
+              - SYS_PTRACE
+        {{ end -}}
 
