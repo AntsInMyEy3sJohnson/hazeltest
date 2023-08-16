@@ -11,7 +11,7 @@ allowHostPorts: false
 allowHostIPC: false
 allowHostPID: false
 allowHostDirVolumePlugin: false
-readOnlyFileSystem: true
+readOnlyRootFilesystem: true
 requiredDropCapabilities:
   - KILL
   - MKNOD
