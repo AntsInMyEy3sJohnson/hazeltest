@@ -24,7 +24,7 @@ spec:
       annotations:
         helmRevision: "{{ .Release.Revision }}"
     spec:
-      {{ if .Values.features.useDeletePodsServiceAccount -}}
+      {{ if or .Values.features.useDeletePodsServiceAccount .Values.features.useSccOnOpenShift -}}
       serviceAccountName: {{ .Release.Name }}
       {{ end -}}
       volumes:
