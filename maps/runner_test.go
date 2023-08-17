@@ -35,7 +35,7 @@ var (
 
 func TestPopulateConfig(t *testing.T) {
 
-	t.Log("given a map runner config containing properties for a batch test loop")
+	t.Log("given a map runner config containing properties for both a batch and a boundary test loop")
 	{
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, mapBaseName: mapBaseName}
 		t.Log("\twhen property assignment does not yield an error")
@@ -55,14 +55,14 @@ func TestPopulateConfig(t *testing.T) {
 			if rc != nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tconfig should contain expected values"
 			if valid, detail := configValuesAsExpected(rc, testConfig); valid {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX, detail)
+				t.Fatal(msg, ballotX, detail)
 			}
 		}
 
@@ -77,7 +77,7 @@ func TestPopulateConfig(t *testing.T) {
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Error(msg, ballotX)
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
