@@ -94,6 +94,111 @@ func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
+func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {
+
+	var assignmentOps []func() error
+
+	var sleepBetweenActionBatchesEnabled bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
+			sleepBetweenActionBatchesEnabled = a.(bool)
+		})
+	})
+
+	var sleepDurationMs int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
+			sleepDurationMs = a.(int)
+		})
+	})
+
+	var enableSleepRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
+			enableSleepRandomness = a.(bool)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &batchTestLoopConfig{
+		sleepBetweenActionBatches: &sleepConfig{
+			enabled:          sleepBetweenActionBatchesEnabled,
+			durationMs:       sleepDurationMs,
+			enableRandomness: enableSleepRandomness,
+		},
+	}, nil
+
+}
+
+func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopConfig, error) {
+
+	var assignmentOps []func() error
+
+	var sleepBetweenOperationChainsEnabled bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.betweenOperationChains.enabled", client.ValidateBool, func(a any) {
+			sleepBetweenOperationChainsEnabled = a.(bool)
+		})
+	})
+
+	var sleepBetweenOperationChainsDurationMs int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.betweenOperationChains.durationMs", client.ValidateInt, func(a any) {
+			sleepBetweenOperationChainsDurationMs = a.(int)
+		})
+	})
+
+	var sleepBetweenOperationChainsEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness", client.ValidateBool, func(a any) {
+			sleepBetweenOperationChainsEnableRandomness = a.(bool)
+		})
+	})
+
+	var operationChainLength int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.length", client.ValidateInt, func(a any) {
+			operationChainLength = a.(int)
+		})
+	})
+
+	var resetAfterChain bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.resetAfterChain", client.ValidateBool, func(a any) {
+			resetAfterChain = a.(bool)
+		})
+	})
+
+	var upperBoundaryMapFillPercentage float32
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage", client.ValidateFloat32, func(a any) {
+			upperBoundaryMapFillPercentage = a.(float32)
+		})
+	})
+
+	return &boundaryTestLoopConfig{
+		sleepBetweenOperationChains: &sleepConfig{
+			enabled:          sleepBetweenOperationChainsEnabled,
+			durationMs:       sleepBetweenOperationChainsDurationMs,
+			enableRandomness: sleepBetweenOperationChainsEnableRandomness,
+		},
+		operationChainLength: operationChainLength,
+		resetAfterChain:      resetAfterChain,
+		upper: &boundaryDefinition{
+			mapFillPercentage: upperBoundaryMapFillPercentage,
+			enableRandomness:  false,
+		},
+		lower:                            nil,
+		actionTowardsBoundaryProbability: 0,
+	}, nil
+
+}
+
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var assignmentOps []func() error
@@ -126,24 +231,6 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
-	var loopType runnerLoopType
-	keyPath := b.runnerKeyPath + ".testLoop.type"
-	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(keyPath, func(s string, a any) error {
-			if err := client.ValidateString(keyPath, a); err != nil {
-				return err
-			}
-			switch a {
-			case string(batch), string(boundary):
-				return nil
-			default:
-				return fmt.Errorf("test loop type expected to be one of '%s' or '%s', got '%s'", batch, boundary, s)
-			}
-		}, func(a any) {
-			loopType = runnerLoopType(a.(string))
-		})
-	})
-
 	var numRuns uint32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".numRuns", client.ValidateInt, func(a any) {
@@ -162,27 +249,6 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".mapPrefix.prefix", client.ValidateString, func(a any) {
 			mapPrefix = a.(string)
-		})
-	})
-
-	var sleepBetweenActionBatchesEnabled bool
-	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
-			sleepBetweenActionBatchesEnabled = a.(bool)
-		})
-	})
-
-	var sleepBetweenActionBatchesDurationMs int
-	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
-			sleepBetweenActionBatchesDurationMs = a.(int)
-		})
-	})
-
-	var sleepBetweenActionBatchesEnableRandomness bool
-	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
-			sleepBetweenActionBatchesEnableRandomness = a.(bool)
 		})
 	})
 
@@ -207,10 +273,33 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
+	var loopType runnerLoopType
+	keyPath := b.runnerKeyPath + ".testLoop.type"
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(keyPath, func(s string, a any) error {
+			if err := client.ValidateString(keyPath, a); err != nil {
+				return err
+			}
+			switch a {
+			case string(batch), string(boundary):
+				return nil
+			default:
+				return fmt.Errorf("test loop type expected to be one of '%s' or '%s', got '%s'", batch, boundary, s)
+			}
+		}, func(a any) {
+			loopType = runnerLoopType(a.(string))
+		})
+	})
+
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
 			return nil, err
 		}
+	}
+
+	batchConfig, err := populateBatchTestLoopConfig(b)
+	if err != nil {
+		return nil, err
 	}
 
 	return &runnerConfig{
@@ -235,13 +324,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 			upper:                       nil,
 			lower:                       nil,
 		},
-		batch: &batchTestLoopConfig{
-			sleepBetweenActionBatches: &sleepConfig{
-				sleepBetweenActionBatchesEnabled,
-				sleepBetweenActionBatchesDurationMs,
-				sleepBetweenActionBatchesEnableRandomness,
-			},
-		},
+		batch: batchConfig,
 	}, nil
 
 }
