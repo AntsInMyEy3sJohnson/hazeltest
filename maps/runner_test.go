@@ -136,7 +136,7 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 	}
 
 	keyPath = runnerKeyPath + ".testLoop.type"
-	if rc.loopType != expected[keyPath] {
+	if string(rc.loopType) != expected[keyPath] {
 		return false, keyPath
 	}
 
@@ -155,17 +155,17 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationBatches.enabled"
+	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled"
 	if rc.boundary.sleepBetweenOperationChains.enabled != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationBatches.durationMs"
+	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs"
 	if rc.boundary.sleepBetweenOperationChains.durationMs != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationBatches.enableRandomness"
+	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
 	if rc.boundary.sleepBetweenOperationChains.enableRandomness != expected[keyPath] {
 		return false, keyPath
 	}
@@ -181,7 +181,7 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 	}
 
 	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
-	if rc.boundary.upper.mapFillPercentage != expected[keyPath] {
+	if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(float64)) {
 		return false, keyPath
 	}
 
@@ -191,7 +191,7 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 	}
 
 	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
-	if rc.boundary.lower.mapFillPercentage != expected[keyPath] {
+	if rc.boundary.lower.mapFillPercentage != float32(expected[keyPath].(float64)) {
 		return false, keyPath
 	}
 
@@ -201,7 +201,7 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 	}
 
 	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
-	if rc.boundary.actionTowardsBoundaryProbability != expected[keyPath] {
+	if rc.boundary.actionTowardsBoundaryProbability != float32(expected[keyPath].(float64)) {
 		return false, keyPath
 	}
 
