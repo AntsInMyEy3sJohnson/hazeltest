@@ -122,19 +122,6 @@ func ValidateInt(path string, a any) error {
 
 }
 
-func ValidateFloat32(path string, a any) error {
-
-	// TODO Implement tests
-	if f, ok := a.(float32); !ok {
-		return FailedParse{"float32", path}
-	} else if f < 0 {
-		return FailedValueCheck{"expected positive number", path}
-	}
-
-	return nil
-
-}
-
 func ValidateString(path string, a any) error {
 
 	if s, ok := a.(string); !ok {
