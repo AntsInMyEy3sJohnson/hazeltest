@@ -177,7 +177,7 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 	var upperBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage", client.ValidatePercentage, func(a any) {
-			upperBoundaryMapFillPercentage = a.(float32)
+			upperBoundaryMapFillPercentage = float32(a.(float64))
 		})
 	})
 
@@ -191,21 +191,21 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 	var lowerBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage", client.ValidatePercentage, func(a any) {
-			upperBoundaryMapFillPercentage = a.(float32)
+			lowerBoundaryMapFillPercentage = float32(a.(float64))
 		})
 	})
 
 	var lowerBoundaryEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness", client.ValidateBool, func(a any) {
-			upperBoundaryEnableRandomness = a.(bool)
+			lowerBoundaryEnableRandomness = a.(bool)
 		})
 	})
 
 	var actionTowardsBoundaryProbability float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability", client.ValidatePercentage, func(a any) {
-			actionTowardsBoundaryProbability = a.(float32)
+			actionTowardsBoundaryProbability = float32(a.(float64))
 		})
 	})
 
@@ -312,6 +312,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var loopType runnerLoopType
 	keyPath := b.runnerKeyPath + ".testLoop.type"
+	// TODO Refactor into own method and add test
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(keyPath, func(s string, a any) error {
 			if err := client.ValidateString(keyPath, a); err != nil {
