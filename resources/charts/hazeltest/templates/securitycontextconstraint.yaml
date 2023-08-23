@@ -2,7 +2,8 @@
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
-  name: {{ .Release.Name }}-allow-sys-ptrace
+  # Namespace added to name because OpenShift will put SCCs in default namespace --> potential for name collision
+  name: {{.Release.Namespace}}-{{ .Release.Name }}-allow-sys-ptrace
   namespace: {{ .Release.Namespace }}
 allowPrivilegedContainer: false
 allowPrivilegeEscalation: false
