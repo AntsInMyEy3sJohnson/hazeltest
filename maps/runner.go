@@ -181,6 +181,40 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
+	var upperBoundaryEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness", client.ValidateBool, func(a any) {
+			upperBoundaryEnableRandomness = a.(bool)
+		})
+	})
+
+	var lowerBoundaryMapFillPercentage float32
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage", client.ValidateFloat32, func(a any) {
+			upperBoundaryMapFillPercentage = a.(float32)
+		})
+	})
+
+	var lowerBoundaryEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness", client.ValidateBool, func(a any) {
+			upperBoundaryEnableRandomness = a.(bool)
+		})
+	})
+
+	var actionTowardsBoundaryProbability float32
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability", client.ValidateFloat32, func(a any) {
+			actionTowardsBoundaryProbability = a.(float32)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
 	return &boundaryTestLoopConfig{
 		sleepBetweenOperationChains: &sleepConfig{
 			enabled:          sleepBetweenOperationChainsEnabled,
@@ -191,10 +225,13 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		resetAfterChain:      resetAfterChain,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
-			enableRandomness:  false,
+			enableRandomness:  upperBoundaryEnableRandomness,
 		},
-		lower:                            nil,
-		actionTowardsBoundaryProbability: 0,
+		lower: &boundaryDefinition{
+			mapFillPercentage: lowerBoundaryMapFillPercentage,
+			enableRandomness:  lowerBoundaryEnableRandomness,
+		},
+		actionTowardsBoundaryProbability: actionTowardsBoundaryProbability,
 	}, nil
 
 }
@@ -302,6 +339,11 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		return nil, err
 	}
 
+	boundaryConfig, err := populateBoundaryTestLoopConfig(b)
+	if err != nil {
+		return nil, err
+	}
+
 	return &runnerConfig{
 		enabled:                 enabled,
 		numMaps:                 numMaps,
@@ -317,14 +359,8 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 			sleepBetweenRunsEnableRandomness,
 		},
 		loopType: loopType,
-		boundary: &boundaryTestLoopConfig{
-			sleepBetweenOperationChains: nil,
-			operationChainLength:        0,
-			resetAfterChain:             false,
-			upper:                       nil,
-			lower:                       nil,
-		},
-		batch: batchConfig,
+		boundary: boundaryConfig,
+		batch:    batchConfig,
 	}, nil
 
 }
