@@ -236,6 +236,18 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 
 }
 
+func validateTestLoopType(keyPath string, a any) error {
+	if err := client.ValidateString(keyPath, a); err != nil {
+		return err
+	}
+	switch a {
+	case string(batch), string(boundary):
+		return nil
+	default:
+		return fmt.Errorf("test loop type expected to be one of '%s' or '%s', got '%v'", batch, boundary, a)
+	}
+}
+
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var assignmentOps []func() error
@@ -314,17 +326,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 	keyPath := b.runnerKeyPath + ".testLoop.type"
 	// TODO Refactor into own method and add test
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(keyPath, func(s string, a any) error {
-			if err := client.ValidateString(keyPath, a); err != nil {
-				return err
-			}
-			switch a {
-			case string(batch), string(boundary):
-				return nil
-			default:
-				return fmt.Errorf("test loop type expected to be one of '%s' or '%s', got '%s'", batch, boundary, s)
-			}
-		}, func(a any) {
+		return b.assigner.Assign(keyPath, validateTestLoopType, func(a any) {
 			loopType = runnerLoopType(a.(string))
 		})
 	})

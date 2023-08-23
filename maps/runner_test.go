@@ -33,6 +33,52 @@ var (
 	}
 )
 
+func TestValidateTestLoopType(t *testing.T) {
+
+	t.Log("given a method to validate a string against the two available map test loop types")
+	{
+		keyPath := "awesome.key.path"
+		t.Log("\twhen valid test loop type is provided")
+		{
+			msg := "\t\tno error must be returned"
+			for _, loopType := range []runnerLoopType{batch, boundary} {
+
+				err := validateTestLoopType(keyPath, string(loopType))
+
+				if err == nil {
+					t.Log(msg, checkMark, loopType)
+				} else {
+					t.Fatal(msg, ballotX, loopType)
+				}
+			}
+		}
+
+		msg := "\t\terror must be returned"
+		t.Log("\twhen string representing non-existent loop type is provided")
+		{
+			err := validateTestLoopType(keyPath, "gandalf")
+
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen given string is empty")
+		{
+			err := validateTestLoopType(keyPath, "")
+
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestPopulateConfig(t *testing.T) {
 
 	t.Log("given a map runner config containing properties for both a batch and a boundary test loop")
