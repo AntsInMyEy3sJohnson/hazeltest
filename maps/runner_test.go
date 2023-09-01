@@ -1,25 +1,31 @@
 package maps
 
 import (
+	"fmt"
 	"testing"
 )
 
 var (
-	testConfig = map[string]any{
-		runnerKeyPath + ".enabled":                                                                              true,
-		runnerKeyPath + ".numMaps":                                                                              10,
-		runnerKeyPath + ".appendMapIndexToMapName":                                                              true,
-		runnerKeyPath + ".appendClientIdToMapName":                                                              false,
-		runnerKeyPath + ".numRuns":                                                                              1_000,
-		runnerKeyPath + ".mapPrefix.enabled":                                                                    true,
-		runnerKeyPath + ".mapPrefix.prefix":                                                                     mapPrefix,
-		runnerKeyPath + ".sleeps.betweenRuns.enabled":                                                           true,
-		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                                                        2_500,
-		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                                                  true,
-		runnerKeyPath + ".testLoop.type":                                                                        "batch",
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":                                   true,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":                                2_000,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness":                          true,
+	baseTestConfig = map[string]any{
+		runnerKeyPath + ".enabled":                             true,
+		runnerKeyPath + ".numMaps":                             10,
+		runnerKeyPath + ".appendMapIndexToMapName":             true,
+		runnerKeyPath + ".appendClientIdToMapName":             false,
+		runnerKeyPath + ".numRuns":                             1_000,
+		runnerKeyPath + ".mapPrefix.enabled":                   true,
+		runnerKeyPath + ".mapPrefix.prefix":                    mapPrefix,
+		runnerKeyPath + ".sleeps.betweenRuns.enabled":          true,
+		runnerKeyPath + ".sleeps.betweenRuns.durationMs":       2_500,
+		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness": true,
+	}
+	batchTestConfig = map[string]any{
+		runnerKeyPath + ".testLoop.type":                                               "batch",
+		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
+		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
+		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
+	}
+	boundaryTestConfig = map[string]any{
+		runnerKeyPath + ".testLoop.type":                                                                        "boundary",
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
@@ -32,6 +38,31 @@ var (
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
 	}
 )
+
+func assembleTestConfigForTestLoopType(t runnerLoopType) map[string]any {
+
+	if t == batch {
+		return combineMapsInNewMap([]map[string]any{baseTestConfig, batchTestConfig})
+	} else if t == boundary {
+		return combineMapsInNewMap([]map[string]any{baseTestConfig, boundaryTestConfig})
+	}
+
+	return nil
+
+}
+
+func combineMapsInNewMap(newContentMaps []map[string]any) map[string]any {
+
+	var result = map[string]any{}
+	for _, m := range newContentMaps {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+
+	return result
+
+}
 
 func TestValidateTestLoopType(t *testing.T) {
 
@@ -86,29 +117,34 @@ func TestPopulateConfig(t *testing.T) {
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, mapBaseName: mapBaseName}
 		t.Log("\twhen property assignment does not yield an error")
 		{
-			assigner := testConfigPropertyAssigner{false, testConfig}
-			b.assigner = assigner
-			rc, err := b.populateConfig()
+			for _, lt := range []runnerLoopType{batch, boundary} {
+				t.Log(fmt.Sprintf("\t\ttest loop type: %s", lt))
+				testConfig := assembleTestConfigForTestLoopType(lt)
+				assigner := testConfigPropertyAssigner{false, testConfig}
+				b.assigner = assigner
+				rc, err := b.populateConfig()
 
-			msg := "\t\tno error should be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				msg := "\t\t\tno error should be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			msg = "\t\tconfig should be returned"
-			if rc != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				msg = "\t\t\tconfig should be returned"
+				if rc != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			msg = "\t\tconfig should contain expected values"
-			if valid, detail := configValuesAsExpected(rc, testConfig); valid {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, detail)
+				msg = "\t\t\tconfig should contain expected values"
+				if valid, detail := configValuesAsExpected(rc, testConfig); valid {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+
 			}
 		}
 
@@ -186,69 +222,81 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
-	if rc.batch.sleepBetweenActionBatches.enabled != expected[keyPath] {
-		return false, keyPath
-	}
+	if rc.loopType == batch {
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
+		if rc.batch.sleepBetweenActionBatches.enabled != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs"
-	if rc.batch.sleepBetweenActionBatches.durationMs != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs"
+		if rc.batch.sleepBetweenActionBatches.durationMs != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness"
-	if rc.batch.sleepBetweenActionBatches.enableRandomness != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness"
+		if rc.batch.sleepBetweenActionBatches.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled"
-	if rc.boundary.sleepBetweenOperationChains.enabled != expected[keyPath] {
-		return false, keyPath
-	}
+		if rc.boundary != nil {
+			return false, fmt.Sprintf("boundary test loop config must be nil when batch test loop was configured")
+		}
+	} else if rc.loopType == boundary {
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled"
+		if rc.boundary.sleepBetweenOperationChains.enabled != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs"
-	if rc.boundary.sleepBetweenOperationChains.durationMs != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs"
+		if rc.boundary.sleepBetweenOperationChains.durationMs != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
-	if rc.boundary.sleepBetweenOperationChains.enableRandomness != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
+		if rc.boundary.sleepBetweenOperationChains.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.length"
-	if rc.boundary.operationChainLength != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.length"
+		if rc.boundary.operationChainLength != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain"
-	if rc.boundary.resetAfterChain != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain"
+		if rc.boundary.resetAfterChain != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
-	if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(float64)) {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
+		if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(float64)) {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness"
-	if rc.boundary.upper.enableRandomness != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness"
+		if rc.boundary.upper.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
-	if rc.boundary.lower.mapFillPercentage != float32(expected[keyPath].(float64)) {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
+		if rc.boundary.lower.mapFillPercentage != float32(expected[keyPath].(float64)) {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness"
-	if rc.boundary.lower.enableRandomness != expected[keyPath] {
-		return false, keyPath
-	}
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness"
+		if rc.boundary.lower.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
 
-	keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
-	if rc.boundary.actionTowardsBoundaryProbability != float32(expected[keyPath].(float64)) {
-		return false, keyPath
+		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
+		if rc.boundary.actionTowardsBoundaryProbability != float32(expected[keyPath].(float64)) {
+			return false, keyPath
+		}
+
+		if rc.batch != nil {
+			return false, fmt.Sprintf("batch test loop config must be nil when boundary test loop was configured")
+		}
+	} else {
+		return false, fmt.Sprintf("unknown test loop type: %s", rc.loopType)
 	}
 
 	return true, ""
