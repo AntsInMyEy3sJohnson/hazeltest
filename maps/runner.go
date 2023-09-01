@@ -337,14 +337,26 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		}
 	}
 
-	batchConfig, err := populateBatchTestLoopConfig(b)
-	if err != nil {
-		return nil, err
+	var batchConfig *batchTestLoopConfig
+	if loopType == batch {
+		if bc, err := populateBatchTestLoopConfig(b); err != nil {
+			return nil, err
+		} else {
+			batchConfig = bc
+		}
+	} else {
+		batchConfig = nil
 	}
 
-	boundaryConfig, err := populateBoundaryTestLoopConfig(b)
-	if err != nil {
-		return nil, err
+	var boundaryConfig *boundaryTestLoopConfig
+	if loopType == boundary {
+		if bc, err := populateBoundaryTestLoopConfig(b); err != nil {
+			return nil, err
+		} else {
+			boundaryConfig = bc
+		}
+	} else {
+		boundaryConfig = nil
 	}
 
 	return &runnerConfig{
