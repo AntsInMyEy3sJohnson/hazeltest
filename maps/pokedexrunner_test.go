@@ -81,7 +81,7 @@ func TestInitializeTestLoop(t *testing.T) {
 
 func TestRunPokedexMapTests(t *testing.T) {
 
-	t.Log("given the need to test running map tests in the pokedex runner")
+	t.Log("given the pokedex runner to run map tests")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := "\t\tstate transitions must be correct"

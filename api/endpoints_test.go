@@ -13,7 +13,7 @@ import (
 
 func TestStatusHandler(t *testing.T) {
 
-	t.Log("given the need to test the status handler, serving the application's status endpoint")
+	t.Log("given a status handler to serve the application's status endpoint")
 	{
 		t.Log("\twhen http method other than get is passed")
 		{
@@ -322,7 +322,7 @@ func TestStatusHandler(t *testing.T) {
 
 func TestLivenessHandler(t *testing.T) {
 
-	t.Log("given the need to test the liveness handler, serving the application's liveness check")
+	t.Log("given a liveness handler to serve the application's liveness check")
 	{
 		t.Log("when http get is sent")
 		{
@@ -369,7 +369,7 @@ func TestLivenessHandler(t *testing.T) {
 
 func TestReadinessHandler(t *testing.T) {
 
-	t.Log("given the need to test the readiness handler, serving the application's readiness check")
+	t.Log("given a readiness handler to serve the application's readiness endpoint")
 	{
 		request := httptest.NewRequest(http.MethodGet, "localhost:8080/readiness", nil)
 

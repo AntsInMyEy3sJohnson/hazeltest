@@ -44,7 +44,7 @@ var (
 
 func TestPopulateConfig(t *testing.T) {
 
-	t.Log("given the need to test populating the queue runner config")
+	t.Log("given a function for populating queue runner configs")
 	{
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, queueBaseName: queueBaseName}
 		t.Log("\twhen property assignment does not generate an error")

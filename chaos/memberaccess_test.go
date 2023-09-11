@@ -157,7 +157,7 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 func TestSelectRandomPodFromList(t *testing.T) {
 
-	t.Log("given the need to test random pod selection")
+	t.Log("given random pod selection")
 	{
 		t.Log("\twhen multiple pods are provided")
 		{
@@ -193,7 +193,7 @@ func TestSelectRandomPodFromList(t *testing.T) {
 
 func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 
-	t.Log("given the need to test the default namespace discoverer")
+	t.Log("given the default namespace discoverer")
 	{
 		t.Log("\twhen namespace discovery is successful")
 		{
@@ -265,7 +265,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 
 func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 
-	t.Log("given the need to test the default client set provider's capability to get or initialize the kubernetes client set")
+	t.Log("given the need to initialize or get the kubernetes client set")
 	{
 		t.Log("\twhen k8s out-of-cluster access mode is given")
 		{
@@ -562,7 +562,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 
 func TestChooseMemberOnK8s(t *testing.T) {
 
-	t.Log("given the need to test choosing a hazelcast member on kubernetes")
+	t.Log("given the member chooser's method to choose a target hazelcast member")
 	{
 		t.Log("\twhen clientset cannot be initialized")
 		{
@@ -766,7 +766,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 
 func TestKillMemberOnK8s(t *testing.T) {
 
-	t.Log("given the need to test killing a hazelcast member on kubernetes")
+	t.Log("given the member killer monkey's method to kill a hazelcast member on kubernetes")
 	{
 		t.Log("\twhen clientset initialization yields an error")
 		{

@@ -99,7 +99,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 func TestDefaultSleeperSleep(t *testing.T) {
 
-	t.Log("given the need to test the default sleeper")
+	t.Log("given the default sleeper")
 	{
 		t.Log("\twhen sleep has been disabled")
 		{
@@ -146,7 +146,7 @@ func TestDefaultSleeperSleep(t *testing.T) {
 
 func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
-	t.Log("given the need to test the member killer monkey's ability to cause chaos")
+	t.Log("given a member killer monkey with the ability to kill hazelcast members")
 	{
 		t.Log("\twhen populating the member killer config returns an error")
 		{
@@ -500,7 +500,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
 func TestPopulateConfig(t *testing.T) {
 
-	t.Log("given the need to test populating the chaos monkey config")
+	t.Log("given the config builder's method to populate the member killer config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
 		t.Log("\twhen k8s ouf-of-cluster access mode is given and no property assignment yields an error")

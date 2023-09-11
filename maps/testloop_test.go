@@ -60,7 +60,7 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 func TestExecuteMapAction(t *testing.T) {
 
-	t.Log("given the need to test executing a map action")
+	t.Log("given various actions to execute on maps")
 	{
 		t.Log("\twhen next action is insert")
 		{
@@ -507,7 +507,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 func TestDetermineNextMapAction(t *testing.T) {
 
-	t.Log("given the need to test determining the next map action")
+	t.Log("given a function to determine the next map action to be executed")
 	{
 		t.Log("\twhen last action was insert or remove")
 		{
@@ -660,7 +660,7 @@ func generateMapActionResults(currentMode actionMode, numInvocations int, action
 
 func TestCheckForModeChange(t *testing.T) {
 
-	t.Log("given the need to test checking for a mode change")
+	t.Log("given a function that determines whether the map action mode should be changed")
 	{
 		t.Log("\twhen the currently stored number of elements is less than the lower boundary")
 		{
@@ -736,7 +736,7 @@ func TestCheckForModeChange(t *testing.T) {
 
 func TestRunWithBoundaryTestLoop(t *testing.T) {
 
-	t.Log("given the need to test running the boundary test loop")
+	t.Log("given the boundary test loop")
 	{
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{
@@ -759,7 +759,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 func TestRunWithBatchTestLoop(t *testing.T) {
 
-	t.Log("given the need to test running the maps batch test loop")
+	t.Log("given the maps batch test loop")
 	{
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{

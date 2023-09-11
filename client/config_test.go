@@ -70,7 +70,7 @@ func (c testCloser) Close() error {
 
 func TestValidatePercentage(t *testing.T) {
 
-	t.Log("given the need to test the float percentage validation function")
+	t.Log("given a float percentage validation function")
 	{
 		path := "chaosMonkeys.podKiller.chaosProbability"
 		t.Log("\twhen providing a semantically correct value that can be parsed into a float32")
@@ -155,7 +155,7 @@ func TestValidatePercentage(t *testing.T) {
 
 func TestValidateString(t *testing.T) {
 
-	t.Log("given the need to test the string validation function")
+	t.Log("given a string validation function")
 	{
 		path := "mapTests.load.mapPrefix.prefix"
 
@@ -216,7 +216,7 @@ func TestValidateString(t *testing.T) {
 
 func TestValidateInt(t *testing.T) {
 
-	t.Log("given the need to test the int validation function")
+	t.Log("given an int validation function")
 	{
 		path := "queueTests.tweets.numQueues"
 		t.Log("\twhen providing a semantically correct value that can be parsed into an int")
@@ -279,7 +279,7 @@ func TestValidateInt(t *testing.T) {
 
 func TestValidateBool(t *testing.T) {
 
-	t.Log("given the need to test the bool validation function")
+	t.Log("given a function to validate bool values")
 	{
 		path := "mapTests.pokedex.enabled"
 		t.Log("\twhen providing a value that can be parsed into a bool")
@@ -332,7 +332,7 @@ func TestParseConfigs(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test the parsing of configuration values from config file and commandline")
+	t.Log("given a function able to parse configuration values from a config file and the command line")
 	{
 		t.Log("\twhen providing undefined commandline arguments")
 		{
@@ -455,7 +455,7 @@ func TestRetrieveArgValue(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test the retrieval of values from the commandline-provided config")
+	t.Log("given a function that supports retrieving configuration values from the command line")
 	{
 
 		t.Log("\twhen providing an argument contained in the commandline-supplied argument list")
@@ -510,7 +510,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 
 	a := DefaultConfigPropertyAssigner{}
 
-	t.Log("given the need to test populating a config property")
+	t.Log("given functionality for populating a config property")
 	{
 		t.Log("\twhen providing an assignment function and a map containing the desired key")
 		{
@@ -567,7 +567,7 @@ func TestParseDefaultConfig(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test populating the config state from the default config file")
+	t.Log("given that config state can be populated by a config file")
 	{
 		t.Log("\twhen providing a fileOpener")
 		{
@@ -599,7 +599,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test populating the config map from the user-supplied config file")
+	t.Log("given that the config map can be filled from a user-supplied config file")
 	{
 		t.Log("\twhen providing the default config file path")
 		{
@@ -650,7 +650,7 @@ func TestDecodeConfigFile(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test decoding the yaml config file")
+	t.Log("given a yaml config file")
 	{
 		t.Log("\twhen providing a target map and a file open function that returns a valid io.Reader")
 		{
@@ -733,7 +733,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 		teardown(oldArgs)
 	})
 
-	t.Log("given the need to test config value retrieval")
+	t.Log("given config value retrieval")
 	{
 		t.Log("\twhen providing a default and a user-supplied config map")
 		{

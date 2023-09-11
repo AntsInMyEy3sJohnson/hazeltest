@@ -18,7 +18,7 @@ func (d dummyLoadTestLoop) run() {
 
 func TestRunLoadMapTests(t *testing.T) {
 
-	t.Log("given the need to test running map tests in the load runner")
+	t.Log("given a load runner to run map test loops")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := fmt.Sprint("\t\tstate transitions must be correct")
