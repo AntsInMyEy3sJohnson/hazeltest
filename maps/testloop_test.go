@@ -67,11 +67,11 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen check for contains key yields error")
 			{
 				ms := assembleDummyMapStore(false, false, false, true, false)
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = insert
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "some-map-name", 0)
+				actionExecuted, err := tl.executeMapAction(ms.m, "some-map-name", 0, theFellowship[0])
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -91,13 +91,13 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet")
 			{
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = insert
 
 				mapNumber := 0
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-				actionExecuted, err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber))
+				actionExecuted, err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 
@@ -144,11 +144,11 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
 				ms := assembleDummyMapStore(false, false, true, false, false)
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = insert
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "awesome-map-name", 0)
+				actionExecuted, err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0])
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -168,15 +168,15 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map already contains key")
 			{
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = insert
 
 				mapNumber := uint16(0)
 				populateDummyHzMapStore(&ms)
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, mapName, mapNumber)
+				actionExecuted, err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -205,12 +205,12 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = remove
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -243,14 +243,14 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove yields error")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, true)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = remove
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -284,14 +284,14 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove does not yield error")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = remove
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -327,12 +327,12 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = read
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -365,14 +365,14 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get yields error")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, true, false, false, false)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = read
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -406,14 +406,14 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
-				rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				tl.nextAction = read
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -447,13 +447,13 @@ func TestExecuteMapAction(t *testing.T) {
 		}
 		t.Log("\twhen unknown action is provided")
 		{
-			rc := assembleRunnerConfig(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false, false, false, false)
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
 			tl.nextAction = unknownAction
 
-			actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0))
+			actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
 
 			msg := "\t\t\terror must be returned"
 			if err != nil {
@@ -730,6 +730,19 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
+		t.Log("\twhen map is empty and current mode is unset")
+		{
+			nextMode := checkForModeChange(1.0, 0.0, 1_000, 0, "")
+
+			msg := "\t\tnext mode must be fill"
+
+			if nextMode == fill {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
 	}
 
 }
@@ -738,19 +751,53 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 	t.Log("given the boundary test loop")
 	{
-		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
+		t.Log("\twhen target map is empty")
 		{
-			id := uuid.New()
-			numMaps, numRuns := uint16(1), uint32(1)
+			t.Log("\t\twhen lower boundary is 0 %, upper boundary is 100 %")
+			{
+				t.Log("\t\t\twhen probability for action towards probability is 100 %")
+				{
+					id := uuid.New()
+					numMaps, numRuns := uint16(1), uint32(1)
 
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			ms := assembleDummyMapStore(false, false, false, false, false)
-			tl := assembleBoundaryTestLoop(id, testSource, ms, &rc)
+					rc := assembleRunnerConfigForBoundaryTestLoop(
+						numMaps,
+						numRuns,
+						sleepConfigDisabled,
+						sleepConfigDisabled,
+						1.0,
+						0.0,
+						1.0,
+						1_000,
+					)
+					ms := assembleDummyMapStore(false, false, false, false, false)
+					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
-			tl.run()
-			waitForStatusGatheringDone(tl.g)
+					tl.run()
+					waitForStatusGatheringDone(tl.g)
 
-			_ = "\t\texpected invocations must have been executed on map"
+					msg := "\t\t\t\tall elements must be inserted in map"
+					if ms.m.setInvocations == len(theFellowship) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.setInvocations)
+					}
+
+					msg = "\t\t\t\tnumber of invocations to query size of map must be equal to number of gets plus number of sets"
+					if ms.m.sizeInvocations == ms.m.setInvocations+ms.m.getInvocations {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.sizeInvocations)
+					}
+
+					msg = "\t\t\t\tnumber of get invocations must be equal to number of set invocations minus one"
+					if ms.m.getInvocations == ms.m.setInvocations-1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.getInvocations)
+					}
+				}
+			}
 
 		}
 	}
@@ -766,8 +813,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false, false, false, false)
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleBatchTestLoop(id, testSource, ms, &rc)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -807,9 +854,9 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
 			numMaps, numRuns := uint16(10), uint32(1)
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, false, false, false, false)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -849,9 +896,9 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen get map yields error")
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(true, false, false, false, false)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -880,9 +927,9 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(false, true, false, false, false)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, &rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -918,8 +965,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(false, false, false, false, false)
 			numMaps, numRuns := uint16(0), uint32(1)
-			rc := assembleRunnerConfig(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleBatchTestLoop(id, testSource, ms, &rc)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
 			tl.run()
 			waitForStatusGatheringDone(tl.g)
@@ -936,8 +983,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		{
 			scBetweenRuns := &sleepConfig{}
 			scBetweenActionBatches := &sleepConfig{}
-			rc := assembleRunnerConfig(1, 20, scBetweenRuns, scBetweenActionBatches)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false, false, false, false), &rc)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 20, scBetweenRuns, scBetweenActionBatches)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false, false, false, false), rc)
 
 			numInvocationsBetweenRuns := 0
 			numInvocationsBetweenActionBatches := 0
@@ -972,8 +1019,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numRuns := uint32(20)
 			scBetweenRuns := &sleepConfig{enabled: true}
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
-			rc := assembleRunnerConfig(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false, false, false, false), &rc)
+			rc := assembleRunnerConfigForBatchTestLoop(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(false, false, false, false, false), rc)
 
 			numInvocationsBetweenRuns := uint32(0)
 			numInvocationsBetweenActionBatches := uint32(0)
@@ -1101,9 +1148,56 @@ func assembleDummyMapStore(returnErrorUponGetMap, returnErrorUponGet, returnErro
 
 }
 
-func assembleRunnerConfig(numMaps uint16, numRuns uint32, sleepBetweenRuns *sleepConfig, sleepBetweenActionBatches *sleepConfig) runnerConfig {
+func assembleRunnerConfigForBoundaryTestLoop(
+	numMaps uint16,
+	numRuns uint32,
+	sleepBetweenRuns *sleepConfig,
+	sleepBetweenOperationBatches *sleepConfig,
+	upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage, actionTowardsBoundaryProbability float32,
+	operationChainLength int,
+) *runnerConfig {
 
-	return runnerConfig{
+	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
+	c.boundary = &boundaryTestLoopConfig{
+		sleepBetweenOperationChains: sleepBetweenOperationBatches,
+		operationChainLength:        operationChainLength,
+		resetAfterChain:             false,
+		upper: &boundaryDefinition{
+			mapFillPercentage: upperBoundaryMapFillPercentage,
+			enableRandomness:  false,
+		},
+		lower: &boundaryDefinition{
+			mapFillPercentage: lowerBoundaryMapFillPercentage,
+			enableRandomness:  false,
+		},
+		actionTowardsBoundaryProbability: actionTowardsBoundaryProbability,
+	}
+
+	return c
+
+}
+
+func assembleRunnerConfigForBatchTestLoop(
+	numMaps uint16,
+	numRuns uint32,
+	sleepBetweenRuns *sleepConfig,
+	sleepBetweenActionBatches *sleepConfig,
+) *runnerConfig {
+
+	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
+	c.batch = &batchTestLoopConfig{sleepBetweenActionBatches}
+
+	return c
+
+}
+
+func assembleBaseRunnerConfig(
+	numMaps uint16,
+	numRuns uint32,
+	sleepBetweenRuns *sleepConfig,
+) *runnerConfig {
+
+	return &runnerConfig{
 		enabled:                 true,
 		numMaps:                 numMaps,
 		numRuns:                 numRuns,
@@ -1114,14 +1208,8 @@ func assembleRunnerConfig(numMaps uint16, numRuns uint32, sleepBetweenRuns *slee
 		appendClientIdToMapName: false,
 		sleepBetweenRuns:        sleepBetweenRuns,
 		loopType:                boundary,
-		batch:                   &batchTestLoopConfig{sleepBetweenActionBatches},
-		boundary: &boundaryTestLoopConfig{
-			sleepBetweenOperationChains: nil,
-			operationChainLength:        0,
-			resetAfterChain:             false,
-			upper:                       nil,
-			lower:                       nil,
-		},
+		batch:                   nil,
+		boundary:                nil,
 	}
 
 }
