@@ -13,6 +13,7 @@ type (
 		Get(ctx context.Context, key any) (any, error)
 		Remove(ctx context.Context, key any) (any, error)
 		Destroy(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
 	}
 	hzMapStore interface {
 		client.HzClientInitializer

@@ -22,6 +22,7 @@ type (
 		getInvocations             int
 		removeInvocations          int
 		destroyInvocations         int
+		sizeInvocations            int
 		data                       *sync.Map
 		returnErrorUponGet         bool
 		returnErrorUponSet         bool
@@ -164,6 +165,23 @@ func (m *dummyHzMap) Destroy(_ context.Context) error {
 	dummyMapOperationLock.Unlock()
 
 	return nil
+
+}
+
+func (m *dummyHzMap) Size(_ context.Context) (int, error) {
+
+	size := 0
+	dummyMapOperationLock.Lock()
+	{
+		m.sizeInvocations++
+		m.data.Range(func(_, _ any) bool {
+			size++
+			return true
+		})
+	}
+	dummyMapOperationLock.Unlock()
+
+	return size, nil
 
 }
 
