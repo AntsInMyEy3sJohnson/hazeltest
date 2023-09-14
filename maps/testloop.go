@@ -105,6 +105,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
 	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
+	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -113,42 +114,47 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		if i > 0 && i%updateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
-		// TODO Using the local tracker for how many elements have been stored can be wildly inaccurate in the following
-		// scenarios:
-		// - Other Hazeltest instances have written to the same map
-		// - This is the only Hazeltest instance, but after having written to the map, it was restarted
-		// In these scenarios, simply assuming an initial state of 0 elements stored may lead to the map getting filled
-		// beyond the upper boundary configured in the Hazeltest instance's boundary definition
-		// --> For every run, the current state of the map should be evaluated. If a lot of Hazeltest instances
-		// write to the target map at the same time, the number of elements stored may have already exceeded the
-		// boundary by the time the insertion is made, but in the next run, the mode will be changed, so the boundary
-		// will be exceeded only shortly, which is a decent trade-off considering the alternative of inserting
-		// more checks
-		l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), l.numElementsStored, l.currentMode)
 
-		actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
-		l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
-
-		if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
-		} else {
-			if actionExecuted {
-				lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
-				l.lastAction = l.nextAction
+		for j := 0; j < len(l.execution.elements); j++ {
+			if currentlyStoredElements, err := m.Size(l.execution.ctx); err != nil {
+				lp.LogRunnerEvent(fmt.Sprintf("cannot check for mode change: unable to query current size of map '%s' in run %d -- will try again in next run", mapName, i), log.WarnLevel)
+				continue
 			} else {
-				lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
+				l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(currentlyStoredElements), l.currentMode)
+			}
+
+			l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
+
+			if l.nextAction == read {
+				// We need this loop to perform a state-changing operation on every element, so
+				// don't count read operation since it did not change state (except potentially some
+				// meta information on the key read in the map on the cluster)
+				// Also, in case of a read, the element the read operation will be attempted for
+				// must refer to an element previously inserted
+				j--
+			}
+
+			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, l.execution.elements[j]); err != nil {
+				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
+			} else {
+				if actionExecuted {
+					lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
+					l.lastAction = l.nextAction
+				} else {
+					lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
+				}
 			}
 		}
+
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16) (bool, error) {
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t) (bool, error) {
 
-	randomElement := l.execution.elements[rand.Intn(len(l.execution.elements))]
-	elementID := l.execution.getElementIdFunc(randomElement)
+	elementID := l.execution.getElementIdFunc(element)
 
 	key := assembleMapKey(mapNumber, elementID)
 
@@ -156,6 +162,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	if err != nil {
 		return false, err
 	}
+
 	if l.nextAction == insert && containsKey {
 		lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
 		return false, nil
@@ -171,7 +178,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 	switch l.nextAction {
 	case insert:
-		if err := m.Set(l.execution.ctx, key, randomElement); err != nil {
+		if err := m.Set(l.execution.ctx, key, element); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return false, err
 		} else {
@@ -229,6 +236,11 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 
 func checkForModeChange(upperBoundary, lowerBoundary float32,
 	totalNumberOfElements, currentlyStoredNumberOfElements uint32, currentMode actionMode) actionMode {
+
+	if currentlyStoredNumberOfElements == 0 && currentMode == "" {
+		// Initialization case on empty map --> Provide fill to get things going
+		return fill
+	}
 
 	total := float32(totalNumberOfElements)
 	current := float32(currentlyStoredNumberOfElements)
