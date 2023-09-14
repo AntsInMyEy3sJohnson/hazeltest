@@ -103,9 +103,8 @@ func (l *boundaryTestLoop[t]) run() {
 
 func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
-	// Hard-code stuff to simplify things in first iteration
-	upperBoundary := float32(0.8)
-	lowerBoundary := float32(0.2)
+	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
+	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -114,9 +113,20 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		if i > 0 && i%updateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
+		// TODO Using the local tracker for how many elements have been stored can be wildly inaccurate in the following
+		// scenarios:
+		// - Other Hazeltest instances have written to the same map
+		// - This is the only Hazeltest instance, but after having written to the map, it was restarted
+		// In these scenarios, simply assuming an initial state of 0 elements stored may lead to the map getting filled
+		// beyond the upper boundary configured in the Hazeltest instance's boundary definition
+		// --> For every run, the current state of the map should be evaluated. If a lot of Hazeltest instances
+		// write to the target map at the same time, the number of elements stored may have already exceeded the
+		// boundary by the time the insertion is made, but in the next run, the mode will be changed, so the boundary
+		// will be exceeded only shortly, which is a decent trade-off considering the alternative of inserting
+		// more checks
 		l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), l.numElementsStored, l.currentMode)
 
-		actionProbability := float32(0.75)
+		actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 		l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
 
 		if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber); err != nil {
@@ -197,6 +207,7 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 		return read
 	}
 
+	// Seeded in main
 	hit := rand.Float32() < actionProbability
 
 	switch currentMode {
