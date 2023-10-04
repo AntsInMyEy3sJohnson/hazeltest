@@ -53,8 +53,7 @@ type (
 type (
 	boundaryTestLoopConfig struct {
 		sleepBetweenOperationChains      *sleepConfig
-		operationChainLength             int
-		resetAfterChain                  bool
+		resetAfterRun                    bool
 		upper                            *boundaryDefinition
 		lower                            *boundaryDefinition
 		actionTowardsBoundaryProbability float32
@@ -160,17 +159,10 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
-	var operationChainLength int
+	var resetAfterRun bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.length", client.ValidateInt, func(a any) {
-			operationChainLength = a.(int)
-		})
-	})
-
-	var resetAfterChain bool
-	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.resetAfterChain", client.ValidateBool, func(a any) {
-			resetAfterChain = a.(bool)
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.resetAfterRun", client.ValidateBool, func(a any) {
+			resetAfterRun = a.(bool)
 		})
 	})
 
@@ -221,8 +213,7 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 			durationMs:       sleepBetweenOperationChainsDurationMs,
 			enableRandomness: sleepBetweenOperationChainsEnableRandomness,
 		},
-		operationChainLength: operationChainLength,
-		resetAfterChain:      resetAfterChain,
+		resetAfterRun: resetAfterRun,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
 			enableRandomness:  upperBoundaryEnableRandomness,

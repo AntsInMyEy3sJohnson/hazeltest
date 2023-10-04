@@ -768,7 +768,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						1.0,
 						0.0,
 						1.0,
-						1_000,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -810,7 +809,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						sleepConfigDisabled,
 						1.0, 0.0,
 						0.0,
-						1_000,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -1211,14 +1209,12 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	sleepBetweenRuns *sleepConfig,
 	sleepBetweenOperationBatches *sleepConfig,
 	upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage, actionTowardsBoundaryProbability float32,
-	operationChainLength int,
 ) *runnerConfig {
 
 	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
 	c.boundary = &boundaryTestLoopConfig{
 		sleepBetweenOperationChains: sleepBetweenOperationBatches,
-		operationChainLength:        operationChainLength,
-		resetAfterChain:             false,
+		resetAfterRun:               false,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
 			enableRandomness:  false,

@@ -268,7 +268,6 @@ mapTests:
             durationMs: 2000
             enableRandomness: true
         operationChain:
-          length: 1_000
           resetAfterChain: true
           boundaryDefinition:
             upper:
