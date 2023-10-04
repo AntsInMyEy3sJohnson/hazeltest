@@ -267,8 +267,8 @@ mapTests:
             enabled: true
             durationMs: 2000
             enableRandomness: true
-        operationChain:
-          resetAfterChain: true
+        elementsRun:
+          resetAfterRun: true
           boundaryDefinition:
             upper:
               mapFillPercentage: 0.8

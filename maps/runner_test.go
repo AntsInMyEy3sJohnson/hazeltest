@@ -25,16 +25,16 @@ var (
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
 	}
 	boundaryTestConfig = map[string]any{
-		runnerKeyPath + ".testLoop.type":                                                                        "boundary",
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterRun":                                       true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          0.8,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
+		runnerKeyPath + ".testLoop.type":                                                                     "boundary",
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                           true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                        2_500,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                  true,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.resetAfterRun":                                       true,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.upper.mapFillPercentage":          0.8,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.upper.enableRandomness":           true,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.lower.mapFillPercentage":          0.2,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.lower.enableRandomness":           true,
+		runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
 	}
 )
 
@@ -256,32 +256,32 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterRun"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.resetAfterRun"
 		if rc.boundary.resetAfterRun != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.upper.mapFillPercentage"
 		if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(float64)) {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.upper.enableRandomness"
 		if rc.boundary.upper.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.lower.mapFillPercentage"
 		if rc.boundary.lower.mapFillPercentage != float32(expected[keyPath].(float64)) {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.lower.enableRandomness"
 		if rc.boundary.lower.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
+		keyPath = runnerKeyPath + ".testLoop.boundary.elementsRun.boundaryDefinition.actionTowardsBoundaryProbability"
 		if rc.boundary.actionTowardsBoundaryProbability != float32(expected[keyPath].(float64)) {
 			return false, keyPath
 		}
