@@ -755,7 +755,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 		{
 			t.Log("\t\twhen lower boundary is 0 %, upper boundary is 100 %")
 			{
-				t.Log("\t\t\twhen probability for action towards probability is 100 %")
+				t.Log("\t\t\twhen probability for action towards boundary is 100 %")
 				{
 					id := uuid.New()
 					numMaps, numRuns := uint16(1), uint32(1)
@@ -796,6 +796,63 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX, ms.m.getInvocations)
 					}
+				}
+
+				t.Log("\t\t\twhen probability for action towards boundary is 0 %")
+				{
+					id := uuid.New()
+					numMaps, numRuns := uint16(1), uint32(1)
+
+					rc := assembleRunnerConfigForBoundaryTestLoop(
+						numMaps,
+						numRuns,
+						sleepConfigDisabled,
+						sleepConfigDisabled,
+						1.0, 0.0,
+						0.0,
+						1_000,
+					)
+					ms := assembleDummyMapStore(false, false, false, false, false)
+					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
+
+					tl.run()
+					waitForStatusGatheringDone(tl.g)
+
+					msg := "\t\t\t\tnumber of insert invocations must be zero"
+					if ms.m.setInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.setInvocations)
+					}
+
+					msg = "\t\t\t\tnumber of contains key invocations must be equal to number of items in data set"
+					if ms.m.containsKeyInvocations == len(theFellowship) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.containsKeyInvocations)
+					}
+
+					// Contains key check prior to executing remove will correctly indicate
+					// the target map does not contain the key in question, thus returning
+					// before a remove can be attempted --> Number of remove invocations
+					// must be zero
+					msg = "\t\t\t\tnumber of remove invocations must be zero"
+					if ms.m.removeInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.removeInvocations)
+					}
+
+					// The remove attempts will fail because the map does not contain any data,
+					// hence the logic under test should never conclude the remove was successful
+					// and thus determine a read to be carried out next
+					msg = "\t\t\t\tnumber of read invocations must be zero"
+					if ms.m.getInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.getInvocations)
+					}
+
 				}
 			}
 
