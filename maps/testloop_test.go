@@ -852,6 +852,34 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					}
 
 				}
+
+				t.Log("\t\t\twhen probability for action towards boundary is 50 %")
+				{
+					id := uuid.New()
+					numMaps, numRuns := uint16(1), uint32(1)
+
+					rc := assembleRunnerConfigForBoundaryTestLoop(
+						numMaps,
+						numRuns,
+						sleepConfigDisabled,
+						sleepConfigDisabled,
+						1.0, 0.0,
+						0.5,
+					)
+					ms := assembleDummyMapStore(false, false, false, false, false)
+					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
+
+					tl.run()
+					waitForStatusGatheringDone(tl.g)
+
+					msg := "\t\t\t\tnumber of set invocations must be equal to the number of items in the source data set, divided by two"
+					if ms.m.setInvocations == (len(theFellowship)+1)/2 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, ms.m.setInvocations)
+					}
+
+				}
 			}
 
 		}
