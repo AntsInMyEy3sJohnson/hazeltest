@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"strings"
 	"sync"
 )
 
@@ -23,6 +25,7 @@ type (
 		removeInvocations          int
 		destroyInvocations         int
 		sizeInvocations            int
+		getKeySetInvocations       int
 		data                       *sync.Map
 		returnErrorUponGet         bool
 		returnErrorUponSet         bool
@@ -182,6 +185,28 @@ func (m *dummyHzMap) Size(_ context.Context) (int, error) {
 	dummyMapOperationLock.Unlock()
 
 	return size, nil
+
+}
+
+func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predicate.Predicate) ([]any, error) {
+
+	var result []any
+
+	predicateString := predicate.String()
+
+	dummyMapOperationLock.Lock()
+	{
+		m.getKeySetInvocations++
+		m.data.Range(func(key, _ any) bool {
+			if strings.HasPrefix(key.(string), predicateString) {
+				result = append(result, key)
+			}
+			return true
+		})
+	}
+	dummyMapOperationLock.Unlock()
+
+	return result, nil
 
 }
 
