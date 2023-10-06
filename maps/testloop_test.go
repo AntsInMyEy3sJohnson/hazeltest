@@ -1242,7 +1242,7 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
 	c.boundary = &boundaryTestLoopConfig{
 		sleepBetweenOperationChains: sleepBetweenOperationBatches,
-		resetAfterRun:               false,
+		resetAfterChain:             false,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
 			enableRandomness:  false,

@@ -53,7 +53,7 @@ type (
 type (
 	boundaryTestLoopConfig struct {
 		sleepBetweenOperationChains      *sleepConfig
-		resetAfterRun                    bool
+		resetAfterChain                  bool
 		upper                            *boundaryDefinition
 		lower                            *boundaryDefinition
 		actionTowardsBoundaryProbability float32
@@ -159,44 +159,44 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
-	var resetAfterRun bool
+	var resetAfterChain bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.resetAfterRun", client.ValidateBool, func(a any) {
-			resetAfterRun = a.(bool)
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.resetAfterChain", client.ValidateBool, func(a any) {
+			resetAfterChain = a.(bool)
 		})
 	})
 
 	var upperBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.boundaryDefinition.upper.mapFillPercentage", client.ValidatePercentage, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage", client.ValidatePercentage, func(a any) {
 			upperBoundaryMapFillPercentage = float32(a.(float64))
 		})
 	})
 
 	var upperBoundaryEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.boundaryDefinition.upper.enableRandomness", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness", client.ValidateBool, func(a any) {
 			upperBoundaryEnableRandomness = a.(bool)
 		})
 	})
 
 	var lowerBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.boundaryDefinition.lower.mapFillPercentage", client.ValidatePercentage, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage", client.ValidatePercentage, func(a any) {
 			lowerBoundaryMapFillPercentage = float32(a.(float64))
 		})
 	})
 
 	var lowerBoundaryEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.boundaryDefinition.lower.enableRandomness", client.ValidateBool, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness", client.ValidateBool, func(a any) {
 			lowerBoundaryEnableRandomness = a.(bool)
 		})
 	})
 
 	var actionTowardsBoundaryProbability float32
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.elementsRun.boundaryDefinition.actionTowardsBoundaryProbability", client.ValidatePercentage, func(a any) {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability", client.ValidatePercentage, func(a any) {
 			actionTowardsBoundaryProbability = float32(a.(float64))
 		})
 	})
@@ -213,7 +213,7 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 			durationMs:       sleepBetweenOperationChainsDurationMs,
 			enableRandomness: sleepBetweenOperationChainsEnableRandomness,
 		},
-		resetAfterRun: resetAfterRun,
+		resetAfterChain: resetAfterChain,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
 			enableRandomness:  upperBoundaryEnableRandomness,

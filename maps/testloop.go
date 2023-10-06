@@ -115,13 +115,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 
-		// TODO Use concept of operation chain in here, after all?
-		// Issue with current approach is that target map will never experience removals if map actions
-		// are carried out while iterating through list of elements with increasing index -- the removal of key j + 1
-		// will never be successful if the latest insert was carried out on key j! (d'uh)
-		// Better: Iterate though operation chain and choose each element from data set based on algorithm that minimizes
-		// "waste" on the extreme fill/drain states on the map --> Will introduce some complexity, but still better
-		// than current solution
 		for j := 0; j < len(l.execution.elements); j++ {
 			if currentlyStoredElements, err := m.Size(l.execution.ctx); err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("cannot check for mode change: unable to query current size of map '%s' in run %d -- will try again in next run", mapName, i), log.WarnLevel)
