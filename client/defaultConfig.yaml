@@ -267,6 +267,7 @@ mapTests:
             enabled: true
             durationMs: 2000
             enableRandomness: true
+          # TODO Sleep between runs?
         operationChain:
           length: 1_000
           resetAfterChain: true
