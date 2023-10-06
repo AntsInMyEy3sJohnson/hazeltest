@@ -59,7 +59,7 @@ func TestInitializeTestLoop(t *testing.T) {
 
 		t.Log("\twhen unknown test loop type is provided")
 		{
-			l, err := initializeTestLoop(&runnerConfig{loopType: runnerLoopType("saruman")})
+			l, err := initializeTestLoop(&runnerConfig{loopType: "saruman"})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -123,7 +123,8 @@ func TestRunPokedexMapTests(t *testing.T) {
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				dummyConfig: map[string]any{
-					"mapTests.pokedex.enabled": true,
+					"mapTests.pokedex.enabled":       true,
+					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
 			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}

@@ -42,7 +42,7 @@ const (
 var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
-	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
+	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 	dummyMapOperationLock    sync.Mutex
 )
 

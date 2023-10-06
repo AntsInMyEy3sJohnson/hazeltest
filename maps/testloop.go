@@ -134,8 +134,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				j--
 			}
 
-			fmt.Printf("j: %d, nextAction: %s\n", j, l.nextAction)
-
 			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, l.execution.elements[j]); err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
 			} else {
