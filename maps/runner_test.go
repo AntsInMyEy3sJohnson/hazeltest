@@ -29,6 +29,7 @@ var (
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.length":                                              1_000,
 		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                                     true,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          0.8,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,

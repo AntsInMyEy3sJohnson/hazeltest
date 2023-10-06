@@ -53,6 +53,7 @@ type (
 type (
 	boundaryTestLoopConfig struct {
 		sleepBetweenOperationChains      *sleepConfig
+		chainLength                      int
 		resetAfterChain                  bool
 		upper                            *boundaryDefinition
 		lower                            *boundaryDefinition
@@ -159,6 +160,13 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
+	var operationChainLength int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.length", client.ValidateInt, func(a any) {
+			operationChainLength = a.(int)
+		})
+	})
+
 	var resetAfterChain bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.resetAfterChain", client.ValidateBool, func(a any) {
@@ -213,6 +221,7 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 			durationMs:       sleepBetweenOperationChainsDurationMs,
 			enableRandomness: sleepBetweenOperationChainsEnableRandomness,
 		},
+		chainLength:     operationChainLength,
 		resetAfterChain: resetAfterChain,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
@@ -315,7 +324,6 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 
 	var loopType runnerLoopType
 	keyPath := b.runnerKeyPath + ".testLoop.type"
-	// TODO Refactor into own method and add test
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(keyPath, validateTestLoopType, func(a any) {
 			loopType = runnerLoopType(a.(string))
