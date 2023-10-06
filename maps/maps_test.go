@@ -31,6 +31,7 @@ type (
 		returnErrorUponSet         bool
 		returnErrorUponContainsKey bool
 		returnErrorUponRemove      bool
+		returnErrorUponGetKeySet   bool
 	}
 )
 
@@ -190,9 +191,13 @@ func (m *dummyHzMap) Size(_ context.Context) (int, error) {
 
 func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predicate.Predicate) ([]any, error) {
 
+	if m.returnErrorUponGetKeySet {
+		return nil, errors.New("poof!")
+	}
+
 	var result []any
 
-	predicateString := predicate.String()
+	predicateString := strings.ReplaceAll(strings.Fields(predicate.String())[2], "%)", "")
 
 	dummyMapOperationLock.Lock()
 	{

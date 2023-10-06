@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
@@ -42,6 +43,7 @@ type (
 		lastAction        mapAction
 		nextAction        mapAction
 		numElementsStored uint32
+		localKeyCache     map[string]struct{}
 	}
 	testLoopExecution[t any] struct {
 		id                     uuid.UUID
@@ -101,6 +103,25 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
+func (l *boundaryTestLoop[t]) populateLocalKeyCache(m hzMap, mapName string, mapNumber uint16) error {
+
+	l.localKeyCache = make(map[string]struct{})
+	keySet, err := m.GetKeySetWithPredicate(l.execution.ctx, predicate.SQL(fmt.Sprintf("__key like %s-%d%%", client.ID(), mapNumber)))
+
+	if err != nil {
+		lp.LogHzEvent(fmt.Sprintf("unable to populate local cache because predicated query for key set on map '%s' was unsuccessful: %s", mapName, err.Error()), log.WarnLevel)
+		return err
+	}
+
+	// TODO Check whether thread safety is required for this map
+	for _, v := range keySet {
+		l.localKeyCache[v.(string)] = struct{}{}
+	}
+
+	return nil
+
+}
+
 func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
@@ -115,7 +136,12 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 
-		for j := 0; j < len(l.execution.elements); j++ {
+		if err := l.populateLocalKeyCache(m, mapName, mapNumber); err != nil {
+			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
+			return
+		}
+
+		for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
 			if currentlyStoredElements, err := m.Size(l.execution.ctx); err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("cannot check for mode change: unable to query current size of map '%s' in run %d -- will try again in next run", mapName, i), log.WarnLevel)
 				continue
@@ -179,26 +205,26 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch l.nextAction {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
+			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return false, err
 		} else {
-			lp.LogRunnerEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.TraceLevel)
+			lp.LogHzEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.TraceLevel)
 			return true, nil
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
+			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return false, err
 		} else {
-			lp.LogRunnerEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.TraceLevel)
+			lp.LogHzEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.TraceLevel)
 			return true, nil
 		}
 	case read:
 		if v, err := m.Get(l.execution.ctx, key); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
+			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
 			return false, err
 		} else {
-			lp.LogRunnerEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
+			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
 			return true, nil
 		}
 
