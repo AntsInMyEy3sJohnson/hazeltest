@@ -43,7 +43,6 @@ type (
 		lastAction        mapAction
 		nextAction        mapAction
 		numElementsStored uint32
-		localKeyCache     map[string]struct{}
 	}
 	testLoopExecution[t any] struct {
 		id                     uuid.UUID
@@ -103,22 +102,22 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-func (l *boundaryTestLoop[t]) populateLocalKeyCache(m hzMap, mapName string, mapNumber uint16) error {
+func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber uint16) (map[string]struct{}, error) {
 
-	l.localKeyCache = make(map[string]struct{})
-	keySet, err := m.GetKeySetWithPredicate(l.execution.ctx, predicate.SQL(fmt.Sprintf("__key like %s-%d%%", client.ID(), mapNumber)))
+	keySet, err := m.GetKeySetWithPredicate(ctx, predicate.SQL(fmt.Sprintf("__key like %s-%d%%", client.ID(), mapNumber)))
+
+	result := make(map[string]struct{})
 
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("unable to populate local cache because predicated query for key set on map '%s' was unsuccessful: %s", mapName, err.Error()), log.WarnLevel)
-		return err
+		return result, err
 	}
 
-	// TODO Check whether thread safety is required for this map
 	for _, v := range keySet {
-		l.localKeyCache[v.(string)] = struct{}{}
+		result[v.(string)] = struct{}{}
 	}
 
-	return nil
+	return result, nil
 
 }
 
@@ -136,7 +135,9 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 
-		if err := l.populateLocalKeyCache(m, mapName, mapNumber); err != nil {
+		_, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
+
+		if err != nil {
 			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
 			return
 		}

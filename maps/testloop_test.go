@@ -66,15 +66,10 @@ func TestPopulateLocalCache(t *testing.T) {
 		mapName := "ht_" + mapBaseName
 		t.Log("\twhen retrieving the key set is successful")
 		{
-			tl := &boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
-					ctx: context.TODO(),
-				},
-			}
 			ms := assembleDummyMapStore(false, false, false, false, false, false)
 			populateDummyHzMapStore(&ms)
 
-			err := tl.populateLocalKeyCache(ms.m, mapName, 0)
+			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -83,29 +78,19 @@ func TestPopulateLocalCache(t *testing.T) {
 				t.Fatal(msg, ballotX, err)
 			}
 
-			msg = "\t\tlocal key cache must be populated"
-			if len(tl.localKeyCache) > 0 {
+			msg = "\t\tresult must contain keys from map"
+			if len(keys) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 		}
 
-		t.Log("\twhen retrieved key set is empty and cache already had state")
+		t.Log("\twhen retrieved key set is empty")
 		{
-			tl := &boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
-					ctx: context.TODO(),
-				},
-			}
 			ms := assembleDummyMapStore(false, false, false, false, false, false)
 
-			previousState := "awesome-previous-state"
-			tl.localKeyCache = map[string]struct{}{
-				previousState: {},
-			}
-
-			err := tl.populateLocalKeyCache(ms.m, mapName, 0)
+			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -114,9 +99,8 @@ func TestPopulateLocalCache(t *testing.T) {
 				t.Fatal(msg, ballotX, err)
 			}
 
-			// This is to make sure cache gets wiped regardless of whether query for key set returns something
-			msg = "\t\tcache must be empty"
-			if len(tl.localKeyCache) == 0 {
+			msg = "\t\treturned map must be empty, too"
+			if len(keys) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -125,19 +109,9 @@ func TestPopulateLocalCache(t *testing.T) {
 
 		t.Log("\twhen key set retrieval fails")
 		{
-			tl := &boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
-					ctx: context.TODO(),
-				},
-			}
 			ms := assembleDummyMapStore(false, false, false, false, false, true)
 
-			previousState := "awesome-previous-state"
-			tl.localKeyCache = map[string]struct{}{
-				previousState: {},
-			}
-
-			err := tl.populateLocalKeyCache(ms.m, mapName, 0)
+			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -146,8 +120,8 @@ func TestPopulateLocalCache(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tprevious state must have been cleared anyway"
-			if len(tl.localKeyCache) == 0 {
+			msg = "\t\treturned map must be empty"
+			if len(keys) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
