@@ -2,6 +2,7 @@ package maps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/api"
@@ -102,6 +103,64 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
+func chooseRandomKeyFromCache(cache map[string]struct{}) string {
+
+	// Seeded in main
+	randomIndex := rand.Intn(len(cache))
+
+	i := 0
+	for k := range cache {
+		if i == randomIndex {
+			return k
+		}
+		i++
+	}
+
+	return ""
+
+}
+
+// TODO Implement test
+func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
+
+	// Seeded in main
+	randomIndex := rand.Intn(len(l.execution.elements))
+	return l.execution.elements[randomIndex]
+
+}
+
+// TODO Implement test
+func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache map[string]struct{}) (t, error) {
+
+	switch action {
+	case insert:
+		for _, v := range l.execution.elements {
+			elementID := l.execution.getElementIdFunc(v)
+			if _, containsKey := keysCache[elementID]; !containsKey {
+				return v, nil
+			}
+		}
+		lp.LogRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- choosing one at random", log.InfoLevel)
+		return l.chooseRandomElementFromSourceData(), nil
+	case read, remove:
+		key := chooseRandomKeyFromCache(keysCache)
+		for _, v := range l.execution.elements {
+			elementID := l.execution.getElementIdFunc(v)
+			if key == elementID {
+				return v, nil
+			}
+		}
+		msg := fmt.Sprintf("key '%s' from local cache had no match in source data -- cache may have been populated incorrectly", key)
+		lp.LogRunnerEvent(msg, log.ErrorLevel)
+		return nil, errors.New(msg)
+	default:
+		msg := fmt.Sprintf("no such map action: %s", action)
+		lp.LogRunnerEvent(msg, log.ErrorLevel)
+		return nil, errors.New(msg)
+	}
+
+}
+
 func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber uint16) (map[string]struct{}, error) {
 
 	keySet, err := m.GetKeySetWithPredicate(ctx, predicate.SQL(fmt.Sprintf("__key like %s-%d%%", client.ID(), mapNumber)))
@@ -135,7 +194,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 
-		_, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
+		keysCache, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
 
 		if err != nil {
 			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
@@ -143,13 +202,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		}
 
 		for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
-			if currentlyStoredElements, err := m.Size(l.execution.ctx); err != nil {
-				lp.LogRunnerEvent(fmt.Sprintf("cannot check for mode change: unable to query current size of map '%s' in run %d -- will try again in next run", mapName, i), log.WarnLevel)
-				continue
-			} else {
-				l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(currentlyStoredElements), l.currentMode)
-			}
-
+			l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), l.currentMode)
 			l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
 
 			if l.nextAction == read && j > 0 {
@@ -161,12 +214,20 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				j--
 			}
 
-			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, l.execution.elements[j]); err != nil {
+			nextMapElement, err := l.chooseNextMapElement(l.nextAction, keysCache)
+
+			if err != nil {
+				lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on due to error ('%s') -- aborting operation chain to try in next run", err.Error()), log.ErrorLevel)
+				break
+			}
+
+			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, nextMapElement); err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
 			} else {
 				if actionExecuted {
 					lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
 					l.lastAction = l.nextAction
+					updateKeysCache(l.lastAction, keysCache, l.execution.getElementIdFunc(nextMapElement))
 				} else {
 					lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
 				}
@@ -176,6 +237,21 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
+
+}
+
+func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct{}, elementKey string) {
+
+	switch lastSuccessfulAction {
+	case insert, remove:
+		if lastSuccessfulAction == insert {
+			keysCache[elementKey] = struct{}{}
+		} else {
+			delete(keysCache, elementKey)
+		}
+	default:
+		lp.LogRunnerEvent(fmt.Sprintf("no action to perform on local cache for last successful action '%s'", lastSuccessfulAction), log.TraceLevel)
+	}
 
 }
 
