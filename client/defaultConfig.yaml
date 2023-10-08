@@ -223,7 +223,7 @@ mapTests:
     # If set to 'false', the PokedexRunner will not be executed
     enabled: true
     # The runner will spawn one goroutine for each map
-    numMaps: 5
+    numMaps: 1
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
     # In other words, if this is set to 'true', this PokedexRunner will use <numMaps> distinct maps in Hazelcast; if it is set
     # to 'false', the <numMaps> goroutines will access the same map
