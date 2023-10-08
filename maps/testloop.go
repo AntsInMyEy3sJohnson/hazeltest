@@ -103,7 +103,12 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-func chooseRandomKeyFromCache(cache map[string]struct{}) string {
+// TODO Implement test
+func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
+
+	if len(cache) == 0 {
+		return "", errors.New("cannot pick element from empty cache")
+	}
 
 	// Seeded in main
 	randomIndex := rand.Intn(len(cache))
@@ -111,12 +116,12 @@ func chooseRandomKeyFromCache(cache map[string]struct{}) string {
 	i := 0
 	for k := range cache {
 		if i == randomIndex {
-			return k
+			return k, nil
 		}
 		i++
 	}
 
-	return ""
+	return "", fmt.Errorf("no match found for index %d in cache of size %d", randomIndex, len(cache))
 
 }
 
@@ -130,33 +135,38 @@ func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
 }
 
 // TODO Implement test
-func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache map[string]struct{}) (t, error) {
+func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache map[string]struct{}, mapNumber uint16) (t, error) {
 
 	switch action {
 	case insert:
 		for _, v := range l.execution.elements {
-			elementID := l.execution.getElementIdFunc(v)
-			if _, containsKey := keysCache[elementID]; !containsKey {
+			key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
+			if _, containsKey := keysCache[key]; !containsKey {
 				return v, nil
 			}
 		}
 		lp.LogRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- choosing one at random", log.InfoLevel)
 		return l.chooseRandomElementFromSourceData(), nil
 	case read, remove:
-		key := chooseRandomKeyFromCache(keysCache)
+		keyFromCache, err := chooseRandomKeyFromCache(keysCache)
+		if err != nil {
+			msg := fmt.Sprintf("choosing next map element for map action '%s' unsuccessful: %s", action, err.Error())
+			lp.LogRunnerEvent(msg, log.ErrorLevel)
+			return l.execution.elements[0], fmt.Errorf(msg)
+		}
 		for _, v := range l.execution.elements {
-			elementID := l.execution.getElementIdFunc(v)
-			if key == elementID {
+			keyFromSourceData := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
+			if keyFromSourceData == keyFromCache {
 				return v, nil
 			}
 		}
-		msg := fmt.Sprintf("key '%s' from local cache had no match in source data -- cache may have been populated incorrectly", key)
+		msg := fmt.Sprintf("key '%s' from local cache had no match in source data -- cache may have been populated incorrectly", keyFromCache)
 		lp.LogRunnerEvent(msg, log.ErrorLevel)
-		return nil, errors.New(msg)
+		return l.execution.elements[0], errors.New(msg)
 	default:
 		msg := fmt.Sprintf("no such map action: %s", action)
 		lp.LogRunnerEvent(msg, log.ErrorLevel)
-		return nil, errors.New(msg)
+		return l.execution.elements[0], errors.New(msg)
 	}
 
 }
@@ -202,8 +212,9 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		}
 
 		for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
+
 			l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), l.currentMode)
-			l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability)
+			l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability, len(keysCache))
 
 			if l.nextAction == read && j > 0 {
 				// We need this loop to perform a state-changing operation on every element, so
@@ -214,12 +225,16 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				j--
 			}
 
-			nextMapElement, err := l.chooseNextMapElement(l.nextAction, keysCache)
+			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, l.currentMode, l.nextAction), log.TraceLevel)
+
+			nextMapElement, err := l.chooseNextMapElement(l.nextAction, keysCache, mapNumber)
 
 			if err != nil {
-				lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on due to error ('%s') -- aborting operation chain to try in next run", err.Error()), log.ErrorLevel)
+				lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), log.ErrorLevel)
 				break
 			}
+
+			lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, l.nextAction), log.TraceLevel)
 
 			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, nextMapElement); err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
@@ -227,12 +242,14 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				if actionExecuted {
 					lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
 					l.lastAction = l.nextAction
-					updateKeysCache(l.lastAction, keysCache, l.execution.getElementIdFunc(nextMapElement))
+					updateKeysCache(l.lastAction, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
 				} else {
 					lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
 				}
 			}
 		}
+
+		lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
 
 	}
 
@@ -240,15 +257,16 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct{}, elementKey string) {
+func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct{}, key string) {
 
 	switch lastSuccessfulAction {
 	case insert, remove:
 		if lastSuccessfulAction == insert {
-			keysCache[elementKey] = struct{}{}
+			keysCache[key] = struct{}{}
 		} else {
-			delete(keysCache, elementKey)
+			delete(keysCache, key)
 		}
+		lp.LogRunnerEvent(fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(keysCache)), log.TraceLevel)
 	default:
 		lp.LogRunnerEvent(fmt.Sprintf("no action to perform on local cache for last successful action '%s'", lastSuccessfulAction), log.TraceLevel)
 	}
@@ -260,24 +278,6 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	elementID := l.execution.getElementIdFunc(element)
 
 	key := assembleMapKey(mapNumber, elementID)
-
-	containsKey, err := m.ContainsKey(l.execution.ctx, key)
-	if err != nil {
-		return false, err
-	}
-
-	if l.nextAction == insert && containsKey {
-		lp.LogRunnerEvent(fmt.Sprintf("was asked to insert key '%s', but map '%s' already contained key -- no-op", key, mapName), log.TraceLevel)
-		return false, nil
-	}
-	if l.nextAction == remove && !containsKey {
-		lp.LogRunnerEvent(fmt.Sprintf("was asked to remove key '%s' from map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
-		return false, nil
-	}
-	if l.nextAction == read && !containsKey {
-		lp.LogRunnerEvent(fmt.Sprintf("was asked to read key '%s' in map '%s', but map did not contain key -- no-op", key, mapName), log.TraceLevel)
-		return false, nil
-	}
 
 	switch l.nextAction {
 	case insert:
@@ -311,7 +311,12 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 }
 
-func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32) mapAction {
+// TODO Extend tests
+func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32, currentCacheSize int) mapAction {
+
+	if currentCacheSize == 0 {
+		return insert
+	}
 
 	if lastAction == insert || lastAction == remove {
 		return read
@@ -338,15 +343,15 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 }
 
 func checkForModeChange(upperBoundary, lowerBoundary float32,
-	totalNumberOfElements, currentlyStoredNumberOfElements uint32, currentMode actionMode) actionMode {
+	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) actionMode {
 
-	if currentlyStoredNumberOfElements == 0 && currentMode == "" {
-		// Initialization case on empty map --> Provide fill to get things going
+	// TODO Update tests
+	if currentCacheSize == 0 || currentMode == "" {
 		return fill
 	}
 
 	total := float32(totalNumberOfElements)
-	current := float32(currentlyStoredNumberOfElements)
+	current := float32(currentCacheSize)
 
 	if current < total*lowerBoundary {
 		return fill

@@ -582,9 +582,20 @@ func TestDetermineNextMapAction(t *testing.T) {
 
 	t.Log("given a function to determine the next map action to be executed")
 	{
+		t.Log("\twhen cache is empty")
+		{
+			nextMapAction := determineNextMapAction(fill, insert, 0.5, 0)
+
+			msg := "\t\tnext action must be insert"
+			if nextMapAction == insert {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMapAction)
+			}
+		}
 		t.Log("\twhen last action was insert or remove")
 		{
-			nextMapAction := determineNextMapAction(fill, insert, 0.5)
+			nextMapAction := determineNextMapAction(fill, insert, 0.5, 1)
 
 			msg := "\t\taction after insert must be read"
 			if nextMapAction == read {
@@ -593,7 +604,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			nextMapAction = determineNextMapAction(fill, remove, 0.5)
+			nextMapAction = determineNextMapAction(fill, remove, 0.5, 1)
 
 			msg = "\t\taction after remove must be read"
 
@@ -674,7 +685,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 		{
 			var unknownMode actionMode = "awesomeActionMode"
 			lastAction := read
-			nextAction := determineNextMapAction(unknownMode, lastAction, 0.0)
+			nextAction := determineNextMapAction(unknownMode, lastAction, 0.0, 1)
 
 			msg := "\t\tnext action must be equal to last action"
 			if nextAction == lastAction {
@@ -717,7 +728,7 @@ func generateMapActionResults(currentMode actionMode, numInvocations int, action
 	removeCount := 0
 	otherCount := 0
 	for i := 0; i < numInvocations; i++ {
-		action := determineNextMapAction(currentMode, read, float32(actionProbability))
+		action := determineNextMapAction(currentMode, read, float32(actionProbability), 1)
 		if action == insert {
 			insertCount++
 		} else if action == remove {
