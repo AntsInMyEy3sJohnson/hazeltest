@@ -36,14 +36,19 @@ type (
 		s         sleeper
 		g         *status.Gatherer
 	}
+	modeCache struct {
+		current actionMode
+	}
+	actionCache struct {
+		last mapAction
+		next mapAction
+	}
 	boundaryTestLoop[t any] struct {
-		execution         *testLoopExecution[t]
-		s                 sleeper
-		g                 *status.Gatherer
-		currentMode       actionMode
-		lastAction        mapAction
-		nextAction        mapAction
-		numElementsStored uint32
+		execution    *testLoopExecution[t]
+		s            sleeper
+		g            *status.Gatherer
+		modeCaches   []modeCache
+		actionCaches []actionCache
 	}
 	testLoopExecution[t any] struct {
 		id                     uuid.UUID
@@ -90,6 +95,8 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *statu
 	l.execution = lc
 	l.s = s
 	l.g = g
+	l.modeCaches = make([]modeCache, l.execution.runnerConfig.numMaps)
+	l.actionCaches = make([]actionCache, l.execution.runnerConfig.numMaps)
 }
 
 func (l *boundaryTestLoop[t]) run() {
@@ -211,12 +218,15 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			return
 		}
 
+		modes := l.modeCaches[mapNumber]
+		actions := l.actionCaches[mapNumber]
+
 		for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
 
-			l.currentMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), l.currentMode)
-			l.nextAction = determineNextMapAction(l.currentMode, l.lastAction, actionProbability, len(keysCache))
+			modes.current = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
+			actions.next = determineNextMapAction(modes.current, actions.last, actionProbability, len(keysCache))
 
-			if l.nextAction == read && j > 0 {
+			if actions.next == read && j > 0 {
 				// We need this loop to perform a state-changing operation on every element, so
 				// don't count read operation since it did not change state (except potentially some
 				// meta information on the key read in the map on the cluster)
@@ -225,27 +235,24 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				j--
 			}
 
-			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, l.currentMode, l.nextAction), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
 
-			nextMapElement, err := l.chooseNextMapElement(l.nextAction, keysCache, mapNumber)
+			nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
 
 			if err != nil {
 				lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), log.ErrorLevel)
 				break
 			}
 
-			lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, l.nextAction), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
 
-			if actionExecuted, err := l.executeMapAction(m, mapName, mapNumber, nextMapElement); err != nil {
-				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", l.nextAction, mapName, i), log.WarnLevel)
+			if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
+				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, i), log.WarnLevel)
 			} else {
-				if actionExecuted {
-					lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", l.nextAction, mapName), log.TraceLevel)
-					l.lastAction = l.nextAction
-					updateKeysCache(l.lastAction, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
-				} else {
-					lp.LogRunnerEvent(fmt.Sprintf("action '%s' did not return error, but was not executed -- trying again in next loop", l.nextAction), log.TraceLevel)
-				}
+				lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
+				actions.last = actions.next
+				actions.next = ""
+				updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
 			}
 		}
 
@@ -273,41 +280,41 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t) (bool, error) {
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction) error {
 
 	elementID := l.execution.getElementIdFunc(element)
 
 	key := assembleMapKey(mapNumber, elementID)
 
-	switch l.nextAction {
+	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
-			return false, err
+			return err
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.TraceLevel)
-			return true, nil
+			return nil
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
-			return false, err
+			return err
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.TraceLevel)
-			return true, nil
+			return nil
 		}
 	case read:
 		if v, err := m.Get(l.execution.ctx, key); err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
-			return false, err
+			return err
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
-			return true, nil
+			return nil
 		}
 
 	}
 
-	return false, fmt.Errorf("unknown map action: %s", l.nextAction)
+	return fmt.Errorf("unknown map action: %s", action)
 
 }
 

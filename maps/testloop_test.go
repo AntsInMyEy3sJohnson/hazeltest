@@ -137,40 +137,16 @@ func TestExecuteMapAction(t *testing.T) {
 	{
 		t.Log("\twhen next action is insert")
 		{
-			t.Log("\t\twhen check for contains key yields error")
-			{
-				ms := assembleDummyMapStore(false, false, false, true, false, false)
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = insert
-
-				actionExecuted, err := tl.executeMapAction(ms.m, "some-map-name", 0, theFellowship[0])
-
-				msg := "\t\t\terror must be returned"
-				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-			}
-
 			t.Log("\t\twhen target map does not contain key yet")
 			{
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = insert
+				action := insert
 
 				mapNumber := 0
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-				actionExecuted, err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0])
+				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
 
 				msg := "\t\t\tno error must be returned"
 
@@ -178,13 +154,6 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, err)
-				}
-
-				msg = fmt.Sprintf("\t\t\taction '%s' must be reported as executed", tl.nextAction)
-				if actionExecuted {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tcontains key check must have been executed once"
@@ -219,19 +188,11 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(false, false, true, false, false, false)
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = insert
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0])
+				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -243,13 +204,13 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = insert
+				action := insert
 
 				mapNumber := uint16(0)
 				populateDummyHzMapStore(&ms)
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0])
+				err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0], action)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -258,15 +219,8 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = fmt.Sprintf("\t\t\taction '%s' must be reported as not executed", tl.nextAction)
-				if !actionExecuted {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tno set invocation must have been attempted"
-				if ms.m.setInvocations == 0 {
+				msg = "\t\t\tset invocation must have been attempted anyway"
+				if ms.m.setInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected no invocations, got %d", ms.m.setInvocations))
@@ -281,22 +235,14 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = remove
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, err)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tone check for key must have been performed"
@@ -306,8 +252,8 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.containsKeyInvocations))
 				}
 
-				msg = "\t\t\tno remove must have been attempted"
-				if ms.m.removeInvocations == 0 {
+				msg = "\t\t\tremove must have been attempted anyway"
+				if ms.m.removeInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 remove invocations, got %d", ms.m.removeInvocations))
@@ -319,21 +265,13 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, true, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = remove
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -360,21 +298,13 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = remove
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as executed"
-				if actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -403,19 +333,11 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = read
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -428,7 +350,7 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.containsKeyInvocations))
 				}
 
-				msg = "\t\t\tno read must have been attempted"
+				msg = "\t\t\tread must have been attempted anyway"
 				if ms.m.getInvocations == 0 {
 					t.Log(msg, checkMark)
 				} else {
@@ -441,21 +363,13 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, true, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = read
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as not executed"
-				if !actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -482,21 +396,13 @@ func TestExecuteMapAction(t *testing.T) {
 				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
-				tl.nextAction = read
 
 				populateDummyHzMapStore(&ms)
 
-				actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\taction must be reported as executed"
-				if actionExecuted {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -524,9 +430,8 @@ func TestExecuteMapAction(t *testing.T) {
 			ms := assembleDummyMapStore(false, false, false, false, false, false)
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
-			tl.nextAction = unknownAction
 
-			actionExecuted, err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0])
+			err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], unknownAction)
 
 			msg := "\t\t\terror must be returned"
 			if err != nil {
@@ -535,17 +440,6 @@ func TestExecuteMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\t\taction must be reported as not executed"
-			if !actionExecuted {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			// There are only three operations available, and it's highly unlikely anyone will ever invoke this
-			// method with the next action set to an action other than these three. Therefore, it's fine not to verify
-			// in the method if the next action is one of insert, remove, or delete before performing the contains key
-			// check.
 			msg = "\t\t\tone check for key must have been performed"
 			if ms.m.containsKeyInvocations == 1 {
 				t.Log(msg, checkMark)
@@ -852,7 +746,8 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						1.0,
 						0.0,
 						1.0,
-						1_000,
+						// Set operation chain length to length of source data for this set of tests
+						len(theFellowship),
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -867,8 +762,8 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						t.Fatal(msg, ballotX, ms.m.setInvocations)
 					}
 
-					msg = "\t\t\t\tnumber of invocations to query size of map must be equal to number of gets plus number of sets"
-					if ms.m.sizeInvocations == ms.m.setInvocations+ms.m.getInvocations {
+					msg = "\t\t\t\tremote map must have been queried for keys exactly once"
+					if ms.m.getKeySetInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, ms.m.sizeInvocations)
@@ -894,7 +789,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						sleepConfigDisabled,
 						1.0, 0.0,
 						0.0,
-						1_000,
+						len(theFellowship),
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -907,13 +802,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, ms.m.setInvocations)
-					}
-
-					msg = "\t\t\t\tnumber of contains key invocations must be equal to number of items in data set"
-					if ms.m.containsKeyInvocations == len(theFellowship) {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, ms.m.containsKeyInvocations)
 					}
 
 					// Contains key check prior to executing remove will correctly indicate
