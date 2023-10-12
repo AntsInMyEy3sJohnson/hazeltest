@@ -839,7 +839,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						sleepConfigDisabled,
 						1.0, 0.0,
 						0.5,
-						1_000,
+						9,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)

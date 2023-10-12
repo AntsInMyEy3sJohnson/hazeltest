@@ -77,6 +77,13 @@ const (
 	insert                mapAction  = "insert"
 	remove                mapAction  = "remove"
 	read                  mapAction  = "read"
+	// Special action introduced to represent cases where
+	// no insert should be executed (e.g. because the action
+	// probability was set to zero percent), but the other actions
+	// would not make sense and therefore should not be carried
+	// out, either (e.g. target map is empty, so cannot remove or
+	// read anything)
+	noop mapAction = "noop"
 )
 
 var (
@@ -226,6 +233,16 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			modes.current = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
 			actions.next = determineNextMapAction(modes.current, actions.last, actionProbability, len(keysCache))
 
+			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
+			if actions.next == noop {
+				// TODO Improve handling of how this case
+				// A runner reaching this state is fundamentally forced to pretty much idle not only for the current chain,
+				// but also for all remaining chains in the remaining runs, so there's no need waste compute resources
+				// --> Return from entire run once this case has been detected
+				lp.LogRunnerEvent(fmt.Sprintf("encountered no-op action in chain iteration %d, thus skipping iteration. caution: probably incorrect config", j), log.WarnLevel)
+				continue
+			}
+
 			if actions.next == read && j > 0 {
 				// We need this loop to perform a state-changing operation on every element, so
 				// don't count read operation since it did not change state (except potentially some
@@ -234,8 +251,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 				// must refer to an element previously inserted
 				j--
 			}
-
-			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
 
 			nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
 
@@ -322,7 +337,15 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32, currentCacheSize int) mapAction {
 
 	if currentCacheSize == 0 {
-		return insert
+		if actionProbability > 0 {
+			// If an action is desired, no action but an insert would make sense on an empty cache
+			return insert
+		} else {
+			// Case when cache is empty (e.g. initial state), but no action towards the boundary is desired
+			// (a runner thus configured can only ever execute no-ops, so this wouldn't make much sense config-wise,
+			// but this case still needs to be addressed)
+			return noop
+		}
 	}
 
 	if lastAction == insert || lastAction == remove {
