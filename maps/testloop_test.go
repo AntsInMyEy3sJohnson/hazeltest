@@ -140,7 +140,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet")
 			{
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
 
@@ -186,7 +186,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
 				ms := assembleDummyMapStore(false, false, true, false, false, false)
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
@@ -202,7 +202,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map already contains key")
 			{
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
 
@@ -232,7 +232,7 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -262,7 +262,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove yields error")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, false, false, false, true, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -295,7 +295,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove does not yield error")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -330,7 +330,7 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -360,7 +360,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get yields error")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, true, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -393,7 +393,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
-				rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(false, false, false, false, false, false)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -426,7 +426,7 @@ func TestExecuteMapAction(t *testing.T) {
 		}
 		t.Log("\twhen unknown action is provided")
 		{
-			rc := assembleRunnerConfigForBatchTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 			ms := assembleDummyMapStore(false, false, false, false, false, false)
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
@@ -748,6 +748,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						1.0,
 						// Set operation chain length to length of source data for this set of tests
 						len(theFellowship),
+						true,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -790,6 +791,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						1.0, 0.0,
 						0.0,
 						len(theFellowship),
+						true,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -840,6 +842,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						1.0, 0.0,
 						0.5,
 						9,
+						true,
 					)
 					ms := assembleDummyMapStore(false, false, false, false, false, false)
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
@@ -1157,24 +1160,24 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
-	tlc := assembleTestLoopConfig(id, source, rc, ms)
+	tle := assembleTestLoopExecution(id, source, rc, ms)
 	tl := boundaryTestLoop[string]{}
-	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
+	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 }
 
 func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) batchTestLoop[string] {
 
-	tlc := assembleTestLoopConfig(id, source, rc, ms)
+	tle := assembleTestLoopExecution(id, source, rc, ms)
 	tl := batchTestLoop[string]{}
-	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
+	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
+func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
 		id:                     id,
@@ -1214,13 +1217,14 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	sleepBetweenOperationBatches *sleepConfig,
 	upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage, actionTowardsBoundaryProbability float32,
 	operationChainLength int,
+	resetAfterChain bool,
 ) *runnerConfig {
 
 	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
 	c.boundary = &boundaryTestLoopConfig{
 		sleepBetweenOperationChains: sleepBetweenOperationBatches,
 		chainLength:                 operationChainLength,
-		resetAfterChain:             false,
+		resetAfterChain:             resetAfterChain,
 		upper: &boundaryDefinition{
 			mapFillPercentage: upperBoundaryMapFillPercentage,
 			enableRandomness:  false,
