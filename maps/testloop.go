@@ -185,9 +185,17 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 
 }
 
+func assemblePredicate(clientID uuid.UUID, mapNumber uint16) predicate.Predicate {
+
+	return predicate.SQL(fmt.Sprintf("__key like %s-%d%%", clientID, mapNumber))
+
+}
+
 func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber uint16) (map[string]struct{}, error) {
 
-	keySet, err := m.GetKeySetWithPredicate(ctx, predicate.SQL(fmt.Sprintf("__key like %s-%d%%", client.ID(), mapNumber)))
+	p := assemblePredicate(client.ID(), mapNumber)
+	lp.LogRunnerEvent(fmt.Sprintf("querying map keys for map '%s' in goroutine %d using predicate '%s'", mapName, mapNumber, p.String()), log.TraceLevel)
+	keySet, err := m.GetKeySetWithPredicate(ctx, p)
 
 	result := make(map[string]struct{})
 
@@ -205,10 +213,6 @@ func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber 
 }
 
 func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
-
-	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
-	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
-	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -228,54 +232,97 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		modes := l.modeCaches[mapNumber]
 		actions := l.actionCaches[mapNumber]
 
-		for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
-
-			modes.current = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
-			actions.next = determineNextMapAction(modes.current, actions.last, actionProbability, len(keysCache))
-
-			lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
-			if actions.next == noop {
-				// TODO Improve handling of how this case
-				// A runner reaching this state is fundamentally forced to pretty much idle not only for the current chain,
-				// but also for all remaining chains in the remaining runs, so there's no need waste compute resources
-				// --> Return from entire run once this case has been detected
-				lp.LogRunnerEvent(fmt.Sprintf("encountered no-op action in chain iteration %d, thus skipping iteration. caution: probably incorrect config", j), log.WarnLevel)
-				continue
-			}
-
-			if actions.next == read && j > 0 {
-				// We need this loop to perform a state-changing operation on every element, so
-				// don't count read operation since it did not change state (except potentially some
-				// meta information on the key read in the map on the cluster)
-				// Also, in case of a read, the element the read operation will be attempted for
-				// must refer to an element previously inserted
-				j--
-			}
-
-			nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
-
-			if err != nil {
-				lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), log.ErrorLevel)
-				break
-			}
-
-			lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
-
-			if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
-				lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, i), log.WarnLevel)
-			} else {
-				lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
-				actions.last = actions.next
-				actions.next = ""
-				updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
-			}
+		if err := l.runOperationChain(i, m, &modes, &actions, mapName, mapNumber, keysCache); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
+		} else {
+			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
 		}
 
-		lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
+		if l.execution.runnerConfig.boundary.resetAfterChain {
+			lp.LogRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
+			l.resetAfterOperationChain(m, mapName, mapNumber, keysCache)
+		}
 
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), log.InfoLevel)
+
+}
+
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache map[string]struct{}) {
+
+	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
+
+	l.modeCaches[mapNumber] = modeCache{}
+	l.actionCaches[mapNumber] = actionCache{}
+
+	p := assemblePredicate(client.ID(), mapNumber)
+	lp.LogRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), log.TraceLevel)
+	err := m.RemoveAll(l.execution.ctx, p)
+	if err != nil {
+		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
+	} else {
+		keysCache = make(map[string]struct{})
+	}
+
+}
+
+func (l *boundaryTestLoop[t]) runOperationChain(
+	currentRun uint32,
+	m hzMap,
+	modes *modeCache,
+	actions *actionCache,
+	mapName string,
+	mapNumber uint16,
+	keysCache map[string]struct{},
+) error {
+
+	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
+	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
+	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
+
+	for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
+
+		modes.current = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
+		actions.next = determineNextMapAction(modes.current, actions.last, actionProbability, len(keysCache))
+
+		lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
+		if actions.next == noop {
+			msg := fmt.Sprintf("encountered no-op case for map '%s' in goroutine %d in operation chain iteration %d -- assuming incorrect configuration, aborting", mapName, mapNumber, j)
+			lp.LogRunnerEvent(msg, log.ErrorLevel)
+			return errors.New(msg)
+		}
+
+		if actions.next == read && j > 0 {
+			// We need this loop to perform a state-changing operation on every element, so
+			// don't count read operation since it did not change state (except potentially some
+			// meta information on the key read in the map on the cluster)
+			// Also, in case of a read, the element the read operation will be attempted for
+			// must refer to an element previously inserted
+			j--
+		}
+
+		nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
+
+		if err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), log.ErrorLevel)
+			break
+		}
+
+		lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
+
+		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
+			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, currentRun), log.WarnLevel)
+		} else {
+			lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
+			actions.last = actions.next
+			actions.next = ""
+			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
+		}
+	}
+
+	lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, currentRun), log.InfoLevel)
+	return nil
 
 }
 
