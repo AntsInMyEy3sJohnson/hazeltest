@@ -26,12 +26,15 @@ type (
 		destroyInvocations         int
 		sizeInvocations            int
 		getKeySetInvocations       int
+		removeAllInvocations       int
 		data                       *sync.Map
 		returnErrorUponGet         bool
 		returnErrorUponSet         bool
 		returnErrorUponContainsKey bool
 		returnErrorUponRemove      bool
 		returnErrorUponGetKeySet   bool
+		// TODO So many error variable now -- should be extracted into dedicated struct to make passing them into assembly functions easier
+		returnErrorUponRemoveAll bool
 	}
 )
 
@@ -134,6 +137,14 @@ func (m *dummyHzMap) Get(_ context.Context, key any) (any, error) {
 
 }
 
+func applyFunctionToDummyMapContents(m *dummyHzMap, fn func(key, value any) bool) {
+
+	m.data.Range(func(key, value any) bool {
+		return fn(key, value)
+	})
+
+}
+
 func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 
 	dummyMapOperationLock.Lock()
@@ -178,7 +189,7 @@ func (m *dummyHzMap) Size(_ context.Context) (int, error) {
 	dummyMapOperationLock.Lock()
 	{
 		m.sizeInvocations++
-		m.data.Range(func(_, _ any) bool {
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
 			size++
 			return true
 		})
@@ -186,6 +197,12 @@ func (m *dummyHzMap) Size(_ context.Context) (int, error) {
 	dummyMapOperationLock.Unlock()
 
 	return size, nil
+
+}
+
+func extractFilterFromPredicate(p predicate.Predicate) string {
+
+	return strings.ReplaceAll(strings.Fields(p.String())[2], "%)", "")
 
 }
 
@@ -197,13 +214,13 @@ func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predica
 
 	var result []any
 
-	predicateString := strings.ReplaceAll(strings.Fields(predicate.String())[2], "%)", "")
+	predicateFilter := extractFilterFromPredicate(predicate)
 
 	dummyMapOperationLock.Lock()
 	{
 		m.getKeySetInvocations++
-		m.data.Range(func(key, _ any) bool {
-			if strings.HasPrefix(key.(string), predicateString) {
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+			if strings.HasPrefix(key.(string), predicateFilter) {
 				result = append(result, key)
 			}
 			return true
@@ -212,6 +229,30 @@ func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predica
 	dummyMapOperationLock.Unlock()
 
 	return result, nil
+
+}
+
+func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
+
+	if m.returnErrorUponRemoveAll {
+		return errors.New("i'm the error everyone told you was never going to happen")
+	}
+
+	predicateFilter := extractFilterFromPredicate(predicate)
+
+	dummyMapOperationLock.Lock()
+	{
+		m.removeAllInvocations++
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+			if strings.HasPrefix(key.(string), predicateFilter) {
+				m.data.Delete(key)
+			}
+			return true
+		})
+	}
+	dummyMapOperationLock.Unlock()
+
+	return nil
 
 }
 
