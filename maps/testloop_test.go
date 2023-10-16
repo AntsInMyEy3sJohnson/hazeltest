@@ -131,6 +131,33 @@ func TestPopulateLocalCache(t *testing.T) {
 
 }
 
+func TestChooseRandomElementFromSourceData(t *testing.T) {
+
+	t.Log("given a populated source data as part of the test loop execution's state")
+	{
+		t.Log("\twhen caller desires random element from source data")
+		{
+			tle := testLoopExecution[pokemon]{
+				elements: []pokemon{
+					{Name: "Charmander"},
+				},
+			}
+			tl := boundaryTestLoop[pokemon]{
+				execution: &tle,
+			}
+			selectedElement := tl.chooseRandomElementFromSourceData()
+
+			msg := "\t\telement from source data must be selected"
+			if selectedElement.Name == tle.elements[0].Name {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestChooseRandomKeyFromCache(t *testing.T) {
 
 	t.Log("given a cache of keys values have to be selected from")
