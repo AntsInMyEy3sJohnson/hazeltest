@@ -131,6 +131,56 @@ func TestPopulateLocalCache(t *testing.T) {
 
 }
 
+func TestChooseRandomKeyFromCache(t *testing.T) {
+
+	t.Log("given a cache of keys values have to be selected from")
+	{
+		t.Log("\twhen empty cache is provided")
+		{
+			selectedKey, err := chooseRandomKeyFromCache(map[string]struct{}{})
+
+			msg := "\t\tselected key must be empty string"
+			if selectedKey == "" {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, msg)
+			}
+
+			msg = "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+
+		t.Log("\twhen cache contains element")
+		{
+			key := "gandalf"
+			cache := map[string]struct{}{
+				key: {},
+			}
+
+			selectedKey, err := chooseRandomKeyFromCache(cache)
+			msg := "\t\tkey must be selected"
+
+			if selectedKey == key {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, selectedKey)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+	}
+
+}
+
 func TestExecuteMapAction(t *testing.T) {
 
 	t.Log("given various actions to execute on maps")

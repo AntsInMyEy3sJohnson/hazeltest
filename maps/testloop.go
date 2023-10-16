@@ -117,7 +117,6 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-// TODO Implement test
 func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
 
 	if len(cache) == 0 {
@@ -135,6 +134,7 @@ func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
 		i++
 	}
 
+	// Due to the way the random index is initialized and the element is selected, this cannot occur
 	return "", fmt.Errorf("no match found for index %d in cache of size %d", randomIndex, len(cache))
 
 }
