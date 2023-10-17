@@ -139,7 +139,6 @@ func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
 
 }
 
-// TODO Implement test
 func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
 
 	// Seeded in main
@@ -159,7 +158,11 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 				return v, nil
 			}
 		}
-		lp.LogRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- choosing one at random", log.InfoLevel)
+		// Getting to this point means that the 'insert' action was chose elsewhere despite the fact
+		// that all elements have already been stored in cache. This case should not occur,
+		// but when it does nonetheless, it is not sufficiently severe to report an error
+		// and abort execution. So, in this case, we simply choose an element from the source data randomly.
+		lp.LogRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- choosing one at random", log.WarnLevel)
 		return l.chooseRandomElementFromSourceData(), nil
 	case read, remove:
 		keyFromCache, err := chooseRandomKeyFromCache(keysCache)

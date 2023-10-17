@@ -158,6 +158,91 @@ func TestChooseRandomElementFromSourceData(t *testing.T) {
 
 }
 
+func TestChooseNextMapElement(t *testing.T) {
+
+	t.Log("given a set of possible map actions and a cache mirroring the current state of the corresponding map in hazelcast")
+	{
+		t.Log("\twhen map action is insert")
+		{
+			t.Log("\t\twhen source data contains elements, but not all of them have been stored in the cache yet")
+			{
+				tle := testLoopExecution[string]{
+					elements: theFellowship,
+					getElementIdFunc: func(element any) string {
+						return element.(string)
+					},
+				}
+				tl := boundaryTestLoop[string]{
+					execution: &tle,
+				}
+
+				cache := make(map[string]struct{}, len(theFellowship)-1)
+				mapNumber := uint16(0)
+				for i := 0; i < len(theFellowship)-1; i++ {
+					key := assembleMapKey(mapNumber, theFellowship[i])
+					cache[key] = struct{}{}
+				}
+				elementNotYetInCache := theFellowship[len(theFellowship)-1]
+				selectedElement, err := tl.chooseNextMapElement(insert, cache, 0)
+
+				msg := "\t\t\tselected element must be only element not yet stored in cache"
+				if selectedElement == elementNotYetInCache {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementNotYetInCache))
+				}
+
+				msg = "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+			}
+
+			t.Log("\t\twhen all elements of source data have been stored in cache")
+			{
+				tle := testLoopExecution[string]{
+					elements: []string{
+						theFellowship[0],
+					},
+					getElementIdFunc: func(element any) string {
+						return element.(string)
+					},
+				}
+				tl := boundaryTestLoop[string]{
+					execution: &tle,
+				}
+
+				// Simulate "all elements" by passing in a single element both in cache and in source data
+				// --> Has same effect in loop, but easier this way to test whether random selection was
+				// invoked because with only one element in source data, random selection must yield
+				// precisely this element
+				mapNumber := uint16(0)
+				cache := map[string]struct{}{
+					assembleMapKey(mapNumber, theFellowship[0]): {},
+				}
+				selectedElement, err := tl.chooseNextMapElement(insert, cache, mapNumber)
+
+				msg := "\t\t\tselected element must be equal to only element in source data"
+				if selectedElement == theFellowship[0] {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, theFellowship[0]))
+				}
+
+				msg = "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+			}
+		}
+	}
+
+}
+
 func TestChooseRandomKeyFromCache(t *testing.T) {
 
 	t.Log("given a cache of keys values have to be selected from")
