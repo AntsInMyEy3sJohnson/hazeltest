@@ -445,11 +445,11 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, err)
 				}
 
-				msg = "\t\t\tcontains key check must have been executed once"
-				if ms.m.containsKeyInvocations == 1 {
+				msg = "\t\t\tno contains key check must have been executed"
+				if ms.m.containsKeyInvocations == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.containsKeyInvocations))
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 invocations, got %d", ms.m.containsKeyInvocations))
 				}
 
 				msg = "\t\t\tset operation must have been executed once"
