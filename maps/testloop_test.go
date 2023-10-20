@@ -68,7 +68,7 @@ func TestPopulateLocalCache(t *testing.T) {
 		mapName := "ht_" + mapBaseName
 		t.Log("\twhen retrieving the key set is successful")
 		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			populateDummyHzMapStore(&ms)
 
 			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
@@ -90,7 +90,7 @@ func TestPopulateLocalCache(t *testing.T) {
 
 		t.Log("\twhen retrieved key set is empty")
 		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 
 			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
 
@@ -111,7 +111,7 @@ func TestPopulateLocalCache(t *testing.T) {
 
 		t.Log("\twhen key set retrieval fails")
 		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, true})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetKeySet: true})
 
 			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
 
@@ -417,7 +417,7 @@ func TestQueryRemoteMapKeys(t *testing.T) {
 	{
 		t.Log("\twhen remote map contains entries matching predicate")
 		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 
 			// Insert elements matching own client ID and map number predicate --> Result must contain these
 			populateDummyHzMapStore(&ms)
@@ -1139,7 +1139,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						len(theFellowship),
 						true,
 					)
-					ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
@@ -1182,7 +1182,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						len(theFellowship),
 						true,
 					)
-					ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
@@ -1233,7 +1233,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						9,
 						true,
 					)
-					ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
@@ -1254,6 +1254,168 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 }
 
+func TestResetAfterOperationChain(t *testing.T) {
+
+	t.Log("given a method to reset both local and remote state after execution of an operation chain has finished")
+	{
+		t.Log("\twhen state exists both locally and remotely")
+		{
+			t.Log("\t\twhen remove all on remote map does not yield error")
+			{
+				mapNumber := uint16(0)
+				otherModeCache := modeCache{drain}
+				otherActionCache := actionCache{read, remove}
+				tl := boundaryTestLoop[string]{
+					execution: &testLoopExecution[string]{
+						ctx: context.TODO(),
+					},
+					modeCaches: []modeCache{
+						{current: fill},
+						otherModeCache,
+					},
+					actionCaches: []actionCache{
+						{
+							last: insert,
+							next: read,
+						},
+						otherActionCache,
+					},
+				}
+
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+				populateDummyHzMapStore(&ms)
+
+				keysCache := map[string]struct{}{}
+				ms.m.data.Range(func(key, _ any) bool {
+					keysCache[key.(string)] = struct{}{}
+					return true
+				})
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache)
+
+				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
+				if tl.modeCaches[0].current == "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal mode cache for other map number must have remained unmodified"
+				if tl.modeCaches[1].current == otherModeCache.current {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal action cache for given map number must be cleared"
+				if tl.actionCaches[0].last == "" && tl.actionCaches[0].next == "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal action cache for other map number must have remained unmodified"
+				if tl.actionCaches[1].last == otherActionCache.last && tl.actionCaches[1].next == otherActionCache.next {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tremove all must have been invoked once"
+				if ms.m.removeAllInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.removeAllInvocations))
+				}
+
+				msg = "\t\t\tremove all must have been invoked with correct predicate"
+				expectedPredicateFilter := fmt.Sprintf("%s-%d", client.ID(), mapNumber)
+				if ms.m.lastPredicateFilterForRemoveAllInvocation == expectedPredicateFilter {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected '%s', got '%s'", expectedPredicateFilter, ms.m.lastPredicateFilterForRemoveAllInvocation))
+				}
+
+				msg = "\t\t\tlocal keys cache must have been cleared"
+				if len(keysCache) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("contains %d element/-s", len(keysCache)))
+				}
+
+			}
+
+			t.Log("\t\twhen remove all on map yields error")
+			{
+				mapNumber := uint16(0)
+				otherModeCache := modeCache{drain}
+				otherActionCache := actionCache{read, remove}
+				tl := boundaryTestLoop[string]{
+					execution: &testLoopExecution[string]{
+						ctx: context.TODO(),
+					},
+					modeCaches: []modeCache{
+						{current: fill},
+						otherModeCache,
+					},
+					actionCaches: []actionCache{
+						{
+							last: insert,
+							next: read,
+						},
+						otherActionCache,
+					},
+				}
+
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemoveAll: true})
+				populateDummyHzMapStore(&ms)
+
+				keysCache := map[string]struct{}{}
+				ms.m.data.Range(func(key, _ any) bool {
+					keysCache[key.(string)] = struct{}{}
+					return true
+				})
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache)
+
+				msg := "\t\t\tlocal mode cache for given map number must be cleared anyway"
+				if tl.modeCaches[0].current == "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal mode cache for other map number must have remained unmodified"
+				if tl.modeCaches[1].current == otherModeCache.current {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal action cache for given map number must be cleared anyway"
+				if tl.actionCaches[0].last == "" && tl.actionCaches[0].next == "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tlocal action cache for other map number must have remained unmodified"
+				if tl.actionCaches[1].last == otherActionCache.last && tl.actionCaches[1].next == otherActionCache.next {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkeys cache must have remained unmodified"
+				if len(keysCache) == len(theFellowship) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(keysCache)))
+				}
+			}
+		}
+	}
+
+}
+
 func TestRunWithBatchTestLoop(t *testing.T) {
 
 	t.Log("given the maps batch test loop")
@@ -1261,7 +1423,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen only one map goroutine is used and the test loop runs only once")
 		{
 			id := uuid.New()
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
@@ -1305,7 +1467,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		{
 			numMaps, numRuns := uint16(10), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
@@ -1347,7 +1509,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{true, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetMap: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
@@ -1378,7 +1540,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, true, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			tl.run()
@@ -1413,7 +1575,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen no map goroutine is launched because the configured number of maps is zero")
 		{
 			id := uuid.New()
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			numMaps, numRuns := uint16(0), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
@@ -1434,7 +1596,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			scBetweenRuns := &sleepConfig{}
 			scBetweenActionBatches := &sleepConfig{}
 			rc := assembleRunnerConfigForBatchTestLoop(1, 20, scBetweenRuns, scBetweenActionBatches)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false}), rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := 0
 			numInvocationsBetweenActionBatches := 0
@@ -1470,7 +1632,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			scBetweenRuns := &sleepConfig{enabled: true}
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
 			rc := assembleRunnerConfigForBatchTestLoop(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false}), rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := uint32(0)
 			numInvocationsBetweenActionBatches := uint32(0)
@@ -1627,7 +1789,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms
 }
 
 type dummyMapStoreBehavior struct {
-	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponGetKeySet bool
+	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponGetKeySet, returnErrorUponRemoveAll bool
 }
 
 func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
@@ -1642,6 +1804,7 @@ func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
 			returnErrorUponContainsKey: b.returnErrorUponContainsKey,
 			returnErrorUponRemove:      b.returnErrorUponRemove,
 			returnErrorUponGetKeySet:   b.returnErrorUponGetKeySet,
+			returnErrorUponRemoveAll:   b.returnErrorUponRemoveAll,
 		},
 		returnErrorUponGetMap: b.returnErrorUponGetMap,
 	}
