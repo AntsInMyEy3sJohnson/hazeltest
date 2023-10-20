@@ -19,22 +19,22 @@ type (
 		returnErrorUponGetMap bool
 	}
 	dummyHzMap struct {
-		containsKeyInvocations     int
-		setInvocations             int
-		getInvocations             int
-		removeInvocations          int
-		destroyInvocations         int
-		sizeInvocations            int
-		getKeySetInvocations       int
-		removeAllInvocations       int
-		data                       *sync.Map
-		returnErrorUponGet         bool
-		returnErrorUponSet         bool
-		returnErrorUponContainsKey bool
-		returnErrorUponRemove      bool
-		returnErrorUponGetKeySet   bool
-		// TODO So many error variable now -- should be extracted into dedicated struct to make passing them into assembly functions easier
-		returnErrorUponRemoveAll bool
+		containsKeyInvocations                    int
+		setInvocations                            int
+		getInvocations                            int
+		removeInvocations                         int
+		destroyInvocations                        int
+		sizeInvocations                           int
+		getKeySetInvocations                      int
+		removeAllInvocations                      int
+		lastPredicateFilterForRemoveAllInvocation string
+		data                                      *sync.Map
+		returnErrorUponGet                        bool
+		returnErrorUponSet                        bool
+		returnErrorUponContainsKey                bool
+		returnErrorUponRemove                     bool
+		returnErrorUponGetKeySet                  bool
+		returnErrorUponRemoveAll                  bool
 	}
 )
 
@@ -245,6 +245,7 @@ func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate)
 	dummyMapOperationLock.Lock()
 	{
 		m.removeAllInvocations++
+		m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
 		applyFunctionToDummyMapContents(m, func(key, value any) bool {
 			if strings.HasPrefix(key.(string), predicateFilter) {
 				m.data.Delete(key)
