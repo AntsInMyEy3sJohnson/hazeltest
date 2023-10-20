@@ -238,105 +238,108 @@ func TestChooseNextMapElement(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen map action is read")
-		{
-			t.Log("\t\twhen cache is empty")
+		for _, action := range []mapAction{read, remove} {
+			t.Log(fmt.Sprintf("\twhen map action is %s", action))
 			{
-				elementInSourceData := theFellowship[0]
-				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
-						elements: []string{
-							elementInSourceData,
+				t.Log("\t\twhen cache is empty")
+				{
+					elementInSourceData := theFellowship[0]
+					tl := boundaryTestLoop[string]{
+						execution: &testLoopExecution[string]{
+							elements: []string{
+								elementInSourceData,
+							},
 						},
-					},
+					}
+
+					selectedElement, err := tl.chooseNextMapElement(action, map[string]struct{}{}, 0)
+
+					msg := "\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					// Can't simply return nil as t
+					msg = "\t\t\treturned element must be first element from source data"
+					if selectedElement == elementInSourceData {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
+					}
 				}
 
-				selectedElement, err := tl.chooseNextMapElement(read, map[string]struct{}{}, 0)
+				t.Log("\t\twhen cache contains at least one element")
+				{
+					elementInSourceData := theFellowship[0]
+					tl := boundaryTestLoop[string]{
+						execution: &testLoopExecution[string]{
+							elements: []string{
+								elementInSourceData,
+							},
+							getElementIdFunc: func(element any) string {
+								return element.(string)
+							},
+						},
+					}
 
-				msg := "\t\t\terror must be returned"
-				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
+					mapNumber := uint16(0)
+					cache := map[string]struct{}{
+						assembleMapKey(mapNumber, elementInSourceData): {},
+					}
+
+					selectedElement, err := tl.chooseNextMapElement(action, cache, mapNumber)
+
+					msg := "\t\t\tselected element must be equal to element stored in cache"
+					if selectedElement == elementInSourceData {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
+					}
+
+					msg = "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+
 				}
 
-				// Can't simply return nil as t
-				msg = "\t\t\treturned element must be first element from source data"
-				if selectedElement == elementInSourceData {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
+				t.Log("\t\twhen mismatch between source data and state in cache has occurred")
+				{
+					tl := boundaryTestLoop[string]{
+						execution: &testLoopExecution[string]{
+							elements: theFellowship,
+							getElementIdFunc: func(element any) string {
+								return "So you have chosen... death."
+							},
+						},
+					}
+
+					cache := map[string]struct{}{
+						"You shall not pass!": {},
+					}
+					selectedElement, err := tl.chooseNextMapElement(action, cache, 0)
+
+					msg := "\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tselected element must be equal to first element in source data"
+					elementFromSourceData := theFellowship[0]
+					if selectedElement == elementFromSourceData {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementFromSourceData))
+					}
 				}
 			}
 
-			t.Log("\t\twhen cache contains at least one element")
-			{
-				elementInSourceData := theFellowship[0]
-				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
-						elements: []string{
-							elementInSourceData,
-						},
-						getElementIdFunc: func(element any) string {
-							return element.(string)
-						},
-					},
-				}
-
-				mapNumber := uint16(0)
-				cache := map[string]struct{}{
-					assembleMapKey(mapNumber, elementInSourceData): {},
-				}
-
-				selectedElement, err := tl.chooseNextMapElement(read, cache, mapNumber)
-
-				msg := "\t\t\tselected element must be equal to element stored in cache"
-				if selectedElement == elementInSourceData {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
-				}
-
-				msg = "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, err)
-				}
-
-			}
-
-			t.Log("\t\twhen mismatch between source data and state in cache has occurred")
-			{
-				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
-						elements: theFellowship,
-						getElementIdFunc: func(element any) string {
-							return "So you have chosen... death."
-						},
-					},
-				}
-
-				cache := map[string]struct{}{
-					"You shall not pass!": {},
-				}
-				selectedElement, err := tl.chooseNextMapElement(read, cache, 0)
-
-				msg := "\t\t\terror must be returned"
-				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tselected element must be equal to first element in source data"
-				elementFromSourceData := theFellowship[0]
-				if selectedElement == elementFromSourceData {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementFromSourceData))
-				}
-			}
 		}
 	}
 
