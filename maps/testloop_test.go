@@ -468,7 +468,7 @@ func TestQueryRemoteMapKeys(t *testing.T) {
 
 		t.Log("\twhen remote map does not contain entries matching predicate")
 		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 
 			ms.m.data.Store("dumbledore", "wrong franchise, mate")
 
@@ -573,7 +573,7 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key yet")
 			{
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
@@ -619,7 +619,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, true, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponSet: true})
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -635,7 +635,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map already contains key")
 			{
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
@@ -667,7 +667,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
@@ -697,7 +697,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map contains key and remove yields error")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, true, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				populateDummyHzMapStore(&ms)
@@ -730,7 +730,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map contains key and remove does not yield error")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				populateDummyHzMapStore(&ms)
@@ -765,7 +765,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
@@ -795,7 +795,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map contains key and get yields error")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, true, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				populateDummyHzMapStore(&ms)
@@ -828,7 +828,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-				ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				populateDummyHzMapStore(&ms)
@@ -861,7 +861,7 @@ func TestExecuteMapAction(t *testing.T) {
 		t.Log("\twhen unknown action is provided")
 		{
 			rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{false, false, false, false, false, false})
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
 
