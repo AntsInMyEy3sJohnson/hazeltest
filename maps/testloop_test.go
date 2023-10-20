@@ -341,6 +341,31 @@ func TestChooseNextMapElement(t *testing.T) {
 			}
 
 		}
+
+		t.Log("\twhen unknown map action is provided")
+		{
+			tl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
+
+			selectedElement, err := tl.chooseNextMapElement("awesomeNonExistingMapAction", map[string]struct{}{}, 0)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tselected element must be first element of source data"
+			if selectedElement == theFellowship[0] {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, theFellowship[0]))
+			}
+		}
 	}
 
 }

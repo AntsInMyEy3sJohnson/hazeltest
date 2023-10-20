@@ -147,7 +147,6 @@ func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
 
 }
 
-// TODO Implement test
 func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache map[string]struct{}, mapNumber uint16) (t, error) {
 
 	switch action {
