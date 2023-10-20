@@ -242,7 +242,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		if l.execution.runnerConfig.boundary.resetAfterChain {
 			lp.LogRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
-			l.resetAfterOperationChain(m, mapName, mapNumber, keysCache)
+			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache)
 		}
 
 	}
@@ -251,7 +251,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache map[string]struct{}) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}) {
 
 	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
 
@@ -264,7 +264,7 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, 
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
 	} else {
-		keysCache = make(map[string]struct{})
+		*keysCache = make(map[string]struct{})
 	}
 
 }
