@@ -167,7 +167,9 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 		return value, nil
 	}
 
-	return nil, fmt.Errorf("key not contained in map: %s", keyString)
+	// A Hazelcast map won't actually return an error upon request to delete a non-existing key,
+	// so it's more accurate to mirror this behavior here, and not return an error
+	return nil, nil
 
 }
 
