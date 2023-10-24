@@ -1416,6 +1416,142 @@ func TestResetAfterOperationChain(t *testing.T) {
 
 }
 
+func TestRunOperationChain(t *testing.T) {
+
+	t.Log("given the boundary test loop's method for running an operation chain")
+	{
+		t.Log("\twhen the chain length is zero")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, 0, true)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+			mc := &modeCache{}
+			ac := &actionCache{}
+			keysCache := map[string]struct{}{}
+
+			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmode cache must be in initial state"
+			if mc.current == "" {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tactions cache must be in initial state"
+			if ac.last == "" && ac.next == "" {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap action count must be zero for insert"
+			if ms.m.setInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap action count must be zero for read"
+			if ms.m.getInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap action count must be zero for remove"
+			if ms.m.removeInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tkeys cache must be empty"
+			if len(keysCache) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen chain length is ten times the number of elements in the given source data")
+		{
+			t.Log("\t\twhen upper boundary is 100 %, lower boundary is 0 %, and probability for action towards boundary is 100 %")
+			{
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+				chainLength := 10 * len(theFellowship)
+				rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, chainLength, true)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+				mc := &modeCache{}
+				ac := &actionCache{}
+				keysCache := map[string]struct{}{}
+
+				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				/*
+						Number of elements in source data: 9
+						Chain length: 90
+
+						With both upper boundary and probability for action towards boundary set to 100 % as well as
+						lower boundary set to 0 %, the operation chain will move back and forth between completely filling
+						the map, then completely erasing the map, then going back to filling, etc.
+
+						A chain length of 90 covers 10 times fully filling or fully erasing the map if the source data
+						contains 9 elements. Thus, for each kind of the two state-changing operations, we expect them
+						to be invoked 10 / 2 * 9 times --> 45 inserts and 45 removes.
+
+						The number of reads must be equal to <number of completed full iterations on map> * len(<source data>) - <number of times a read was skipped>.
+					    A read will be skipped if one of the following is true:
+						(1) The cache is currently empty, meaning there is nothing to be read --> Happens whenever the mode changes from "drain" back to "fill" when
+					        the map's lower boundary is 0 %
+					    (2) Loop counter reached maximum --> Happens when loop counter is <chain length - 1> -- even when the last operation was a state-changing
+					        operation, the next operation, which would necessarily be a read, will not be executed anymore
+
+						This corresponds to 10 * 9 - 5 = 85 read operations.
+				*/
+				msg = "\t\t\tnumber of inserts performed must be five times the number of elements in the source data"
+				if ms.m.setInvocations == 5*len(theFellowship) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship), ms.m.setInvocations))
+				}
+
+				msg = "\t\t\tnumber of removes performed must be five times the number of elements in the source data, too"
+				if ms.m.removeInvocations == 5*len(theFellowship) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship), ms.m.removeInvocations))
+				}
+
+				msg = "\t\t\tnumber of reads performed must be ten times the number of elements in the source data minus the number of times the read had to be skipped"
+				if ms.m.getInvocations == 10*len(theFellowship)-5 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship)-5, ms.m.getInvocations))
+				}
+
+			}
+		}
+	}
+
+}
+
 func TestRunWithBatchTestLoop(t *testing.T) {
 
 	t.Log("given the maps batch test loop")
