@@ -1047,9 +1047,9 @@ func TestCheckForModeChange(t *testing.T) {
 			currentMode := drain
 			nextMode := checkForModeChange(0.8, 0.2, 100, 20, currentMode)
 
-			msg := "\t\tmode check must return current mode"
+			msg := "\t\tmode check must switch mode"
 
-			if nextMode == currentMode {
+			if nextMode == fill {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
@@ -1075,9 +1075,9 @@ func TestCheckForModeChange(t *testing.T) {
 			currentMode := fill
 			nextMode := checkForModeChange(0.8, 0.2, 100, 80, currentMode)
 
-			msg := "\t\tmode check must return current mode"
+			msg := "\t\tmode check must switch mode"
 
-			if nextMode == currentMode {
+			if nextMode == drain {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, nextMode)

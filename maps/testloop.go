@@ -432,11 +432,11 @@ func checkForModeChange(upperBoundary, lowerBoundary float32,
 	total := float32(totalNumberOfElements)
 	current := float32(currentCacheSize)
 
-	if current < total*lowerBoundary {
+	if current <= total*lowerBoundary {
 		return fill
 	}
 
-	if current > total*upperBoundary {
+	if current >= total*upperBoundary {
 		return drain
 	}
 
