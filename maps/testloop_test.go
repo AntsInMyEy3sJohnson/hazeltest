@@ -1022,6 +1022,19 @@ func TestDetermineNextMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%s', got '%s'", lastAction, nextAction))
 			}
 		}
+
+		t.Log("\twhen cache is empty and probability for action towards boundary is zero")
+		{
+			nextAction := determineNextMapAction("", "", 0, 0)
+
+			msg := "\t\tnext action must be special no-op action"
+			if nextAction == noop {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextAction)
+			}
+
+		}
 	}
 }
 
