@@ -424,7 +424,6 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 func checkForModeChange(upperBoundary, lowerBoundary float32,
 	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) actionMode {
 
-	// TODO Update tests
 	if currentCacheSize == 0 || currentMode == "" {
 		return fill
 	}

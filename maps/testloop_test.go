@@ -1097,9 +1097,22 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen map is empty and current mode is unset")
+		t.Log("\twhen the currently stored number of elements is zero and the current mode is unset")
 		{
 			nextMode := checkForModeChange(1.0, 0.0, 1_000, 0, "")
+
+			msg := "\t\tnext mode must be fill"
+
+			if nextMode == fill {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, nextMode)
+			}
+		}
+
+		t.Log("\twhen currently stored number of elements is greater than zero and current mode is unset")
+		{
+			nextMode := checkForModeChange(1.0, 0.0, 1_000, 500, "")
 
 			msg := "\t\tnext mode must be fill"
 
