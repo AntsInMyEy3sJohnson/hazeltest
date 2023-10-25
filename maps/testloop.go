@@ -279,9 +279,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	keysCache map[string]struct{},
 ) error {
 
-	if l.execution.runnerConfig.boundary.sleepBetweenOperationChains.enabled {
-		l.s.sleep(l.execution.runnerConfig.boundary.sleepBetweenOperationChains, sleepTimeFunc)
-	}
+	l.s.sleep(l.execution.runnerConfig.boundary.sleepBetweenOperationChains, sleepTimeFunc)
 
 	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
 	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
