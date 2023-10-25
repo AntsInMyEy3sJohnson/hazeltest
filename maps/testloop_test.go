@@ -1574,7 +1574,37 @@ func TestRunOperationChain(t *testing.T) {
 
 			}
 		}
+
+		t.Log("\twhen sleep between operation chains has been enabled")
+		{
+			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, &sleepConfig{true, 1_000, false}, 1.0, 0.0, 1.0, 1, true)
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+			ts := &testSleeper{}
+			tl.s = ts
+
+			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]struct{}{})
+
+			msg := "\t\tsleep must have been invoked"
+
+			if ts.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
+
+}
+
+type testSleeper struct {
+	sleepInvoked bool
+}
+
+func (s *testSleeper) sleep(_ *sleepConfig, _ evaluateTimeToSleep) {
+
+	s.sleepInvoked = true
 
 }
 
@@ -1977,7 +2007,7 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	numMaps uint16,
 	numRuns uint32,
 	sleepBetweenRuns *sleepConfig,
-	sleepBetweenOperationBatches *sleepConfig,
+	sleepBetweenOperationChains *sleepConfig,
 	upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage, actionTowardsBoundaryProbability float32,
 	operationChainLength int,
 	resetAfterChain bool,
@@ -1985,7 +2015,7 @@ func assembleRunnerConfigForBoundaryTestLoop(
 
 	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
 	c.boundary = &boundaryTestLoopConfig{
-		sleepBetweenOperationChains: sleepBetweenOperationBatches,
+		sleepBetweenOperationChains: sleepBetweenOperationChains,
 		chainLength:                 operationChainLength,
 		resetAfterChain:             resetAfterChain,
 		upper: &boundaryDefinition{
