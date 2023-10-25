@@ -382,7 +382,6 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 }
 
-// TODO Extend tests
 func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32, currentCacheSize int) mapAction {
 
 	if currentCacheSize == 0 {
