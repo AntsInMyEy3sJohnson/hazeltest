@@ -15,7 +15,7 @@ func (d dummyPokedexTestLoop) run() {
 	// No-op
 }
 
-func TestInitializeTestLoop(t *testing.T) {
+func TestInitializePokemonTestLoop(t *testing.T) {
 
 	t.Log("given a function to initialize the test loop from the provided loop type")
 	{
@@ -59,7 +59,7 @@ func TestInitializeTestLoop(t *testing.T) {
 
 		t.Log("\twhen unknown test loop type is provided")
 		{
-			l, err := initializeLoadElementTestLoop(&runnerConfig{loopType: "saruman"})
+			l, err := initializePokemonTestLoop(&runnerConfig{loopType: "saruman"})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
