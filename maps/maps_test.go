@@ -18,6 +18,14 @@ type (
 		m                     *dummyHzMap
 		returnErrorUponGetMap bool
 	}
+	boundaryMonitoring struct {
+		upperBoundaryNumElements       int
+		lowerBoundaryNumElements       int
+		upperBoundaryThresholdViolated bool
+		lowerBoundaryThresholdViolated bool
+		upperBoundaryViolationValue    int
+		lowerBoundaryViolationValue    int
+	}
 	dummyHzMap struct {
 		containsKeyInvocations                    int
 		setInvocations                            int
@@ -35,6 +43,7 @@ type (
 		returnErrorUponRemove                     bool
 		returnErrorUponGetKeySet                  bool
 		returnErrorUponRemoveAll                  bool
+		bm                                        *boundaryMonitoring
 	}
 )
 
@@ -110,6 +119,29 @@ func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 	}
 
 	m.data.Store(keyString, value)
+
+	if m.bm != nil && !m.bm.upperBoundaryThresholdViolated && !m.bm.lowerBoundaryThresholdViolated {
+		currentMapSize := 0
+		m.data.Range(func(_, _ any) bool {
+			currentMapSize++
+			return true
+		})
+		if currentMapSize > m.bm.upperBoundaryNumElements {
+			m.bm.upperBoundaryThresholdViolated = true
+			m.bm.upperBoundaryViolationValue = currentMapSize
+		}
+		if currentMapSize < m.bm.lowerBoundaryNumElements {
+			// Make sure threshold violation does not get triggered
+			// while map is being initially filled by checking
+			// we've had more set invocations than the maximum number
+			// of elements expected in the map based on the given
+			// percentage threshold
+			if m.setInvocations > m.bm.upperBoundaryNumElements {
+				m.bm.lowerBoundaryThresholdViolated = true
+				m.bm.lowerBoundaryViolationValue = currentMapSize
+			}
+		}
+	}
 
 	return nil
 

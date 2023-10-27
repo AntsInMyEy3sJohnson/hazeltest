@@ -1508,7 +1508,7 @@ func TestRunOperationChain(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen chain length is ten times the number of elements in the given source data")
+		t.Log("\twhen chain length is greater than zero")
 		{
 			t.Log("\t\twhen upper boundary is 100 %, lower boundary is 0 %, and probability for action towards boundary is 100 %")
 			{
@@ -1570,6 +1570,56 @@ func TestRunOperationChain(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship)-5, ms.m.getInvocations))
+				}
+
+			}
+
+			t.Log("\t\twhen upper boundary is less than 100 %, lower boundary is greater than 0 %, and probability for action towards boundary is less than 100 %")
+			{
+				upperBoundary := 0.8
+				lowerBoundary := 0.2
+				ms := assembleDummyMapStoreWithBoundaryMonitoring(&dummyMapStoreBehavior{}, &boundaryMonitoring{
+					upperBoundaryNumElements: int(math.Round(float64(len(theFellowship)) * upperBoundary)),
+					lowerBoundaryNumElements: int(math.Round(float64(len(theFellowship)) * lowerBoundary)),
+				})
+				chainLength := 1_000 * len(theFellowship)
+				rc := assembleRunnerConfigForBoundaryTestLoop(
+					1,
+					1,
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+					float32(upperBoundary),
+					float32(lowerBoundary),
+					0.6,
+					chainLength,
+					true,
+				)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+				mc := &modeCache{}
+				ac := &actionCache{}
+				keysCache := map[string]struct{}{}
+
+				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tthresholds defined by upper and lower boundaries must not be exceeded"
+				if !ms.m.bm.upperBoundaryThresholdViolated {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("upper threshold is %d, was violated with map size %d", ms.m.bm.upperBoundaryNumElements, ms.m.bm.upperBoundaryViolationValue))
+				}
+
+				if !ms.m.bm.lowerBoundaryThresholdViolated {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("lower threshold is %d, was violated with map size %d", ms.m.bm.lowerBoundaryNumElements, ms.m.bm.lowerBoundaryViolationValue))
 				}
 
 			}
@@ -1982,6 +2032,15 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms
 
 type dummyMapStoreBehavior struct {
 	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponGetKeySet, returnErrorUponRemoveAll bool
+}
+
+func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *boundaryMonitoring) dummyHzMapStore {
+
+	ms := assembleDummyMapStore(b)
+	ms.m.bm = bm
+
+	return ms
+
 }
 
 func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
