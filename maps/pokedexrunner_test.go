@@ -21,7 +21,7 @@ func TestInitializeTestLoop(t *testing.T) {
 	{
 		t.Log("\twhen boundary test loop type is provided")
 		{
-			l, err := initializeTestLoop(&runnerConfig{loopType: boundary})
+			l, err := initializePokemonTestLoop(&runnerConfig{loopType: boundary})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -40,7 +40,7 @@ func TestInitializeTestLoop(t *testing.T) {
 
 		t.Log("\twhen batch test loop type is provided")
 		{
-			l, err := initializeTestLoop(&runnerConfig{loopType: batch})
+			l, err := initializePokemonTestLoop(&runnerConfig{loopType: batch})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -59,7 +59,7 @@ func TestInitializeTestLoop(t *testing.T) {
 
 		t.Log("\twhen unknown test loop type is provided")
 		{
-			l, err := initializeTestLoop(&runnerConfig{loopType: "saruman"})
+			l, err := initializeLoadElementTestLoop(&runnerConfig{loopType: "saruman"})
 
 			msg := "\t\terror must be returned"
 			if err != nil {

@@ -66,7 +66,7 @@ func init() {
 	gob.Register(pokemon{})
 }
 
-func initializeTestLoop(rc *runnerConfig) (looper[pokemon], error) {
+func initializePokemonTestLoop(rc *runnerConfig) (looper[pokemon], error) {
 
 	switch rc.loopType {
 	case batch:
@@ -104,7 +104,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
 
-	l, err := initializeTestLoop(config)
+	l, err := initializePokemonTestLoop(config)
 	if err != nil {
 		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map pokedex runner: unable to initialize test loop: %s", err.Error()), log.ErrorLevel)
 		return
