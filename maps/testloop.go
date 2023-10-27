@@ -8,6 +8,7 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -323,6 +324,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			actions.next = ""
 			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
 		}
+
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, currentRun), log.InfoLevel)
@@ -429,14 +431,14 @@ func checkForModeChange(upperBoundary, lowerBoundary float32,
 		return fill
 	}
 
-	total := float32(totalNumberOfElements)
-	current := float32(currentCacheSize)
+	total := float64(totalNumberOfElements)
+	current := float64(currentCacheSize)
 
-	if current <= total*lowerBoundary {
+	if current <= math.Round(total*float64(lowerBoundary)) {
 		return fill
 	}
 
-	if current >= total*upperBoundary {
+	if current >= math.Round(total*float64(upperBoundary)) {
 		return drain
 	}
 
