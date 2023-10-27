@@ -39,18 +39,31 @@ func init() {
 	gob.Register(loadElement{})
 }
 
+func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
+
+	switch rc.loopType {
+	case batch:
+		return &batchTestLoop[loadElement]{}, nil
+	case boundary:
+		return &boundaryTestLoop[loadElement]{}, nil
+	default:
+		return nil, fmt.Errorf("no such runner runnerLoopType: %s", rc.loopType)
+	}
+
+}
+
 func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	r.appendState(start)
 
-	loadRunnerConfig, err := populateLoadConfig(r.assigner)
+	config, err := populateLoadConfig(r.assigner)
 	if err != nil {
 		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
-	if !loadRunnerConfig.enabled {
+	if !config.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
 		lp.LogRunnerEvent("loadRunner not enabled -- won't run", log.InfoLevel)
 		return
@@ -58,6 +71,15 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	r.appendState(checkEnabledComplete)
 
 	api.RaiseNotReady()
+
+	l, err := initializeLoadElementTestLoop(config)
+	if err != nil {
+		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), log.ErrorLevel)
+		return
+	}
+	r.l = l
+
+	r.appendState(assignTestLoopComplete)
 
 	ctx := context.TODO()
 
@@ -72,7 +94,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, loadRunnerConfig, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
+	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
