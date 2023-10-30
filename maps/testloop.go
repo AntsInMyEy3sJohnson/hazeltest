@@ -39,6 +39,8 @@ type (
 	}
 	modeCache struct {
 		current actionMode
+		// TODO Test needs to verify force gets set back to false once it is no longer required
+		forceActionTowardsMode bool
 	}
 	actionCache struct {
 		last mapAction
@@ -288,8 +290,8 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {
 
-		modes.current = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
-		actions.next = determineNextMapAction(modes.current, actions.last, actionProbability, len(keysCache))
+		modes.current, modes.forceActionTowardsMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
+		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(keysCache))
 
 		lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
 		if actions.next == noop {
@@ -386,7 +388,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 
 }
 
-func determineNextMapAction(currentMode actionMode, lastAction mapAction, actionProbability float32, currentCacheSize int) mapAction {
+func determineNextMapAction(mc *modeCache, lastAction mapAction, actionProbability float32, currentCacheSize int) mapAction {
 
 	if currentCacheSize == 0 {
 		if actionProbability > 0 {
@@ -404,10 +406,21 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 		return read
 	}
 
-	// Seeded in main
-	hit := rand.Float32() < actionProbability
+	var hit bool
+	if mc.forceActionTowardsMode {
+		// Prevents violating threshold if map has reached threshold and hit happens to be false,
+		// so next action would cross threshold
+		// Example: With 150 elements in total and upper boundary of 80 %, threshold would be 120
+		// elements. If 120 elements have been inserted and mode was correctly switched to "drain",
+		// switch below could still return "insert" as next map action in cases when action probability
+		// is less than 100 %
+		hit = true
+	} else {
+		// Seeded in main
+		hit = rand.Float32() < actionProbability
+	}
 
-	switch currentMode {
+	switch mc.current {
 	case fill:
 		if hit {
 			return insert
@@ -425,24 +438,24 @@ func determineNextMapAction(currentMode actionMode, lastAction mapAction, action
 }
 
 func checkForModeChange(upperBoundary, lowerBoundary float32,
-	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) actionMode {
+	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) (actionMode, bool) {
 
 	if currentCacheSize == 0 || currentMode == "" {
-		return fill
+		return fill, false
 	}
 
 	total := float64(totalNumberOfElements)
 	current := float64(currentCacheSize)
 
 	if current <= math.Round(total*float64(lowerBoundary)) {
-		return fill
+		return fill, true
 	}
 
 	if current >= math.Round(total*float64(upperBoundary)) {
-		return drain
+		return drain, true
 	}
 
-	return currentMode
+	return currentMode, false
 
 }
 

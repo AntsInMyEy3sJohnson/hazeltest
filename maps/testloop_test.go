@@ -912,7 +912,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 	{
 		t.Log("\twhen cache is empty")
 		{
-			nextMapAction := determineNextMapAction(fill, insert, 0.5, 0)
+			nextMapAction := determineNextMapAction(&modeCache{current: fill}, insert, 0.5, 0)
 
 			msg := "\t\tnext action must be insert"
 			if nextMapAction == insert {
@@ -923,7 +923,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 		}
 		t.Log("\twhen last action was insert or remove")
 		{
-			nextMapAction := determineNextMapAction(fill, insert, 0.5, 1)
+			nextMapAction := determineNextMapAction(&modeCache{current: fill}, insert, 0.5, 1)
 
 			msg := "\t\taction after insert must be read"
 			if nextMapAction == read {
@@ -932,7 +932,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			nextMapAction = determineNextMapAction(fill, remove, 0.5, 1)
+			nextMapAction = determineNextMapAction(&modeCache{current: fill}, remove, 0.5, 1)
 
 			msg = "\t\taction after remove must be read"
 
@@ -1013,7 +1013,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 		{
 			var unknownMode actionMode = "awesomeActionMode"
 			lastAction := read
-			nextAction := determineNextMapAction(unknownMode, lastAction, 0.0, 1)
+			nextAction := determineNextMapAction(&modeCache{current: unknownMode}, lastAction, 0.0, 1)
 
 			msg := "\t\tnext action must be equal to last action"
 			if nextAction == lastAction {
@@ -1025,7 +1025,7 @@ func TestDetermineNextMapAction(t *testing.T) {
 
 		t.Log("\twhen cache is empty and probability for action towards boundary is zero")
 		{
-			nextAction := determineNextMapAction("", "", 0, 0)
+			nextAction := determineNextMapAction(&modeCache{current: ""}, "", 0, 0)
 
 			msg := "\t\tnext action must be special no-op action"
 			if nextAction == noop {
@@ -1044,7 +1044,7 @@ func TestCheckForModeChange(t *testing.T) {
 	{
 		t.Log("\twhen the currently stored number of elements is less than the lower boundary")
 		{
-			nextMode := checkForModeChange(0.8, 0.2, 100, 19, drain)
+			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 19, drain)
 
 			msg := "\t\tmode check must yield fill as next mode"
 
@@ -1053,12 +1053,19 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards mode must be enforced"
+			if forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen the currently stored number of elements is equal to lower boundary")
 		{
 			currentMode := drain
-			nextMode := checkForModeChange(0.8, 0.2, 100, 20, currentMode)
+			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 20, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1067,12 +1074,19 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards mode must be enforced"
+			if forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen the currently stored number of elements is in between the lower and the upper boundary")
 		{
 			currentMode := drain
-			nextMode := checkForModeChange(0.8, 0.2, 100, 50, currentMode)
+			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 50, currentMode)
 
 			msg := "\t\tmode check must return current mode"
 
@@ -1081,12 +1095,19 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards node does not need to be enforced"
+			if !forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen the currently stored number of elements is equal to the upper boundary")
 		{
 			currentMode := fill
-			nextMode := checkForModeChange(0.8, 0.2, 100, 80, currentMode)
+			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 80, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1095,11 +1116,18 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards mode must be enforced"
+			if forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen the currently stored number of elements is greater than the upper boundary")
 		{
-			nextMode := checkForModeChange(0.8, 0.2, 100, 81, fill)
+			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 81, fill)
 
 			msg := "\t\tmode check must return drain as next mode"
 
@@ -1108,11 +1136,18 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards mode must be enforced"
+			if forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 
 		t.Log("\twhen the currently stored number of elements is zero and the current mode is unset")
 		{
-			nextMode := checkForModeChange(1.0, 0.0, 1_000, 0, "")
+			nextMode, forceActionTowardsMode := checkForModeChange(1.0, 0.0, 1_000, 0, "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -1121,11 +1156,19 @@ func TestCheckForModeChange(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
 			}
+
+			msg = "\t\taction towards node does not need to be enforced"
+			if !forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 
 		t.Log("\twhen currently stored number of elements is greater than zero and current mode is unset")
 		{
-			nextMode := checkForModeChange(1.0, 0.0, 1_000, 500, "")
+			nextMode, forceActionTowardsMode := checkForModeChange(1.0, 0.0, 1_000, 500, "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -1133,6 +1176,13 @@ func TestCheckForModeChange(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, nextMode)
+			}
+
+			msg = "\t\taction towards node does not need to be enforced"
+			if !forceActionTowardsMode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 
@@ -1249,6 +1299,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					id := uuid.New()
 					numMaps, numRuns := uint16(1), uint32(1)
 
+					chainLength := 10 * len(theFellowship)
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						numMaps,
 						numRuns,
@@ -1256,7 +1307,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						sleepConfigDisabled,
 						1.0, 0.0,
 						0.5,
-						9,
+						chainLength,
 						true,
 					)
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
@@ -1265,8 +1316,8 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					tl.run()
 					waitForStatusGatheringDone(tl.g)
 
-					msg := "\t\t\t\tnumber of set invocations must be equal to the number of items in the source data set, divided by two"
-					if ms.m.setInvocations == (len(theFellowship)+1)/2 {
+					msg := "\t\t\t\tnumber of set invocations must be roughly equal to half the chain length"
+					if math.Abs(float64(ms.m.setInvocations-chainLength/2)) < 5 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, ms.m.setInvocations)
@@ -1289,7 +1340,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on remote map does not yield error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := modeCache{drain}
+				otherModeCache := modeCache{drain, false}
 				otherActionCache := actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
@@ -1373,7 +1424,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on map yields error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := modeCache{drain}
+				otherModeCache := modeCache{drain, false}
 				otherActionCache := actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
@@ -1938,7 +1989,7 @@ func generateMapActionResults(currentMode actionMode, numInvocations int, action
 	removeCount := 0
 	otherCount := 0
 	for i := 0; i < numInvocations; i++ {
-		action := determineNextMapAction(currentMode, read, float32(actionProbability), 1)
+		action := determineNextMapAction(&modeCache{currentMode, false}, read, float32(actionProbability), 1)
 		if action == insert {
 			insertCount++
 		} else if action == remove {
