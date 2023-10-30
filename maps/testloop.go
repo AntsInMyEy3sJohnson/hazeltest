@@ -50,8 +50,8 @@ type (
 		execution    *testLoopExecution[t]
 		s            sleeper
 		g            *status.Gatherer
-		modeCaches   []modeCache
-		actionCaches []actionCache
+		modeCaches   []*modeCache
+		actionCaches []*actionCache
 	}
 	testLoopExecution[t any] struct {
 		id                     uuid.UUID
@@ -105,8 +105,8 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *statu
 	l.execution = lc
 	l.s = s
 	l.g = g
-	l.modeCaches = make([]modeCache, l.execution.runnerConfig.numMaps)
-	l.actionCaches = make([]actionCache, l.execution.runnerConfig.numMaps)
+	l.modeCaches = make([]*modeCache, l.execution.runnerConfig.numMaps)
+	l.actionCaches = make([]*actionCache, l.execution.runnerConfig.numMaps)
 }
 
 func (l *boundaryTestLoop[t]) run() {
@@ -234,10 +234,10 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			return
 		}
 
-		modes := l.modeCaches[mapNumber]
-		actions := l.actionCaches[mapNumber]
+		l.modeCaches[mapNumber] = &modeCache{}
+		l.actionCaches[mapNumber] = &actionCache{}
 
-		if err := l.runOperationChain(i, m, &modes, &actions, mapName, mapNumber, keysCache); err != nil {
+		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
@@ -258,8 +258,8 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, 
 
 	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
 
-	l.modeCaches[mapNumber] = modeCache{}
-	l.actionCaches[mapNumber] = actionCache{}
+	l.modeCaches[mapNumber] = &modeCache{}
+	l.actionCaches[mapNumber] = &actionCache{}
 
 	p := assemblePredicate(client.ID(), mapNumber)
 	lp.LogRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), log.TraceLevel)

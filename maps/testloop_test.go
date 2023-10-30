@@ -1324,6 +1324,41 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					}
 
 				}
+
+				t.Log("\t\t\twhen reset after chain has not been activated")
+				{
+					rc := assembleRunnerConfigForBoundaryTestLoop(
+						1,
+						1,
+						sleepConfigDisabled,
+						sleepConfigDisabled,
+						1.0, 0.0,
+						0.5,
+						len(theFellowship)-1,
+						false,
+					)
+					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+					tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+					tl.run()
+
+					msg := "\t\t\t\tmode cache must remain populated"
+					if tl.modeCaches[0].current == fill {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\taction cache must remain populated"
+					ac := tl.actionCaches[0]
+					// Next action would have been determined in next iteration of chain, but must be set to empty
+					// inside operation chain loop after successful action execution
+					if ac.last != "" && ac.next == "" {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
 			}
 
 		}
@@ -1340,17 +1375,17 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on remote map does not yield error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := modeCache{drain, false}
-				otherActionCache := actionCache{read, remove}
+				otherModeCache := &modeCache{drain, false}
+				otherActionCache := &actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
 						ctx: context.TODO(),
 					},
-					modeCaches: []modeCache{
+					modeCaches: []*modeCache{
 						{current: fill},
 						otherModeCache,
 					},
-					actionCaches: []actionCache{
+					actionCaches: []*actionCache{
 						{
 							last: insert,
 							next: read,
@@ -1370,7 +1405,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache)
 
 				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
-				if tl.modeCaches[0].current == "" {
+				if tl.modeCaches[0].current == "" && !tl.modeCaches[0].forceActionTowardsMode {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1424,17 +1459,17 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on map yields error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := modeCache{drain, false}
-				otherActionCache := actionCache{read, remove}
+				otherModeCache := &modeCache{drain, false}
+				otherActionCache := &actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
 						ctx: context.TODO(),
 					},
-					modeCaches: []modeCache{
+					modeCaches: []*modeCache{
 						{current: fill},
 						otherModeCache,
 					},
-					actionCaches: []actionCache{
+					actionCaches: []*actionCache{
 						{
 							last: insert,
 							next: read,
@@ -2050,7 +2085,10 @@ func numElementsInSyncMap(data *sync.Map) int {
 func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
 	tle := assembleTestLoopExecution(id, source, rc, ms)
-	tl := boundaryTestLoop[string]{}
+	tl := boundaryTestLoop[string]{
+		modeCaches:   []*modeCache{},
+		actionCaches: []*actionCache{},
+	}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
