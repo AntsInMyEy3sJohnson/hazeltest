@@ -219,6 +219,9 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
+	l.modeCaches[mapNumber] = &modeCache{}
+	l.actionCaches[mapNumber] = &actionCache{}
+
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
 		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc)
 		if i > 0 && i%updateStep == 0 {
@@ -231,9 +234,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
 			return
 		}
-
-		l.modeCaches[mapNumber] = &modeCache{}
-		l.actionCaches[mapNumber] = &actionCache{}
 
 		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
