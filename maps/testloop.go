@@ -126,7 +126,6 @@ func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
 		return "", errors.New("cannot pick element from empty cache")
 	}
 
-	// Seeded in main
 	randomIndex := rand.Intn(len(cache))
 
 	i := 0
@@ -144,7 +143,6 @@ func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
 
 func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
 
-	// Seeded in main
 	randomIndex := rand.Intn(len(l.execution.elements))
 	return l.execution.elements[randomIndex]
 
@@ -418,7 +416,6 @@ func determineNextMapAction(mc *modeCache, lastAction mapAction, actionProbabili
 		// is less than 100 %
 		hit = true
 	} else {
-		// Seeded in main
 		hit = rand.Float32() < actionProbability
 	}
 
