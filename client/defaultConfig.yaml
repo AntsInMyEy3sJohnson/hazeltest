@@ -267,6 +267,10 @@ mapTests:
             enabled: true
             durationMs: 2000
             enableRandomness: true
+          afterChainAction:
+            enabled: true
+            durationMs: 500
+            enableRandomness: true
         operationChain:
           length: 1_000
           resetAfterChain: true
@@ -277,7 +281,7 @@ mapTests:
             lower:
               mapFillPercentage: 0.2
               enableRandomness: true
-            actionTowardsBoundaryProbability: 0.6
+            actionTowardsBoundaryProbability: 1
   load:
     enabled: false
     numMaps: 2
