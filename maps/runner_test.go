@@ -25,16 +25,17 @@ var (
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
 	}
 	boundaryTestConfig = map[string]any{
-		runnerKeyPath + ".testLoop.type":                                                                        "boundary",
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                                    true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":                                 100,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":                           true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.length":                                              1_000,
-		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                                     true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          0.8,
+		runnerKeyPath + ".testLoop.type":                                                    "boundary",
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":          true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":       2_500,
+		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness": true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":             100,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":       true,
+		runnerKeyPath + ".testLoop.boundary.operationChain.length":                          1_000,
+		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                 true,
+		// Provide int value to verify config population can handle this case, too
+		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          1,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
@@ -281,7 +282,8 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 		}
 
 		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
-		if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(float64)) {
+		// int value was provided for this property, so have to perform conversion to int
+		if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(int)) {
 			return false, keyPath
 		}
 

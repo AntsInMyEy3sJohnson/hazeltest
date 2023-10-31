@@ -199,7 +199,11 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 	var upperBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage", client.ValidatePercentage, func(a any) {
-			upperBoundaryMapFillPercentage = float32(a.(float64))
+			if v, ok := a.(float64); ok {
+				upperBoundaryMapFillPercentage = float32(v)
+			} else {
+				upperBoundaryMapFillPercentage = float32(a.(int))
+			}
 		})
 	})
 
@@ -213,7 +217,11 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 	var lowerBoundaryMapFillPercentage float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage", client.ValidatePercentage, func(a any) {
-			lowerBoundaryMapFillPercentage = float32(a.(float64))
+			if v, ok := a.(float64); ok {
+				lowerBoundaryMapFillPercentage = float32(v)
+			} else {
+				lowerBoundaryMapFillPercentage = float32(a.(int))
+			}
 		})
 	})
 
@@ -227,7 +235,11 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 	var actionTowardsBoundaryProbability float32
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability", client.ValidatePercentage, func(a any) {
-			actionTowardsBoundaryProbability = float32(a.(float64))
+			if v, ok := a.(float64); ok {
+				actionTowardsBoundaryProbability = float32(v)
+			} else {
+				actionTowardsBoundaryProbability = float32(a.(int))
+			}
 		})
 	})
 
