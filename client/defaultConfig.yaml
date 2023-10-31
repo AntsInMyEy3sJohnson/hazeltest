@@ -217,7 +217,6 @@ queueTests:
           durationMs: 200
           enableRandomness: true
 
-# TODO Improve documentation: What datasource does each runner process?
 mapTests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
@@ -253,34 +252,121 @@ mapTests:
     testLoop:
       # Can take the value of one of the sub-objects below, i.e. either 'batch' or 'boundary'
       type: boundary
+      # The batch test loop offers comparatively simple logic to perform map actions in Hazelcast -- it inserts all
+      # elements of the source data, then reads all items thus ingested, removes some of them, and then starts all over.
+      # So, it works in batches of operations -- hence its name.
+      # The batch test loop is sufficient to maximize both the CPU and memory load on a Hazelcast cluster -- specifically
+      # in combination with the LoadRunner, not so much the PokedexRunner --, but it does not offer enough fine-tuning
+      # options for the generated load to be very realistic (i.e. the load patterns generated on the target Hazelcast
+      # cluster probably won't resemble load a typical client application might induce).
       batch:
         sleeps:
-          # Can be enabled to make the batch test loop sleep for the given duration after one batch of actions (e.g., "ingest x elements") has
-          # finished, meaning the next action batch will start only after a sleep of <durationMs>
+          # Can be enabled to make the batch test loop sleep for the given duration after one batch of actions (e.g.,
+          # "ingest x elements") has finished, meaning the next action batch will start only after a sleep of <durationMs>
           betweenActionBatches:
             enabled: true
             durationMs: 5000
             enableRandomness: true
+      # The boundary test loop was introduced to offer more sophisticated load generation logic aiming at inducing
+      # load realistic enough to resemble the load patterns typical client applications might generate in
+      # the day-to-day operation of a production environment. Thus, its goal is to offer the means for simulating
+      # typical production traffic such that the Hazelcast cluster under test can be exposed to production-like
+      # traffic in order to deliver proof that the cluster's configuration, bundled in whatever sort of release candidate
+      # you use (e.g. a Helm chart), is actually fit for production, and to deliver this proof BEFORE the configuration
+      # ever saw the light of a production environment.
+      # The boundary test loop is so called because it revolves around "fill boundaries" as defined by the number
+      # of items in the runner's data source in combination with an upper and a lower fill percentage (i.e., an
+      # upper and a lower boundary the runner should respect).
+      # For example, given the 151 source elements of the PokedexRunner and assuming an upper fill percentage
+      # of 0.8 (80 %) as well as a lower fill percentage of 0.2 (20 %), the runner will execute insert and remove
+      # operations so the number of elements present in the target map on the Hazelcast cluster under test will always
+      # remain within the boundaries thus defined (here: 151*0.8=121 elements (rounded) as the upper boundary, and
+      # 151*0.2=30 (rounded) as the lower). After each state-changing operation (insert or remove), the runner
+      # will perform a read operation.
+      # Each of the runner's goroutines will only consider its own key-value pairs, so even if the number of
+      # maps (which internally translates to the number of goroutines) is set to something greater than 1 and the
+      # runner is instructed to not append the map number to the map (such that all map goroutines write to the
+      # same map), each of the runner's boundary test loop goroutines will still only work on
+      # its own key-value pairs.
+      # Iterating up and down between the map fill boundaries is carried out in scope of a so-called operation chain.
+      # An operation chain represents the idea that the test loop should move over its source data multiple times in order
+      # to have enough possibility to hit both the upper and the lower boundary a couple of times, and perform enough
+      # operations of all kinds (insert, read, remove), in between for the load thus generated to be realistic.
+      # Take, for example, the PokedexRunner's data source, which is the 151 Pokémon of the first-generation Pokédex.
+      # With a chain length of 1510, the test loop will iterate between the upper and the lower boundary precisely ten times
+      # assuming an upper boundary of 100 % and a lower boundary of 0 %, and the number of iterations increases when the
+      # "boundary window" is configured to be more narrow. For this reason, the chain length should typically be
+      # higher than the number of elements in the source data.
+      # In order to introduce more randomness to the order of operations, the boundary test loop can be configured
+      # with a probability to execute an operation towards the boundary (an "action towards boundary probability").
+      # For example, if the test loop has determined it should fill the target map and the action towards boundary
+      # probability is configured to be 0.7 (70 %), then it will perform an insert operation with a probability of
+      # only 70 %. Hence, even in "fill mode", the action to be performed could be a remove (unless this would
+      # cause the lower map fill boundary to be violated, in which case the runner will override the probability and
+      # force an insert).
       boundary:
         sleeps:
+          # Whether the runner's boundary test loop should sleep after having executed an operation chain.
           betweenOperationChains:
             enabled: true
             durationMs: 2000
             enableRandomness: true
+          # Whether the runner's boundary test loop should sleep after having performed one operation within the
+          # operation chain, e.g. an insert.
           afterChainAction:
             enabled: true
             durationMs: 500
             enableRandomness: true
+        # The definition of the test loop's operation chain.
         operationChain:
+          # Defines how often the test loop will "bounce" between the upper and the lower map fill boundary.
+          # The higher this value, the more often both boundaries will be hit (though the "distance" between the
+          # boundaries also influences how many boundary hits will occur in one chain).
+          # This value should be greater than the number of elements in the runner's data source.
           length: 1_000
+          # The test loop keeps track of the state of the key-value pairs in the target Hazelcast map as well
+          # as of the actions it has performed (keeping track of this state is necessary to decide which map
+          # action should be performed next, e.g. to avoid violating a map fill boundary). This property controls
+          # whether both the local and the remote state should be cleared after having run through one operation chain.
+          # (Here, clearing the remote state means the test loop will clear all values in the target map it is
+          # responsible for, leaving the values of other test loops of the same runner untouched.)
+          # If this is set to "false", then the transition from one operation chain to the next will be seamless,
+          # i.e. from looking at the number of elements in the target Hazelcast map, you couldn't tell whether the
+          # runner's test loop has begun a new operation chain, as it will neither reset its local nor the remote state
+          # in the target Hazelcast map.
           resetAfterChain: true
+          # The boundary definition this boundary test loop will use to determine the degree to which it should fill
+          # the target Hazelcast map.
+          # (You can configure all map goroutines (and hence each test loop) to work on the same Hazelcast map by
+          # setting the "appendMapIndexToMapName" property to "false", but since each test loop will only consider
+          # its own values, it will still respect those boundaries in relation to the number of items under its
+          # responsibility.)
           boundaryDefinition:
+            # The upper map fill boundary.
+            # Example: Setting this to 0.8 (80 %) on the PokedexRunner's 151 data source elements will result in this
+            # test loop not ingesting more than 121 elements.
             upper:
+              # The map fill percentage that defines the upper map boundary in relation to the number
+              # of elements in the runner's data source.
               mapFillPercentage: 0.8
+              # Whether the map fill percentage should be determined randomly before the start of each new
+              # operation chain. If set to "true", the random value will be taken from the half-open interval
+              # (<lower.mapFillPercentage>, <upper.mapFillPercentage>].
               enableRandomness: true
             lower:
+              # The map fill percentage that defines the lower map boundary in relation to the number
+              # of elements in the runner's data source.
               mapFillPercentage: 0.2
+              # If set to "true", the random value will be taken from the half-open interval
+              # [<lower.mapFillPercentage>, <upper.mapFillPercentage>).
               enableRandomness: true
+            # The probability with which to execute an action towards the boundary.
+            # If the test loop has determined it should currently fill the map, then this setting controls
+            # the probability for an insert operation to be performed (here, the insert would be the action
+            # towards the boundary because in "fill mode" the test loop aims for the upper boundary). The exception
+            # to the rule is when the test loop determines it has reached a boundary, in which case it will enforce
+            # an action to move away from it (e.g. a remove operation in case the upper map fill boundary has been
+            # reached to not violate this boundary), thus overriding the probability setting.
             actionTowardsBoundaryProbability: 1
   load:
     enabled: true
