@@ -283,8 +283,8 @@ mapTests:
               enableRandomness: true
             actionTowardsBoundaryProbability: 1
   load:
-    enabled: false
-    numMaps: 2
+    enabled: true
+    numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
     numEntriesPerMap: 5000
@@ -317,14 +317,18 @@ mapTests:
             enabled: true
             durationMs: 1000
             enableRandomness: true
+          afterChainAction:
+            enabled: true
+            durationMs: 50
+            enableRandomness: false
         operationChain:
           length: 5_000
-          resetAfterChain: false
+          resetAfterChain: true
           boundaryDefinition:
             upper:
               mapFillPercentage: 0.96
               enableRandomness: true
             lower:
-              mapFillPercentage: 0.6
+              mapFillPercentage: 0.3
               enableRandomness: true
             actionTowardsBoundaryProbability: 0.9
