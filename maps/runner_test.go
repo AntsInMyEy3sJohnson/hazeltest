@@ -29,6 +29,9 @@ var (
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":                              true,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":                           2_500,
 		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness":                     true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                                    true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":                                 100,
+		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":                           true,
 		runnerKeyPath + ".testLoop.boundary.operationChain.length":                                              1_000,
 		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                                     true,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          0.8,
@@ -254,6 +257,21 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 
 		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
 		if rc.boundary.sleepBetweenOperationChains.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled"
+		if rc.boundary.sleepAfterChainAction.enabled != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs"
+		if rc.boundary.sleepAfterChainAction.durationMs != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness"
+		if rc.boundary.sleepAfterChainAction.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 

@@ -53,6 +53,7 @@ type (
 type (
 	boundaryTestLoopConfig struct {
 		sleepBetweenOperationChains      *sleepConfig
+		sleepAfterChainAction            *sleepConfig
 		chainLength                      int
 		resetAfterChain                  bool
 		upper                            *boundaryDefinition
@@ -160,6 +161,27 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
+	var sleepAfterChainActionEnabled bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.afterChainAction.enabled", client.ValidateBool, func(a any) {
+			sleepAfterChainActionEnabled = a.(bool)
+		})
+	})
+
+	var sleepAfterChainActionDurationMs int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.afterChainAction.durationMs", client.ValidateInt, func(a any) {
+			sleepAfterChainActionDurationMs = a.(int)
+		})
+	})
+
+	var sleepAfterChainActionEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.afterChainAction.enableRandomness", client.ValidateBool, func(a any) {
+			sleepAfterChainActionEnableRandomness = a.(bool)
+		})
+	})
+
 	var operationChainLength int
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.length", client.ValidateInt, func(a any) {
@@ -220,6 +242,11 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 			enabled:          sleepBetweenOperationChainsEnabled,
 			durationMs:       sleepBetweenOperationChainsDurationMs,
 			enableRandomness: sleepBetweenOperationChainsEnableRandomness,
+		},
+		sleepAfterChainAction: &sleepConfig{
+			enabled:          sleepAfterChainActionEnabled,
+			durationMs:       sleepAfterChainActionDurationMs,
+			enableRandomness: sleepAfterChainActionEnableRandomness,
 		},
 		chainLength:     operationChainLength,
 		resetAfterChain: resetAfterChain,

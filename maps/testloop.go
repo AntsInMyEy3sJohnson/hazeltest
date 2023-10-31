@@ -327,6 +327,8 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.execution.getElementIdFunc(nextMapElement)))
 		}
 
+		l.s.sleep(l.execution.runnerConfig.boundary.sleepAfterChainAction, sleepTimeFunc)
+
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, currentRun), log.InfoLevel)
