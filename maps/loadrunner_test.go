@@ -125,7 +125,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				returnError: false,
 				dummyConfig: map[string]any{
 					"mapTests.load.enabled":       true,
-					"mapTests.load.testLoop.type": "boundary",
+					"mapTests.load.testLoop.type": "batch",
 				},
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
