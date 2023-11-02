@@ -2,6 +2,7 @@ package maps
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -164,6 +165,44 @@ func TestPopulateConfig(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+		}
+
+		msgTemplate := "\twhen value for upper map fill boundary is %s value for lower map fill boundary"
+		for _, s := range []string{"less than", "equal to"} {
+			t.Log(fmt.Sprintf(msgTemplate, s))
+			{
+				var upper, lower float32
+				if strings.HasPrefix(s, "less than") {
+					upper = 0.5
+					lower = 0.8
+				} else {
+					upper = 0.7
+					lower = 0.7
+				}
+
+				dummyConfig := assembleTestConfigForTestLoopType(boundary)
+				dummyConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"] = upper
+				dummyConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"] = lower
+				assigner := testConfigPropertyAssigner{false, dummyConfig}
+
+				b.assigner = assigner
+				rc, err := b.populateConfig()
+
+				msg := "\t\tassembled runner config must be nil"
+				if rc == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 			}
 		}
 	}

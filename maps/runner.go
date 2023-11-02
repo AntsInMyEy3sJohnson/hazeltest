@@ -201,6 +201,8 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage", client.ValidatePercentage, func(a any) {
 			if v, ok := a.(float64); ok {
 				upperBoundaryMapFillPercentage = float32(v)
+			} else if v, ok := a.(float32); ok {
+				upperBoundaryMapFillPercentage = v
 			} else {
 				upperBoundaryMapFillPercentage = float32(a.(int))
 			}
@@ -219,6 +221,8 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage", client.ValidatePercentage, func(a any) {
 			if v, ok := a.(float64); ok {
 				lowerBoundaryMapFillPercentage = float32(v)
+			} else if v, ok := a.(float32); ok {
+				lowerBoundaryMapFillPercentage = v
 			} else {
 				lowerBoundaryMapFillPercentage = float32(a.(int))
 			}
@@ -247,6 +251,10 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		if err := f(); err != nil {
 			return nil, err
 		}
+	}
+
+	if upperBoundaryMapFillPercentage <= lowerBoundaryMapFillPercentage {
+		return nil, fmt.Errorf("upper map fill percentage must be greater than lower map fill percentage, got %f (upper) and %f (lower)", upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage)
 	}
 
 	return &boundaryTestLoopConfig{
