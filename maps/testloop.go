@@ -270,6 +270,26 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, 
 
 }
 
+func evaluateMapFillBoundaries(bc *boundaryTestLoopConfig) (float32, float32) {
+
+	upper := float32(0)
+	if bc.upper.enableRandomness {
+		upper = bc.upper.mapFillPercentage + rand.Float32()*(1-bc.upper.mapFillPercentage)
+	} else {
+		upper = bc.upper.mapFillPercentage
+	}
+
+	lower := float32(0)
+	if bc.lower.enableRandomness {
+		lower = rand.Float32() * bc.lower.mapFillPercentage
+	} else {
+		lower = bc.lower.mapFillPercentage
+	}
+
+	return upper, lower
+
+}
+
 func (l *boundaryTestLoop[t]) runOperationChain(
 	currentRun uint32,
 	m hzMap,
@@ -282,8 +302,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	l.s.sleep(l.execution.runnerConfig.boundary.sleepBetweenOperationChains, sleepTimeFunc)
 
-	upperBoundary := l.execution.runnerConfig.boundary.upper.mapFillPercentage
-	lowerBoundary := l.execution.runnerConfig.boundary.lower.mapFillPercentage
+	upperBoundary, lowerBoundary := evaluateMapFillBoundaries(l.execution.runnerConfig.boundary)
 	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
 	for j := 0; j < l.execution.runnerConfig.boundary.chainLength; j++ {

@@ -7,11 +7,9 @@ import (
 	"hazeltest/client"
 	"hazeltest/status"
 	"math"
-	"math/rand"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 const testSource = "theFellowship"
@@ -1528,6 +1526,48 @@ func TestResetAfterOperationChain(t *testing.T) {
 
 }
 
+func TestEvaluateMapFillBoundaries(t *testing.T) {
+
+	t.Log("given a function to evaluate the upper and lower map fill boundaries from a boundary test loop config")
+	{
+		t.Log("\twhen randomness was enabled for both upper and lower boundary")
+		{
+			configuredUpper := float32(0.7)
+			configuredLower := float32(0.5)
+			bc := &boundaryTestLoopConfig{
+				upper: &boundaryDefinition{
+					mapFillPercentage: configuredUpper,
+					enableRandomness:  true,
+				},
+				lower: &boundaryDefinition{
+					mapFillPercentage: configuredLower,
+					enableRandomness:  true,
+				},
+			}
+
+			msgUpper := "\t\tevaluated upper must be less than one and greater than or equal to configured upper"
+			msgLower := "\t\tevaluated lower must be less than configured lower and greater than or equal to zero"
+
+			for i := 0; i < 100; i++ {
+				evaluatedUpper, evaluatedLower := evaluateMapFillBoundaries(bc)
+				if 1 > evaluatedUpper && evaluatedUpper >= configuredUpper {
+					t.Log(msgUpper, checkMark)
+				} else {
+					t.Log(msgLower, ballotX, evaluatedUpper)
+				}
+
+				if configuredLower > evaluatedLower && evaluatedLower >= 0 {
+					t.Log(msgLower, checkMark)
+				} else {
+					t.Fatal(msgLower, ballotX, evaluatedLower)
+				}
+
+			}
+		}
+	}
+
+}
+
 func TestRunOperationChain(t *testing.T) {
 
 	t.Log("given the boundary test loop's method for running an operation chain")
@@ -2016,9 +2056,6 @@ func checkMapActionResults(currentMode actionMode, numInvocations, insertCount, 
 }
 
 func generateMapActionResults(currentMode actionMode, numInvocations int, actionProbability float64) (int, int, int) {
-
-	// Same seed as in main function
-	rand.Seed(time.Now().UnixNano())
 
 	insertCount := 0
 	removeCount := 0
