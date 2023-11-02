@@ -1548,20 +1548,161 @@ func TestEvaluateMapFillBoundaries(t *testing.T) {
 			msgUpper := "\t\tevaluated upper must be less than one and greater than or equal to configured upper"
 			msgLower := "\t\tevaluated lower must be less than configured lower and greater than or equal to zero"
 
+			upperOk := true
+			lowerOk := true
 			for i := 0; i < 100; i++ {
 				evaluatedUpper, evaluatedLower := evaluateMapFillBoundaries(bc)
-				if 1 > evaluatedUpper && evaluatedUpper >= configuredUpper {
-					t.Log(msgUpper, checkMark)
-				} else {
-					t.Log(msgLower, ballotX, evaluatedUpper)
+				if evaluatedUpper == 1 || evaluatedUpper < configuredUpper {
+					upperOk = false
 				}
 
-				if configuredLower > evaluatedLower && evaluatedLower >= 0 {
-					t.Log(msgLower, checkMark)
-				} else {
-					t.Fatal(msgLower, ballotX, evaluatedLower)
+				if evaluatedLower >= configuredLower || evaluatedLower < 0 {
+					lowerOk = false
+				}
+			}
+
+			if upperOk {
+				t.Log(msgUpper, checkMark)
+			} else {
+				t.Fatal(msgUpper, ballotX)
+			}
+
+			if lowerOk {
+				t.Log(msgLower, checkMark)
+			} else {
+				t.Fatal(msgLower, ballotX)
+			}
+		}
+
+		t.Log("\twhen randomness was enabled only for upper boundary")
+		{
+			configuredUpper := float32(0.7)
+			configuredLower := float32(0.5)
+			bc := &boundaryTestLoopConfig{
+				upper: &boundaryDefinition{
+					mapFillPercentage: configuredUpper,
+					enableRandomness:  true,
+				},
+				lower: &boundaryDefinition{
+					mapFillPercentage: configuredLower,
+					enableRandomness:  false,
+				},
+			}
+
+			msgUpper := "\t\tevaluated upper must be less than one and greater than or equal to configured upper"
+			msgLower := "\t\tevaluated lower must be equal to configured lower"
+
+			upperOk := true
+			lowerOk := true
+			for i := 0; i < 100; i++ {
+				evaluatedUpper, evaluatedLower := evaluateMapFillBoundaries(bc)
+				if evaluatedUpper == 1 || evaluatedUpper < configuredUpper {
+					upperOk = false
 				}
 
+				if evaluatedLower != configuredLower {
+					lowerOk = false
+				}
+			}
+
+			if upperOk {
+				t.Log(msgUpper, checkMark)
+			} else {
+				t.Fatal(msgUpper, ballotX)
+			}
+
+			if lowerOk {
+				t.Log(msgLower, checkMark)
+			} else {
+				t.Fatal(msgLower, ballotX)
+			}
+		}
+
+		t.Log("\twhen randomness was enabled only for lower boundary")
+		{
+			configuredUpper := float32(0.7)
+			configuredLower := float32(0.5)
+			bc := &boundaryTestLoopConfig{
+				upper: &boundaryDefinition{
+					mapFillPercentage: configuredUpper,
+					enableRandomness:  false,
+				},
+				lower: &boundaryDefinition{
+					mapFillPercentage: configuredLower,
+					enableRandomness:  true,
+				},
+			}
+
+			msgUpper := "\t\tevaluated upper must be equal to configured upper"
+			msgLower := "\t\tevaluated lower must be less than configured lower and greater than or equal to zero"
+
+			upperOk := true
+			lowerOk := true
+			for i := 0; i < 100; i++ {
+				evaluatedUpper, evaluatedLower := evaluateMapFillBoundaries(bc)
+				if evaluatedUpper != configuredUpper {
+					upperOk = false
+				}
+
+				if evaluatedLower >= configuredLower || evaluatedLower < 0 {
+					lowerOk = false
+				}
+			}
+
+			if upperOk {
+				t.Log(msgUpper, checkMark)
+			} else {
+				t.Fatal(msgUpper, ballotX)
+			}
+
+			if lowerOk {
+				t.Log(msgLower, checkMark)
+			} else {
+				t.Fatal(msgLower, ballotX)
+			}
+		}
+
+		t.Log("\twhen randomness was disabled for both upper and lower boundary")
+		{
+			configuredUpper := float32(0.7)
+			configuredLower := float32(0.5)
+			bc := &boundaryTestLoopConfig{
+				upper: &boundaryDefinition{
+					mapFillPercentage: configuredUpper,
+					enableRandomness:  false,
+				},
+				lower: &boundaryDefinition{
+					mapFillPercentage: configuredLower,
+					enableRandomness:  false,
+				},
+			}
+
+			msgUpper := "\t\tevaluated upper must be equal to configured upper"
+			msgLower := "\t\tevaluated lower must be equal to configured lower"
+
+			upperOk := true
+			lowerOk := true
+			for i := 0; i < 100; i++ {
+				evaluatedUpper, evaluatedLower := evaluateMapFillBoundaries(bc)
+				if evaluatedUpper != configuredUpper {
+					upperOk = false
+				}
+
+				if evaluatedLower != configuredLower {
+					lowerOk = false
+				}
+			}
+
+			if upperOk {
+				t.Log(msgUpper, checkMark)
+			} else {
+				t.Fatal(msgUpper, ballotX)
+			}
+
+			if lowerOk {
+				t.Log(msgLower, checkMark)
+			} else {
+				t.Fatal(msgLower, ballotX)
 			}
 		}
 	}
