@@ -312,6 +312,10 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	for j := 0; j < chainLength; j++ {
 
+		if actions.last == insert || actions.last == remove && j > 0 && uint32(j)%updateStep == 0 {
+			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
+		}
+
 		modes.current, modes.forceActionTowardsMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
 		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(keysCache))
 
@@ -329,10 +333,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			// Also, in case of a read, the element the read operation will be attempted for
 			// must refer to an element previously inserted
 			j--
-		}
-
-		if uint32(j)%updateStep == 0 {
-			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
 		nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
@@ -357,7 +357,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	}
 
-	lp.LogRunnerEvent(fmt.Sprintf("finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, currentRun), log.InfoLevel)
 	return nil
 
 }
