@@ -4,7 +4,7 @@ chaosMonkeys:
   # in-cluster access mode and an out-of-cluster access mode, see below.
   memberKiller:
     # Enables or disables the member killer monkey.
-    enabled: false
+    enabled: true
     # Configures the number of runs or iterations the monkey will perform. Note that
     # number of runs != number of kills in case the chaos probability is set to something
     # less than 1.0 (100%), but the number evaluated to decide whether the monkey should
@@ -80,10 +80,10 @@ queueTests:
   # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
     # The TweetRunner will not be run when this is set to 'false'.
-    enabled: false
+    enabled: true
     # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
     # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
-    numQueues: 5
+    numQueues: 1
     # If set to 'true', the TweetRunner will append the goroutine index of each of the <numQueues> queues to the latter's names,
     # and consequently each of those goroutines will work on its own queue in Hazelcast. Conversely, if this is set to
     # 'false', all queue goroutines in this particular Hazeltest instance will work on the same queue (which
@@ -166,8 +166,8 @@ queueTests:
           durationMs: 2000
           enableRandomness: true
   load:
-    enabled: false
-    numQueues: 10
+    enabled: true
+    numQueues: 5
     # Controls how many entries the queue load runner will use (this property is not available on the tweet runner because
     # the tweet runner works on a static data set, hence the number of elements as well as their size are given). The
     # queue load runner will create <numLoadEntries> string entries to iterate over them for each of the <numQueues> queues
@@ -222,7 +222,7 @@ mapTests:
     # If set to 'false', the PokedexRunner will not be executed
     enabled: true
     # The runner will spawn one goroutine for each map
-    numMaps: 1
+    numMaps: 10
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
     # In other words, if this is set to 'true', this PokedexRunner will use <numMaps> distinct maps in Hazelcast; if it is set
     # to 'false', the <numMaps> goroutines will access the same map
@@ -309,7 +309,7 @@ mapTests:
           # Whether the runner's boundary test loop should sleep after having executed an operation chain.
           betweenOperationChains:
             enabled: true
-            durationMs: 2000
+            durationMs: 5000
             enableRandomness: true
           # Whether the runner's boundary test loop should sleep after having performed one operation within the
           # operation chain, e.g. an insert.
