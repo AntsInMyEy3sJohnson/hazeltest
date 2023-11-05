@@ -227,7 +227,9 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc)
 
-		lp.LogRunnerEvent(fmt.Sprintf("starting run %d for map '%s' on map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
+		if i > 0 && i%updateStep == 0 {
+			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
+		}
 
 		keysCache, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
 
@@ -236,7 +238,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			return
 		}
 
-		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.InfoLevel)
+		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
 		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
@@ -311,7 +313,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	upperBoundary, lowerBoundary := evaluateMapFillBoundaries(l.execution.runnerConfig.boundary)
 	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
-	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.InfoLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.TraceLevel)
 
 	for j := 0; j < chainLength; j++ {
 
