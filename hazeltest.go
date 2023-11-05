@@ -1,19 +1,16 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/chaos"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
-	"math/rand"
 	"os"
 	"strings"
 	"sync"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -41,8 +38,6 @@ func main() {
 		defer wg.Done()
 		api.Serve()
 	}()
-
-	rand.Seed(time.Now().UnixNano())
 
 	go func() {
 		defer wg.Done()

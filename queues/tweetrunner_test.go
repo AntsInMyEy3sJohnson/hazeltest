@@ -17,7 +17,7 @@ func (d dummyTweetRunnerTestLoop) run() {
 
 func TestRunTweetQueueTests(t *testing.T) {
 
-	t.Log("given the need to test running queue tests in the tweet runner")
+	t.Log("given a tweet runner to run queue test loops")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := "\t\tstate transitions must be correct"

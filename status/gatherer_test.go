@@ -54,14 +54,14 @@ func (l *testLocker) unlock() {
 
 func TestGatherer_ListeningStopped(t *testing.T) {
 
-	t.Log("given the need to test the gatherer's ability to assert it has stopped its listener")
+	t.Log("given the status gatherer's ability to stop listening")
 	{
 		g := NewGatherer()
 		wg := &stateExposingWaitGroup{
 			wg:    sync.WaitGroup{},
 			count: 0,
 		}
-		t.Log("\tif listener is active")
+		t.Log("\twhen listener is active")
 		{
 			wg.add(1)
 			go func() {
@@ -79,7 +79,7 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 
 		}
 
-		t.Log("\tonce listener is quit")
+		t.Log("\tonce listener has been quit")
 		{
 			g.Updates <- quitStatusGathering
 
@@ -104,7 +104,7 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 
 func TestGatherer_StopListen(t *testing.T) {
 
-	t.Log("given the need to test the gatherer's exposed method to stop listening for updates")
+	t.Log("given the status gatherer's ability to stop listening")
 	{
 		t.Log("\twhen listener runs on goroutine")
 		{
@@ -135,7 +135,7 @@ func TestGatherer_StopListen(t *testing.T) {
 
 func TestGatherer_Listen(t *testing.T) {
 
-	t.Log("given the need to test the gatherer's ability to listen for status updates")
+	t.Log("given a status gatherer with the ability to listen for updates")
 	{
 		t.Log("\twhen listener runs on goroutine")
 		{
@@ -219,7 +219,7 @@ func TestGatherer_Listen(t *testing.T) {
 
 func TestGatherer_AssembleStatusCopy(t *testing.T) {
 
-	t.Log("given the need to test retrieving a copy of the gatherer's current status")
+	t.Log("given a status copy function")
 	{
 		t.Log("\twhen status is empty")
 		{
@@ -270,7 +270,7 @@ func TestGatherer_AssembleStatusCopy(t *testing.T) {
 
 func TestGatherer_InsertSynchronously(t *testing.T) {
 
-	t.Log("given the need to test synchronous inserts of status updates")
+	t.Log("given synchronous inserts of status updates")
 	{
 		t.Log("\twhen update is inserted")
 		{

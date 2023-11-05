@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"strings"
 	"sync"
 )
 
@@ -16,14 +18,32 @@ type (
 		m                     *dummyHzMap
 		returnErrorUponGetMap bool
 	}
+	boundaryMonitoring struct {
+		upperBoundaryNumElements       int
+		lowerBoundaryNumElements       int
+		upperBoundaryThresholdViolated bool
+		lowerBoundaryThresholdViolated bool
+		upperBoundaryViolationValue    int
+		lowerBoundaryViolationValue    int
+	}
 	dummyHzMap struct {
-		containsKeyInvocations int
-		setInvocations         int
-		getInvocations         int
-		removeInvocations      int
-		destroyInvocations     int
-		data                   *sync.Map
-		returnErrorUponGet     bool
+		containsKeyInvocations                    int
+		setInvocations                            int
+		getInvocations                            int
+		removeInvocations                         int
+		destroyInvocations                        int
+		sizeInvocations                           int
+		getKeySetInvocations                      int
+		removeAllInvocations                      int
+		lastPredicateFilterForRemoveAllInvocation string
+		data                                      *sync.Map
+		returnErrorUponGet                        bool
+		returnErrorUponSet                        bool
+		returnErrorUponContainsKey                bool
+		returnErrorUponRemove                     bool
+		returnErrorUponGetKeySet                  bool
+		returnErrorUponRemoveAll                  bool
+		bm                                        *boundaryMonitoring
 	}
 )
 
@@ -38,7 +58,7 @@ const (
 var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
-	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
+	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 	dummyMapOperationLock    sync.Mutex
 )
 
@@ -65,6 +85,10 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 	}
 	dummyMapOperationLock.Unlock()
 
+	if m.returnErrorUponContainsKey {
+		return false, errors.New("a deliberately returned error")
+	}
+
 	keyString, ok := key.(string)
 	if !ok {
 		return false, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
@@ -85,12 +109,39 @@ func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 	}
 	dummyMapOperationLock.Unlock()
 
+	if m.returnErrorUponSet {
+		return errors.New("also a deliberately thrown error")
+	}
+
 	keyString, ok := key.(string)
 	if !ok {
 		return fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
 	}
 
 	m.data.Store(keyString, value)
+
+	if m.bm != nil && !m.bm.upperBoundaryThresholdViolated && !m.bm.lowerBoundaryThresholdViolated {
+		currentMapSize := 0
+		m.data.Range(func(_, _ any) bool {
+			currentMapSize++
+			return true
+		})
+		if currentMapSize > m.bm.upperBoundaryNumElements {
+			m.bm.upperBoundaryThresholdViolated = true
+			m.bm.upperBoundaryViolationValue = currentMapSize
+		}
+		if currentMapSize < m.bm.lowerBoundaryNumElements {
+			// Make sure threshold violation does not get triggered
+			// while map is being initially filled by checking
+			// we've had more set invocations than the maximum number
+			// of elements expected in the map based on the given
+			// percentage threshold
+			if m.setInvocations > m.bm.upperBoundaryNumElements {
+				m.bm.lowerBoundaryThresholdViolated = true
+				m.bm.lowerBoundaryViolationValue = currentMapSize
+			}
+		}
+	}
 
 	return nil
 
@@ -118,6 +169,14 @@ func (m *dummyHzMap) Get(_ context.Context, key any) (any, error) {
 
 }
 
+func applyFunctionToDummyMapContents(m *dummyHzMap, fn func(key, value any) bool) {
+
+	m.data.Range(func(key, value any) bool {
+		return fn(key, value)
+	})
+
+}
+
 func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 
 	dummyMapOperationLock.Lock()
@@ -125,6 +184,10 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 		m.removeInvocations++
 	}
 	dummyMapOperationLock.Unlock()
+
+	if m.returnErrorUponRemove {
+		return nil, errors.New("lo and behold, an error")
+	}
 
 	keyString, ok := key.(string)
 	if !ok {
@@ -136,7 +199,9 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 		return value, nil
 	}
 
-	return nil, fmt.Errorf("key not contained in map: %s", keyString)
+	// A Hazelcast map won't actually return an error upon request to delete a non-existing key,
+	// so it's more accurate to mirror this behavior here, and not return an error
+	return nil, nil
 
 }
 
@@ -145,6 +210,80 @@ func (m *dummyHzMap) Destroy(_ context.Context) error {
 	dummyMapOperationLock.Lock()
 	{
 		m.destroyInvocations++
+	}
+	dummyMapOperationLock.Unlock()
+
+	return nil
+
+}
+
+func (m *dummyHzMap) Size(_ context.Context) (int, error) {
+
+	size := 0
+	dummyMapOperationLock.Lock()
+	{
+		m.sizeInvocations++
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+			size++
+			return true
+		})
+	}
+	dummyMapOperationLock.Unlock()
+
+	return size, nil
+
+}
+
+func extractFilterFromPredicate(p predicate.Predicate) string {
+
+	return strings.ReplaceAll(strings.Fields(p.String())[2], "%)", "")
+
+}
+
+func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predicate.Predicate) ([]any, error) {
+
+	if m.returnErrorUponGetKeySet {
+		return nil, errors.New("poof!")
+	}
+
+	var result []any
+
+	predicateFilter := extractFilterFromPredicate(predicate)
+
+	dummyMapOperationLock.Lock()
+	{
+		m.getKeySetInvocations++
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+			if strings.HasPrefix(key.(string), predicateFilter) {
+				result = append(result, key)
+			}
+			return true
+		})
+	}
+	dummyMapOperationLock.Unlock()
+
+	return result, nil
+
+}
+
+func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
+
+	if m.returnErrorUponRemoveAll {
+		return errors.New("i'm the error everyone told you was never going to happen")
+	}
+
+	predicateFilter := extractFilterFromPredicate(predicate)
+
+	dummyMapOperationLock.Lock()
+	{
+		m.removeAllInvocations++
+		m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
+		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+			if strings.HasPrefix(key.(string), predicateFilter) {
+				m.data.Delete(key)
+			}
+			return true
+		})
 	}
 	dummyMapOperationLock.Unlock()
 

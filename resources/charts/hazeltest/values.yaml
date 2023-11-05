@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.8.0
-  digest: 61fc02b32a17b2410abf5b4d68451c7d3a87490503ea2cf7661da1f54f70d54d
+  # 0.9.0
+  digest: 8f60fa741afb87300c04f23d54ee0ab0cfbb3b6d201b16bb8c881efabf2a8f5c
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -35,6 +35,7 @@ features:
   # (The reason the template doesn't evaluate this directly is because a user might rely on one of the
   # built-in config files to configure chaos monkeys and not provide a custom config in this yaml file)
   useDeletePodsServiceAccount: true
+  useSccOnOpenShift: false
 
 config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
@@ -151,10 +152,11 @@ config:
             enabled: true
             durationMs: 3500
             enableRandomness: true
+
   mapTests:
     pokedex:
       enabled: true
-      numMaps: 10
+      numMaps: 1
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
@@ -162,19 +164,44 @@ config:
         enabled: true
         prefix: "ht_"
       sleeps:
-        betweenActionBatches:
-          enabled: true
-          durationMs: 500
-          enableRandomness: true
         betweenRuns:
           enabled: true
-          durationMs: 1000
+          durationMs: 2000
           enableRandomness: true
+      testLoop:
+        type: boundary
+        batch:
+          sleeps:
+            betweenActionBatches:
+              enabled: true
+              durationMs: 5000
+              enableRandomness: true
+        boundary:
+          sleeps:
+            betweenOperationChains:
+              enabled: true
+              durationMs: 5000
+              enableRandomness: true
+            afterChainAction:
+              enabled: true
+              durationMs: 500
+              enableRandomness: true
+          operationChain:
+            length: 1_000
+            resetAfterChain: true
+            boundaryDefinition:
+              upper:
+                mapFillPercentage: 0.8
+                enableRandomness: false
+              lower:
+                mapFillPercentage: 0.2
+                enableRandomness: false
+              actionTowardsBoundaryProbability: 0.69
     load:
       enabled: true
       numMaps: 10
-      numEntriesPerMap: 500
-      payloadSizeBytes: 1000
+      numEntriesPerMap: 5000
+      payloadSizeBytes: 100000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
@@ -182,11 +209,36 @@ config:
         enabled: true
         prefix: "ht_"
       sleeps:
-        betweenActionBatches:
-          enabled: true
-          durationMs: 200
-          enableRandomness: true
         betweenRuns:
           enabled: true
-          durationMs: 1300
+          durationMs: 2000
           enableRandomness: true
+      testLoop:
+        type: boundary
+        batch:
+          sleeps:
+            betweenActionBatches:
+              enabled: true
+              durationMs: 2000
+              enableRandomness: true
+        boundary:
+          sleeps:
+            betweenOperationChains:
+              enabled: true
+              durationMs: 1000
+              enableRandomness: true
+            afterChainAction:
+              enabled: true
+              durationMs: 50
+              enableRandomness: false
+          operationChain:
+            length: 5_000
+            resetAfterChain: true
+            boundaryDefinition:
+              upper:
+                mapFillPercentage: 0.96
+                enableRandomness: true
+              lower:
+                mapFillPercentage: 0.3
+                enableRandomness: true
+              actionTowardsBoundaryProbability: 0.9

@@ -17,7 +17,7 @@ func (d dummyLoadRunnerTestLoop) run() {
 
 func TestRunLoadQueueTests(t *testing.T) {
 
-	t.Log("given the need to test running queue tests in the load runner")
+	t.Log("given a load runner to run queue test loops")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
 		genericMsg := "\t\tstate transitions must be correct"

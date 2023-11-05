@@ -24,8 +24,8 @@ spec:
       annotations:
         helmRevision: "{{ .Release.Revision }}"
     spec:
-      {{ if .Values.features.useDeletePodsServiceAccount -}}
-      serviceAccountName: {{ .Release.Name }}-pod-deleter
+      {{ if or .Values.features.useDeletePodsServiceAccount .Values.features.useSccOnOpenShift -}}
+      serviceAccountName: {{ .Release.Name }}
       {{ end -}}
       volumes:
       - name: hazeltest-config
@@ -63,4 +63,10 @@ spec:
         volumeMounts:
         - name: hazeltest-config
           mountPath: /data/config
+        {{ if .Values.features.useSccOnOpenShift  -}}
+        securityContext:
+          capabilities:
+            add:
+              - SYS_PTRACE
+        {{ end -}}
 

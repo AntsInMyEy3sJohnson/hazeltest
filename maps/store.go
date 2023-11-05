@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/client"
 )
 
@@ -13,6 +14,9 @@ type (
 		Get(ctx context.Context, key any) (any, error)
 		Remove(ctx context.Context, key any) (any, error)
 		Destroy(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
+		GetKeySetWithPredicate(ctx context.Context, predicate predicate.Predicate) ([]any, error)
+		RemoveAll(ctx context.Context, predicate predicate.Predicate) error
 	}
 	hzMapStore interface {
 		client.HzClientInitializer

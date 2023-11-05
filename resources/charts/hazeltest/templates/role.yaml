@@ -1,13 +1,21 @@
-{{ if .Values.features.useDeletePodsServiceAccount -}}
+{{ if or .Values.features.useDeletePodsServiceAccount .Values.features.useSccOnOpenShift -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ .Release.Name }}-pod-deleter
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 rules:
+  {{ if  .Values.features.useDeletePodsServiceAccount -}}
   - apiGroups: [""]
     resources: ["pods"]
     verbs:
       - "list"
       - "delete"
+  {{ end -}}
+  {{ if .Values.features.useSccOnOpenShift -}}
+  - apiGroups: ["security.openshift.io"]
+    resources: ["securitycontextconstraints"]
+    resourceNames: ["{{ .Release.Name }}-allow-sys-ptrace"]
+    verbs: ["use"]
+  {{ end -}}
 {{ end -}}

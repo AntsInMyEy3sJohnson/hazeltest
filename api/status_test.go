@@ -7,7 +7,7 @@ import (
 
 func TestAssembleTestLoopStatus(t *testing.T) {
 
-	t.Log("given the need to test assembly of the test loop status")
+	t.Log("given the test loop status assembly function")
 	{
 		t.Log("\twhen no test loop has been registered")
 		{

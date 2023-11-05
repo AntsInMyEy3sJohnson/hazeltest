@@ -15,4 +15,7 @@ spec:
     protocol: TCP
     port: {{ .Values.platform.service.port }}
     targetPort: hzmember
+    {{ if eq .Values.platform.service.type "NodePort" -}}
+    nodePort: {{ .Values.platform.service.nodePort }}
+    {{ end }}
 {{- end -}}

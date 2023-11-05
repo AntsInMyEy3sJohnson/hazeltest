@@ -3,13 +3,14 @@ platform:
   service:
     type: NodePort
     port: 5701
+    nodePort: 30080
   cluster:
     logging:
       level: INFO
     members:
       image: hazelcast/hazelcast:5.2.1
       imagePullPolicy: IfNotPresent
-      count: 2
+      count: 1
       ports:
         member: 5701
         metrics: 8080

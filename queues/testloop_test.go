@@ -31,7 +31,7 @@ func TestRun(t *testing.T) {
 
 	testSource := "aNewHope"
 
-	t.Log("given the need to test running the queue test loop")
+	t.Log("given the queue test loop")
 	{
 		t.Log("\twhen only put config is provided")
 		{
