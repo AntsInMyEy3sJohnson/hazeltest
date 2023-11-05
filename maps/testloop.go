@@ -107,6 +107,7 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *statu
 	l.g = g
 	l.modeCaches = make([]*modeCache, l.execution.runnerConfig.numMaps)
 	l.actionCaches = make([]*actionCache, l.execution.runnerConfig.numMaps)
+	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *boundaryTestLoop[t]) run() {
@@ -223,10 +224,10 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 	l.actionCaches[mapNumber] = &actionCache{}
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
+
 		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc)
-		if i > 0 && i%updateStep == 0 {
-			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
-		}
+
+		lp.LogRunnerEvent(fmt.Sprintf("starting run %d for map '%s' on map goroutine %d", i, mapName, mapNumber), log.InfoLevel)
 
 		keysCache, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
 
@@ -234,6 +235,8 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
 			return
 		}
+
+		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.InfoLevel)
 
 		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
@@ -312,7 +315,8 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	for j := 0; j < chainLength; j++ {
 
-		if actions.last == insert || actions.last == remove && j > 0 && uint32(j)%updateStep == 0 {
+		if (actions.last == insert || actions.last == remove) && j > 0 && uint32(j)%updateStep == 0 {
+			// TODO Include in status endpoint --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
 			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
