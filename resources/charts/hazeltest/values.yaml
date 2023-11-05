@@ -5,7 +5,7 @@ image:
   organization: antsinmyey3sjohnson
   repository: hazeltest
   # 0.9.0
-  digest: f574d640933f8bab9287c5ee3168f95ba53e86ab532446513b44568c46ab0f5c
+  digest: 53db97dbf173a63f03796f3826615edffefded0e7e612c990daea3609fd07f6f
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -67,7 +67,7 @@ config:
 
   queueTests:
     tweets:
-      enabled: false
+      enabled: true
       numQueues: 5
       appendQueueIndexToQueueName: true
       appendClientIdToQueueName: false
@@ -109,7 +109,7 @@ config:
             durationMs: 5000
             enableRandomness: true
     load:
-      enabled: false
+      enabled: true
       numQueues: 5
       numLoadEntries: 50
       payloadSizeBytes: 100
@@ -192,13 +192,13 @@ config:
             boundaryDefinition:
               upper:
                 mapFillPercentage: 0.8
-                enableRandomness: true
+                enableRandomness: false
               lower:
                 mapFillPercentage: 0.2
-                enableRandomness: true
-              actionTowardsBoundaryProbability: 1
+                enableRandomness: false
+              actionTowardsBoundaryProbability: 0.69
     load:
-      enabled: false
+      enabled: true
       numMaps: 10
       numEntriesPerMap: 5000
       payloadSizeBytes: 100000
