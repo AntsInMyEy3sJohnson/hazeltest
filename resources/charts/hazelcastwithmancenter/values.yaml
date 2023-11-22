@@ -1,4 +1,7 @@
 platform:
+  nodeSelectors:
+    use: false
+    selectors: {}
   deploy: true
   service:
     type: NodePort
@@ -8,7 +11,25 @@ platform:
     logging:
       level: INFO
     members:
-      image: hazelcast/hazelcast:5.2.1
+      edition:
+        community:
+          image: hazelcast/hazelcast:5.3.6
+        enterprise:
+          # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
+          # containing the enterprise license key has to be specified, too, see below.
+          use: true
+          # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
+          # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
+          # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
+          # Center down below, the image property appears only once).
+          image: hazelcast/hazelcast-enterprise:5.3.6
+          license:
+            # The name of the Kubernetes Secret containing the license key for
+            # the enterprise version of Hazelcast Platform.
+            secretName: hazelcast-enterprise-license
+            # The name of the property beneath the Secret's 'data' element that holds the license key.
+            keyPath: licenseKey
+      image:
       imagePullPolicy: IfNotPresent
       count: 1
       ports:
@@ -93,12 +114,29 @@ platform:
           empty-queue-ttl: 120
 
 mancenter:
+  nodeSelectors:
+    use: false
+    selectors: {}
   deploy: true
   service:
     type: NodePort
     port: 8080
   instance:
-    image: hazelcast/management-center:5.1.3
+    image: hazelcast/management-center:5.3.3
+    # Enables injection of enterprise license.
+    # Please note that, in case of the Management Center, there is no distinction between the community and the
+    # enterprise edition as far as the image is concerned, hence there is no dedicated image property.
+    enterprise:
+      # Whether to upgrade this Management Center instance to the enterprise version by injecting a secret into the
+      # Pod. If set to 'true', then the name of the Kubernetes Secret containing the enterprise license
+      # key has to be specified, too.
+      use: true
+      license:
+        # The name of the Kubernetes Secret containing the license key for
+        # the enterprise version of Management Center.
+        secretName: hazelcast-enterprise-license
+        # The name of the property beneath the Secret's 'data' element that holds the license key.
+        keyPath: licenseKey
     imagePullPolicy: IfNotPresent
     # 'enabled' vs. 'enable' is not a typo, those properties are actually called like so
     javaOpts: "-Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
@@ -119,4 +157,4 @@ mancenter:
         memory: "2G"
       limits:
         cpu: "500m"
-        memory: "2G"
+        memory: "4G"
