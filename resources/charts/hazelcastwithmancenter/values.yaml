@@ -1,8 +1,8 @@
 platform:
-  nodeSelectors:
-    use: false
-    selectors: {}
   deploy: true
+  nodeSelectors:
+    enable: false
+    selectors: {}
   service:
     type: NodePort
     port: 5701
@@ -10,6 +10,10 @@ platform:
   cluster:
     logging:
       level: INFO
+    features:
+      prometheusExport:
+        # Will use '(...).cluster.members.ports.metrics' to expose member metrics via Prometheus exporter
+        enable: true
     members:
       edition:
         community:
@@ -17,7 +21,7 @@ platform:
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
-          use: true
+          enable: true
           # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
@@ -29,7 +33,6 @@ platform:
             secretName: hazelcast-enterprise-license
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
-      image:
       imagePullPolicy: IfNotPresent
       count: 1
       ports:
@@ -115,7 +118,7 @@ platform:
 
 mancenter:
   nodeSelectors:
-    use: false
+    enable: false
     selectors: {}
   deploy: true
   service:
@@ -130,7 +133,7 @@ mancenter:
       # Whether to upgrade this Management Center instance to the enterprise version by injecting a secret into the
       # Pod. If set to 'true', then the name of the Kubernetes Secret containing the enterprise license
       # key has to be specified, too.
-      use: true
+      enable: true
       license:
         # The name of the Kubernetes Secret containing the license key for
         # the enterprise version of Management Center.

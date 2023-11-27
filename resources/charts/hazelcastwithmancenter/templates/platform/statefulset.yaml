@@ -25,7 +25,7 @@ spec:
         # such as changes to the Hazelcast ConfigMap
         helmRevision: "{{ .Release.Revision }}"
     spec:
-      {{- if .Values.platform.nodeSelectors.use }}
+      {{- if .Values.platform.nodeSelectors.enable }}
       nodeSelector:
         {{ toYaml .Values.platform.nodeSelectors.selectors }}
       {{- end }}
@@ -36,7 +36,7 @@ spec:
           name: {{ template "hazelcastimdg.fullname" . }}-config
       containers:
       - name: {{ template "hazelcastimdg.fullname" . }}
-        image: {{ if .Values.platform.cluster.members.edition.enterprise.use }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
+        image: {{ if .Values.platform.cluster.members.edition.enterprise.enable }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
         imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
         resources:
 {{ toYaml .Values.platform.cluster.members.containerResources | indent 10 }}
@@ -69,7 +69,11 @@ spec:
                   -Dhazelcast.graceful.shutdown.max.wait={{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}"
         - name: LOGGING_LEVEL
           value: {{ .Values.platform.cluster.logging.level }}
-        {{- if .Values.platform.cluster.members.edition.enterprise.use }}
+        {{- if .Values.platform.cluster.features.prometheusExport.enable }}
+        - name: PROMETHEUS_PORT
+          value: {{ .Values.platform.cluster.members.ports.metrics | toString }}
+        {{- end }}
+        {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
         - name: HZ_LICENSEKEY
           valueFrom:
             secretKeyRef:
