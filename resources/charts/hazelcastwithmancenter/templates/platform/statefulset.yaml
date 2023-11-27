@@ -71,7 +71,7 @@ spec:
           value: {{ .Values.platform.cluster.logging.level }}
         {{- if .Values.platform.cluster.features.prometheusExport.enable }}
         - name: PROMETHEUS_PORT
-          value: {{ .Values.platform.cluster.members.ports.metrics | toString }}
+          value: "{{ .Values.platform.cluster.members.ports.metrics }}"
         {{- end }}
         {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
         - name: HZ_LICENSEKEY
