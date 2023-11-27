@@ -19,7 +19,7 @@ spec:
         app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- if .Values.mancenter.nodeSelectors.use }}
+      {{- if .Values.mancenter.nodeSelectors.enable }}
       nodeSelector:
         {{ toYaml .Values.mancenter.nodeSelectors.selectors }}
       {{- end }}
@@ -62,7 +62,7 @@ spec:
           value: "{{ .Values.mancenter.instance.javaOpts }} -XX:+UseContainerSupport"
         - name: MC_INIT_CMD
           value: ./bin/mc-conf.sh cluster add --lenient=true -H /data -cc /data/hazelcastmancenter/config/hazelcast-client.yaml
-        {{- if .Values.mancenter.instance.enterprise.use }}
+        {{- if .Values.mancenter.instance.enterprise.enable }}
         - name: MC_LICENSE_KEY
           valueFrom:
             secretKeyRef:
