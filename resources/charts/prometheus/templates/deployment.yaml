@@ -22,10 +22,12 @@ spec:
     spec:
       terminationGracePeriodSeconds: 120
       volumes:
-        - configMap:
+        - name: config-volume
+          configMap:
             defaultMode: 420
             name: {{ template "prometheus.name" . }}-config
-          name: config-volume
+        - name: storage-volume
+          emptyDir: {}
       containers:
         - name: prometheus-server-configmap-reloader
           image: {{ .Values.prometheusConfigReloader.image }}
@@ -36,8 +38,8 @@ spec:
           resources:
             {{- toYaml .Values.prometheusConfigReloader.instance.resources | nindent 12 }}
           volumeMounts:
-            - mountPath: /etc/config
-              name: config-volume
+            - name: config-volume
+              mountPath: /etc/config
               readOnly: true
         - name: prometheus
           image: {{ .Values.prometheusServer.image }}
@@ -73,13 +75,5 @@ spec:
           volumeMounts:
             - mountPath: /etc/config
               name: config-volume
-            - mountPath: /data
-              name: storage-volume
-
-            
-            
-            
-
-
-
-
+            - name: storage-volume
+              mountPath: /data
