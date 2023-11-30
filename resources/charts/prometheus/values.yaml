@@ -14,7 +14,7 @@ prometheusServer:
     readiness:
       path: /-/ready
   config:
-    prometheus.yml:
+    prometheus:
       global:
         scrape_interval: 30s
       scrape_configs:
