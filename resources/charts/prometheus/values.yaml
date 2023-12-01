@@ -13,6 +13,9 @@ prometheusServer:
       path: "/-/healthy"
     readiness:
       path: /-/ready
+  service:
+    type: LoadBalancer
+    port: 9090
   config:
     prometheus:
       global:
