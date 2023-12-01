@@ -8,6 +8,12 @@ platform:
     port: 5701
     nodePort: 30080
   cluster:
+    prometheusScrape:
+      enable: true
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
     logging:
       level: INFO
     features:
@@ -133,7 +139,7 @@ mancenter:
       # Whether to upgrade this Management Center instance to the enterprise version by injecting a secret into the
       # Pod. If set to 'true', then the name of the Kubernetes Secret containing the enterprise license
       # key has to be specified, too.
-      enable: true
+      enable: false
       license:
         # The name of the Kubernetes Secret containing the license key for
         # the enterprise version of Management Center.
@@ -141,6 +147,12 @@ mancenter:
         # The name of the property beneath the Secret's 'data' element that holds the license key.
         keyPath: licenseKey
     imagePullPolicy: IfNotPresent
+    prometheusScrape:
+      enable: false
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
     # 'enabled' vs. 'enable' is not a typo, those properties are actually called like so
     javaOpts: "-Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
     ports:

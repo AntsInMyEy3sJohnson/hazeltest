@@ -24,6 +24,9 @@ spec:
         # -> Force Hazelcast Pods to be restarted even after changes that normally would not cause a restart,
         # such as changes to the Hazelcast ConfigMap
         helmRevision: "{{ .Release.Revision }}"
+        {{- if .Values.platform.cluster.prometheusScrape.enable }}
+        {{- toYaml .Values.platform.cluster.prometheusScrape.annotations | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.platform.nodeSelectors.enable }}
       nodeSelector:
