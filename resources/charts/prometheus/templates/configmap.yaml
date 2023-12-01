@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: {{ template "prometheus.name" . }}-config
   labels:
-    app.kubernetes.io/name: {{ template "prometheus.name" . }}-config
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
     app.kubernetes.io/version: {{ .Chart.Version }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
