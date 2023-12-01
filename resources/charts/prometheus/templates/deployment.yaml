@@ -46,7 +46,7 @@ spec:
           image: {{ .Values.prometheusServer.image }}
           imagePullPolicy: {{ .Values.prometheusServer.imagePullPolicy }}
           args:
-          - --storage.tsdb.retention.time=15d
+          - --storage.tsdb.retention.time={{ .Values.prometheusServer.metrics.retentionTime }}
           - --config.file=/etc/config/prometheus.yml
           - --storage.tsdb.path=/data
           - --web.console.libraries=/etc/prometheus/console_libraries
@@ -55,6 +55,8 @@ spec:
           ports:
           - name: {{ .Values.prometheusServer.instance.ports.web.name }}
             containerPort: {{ .Values.prometheusServer.instance.ports.web.port }}
+          resources:
+            {{- toYaml .Values.prometheusServer.instance.resources | nindent 12 }}
           livenessProbe:
             failureThreshold: {{ .Values.prometheusServer.instance.liveness.failureThreshold | default 3 }}
             initialDelaySeconds: {{ .Values.prometheusServer.instance.liveness.initialDelaySeconds | default 60 }}

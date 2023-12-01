@@ -2,7 +2,13 @@ prometheusServer:
   image: quay.io/prometheus/prometheus:v2.48.0
   imagePullPolicy: IfNotPresent
   instance:
-    resources: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1
+        memory: 2Gi
     ports:
       health: 9090
       readiness: 9090
@@ -16,6 +22,8 @@ prometheusServer:
   service:
     type: LoadBalancer
     port: 9090
+  metrics:
+    retentionTime: 24h
   config:
     prometheus:
       global:
