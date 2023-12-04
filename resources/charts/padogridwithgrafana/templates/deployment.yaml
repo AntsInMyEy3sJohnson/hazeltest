@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "padogridwithgrafana.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "padogridwithgrafana.name" . }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "padogridwithgrafana.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "padogridwithgrafana.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: padogrid-with-grafana
+          image: {{ .Values.padogridWithGrafana.instance.image }}
+          imagePullPolicy: {{ .Values.padogridWithGrafana.instance.imagePullPolicy }}
+          resources:
+            {{- toYaml .Values.padogridWithGrafana.instance.resources | nindent 12 }}
+          ports:
+            - name: grafana
+              containerPort: 3000
+          env:
+            - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
+              value: "{{ .Values.padogridWithGrafana.config.hazelcastMetricsLabel }}"
+            - name: PADO_MONITORING_HAZELCAST_METRICS_CLUSTERS_FILTER
+              value: "{{ .Values.padogridWithGrafana.config.hazelcastMetricsClustersFilter }}"
+            - name: PADO_MONITORING_PROMETHEUS_URL
+              value: "{{ .Values.padogridWithGrafana.config.prometheusUrl }}"
