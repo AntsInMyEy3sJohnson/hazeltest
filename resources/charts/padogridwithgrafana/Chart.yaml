@@ -1,0 +1,9 @@
+apiVersion: v2
+name: padogridwithgrafana
+description: A chart to deploy an image launching a Grafana instance with dashboards from PadoGrid.
+
+type: application
+
+version: 1.0.0
+
+appVersion: "0.9.30"
