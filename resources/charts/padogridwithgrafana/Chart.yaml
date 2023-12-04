@@ -1,6 +1,6 @@
 apiVersion: v2
 name: padogridwithgrafana
-description: A chart to deploy an image launching a Grafana instance with dashboards from PadoGrid.
+description: A chart for deploying an image that launches a Grafana instance with dashboards from PadoGrid for monitoring one or more Hazelcast clusters.
 
 type: application
 
