@@ -9,7 +9,9 @@ padogridWithGrafana:
       path: /api/health
       port: 3000
     ports:
-      web: 3000
+      web:
+        name: grafana-web
+        port: 3000
     resources:
       requests:
         cpu: 1
@@ -24,4 +26,8 @@ padogridWithGrafana:
       - name: PADO_MONITORING_HAZELCAST_METRICS_CLUSTERS_FILTER
         value: "hazelcastplatform"
       - name: PADO_MONITORING_PROMETHEUS_URL
-        value: "http://prometheus-server.prometheus.svc.cluster.local:9090"
+        value: "http://prometheus-service.prometheus.svc.cluster.local:9090"
+  service:
+    name: grafana-web
+    type: LoadBalancer
+    port: 3000

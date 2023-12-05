@@ -25,8 +25,8 @@ spec:
           image: {{ .Values.padogridWithGrafana.instance.image }}
           imagePullPolicy: {{ .Values.padogridWithGrafana.instance.imagePullPolicy }}
           ports:
-            - name: grafana-web
-              containerPort: {{ .Values.padogridWithGrafana.instance.ports.web }}
+            - name: {{ .Values.padogridWithGrafana.instance.ports.web.name }}
+              containerPort: {{ .Values.padogridWithGrafana.instance.ports.web.port }}
           resources:
             {{- toYaml .Values.padogridWithGrafana.instance.resources | nindent 12 }}
           livenessProbe:
