@@ -48,9 +48,4 @@ spec:
               path: {{ .Values.padogridWithGrafana.instance.readiness.path }}
               port: {{ .Values.padogridWithGrafana.instance.readiness.port }}
           env:
-            - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
-              value: "{{ .Values.padogridWithGrafana.config.hazelcastMetricsLabel }}"
-            - name: PADO_MONITORING_HAZELCAST_METRICS_CLUSTERS_FILTER
-              value: "{{ .Values.padogridWithGrafana.config.hazelcastMetricsClustersFilter }}"
-            - name: PADO_MONITORING_PROMETHEUS_URL
-              value: "{{ .Values.padogridWithGrafana.config.prometheusUrl }}"
+            {{- toYaml .Values.padogridWithGrafana.config.padoEnv | nindent 12 }}

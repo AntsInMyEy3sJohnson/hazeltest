@@ -18,6 +18,10 @@ padogridWithGrafana:
         cpu: 2
         memory: 1Gi
   config:
-    hazelcastMetricsLabel: "namespace"
-    hazelcastMetricsClustersFilter: "hazelcastplatform"
-    prometheusUrl: "http://prometheus-server.prometheus.svc.cluster.local:9090"
+    padoEnv:
+      - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
+        value: "namespace"
+      - name: PADO_MONITORING_HAZELCAST_METRICS_CLUSTERS_FILTER
+        value: "hazelcastplatform"
+      - name: PADO_MONITORING_PROMETHEUS_URL
+        value: "http://prometheus-server.prometheus.svc.cluster.local:9090"
