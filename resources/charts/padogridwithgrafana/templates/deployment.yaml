@@ -31,8 +31,8 @@ spec:
             {{- toYaml .Values.padogridWithGrafana.instance.resources | nindent 12 }}
           livenessProbe:
             failureThreshold: {{ .Values.padogridWithGrafana.instance.liveness.failureThreshold | default 3 }}
-            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.liveness.initialDelaySeconds | default 20 }}
-            periodSeconds: {{ .Values.padogridWithGrafana.instance.liveness.periodSeconds | default 10 }}
+            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.liveness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.padogridWithGrafana.instance.liveness.periodSeconds | default 15 }}
             successThreshold: {{ .Values.padogridWithGrafana.instance.liveness.successThreshold | default 1 }}
             timeoutSeconds: {{ .Values.padogridWithGrafana.instance.liveness.timeoutSeconds | default 2 }}
             httpGet:
@@ -40,8 +40,8 @@ spec:
               port: {{ .Values.padogridWithGrafana.instance.liveness.port }}
           readinessProbe:
             failureThreshold: {{ .Values.padogridWithGrafana.instance.readiness.failureThreshold | default 3 }}
-            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.readiness.initialDelaySeconds | default 60 }}
-            periodSeconds: {{ .Values.padogridWithGrafana.instance.readiness.periodSeconds | default 20 }}
+            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.readiness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.padogridWithGrafana.instance.readiness.periodSeconds | default 5 }}
             successThreshold: {{ .Values.padogridWithGrafana.instance.readiness.successThreshold | default 1 }}
             timeoutSeconds: {{ .Values.padogridWithGrafana.instance.readiness.timeoutSeconds | default 2 }}
             httpGet:
