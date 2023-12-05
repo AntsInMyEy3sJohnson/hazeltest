@@ -2,6 +2,14 @@ padogridWithGrafana:
   instance:
     image: antsinmyey3sjohnson/padogrid-grafana:0.9.30.3@sha256:a48f7a8cdb5dc20fc268dfc002b2972d812f9d0bc06a1a24b720fa7922256d2c
     imagePullPolicy: IfNotPresent
+    liveness:
+      path: /api/health
+      port: 3000
+    readiness:
+      path: /api/health
+      port: 3000
+    ports:
+      web: 3000
     resources:
       requests:
         cpu: 1

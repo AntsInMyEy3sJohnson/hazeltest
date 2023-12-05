@@ -24,11 +24,29 @@ spec:
         - name: padogrid-with-grafana
           image: {{ .Values.padogridWithGrafana.instance.image }}
           imagePullPolicy: {{ .Values.padogridWithGrafana.instance.imagePullPolicy }}
+          ports:
+            - name: grafana-web
+              containerPort: {{ .Values.padogridWithGrafana.instance.ports.web }}
           resources:
             {{- toYaml .Values.padogridWithGrafana.instance.resources | nindent 12 }}
-          ports:
-            - name: grafana
-              containerPort: 3000
+          livenessProbe:
+            failureThreshold: {{ .Values.padogridWithGrafana.instance.liveness.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.liveness.initialDelaySeconds | default 20 }}
+            periodSeconds: {{ .Values.padogridWithGrafana.instance.liveness.periodSeconds | default 10 }}
+            successThreshold: {{ .Values.padogridWithGrafana.instance.liveness.successThreshold | default 1 }}
+            timeoutSeconds: {{ .Values.padogridWithGrafana.instance.liveness.timeoutSeconds | default 2 }}
+            httpGet:
+              path: {{ .Values.padogridWithGrafana.instance.liveness.path }}
+              port: {{ .Values.padogridWithGrafana.instance.liveness.port }}
+          readinessProbe:
+            failureThreshold: {{ .Values.padogridWithGrafana.instance.readiness.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ .Values.padogridWithGrafana.instance.readiness.initialDelaySeconds | default 60 }}
+            periodSeconds: {{ .Values.padogridWithGrafana.instance.readiness.periodSeconds | default 20 }}
+            successThreshold: {{ .Values.padogridWithGrafana.instance.readiness.successThreshold | default 1 }}
+            timeoutSeconds: {{ .Values.padogridWithGrafana.instance.readiness.timeoutSeconds | default 2 }}
+            httpGet:
+              path: {{ .Values.padogridWithGrafana.instance.readiness.path }}
+              port: {{ .Values.padogridWithGrafana.instance.readiness.port }}
           env:
             - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
               value: "{{ .Values.padogridWithGrafana.config.hazelcastMetricsLabel }}"
