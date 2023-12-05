@@ -59,22 +59,22 @@ spec:
             {{- toYaml .Values.prometheusServer.instance.resources | nindent 12 }}
           livenessProbe:
             failureThreshold: {{ .Values.prometheusServer.instance.liveness.failureThreshold | default 3 }}
-            initialDelaySeconds: {{ .Values.prometheusServer.instance.liveness.initialDelaySeconds | default 60 }}
-            periodSeconds: {{ .Values.prometheusServer.instance.liveness.periodSeconds | default 20 }}
+            initialDelaySeconds: {{ .Values.prometheusServer.instance.liveness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.prometheusServer.instance.liveness.periodSeconds | default 15 }}
             successThreshold: {{ .Values.prometheusServer.instance.liveness.successThreshold | default 1 }}
             timeoutSeconds: {{ .Values.prometheusServer.instance.liveness.timeoutSeconds | default 2 }}
             httpGet:
               path: {{ .Values.prometheusServer.instance.liveness.path }}
-              port: {{ .Values.prometheusServer.instance.ports.health }}
+              port: {{ .Values.prometheusServer.instance.liveness.port }}
           readinessProbe:
             failureThreshold: {{ .Values.prometheusServer.instance.readiness.failureThreshold | default 3 }}
-            initialDelaySeconds: {{ .Values.prometheusServer.instance.readiness.initialDelaySeconds | default 60 }}
-            periodSeconds: {{ .Values.prometheusServer.instance.readiness.periodSeconds | default 20 }}
+            initialDelaySeconds: {{ .Values.prometheusServer.instance.readiness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.prometheusServer.instance.readiness.periodSeconds | default 15 }}
             successThreshold: {{ .Values.prometheusServer.instance.readiness.successThreshold | default 1 }}
             timeoutSeconds: {{ .Values.prometheusServer.instance.readiness.timeoutSeconds | default 2 }}
             httpGet:
               path: {{ .Values.prometheusServer.instance.readiness.path }}
-              port: {{ .Values.prometheusServer.instance.ports.readiness }}
+              port: {{ .Values.prometheusServer.instance.readiness.port }}
           volumeMounts:
             - mountPath: /etc/config
               name: config-volume

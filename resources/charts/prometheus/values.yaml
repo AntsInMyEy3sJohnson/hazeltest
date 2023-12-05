@@ -10,15 +10,15 @@ prometheusServer:
         cpu: 1
         memory: 2Gi
     ports:
-      health: 9090
-      readiness: 9090
       web:
         name: web
         port: 9090
     liveness:
       path: "/-/healthy"
+      port: 9090
     readiness:
       path: /-/ready
+      port: 9090
   service:
     type: LoadBalancer
     port: 9090
