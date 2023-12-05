@@ -50,6 +50,9 @@ prometheusServer:
               regex: ([^:]+)(?::\d+)?;(\d+)
               replacement: $1:$2
               target_label: __address__
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: namespace
 
 prometheusConfigReloader:
   image: quay.io/prometheus-operator/prometheus-config-reloader:v0.67.0
