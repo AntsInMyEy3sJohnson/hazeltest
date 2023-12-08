@@ -1,6 +1,6 @@
 padogridWithGrafana:
   instance:
-    image: antsinmyey3sjohnson/padogrid-grafana:0.9.30.3@sha256:a48f7a8cdb5dc20fc268dfc002b2972d812f9d0bc06a1a24b720fa7922256d2c
+    image: antsinmyey3sjohnson/padogrid-grafana:0.9.32.0@sha256:0ae86f809905952236fbbb9edd2d9859a4506cb662c257b548270f01c5becf22
     imagePullPolicy: IfNotPresent
     liveness:
       path: /api/health
@@ -23,8 +23,6 @@ padogridWithGrafana:
     padoEnv:
       - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
         value: "namespace"
-      - name: PADO_MONITORING_HAZELCAST_METRICS_CLUSTERS_FILTER
-        value: "hazelcastplatform"
       - name: PADO_MONITORING_PROMETHEUS_URL
         value: "http://prometheus-service.prometheus.svc.cluster.local:9090"
   service:
