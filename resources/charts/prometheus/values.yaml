@@ -1,0 +1,67 @@
+prometheusServer:
+  image: quay.io/prometheus/prometheus:v2.48.0
+  imagePullPolicy: IfNotPresent
+  instance:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1
+        memory: 2Gi
+    ports:
+      web:
+        name: web
+        port: 9090
+    liveness:
+      path: "/-/healthy"
+      port: 9090
+    readiness:
+      path: /-/ready
+      port: 9090
+  service:
+    type: LoadBalancer
+    port: 9090
+  metrics:
+    retentionTime: 24h
+  config:
+    prometheus:
+      global:
+        scrape_interval: 30s
+      scrape_configs:
+        - job_name: "prometheus"
+          static_configs:
+            - targets: ["localhost:9090"]
+        - job_name: "kubernetes-pod-auto-discovery"
+          kubernetes_sd_configs:
+            - role: pod
+          scrape_interval: 1m
+          scrape_timeout: 10s
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: "true"
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [ __address__, __meta_kubernetes_pod_annotation_prometheus_io_port ]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: namespace
+
+prometheusConfigReloader:
+  image: quay.io/prometheus-operator/prometheus-config-reloader:v0.67.0
+  imagePullPolicy: IfNotPresent
+  instance:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"

@@ -24,11 +24,14 @@ spec:
         # -> Force Hazelcast Pods to be restarted even after changes that normally would not cause a restart,
         # such as changes to the Hazelcast ConfigMap
         helmRevision: "{{ .Release.Revision }}"
+        {{- if .Values.platform.cluster.prometheusScrape.enable }}
+        {{- toYaml .Values.platform.cluster.prometheusScrape.annotations | nindent 8 }}
+        {{- end }}
     spec:
-      {{ if .Values.platform.nodeSelectors }}
+      {{- if .Values.platform.nodeSelectors.enable }}
       nodeSelector:
-        {{ toYaml .Values.platform.nodeSelectors }}
-      {{ end }}
+        {{ toYaml .Values.platform.nodeSelectors.selectors }}
+      {{- end }}
       terminationGracePeriodSeconds: {{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}
       volumes:
       - name: hzconfig
@@ -36,7 +39,7 @@ spec:
           name: {{ template "hazelcastimdg.fullname" . }}-config
       containers:
       - name: {{ template "hazelcastimdg.fullname" . }}
-        image: {{ .Values.platform.cluster.members.image }}
+        image: {{ if .Values.platform.cluster.members.edition.enterprise.enable }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
         imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
         resources:
 {{ toYaml .Values.platform.cluster.members.containerResources | indent 10 }}
@@ -69,6 +72,17 @@ spec:
                   -Dhazelcast.graceful.shutdown.max.wait={{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}"
         - name: LOGGING_LEVEL
           value: {{ .Values.platform.cluster.logging.level }}
+        {{- if .Values.platform.cluster.features.prometheusExport.enable }}
+        - name: PROMETHEUS_PORT
+          value: "{{ .Values.platform.cluster.members.ports.metrics }}"
+        {{- end }}
+        {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
+        - name: HZ_LICENSEKEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.platform.cluster.members.edition.enterprise.license.secretName }}
+              key: {{ .Values.platform.cluster.members.edition.enterprise.license.keyPath }}
+        {{- end }}
         volumeMounts:
         - name: hzconfig
           mountPath: /data/hazelcast/config

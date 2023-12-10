@@ -9,6 +9,8 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
@@ -18,11 +20,15 @@ spec:
       labels:
         app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
         app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.mancenter.instance.prometheusScrape.enable }}
+      annotations:
+        {{- toYaml .Values.mancenter.instance.prometheusScrape.annotations | nindent 8 }}
+      {{- end }}
     spec:
-      {{ if .Values.mancenter.nodeSelectors }}
+      {{- if .Values.mancenter.nodeSelectors.enable }}
       nodeSelector:
-        {{ toYaml .Values.mancenter.nodeSelectors }}
-      {{ end }}
+        {{ toYaml .Values.mancenter.nodeSelectors.selectors }}
+      {{- end }}
       containers:
       - name: mancenter
         image: {{ .Values.mancenter.instance.image }}
@@ -59,9 +65,16 @@ spec:
             memory: {{ .Values.mancenter.instance.resources.limits.memory }}
         env:
         - name: JAVA_OPTS
-          value: "{{ .Values.mancenter.instance.javaOpts }} -XX:+UseContainerSupport"
+          value: "{{ .Values.mancenter.instance.javaOpts }}{{ if .Values.mancenter.instance.enterprise.enable }} -Dhazelcast.mc.license=$(MC_LICENSE_KEY){{ end }} -XX:+UseContainerSupport"
         - name: MC_INIT_CMD
           value: ./bin/mc-conf.sh cluster add --lenient=true -H /data -cc /data/hazelcastmancenter/config/hazelcast-client.yaml
+        {{- if .Values.mancenter.instance.enterprise.enable }}
+        - name: MC_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.mancenter.instance.enterprise.license.secretName }}
+              key: {{ .Values.mancenter.instance.enterprise.license.keyPath }}
+        {{- end }}
         volumeMounts: 
         - name: mancenterconfig
           mountPath: /data/hazelcastmancenter/config

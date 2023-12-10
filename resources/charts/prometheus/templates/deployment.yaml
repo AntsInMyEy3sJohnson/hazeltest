@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "prometheus.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "prometheus.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "prometheus.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      terminationGracePeriodSeconds: 120
+      serviceAccountName: {{ template "prometheus.name" . }}-serviceaccount
+      volumes:
+        - name: config-volume
+          configMap:
+            defaultMode: 420
+            name: {{ template "prometheus.name" . }}-config
+        - name: storage-volume
+          emptyDir: {}
+      containers:
+        - name: prometheus-server-configmap-reloader
+          image: {{ .Values.prometheusConfigReloader.image }}
+          imagePullPolicy: {{ .Values.prometheusConfigReloader.imagePullPolicy }}
+          args:
+            - --watched-dir=/etc/config
+            - --reload-url=http://127.0.0.1:9090/-/reload
+          resources:
+            {{- toYaml .Values.prometheusConfigReloader.instance.resources | nindent 12 }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+              readOnly: true
+        - name: prometheus
+          image: {{ .Values.prometheusServer.image }}
+          imagePullPolicy: {{ .Values.prometheusServer.imagePullPolicy }}
+          args:
+          - --storage.tsdb.retention.time={{ .Values.prometheusServer.metrics.retentionTime }}
+          - --config.file=/etc/config/prometheus.yml
+          - --storage.tsdb.path=/data
+          - --web.console.libraries=/etc/prometheus/console_libraries
+          - --web.console.templates=/etc/prometheus/consoles
+          - --web.enable-lifecycle
+          ports:
+          - name: {{ .Values.prometheusServer.instance.ports.web.name }}
+            containerPort: {{ .Values.prometheusServer.instance.ports.web.port }}
+          resources:
+            {{- toYaml .Values.prometheusServer.instance.resources | nindent 12 }}
+          livenessProbe:
+            failureThreshold: {{ .Values.prometheusServer.instance.liveness.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ .Values.prometheusServer.instance.liveness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.prometheusServer.instance.liveness.periodSeconds | default 15 }}
+            successThreshold: {{ .Values.prometheusServer.instance.liveness.successThreshold | default 1 }}
+            timeoutSeconds: {{ .Values.prometheusServer.instance.liveness.timeoutSeconds | default 2 }}
+            httpGet:
+              path: {{ .Values.prometheusServer.instance.liveness.path }}
+              port: {{ .Values.prometheusServer.instance.liveness.port }}
+          readinessProbe:
+            failureThreshold: {{ .Values.prometheusServer.instance.readiness.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ .Values.prometheusServer.instance.readiness.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.prometheusServer.instance.readiness.periodSeconds | default 15 }}
+            successThreshold: {{ .Values.prometheusServer.instance.readiness.successThreshold | default 1 }}
+            timeoutSeconds: {{ .Values.prometheusServer.instance.readiness.timeoutSeconds | default 2 }}
+            httpGet:
+              path: {{ .Values.prometheusServer.instance.readiness.path }}
+              port: {{ .Values.prometheusServer.instance.readiness.port }}
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config-volume
+            - name: storage-volume
+              mountPath: /data

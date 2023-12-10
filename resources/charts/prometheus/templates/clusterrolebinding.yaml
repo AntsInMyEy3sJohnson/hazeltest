@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ template "prometheus.name" . }}-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "prometheus.name" . }}-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "prometheus.name" . }}-serviceaccount
+    namespace: {{ .Release.Namespace }}

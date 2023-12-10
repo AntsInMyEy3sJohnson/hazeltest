@@ -1,0 +1,31 @@
+padogridWithGrafana:
+  instance:
+    image: antsinmyey3sjohnson/padogrid-grafana:0.9.32.0@sha256:0ae86f809905952236fbbb9edd2d9859a4506cb662c257b548270f01c5becf22
+    imagePullPolicy: IfNotPresent
+    liveness:
+      path: /api/health
+      port: 3000
+    readiness:
+      path: /api/health
+      port: 3000
+    ports:
+      web:
+        name: grafana-web
+        port: 3000
+    resources:
+      requests:
+        cpu: 1
+        memory: 500Mi
+      limits:
+        cpu: 2
+        memory: 1Gi
+  config:
+    padoEnv:
+      - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
+        value: "namespace"
+      - name: PADO_MONITORING_PROMETHEUS_URL
+        value: "http://prometheus-service.prometheus.svc.cluster.local:9090"
+  service:
+    name: grafana-web
+    type: LoadBalancer
+    port: 3000

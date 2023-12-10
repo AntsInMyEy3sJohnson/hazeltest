@@ -1,0 +1,9 @@
+apiVersion: v2
+name: prometheus
+description: A simplified Helm chart to deploy Prometheus to Kubernetes.
+
+type: application
+
+version: 1.0.0
+
+appVersion: "2.48.0"
