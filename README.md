@@ -42,9 +42,7 @@ Once you deployed Hazeltest so it generates some load on your Hazelcast cluster 
 
 The latter two are offered by the [`padogrid-grafana`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-grafana) image, which itself is based on a [`padogrid`](https://hub.docker.com/r/padogrid/padogrid) image. (In case you're wondering what PadoGrid is and how it can help you, there's a short introduction down below.)
 
-<div style="border-left: 4px solid orange; padding: 10px; margin-bottom: 10px">
-    <strong>Note:</strong> Only the enterprise version of Hazelcast offers the <i>com_hazelcast</i> metrics the Grafana dashboards that come bundled with PadoGrid rely on. If you wish to use the monitoring stack available in this repository, you can request a free trial license <a href="https://hazelcast.com/get-started/">here</a> if you don't currently have one.
-</div>
+> :warning: **Note:** Only the enterprise version of Hazelcast offers the _com_hazelcast_ metrics the Grafana dashboards that come bundled with PadoGrid rely on. If you wish to use the monitoring stack available in this repository, you can request a free trial license [here](https://hazelcast.com/get-started/) in case you don't currently have one.
 
 ### Installing Hazelcast Enterprise
 The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this repository for installing Hazelcast can be configured to use Hazelcast Enterprise rather than the community edition. The following properties in the [`values.yaml`](./resources/charts/hazelcastwithmancenter/values.yaml) file are important in this context:
@@ -54,9 +52,7 @@ The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this re
 * `.Values.platform.cluster.members.edition.enterprise.license.secretName`: The name of the Kubernetes Secret that contains the enterprise license key. 
 * `.Values.platform.cluster.members.edition.enterprise.license.keyPath`: The path, within the secret, to the key that holds the enterprise license key as a string.
 
-<div style="border-left: 4px solid orange; padding: 10px; margin-bottom: 10px">
-    <strong>Note:</strong> The Secret containing the Hazelcast Enterprise license and the Hazelcast Enterprise cluster must reside the in the same namespace.
-</div>
+> :warning: **Note:** The Secret containing the Hazelcast Enterprise license and the Hazelcast Enterprise cluster must reside the in the same namespace.
 
 For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a Secret called `hazelcast-enterprise-license` that represent the license key string a in a property called `data.licenseKey`, you would configure the properties above like so:
 
@@ -111,9 +107,7 @@ Finally, you'll probably want to get some monitoring done using this freshly ins
 http://<external ip for grafana loadbalancer service>:3000/dashboards
 ```
 
-<div style="border-left: 4px solid orange; padding: 10px; margin-bottom: 10px">
-    <strong>Note:</strong> If this is your first login to Grafana, you can log in using Grafana's default username/password combination, which, at the time of this writing, is <i>admin/admin</i>. Of course, it is recommended to change this to something more secure once Grafana prompts you to do so.
-</div>
+> :warning: **Note:** If this is your first login to Grafana, you can log in using Grafana's default username/password combination, which, at the time of this writing, is _admin/admin_. Of course, it is recommended to change this to something more secure once Grafana prompts you to do so.
 
 Here, the available dashboards are categorized into multiple folders:
 
