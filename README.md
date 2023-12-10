@@ -120,5 +120,11 @@ A good place to start is the _00Main_ dashboard in the _Hazelcast_ folder. Wih a
 This should give you a good overview of how your Hazelcast cluster is currently doing, and more detailed views are available via the links on the left-hand side of the dashboard. In fact, there is quite a lot to discover, so feel free to dig in and have fun exploring!
 
 ## Generating Load With PadoGrid
-TODO: Write this section.
+_PadoGrid_ is an open source application that provides a fantastic playing ground for testing all kinds of data grid and computing technologies (Hazelcast is one of them, but since it's based on what the developer calls _distributed workspaces_ and pluggable _bundles_, it also works with other technologies like Spark, Kafka, and Hadoop). 
+
+There are different sub-programs available in PadoGrid, one of which is the [_perf_test_ application for Hazelcast](https://github.com/padogrid/padogrid/wiki/Hazelcast-perf_test-App). This handy tool offers the capability of running tests that can be configured by means of text-based properties files that describe the groups and operations to run in scope of a test. If your goal is to load-test your Hazelcast cluster in terms of memory and CPU only (rather than CPU and memory plus the number of maps and clients), then PadoGrid will perfectly suit your needs. 
+
+On top of that, the most recent versions of PadoGrid (starting with v0.9.30) also contain super useful dashboards for monitoring Hazelcast clusters, and the `padogrid-grafana` image you may have encountered if you set up Hazeltest's monitoring stack according to the instructions above leverages them in a running Grafana instance you can access and use without much prior configuration work.
+
+You can find PadoGrid's source code and many useful guides for getting started over on [GitHub](https://github.com/padogrid/padogrid).
 
