@@ -126,7 +126,7 @@ mancenter:
   nodeSelectors:
     enable: false
     selectors: {}
-  deploy: true
+  deploy: false
   service:
     type: LoadBalancer
     port: 8080
