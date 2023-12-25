@@ -1,6 +1,6 @@
 padogridWithGrafana:
   instance:
-    image: antsinmyey3sjohnson/padogrid-grafana:0.9.32.0@sha256:0ae86f809905952236fbbb9edd2d9859a4506cb662c257b548270f01c5becf22
+    image: antsinmyey3sjohnson/padogrid-hazelmon:0.9.32.0@sha256:92ef72f72785c58136ac400355cf8d6b00e096e0c6186daa0a59373a64bf2e9f
     imagePullPolicy: IfNotPresent
     liveness:
       path: /api/health
@@ -24,7 +24,8 @@ padogridWithGrafana:
       - name: PADO_MONITORING_HAZELCAST_METRICS_LABEL
         value: "namespace"
       - name: PADO_MONITORING_PROMETHEUS_URL
-        value: "http://prometheus-service.prometheus.svc.cluster.local:9090"
+        # Implies the PadoGrid Pod will reside in one namespace with the Prometheus Pod -- adjust to FQDN if different namespaces
+        value: "http://prometheus-service:9090"
   service:
     name: grafana-web
     type: LoadBalancer
