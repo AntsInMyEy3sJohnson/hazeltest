@@ -4,10 +4,10 @@ prometheusServer:
   instance:
     resources:
       requests:
-        cpu: 500m
+        cpu: 2
         memory: 1Gi
       limits:
-        cpu: 1
+        cpu: 4
         memory: 2Gi
     ports:
       web:
