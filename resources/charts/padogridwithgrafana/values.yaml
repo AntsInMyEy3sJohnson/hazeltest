@@ -1,6 +1,6 @@
 padogridWithGrafana:
   instance:
-    image: antsinmyey3sjohnson/padogrid-hazelmon:0.9.32.0@sha256:92ef72f72785c58136ac400355cf8d6b00e096e0c6186daa0a59373a64bf2e9f
+    image: antsinmyey3sjohnson/padogrid-hazelmon:0.9.32.0@sha256:21ec577063d48c4720d05a6171c1041784691e3a10763c9f1b16f6fd80147984
     imagePullPolicy: IfNotPresent
     liveness:
       path: /api/health
