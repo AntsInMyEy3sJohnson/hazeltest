@@ -34,7 +34,7 @@ The default configuration resides right with the source code, and you can find i
 You can find all properties for configuring the Hazeltest application itself in the [`values.yaml`](./resources/charts/hazeltest/values.yaml) file of the [Hazeltest Helm chart](./resources/charts/hazeltest/) along with comments explaining them.
 
 ## Monitoring Your Hazelcast Cluster
-Once you deployed Hazeltest so it generates some load on your Hazelcast cluster under test, you might want to start monitoring your Hazelcast cluster in order to get a more thorough understanding for the sort of load Hazeltest creates and how your cluster's members can deal with that load. In case you have deployed Hazelcast to a Kubernetes cluster, you may find the small monitoring stack this repository offers useful. In short, it utilizes the following components:
+Once you deployed Hazeltest so it generates some load on your Hazelcast cluster under test, you might want to start monitoring it in order to get a more thorough understanding for the sort of load Hazeltest creates and how your cluster's members can deal with that load. In case you have deployed Hazelcast to a Kubernetes cluster, you may find the small monitoring stack this repository offers useful. In short, it utilizes the following components:
 
 * Prometheus for scraping the Pods of your Hazelcast cluster (or clusters)
 * Grafana dashboards for visualizing the metrics scraped by Prometheus 
@@ -43,7 +43,7 @@ Once you deployed Hazeltest so it generates some load on your Hazelcast cluster 
 The latter two are provided by the [`padogrid-hazelmon`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-hazelmon) image, which itself is based on a [`padogrid`](https://hub.docker.com/r/padogrid/padogrid) image. (In case you're wondering what PadoGrid is and how it can help you, there's a short introduction down below.)
 
 ### Installing Hazelcast
-To make the monitoring stack work, both the Community and Enterprise edition will do fine, as both offer the _com_hazelcast_ metrics the Grafana dashboards rely on. In case you would still like to use the Enterprise version using the chart provided in this repository, check out the [_Installing Hazelcast Enterprise_](#installing-hazelcast-enterprise) section down below.
+To make the monitoring stack work, both the Community and Enterprise edition of Hazelcast will do fine, as both offer the _com_hazelcast_ metrics the Grafana dashboards rely on. In case you would still like to use the Enterprise version using the chart provided in this repository, check out the [_Installing Hazelcast Enterprise_](#installing-hazelcast-enterprise) section down below.
 
 You can deploy the Hazelcast cluster to be monitored using the same old Helm command you may have already encountered in the [_Getting Started_](#getting-started) section above (assuming you're in the [`resources/charts`](./resources/charts/) directory of your local copy of this repository):
 
@@ -52,10 +52,10 @@ helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespa
 ```
 
 ### Installing Prometheus
-Once your Hazelcast Enterprise cluster is up and running, it's time to scrape some metrics! To do so, you can install Prometheus using the following command:
+Once your Hazelcast cluster is up and running, it's time to scrape some metrics! To do so, you can install Prometheus using the following command:
 
 ```bash
-helm upgrade --install prometheus ./prometheus -n prometheus --create-namespace
+helm upgrade --install prometheus ./prometheus --namespace prometheus --create-namespace
 ```
 
 (You can modify the Prometheus configuration in the chart's [`values.yaml`](./resources/charts/prometheus/values.yaml) file if you so desire, of course, but the properties already provided there should work out of the box.)
@@ -102,9 +102,9 @@ The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this re
 * `.Values.platform.cluster.members.edition.enterprise.license.secretName`: The name of the Kubernetes Secret that contains the enterprise license key.
 * `.Values.platform.cluster.members.edition.enterprise.license.keyPath`: The path, within the secret, to the key that holds the enterprise license key as a string.
 
-> :warning: **Note:** The Secret containing the Hazelcast Enterprise license and the Hazelcast Enterprise cluster must reside the in the same namespace.
+> :warning: **Note:** The Hazelcast Enterprise cluster must be deployed to the same namespace that holds the Secret containing the license key.
 
-For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a Secret called `hazelcast-enterprise-license` that represent the license key string a in a property called `data.licenseKey`, you would configure the properties above like so:
+For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a Secret called `hazelcast-enterprise-license` that represents the license key string a in a property called `data.licenseKey`, you would configure the properties above like so:
 
 ```yaml
 platform:
