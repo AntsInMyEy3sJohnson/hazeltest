@@ -40,39 +40,12 @@ Once you deployed Hazeltest so it generates some load on your Hazelcast cluster 
 * Grafana dashboards for visualizing the metrics scraped by Prometheus 
 * Grafana itself
 
-The latter two are offered by the [`padogrid-grafana`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-grafana) image, which itself is based on a [`padogrid`](https://hub.docker.com/r/padogrid/padogrid) image. (In case you're wondering what PadoGrid is and how it can help you, there's a short introduction down below.)
+The latter two are provided by the [`padogrid-hazelmon`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-hazelmon) image, which itself is based on a [`padogrid`](https://hub.docker.com/r/padogrid/padogrid) image. (In case you're wondering what PadoGrid is and how it can help you, there's a short introduction down below.)
 
-> :warning: **Note:** Only the enterprise version of Hazelcast offers the _com_hazelcast_ metrics the Grafana dashboards that come bundled with PadoGrid rely on. If you wish to use the monitoring stack available in this repository, you can request a free trial license [here](https://hazelcast.com/get-started/) in case you don't currently have one.
+### Installing Hazelcast
+To make the monitoring stack work, both the Community and Enterprise edition will do fine, as both offer the _com_hazelcast_ metrics the Grafana dashboards rely on. In case you would still like to use the Enterprise version using the chart provided in this repository, check out the [_Installing Hazelcast Enterprise_](#installing-hazelcast-enterprise) section down below.
 
-### Installing Hazelcast Enterprise
-The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this repository for installing Hazelcast can be configured to use Hazelcast Enterprise rather than the community edition. The following properties in the [`values.yaml`](./resources/charts/hazelcastwithmancenter/values.yaml) file are important in this context:
-
-* `.Values.platform.cluster.members.edition.enterprise.enable`: Whether to enable using the Enterprise edition. If set so `true`, the chart expects a Kubernetes Secret that contains the enterprise license key, see below.
-* `.Values.platform.cluster.members.edition.enterprise.image`: The Hazelcast Enterprise image to use.
-* `.Values.platform.cluster.members.edition.enterprise.license.secretName`: The name of the Kubernetes Secret that contains the enterprise license key. 
-* `.Values.platform.cluster.members.edition.enterprise.license.keyPath`: The path, within the secret, to the key that holds the enterprise license key as a string.
-
-> :warning: **Note:** The Secret containing the Hazelcast Enterprise license and the Hazelcast Enterprise cluster must reside the in the same namespace.
-
-For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a Secret called `hazelcast-enterprise-license` that represent the license key string a in a property called `data.licenseKey`, you would configure the properties above like so:
-
-```yaml
-platform:
-  # ...
-  cluster:
-    # ...
-    members:
-      # ...
-      edition:
-        enterprise:
-          enable: true
-          image: hazelcast/hazelcast-enterprise:5.3.6
-          license:
-            secretName: hazelcast-enterprise-license
-            keyPath: licenseKey
-```
-
-You can then deploy your Hazelcast Enterprise cluster using just the same command you may have already encountered in the _Getting Started_ section above (assuming you're in the [`resources/charts`](./resources/charts/) directory of your local copy of this repository):
+You can deploy the Hazelcast cluster to be monitored using the same old Helm command you may have already encountered in the [_Getting Started_](#getting-started) section above (assuming you're in the [`resources/charts`](./resources/charts/) directory of your local copy of this repository):
 
 ```bash
 helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
@@ -89,10 +62,10 @@ helm upgrade --install prometheus ./prometheus -n prometheus --create-namespace
 
 You can check whether the _com_hazelcast_ metrics are scraped correctly by navigating to Prometheus' web UI. The URL for doing so corresponds to the following pattern: `http://<external ip of prometheus loadbalancer service>:9090`
 
-### Installing `padogrid-grafana`
-The last puzzle piece in this small monitoring stack is the [`padogrid-grafana`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-grafana) image that comes bundled both with Grafana and some really sweet dashboards for monitoring Hazelcast (more precisely speaking, the image's base image, [`padogrid`](https://hub.docker.com/r/padogrid/padogrid), offers all the dashboards, and `padogrid-grafana` merely adds Grafana and performs some work to get Grafana configured and running when deployed in a Helm chart). 
+### Installing `padogrid-hazelmon`
+The last puzzle piece in this small monitoring stack is the [`padogrid-hazelmon`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-hazelmon) image that comes bundled both with Grafana and some really sweet dashboards for monitoring Hazelcast (more precisely speaking, the image's base image, [`padogrid`](https://hub.docker.com/r/padogrid/padogrid), offers all the dashboards, and `padogrid-hazelmon` merely adds Grafana and performs some work to get Grafana configured and running when deployed in a Helm chart). 
 
-The `padogrid-grafana` installation must be pointed to the Prometheus server that scrapes the _com_hazelcast_ metrics from your Hazelcast cluster's members. In case you installed Prometheus according to the instructions above without having modified the chart, the `padogridwithgrafana` chart will work out of the box, too. In case you have modified either the name of the Kubernetes Service that points to your Prometheus Pod, the namespace, or the port, please make sure to adjust the `PADO_MONITORING_PROMETHEUS_URL` property beneath the `padogridWithGrafana.config.padoEnv` object in the chart's [`values.yaml`](./resources/charts/padogridwithgrafana/values.yaml) file accordingly.
+The `padogrid-hazelmon` installation must be pointed to the Prometheus server that scrapes the _com_hazelcast_ metrics from your Hazelcast cluster's members. In case you installed Prometheus according to the instructions above without having modified the chart, the `padogridwithgrafana` chart will work out of the box, too. In case you have modified either the name of the Kubernetes Service that points to your Prometheus Pod, the namespace, or the port, please make sure to adjust the `PADO_MONITORING_PROMETHEUS_URL` property beneath the `padogridWithGrafana.config.padoEnv` object in the chart's [`values.yaml`](./resources/charts/padogridwithgrafana/values.yaml) file accordingly.
 
 You can install the chart like so:
 
@@ -119,12 +92,48 @@ A good place to start is the _00Main_ dashboard in the _Hazelcast_ folder. Wih a
 
 This should give you a good overview of how your Hazelcast cluster is currently doing, and more detailed views are available via the links on the left-hand side of the dashboard. In fact, there is quite a lot to discover, so feel free to dig in and have fun exploring!
 
+## Installing Hazelcast Enterprise
+In case you would like to install Hazelcast in the Enterprise edition using the chart offered in this repository, you may find the following notes useful.
+
+The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this repository for installing Hazelcast can be configured to use Hazelcast Enterprise rather than the community edition. The following properties in the [`values.yaml`](./resources/charts/hazelcastwithmancenter/values.yaml) file are important in this context:
+
+* `.Values.platform.cluster.members.edition.enterprise.enable`: Whether to enable using the Enterprise edition. If set so `true`, the chart expects a Kubernetes Secret that contains the enterprise license key, see below.
+* `.Values.platform.cluster.members.edition.enterprise.image`: The Hazelcast Enterprise image to use.
+* `.Values.platform.cluster.members.edition.enterprise.license.secretName`: The name of the Kubernetes Secret that contains the enterprise license key.
+* `.Values.platform.cluster.members.edition.enterprise.license.keyPath`: The path, within the secret, to the key that holds the enterprise license key as a string.
+
+> :warning: **Note:** The Secret containing the Hazelcast Enterprise license and the Hazelcast Enterprise cluster must reside the in the same namespace.
+
+For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a Secret called `hazelcast-enterprise-license` that represent the license key string a in a property called `data.licenseKey`, you would configure the properties above like so:
+
+```yaml
+platform:
+  # ...
+  cluster:
+    # ...
+    members:
+      # ...
+      edition:
+        enterprise:
+          enable: true
+          image: hazelcast/hazelcast-enterprise:5.3.6
+          license:
+            secretName: hazelcast-enterprise-license
+            keyPath: licenseKey
+```
+
+Then, you can install your Hazelcast cluster using the very same Helm command that, by now, is probably familiar:
+
+```bash
+helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
+```
+
 ## Generating Load With PadoGrid
 _PadoGrid_ is an open source application that provides a fantastic playing ground for testing all kinds of data grid and computing technologies (Hazelcast is one of them, but since it's based on what the developer calls _distributed workspaces_ and pluggable _bundles_, it also works with other technologies like Spark, Kafka, and Hadoop). 
 
 There are different sub-programs available in PadoGrid, one of which is the [_perf_test_ application for Hazelcast](https://github.com/padogrid/padogrid/wiki/Hazelcast-perf_test-App). This handy tool offers the capability of running tests that can be configured by means of text-based properties files that describe the groups and operations to run in scope of a test. If your goal is to load-test your Hazelcast cluster in terms of memory and CPU only (rather than CPU and memory plus the number of maps and clients), then PadoGrid will perfectly suit your needs. 
 
-On top of that, the most recent versions of PadoGrid (starting with v0.9.30) also contain super useful dashboards for monitoring Hazelcast clusters, and the `padogrid-grafana` image you may have encountered if you set up Hazeltest's monitoring stack according to the instructions above leverages them in a running Grafana instance you can access and use without much prior configuration work.
+On top of that, the most recent versions of PadoGrid (starting with v0.9.30) also contain super useful dashboards for monitoring Hazelcast clusters, and the `padogrid-hazelmon` image you may have encountered if you set up Hazeltest's monitoring stack according to the instructions above leverages them in a running Grafana instance you can access and use without much prior configuration work.
 
 You can find PadoGrid's source code and many useful guides for getting started over on [GitHub](https://github.com/padogrid/padogrid).
 
