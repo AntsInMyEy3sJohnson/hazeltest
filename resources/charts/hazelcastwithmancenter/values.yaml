@@ -27,7 +27,7 @@ platform:
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
-          enable: true
+          enable: false
           # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
@@ -40,7 +40,7 @@ platform:
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
-      count: 1
+      count: 3
       ports:
         member: 5701
         metrics: 8080
@@ -126,9 +126,9 @@ mancenter:
   nodeSelectors:
     enable: false
     selectors: {}
-  deploy: true
+  deploy: false
   service:
-    type: NodePort
+    type: LoadBalancer
     port: 8080
   instance:
     image: hazelcast/management-center:5.3.3
