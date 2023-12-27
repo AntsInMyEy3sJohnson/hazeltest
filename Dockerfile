@@ -8,7 +8,9 @@ WORKDIR /app
 
 COPY . .
 
-RUN go build -o main .
+# To be filled by build tools such as buildx
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o main .
 
 FROM alpine:3.19.0
 
