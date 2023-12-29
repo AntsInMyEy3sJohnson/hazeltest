@@ -40,7 +40,7 @@ platform:
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
-      count: 3
+      count: 1
       ports:
         member: 5701
         metrics: 8080
@@ -126,10 +126,17 @@ mancenter:
   nodeSelectors:
     enable: false
     selectors: {}
-  deploy: false
-  service:
-    type: LoadBalancer
-    port: 8080
+  deploy: true
+  reachability:
+    service:
+      deploy: true
+      type: ClusterIP
+      port: 8080
+    ingress:
+      deploy: true
+      port: 8080
+      hostName: thelittlevmthatcould
+      basePath: /mancenter
   instance:
     image: hazelcast/management-center:5.3.3
     # Enables injection of enterprise license.
