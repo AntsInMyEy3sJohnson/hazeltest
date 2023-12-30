@@ -137,6 +137,10 @@ mancenter:
       port: 8080
       hostName: thelittlevmthatcould
       basePath: /mancenter
+      # Currently, this Helm chart only supports the Traefik Ingress controller to perform URL path rewriting.
+      # Other controllers should work out-of-the-box, too, if the 'basePath' property is set to the root path, '/'.
+      # To enable Traefik-specific annotations and objects to perform path rewriting, specify the value 'traefik'.
+      controller: traefik
   instance:
     image: hazelcast/management-center:5.3.3
     # Enables injection of enterprise license.
