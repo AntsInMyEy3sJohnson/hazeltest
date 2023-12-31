@@ -6,10 +6,6 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
     app.kubernetes.io/instance: {{ .Release.Name }}
-  {{- if eq .Values.mancenter.reachability.ingress.controller "traefik" }}
-  annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ template "hazelcastimdg.name" . }}-mancenter-rewrite@kubernetescrd
-  {{- end }}
 spec:
   rules:
     - host: {{ .Values.mancenter.reachability.ingress.hostName }}
@@ -22,15 +18,4 @@ spec:
                 name: {{ template "hazelcastimdg.name" . }}-mancenter
                 port:
                   name: {{ .Values.mancenter.instance.ports.web.name }}
----
-{{- if eq .Values.mancenter.reachability.ingress.controller "traefik" }}
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: {{ template "hazelcastimdg.name" . }}-mancenter-rewrite
-spec:
-  redirectRegex:
-    regex: "^{{ .Values.mancenter.reachability.ingress.basePath}}/(.*)"
-    replacement: "/$1"
-{{- end -}}
 {{- end -}}
