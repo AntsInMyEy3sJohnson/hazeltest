@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "prometheus.name" . }}-service
+  name: {{ template "prometheus.name" . }}
   labels:
     app.kubernetes.io/name: {{ template "prometheus.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -9,8 +9,8 @@ spec:
   selector:
     app.kubernetes.io/name: {{ template "prometheus.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
-  type: {{ .Values.prometheusServer.service.type }}
+  type: {{ .Values.prometheusServer.reachability.service.type }}
   ports:
-    - name: web
-      port: {{ .Values.prometheusServer.service.port }}
+    - name: {{ .Values.prometheusServer.instance.ports.web.name }}
+      port: {{ .Values.prometheusServer.reachability.service.port }}
       targetPort: {{ .Values.prometheusServer.instance.ports.web.name }}
