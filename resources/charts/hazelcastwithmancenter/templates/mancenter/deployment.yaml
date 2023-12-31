@@ -22,7 +22,9 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
       {{- if .Values.mancenter.instance.prometheusScrape.enable }}
       annotations:
-        {{- toYaml .Values.mancenter.instance.prometheusScrape.annotations | nindent 8 }}
+        prometheus.io/scrape: "{{ .Values.mancenter.instance.prometheusScrape.enable }}"
+        prometheus.io/path: {{ if .Values.mancenter.reachability.ingress.deploy }}{{ .Values.mancenter.reachability.ingress.basePath }}{{ end }}{{ .Values.mancenter.instance.prometheusScrape.path }}
+        prometheus.io/port: "{{ .Values.mancenter.instance.prometheusScrape.port }}"
       {{- end }}
     spec:
       {{- if .Values.mancenter.nodeSelectors.enable }}
@@ -45,7 +47,7 @@ spec:
           successThreshold: {{ .Values.mancenter.instance.liveness.successThreshold | default 1 }}
           timeoutSeconds: {{ .Values.mancenter.instance.liveness.timeoutSeconds | default 2 }}
           httpGet:
-            path: {{ .Values.mancenter.instance.liveness.path }}
+            path: {{ if .Values.mancenter.reachability.ingress.deploy }}{{ .Values.mancenter.reachability.ingress.basePath }}{{ end }}{{ .Values.mancenter.instance.liveness.path }}
             port: {{ .Values.mancenter.instance.ports.health.port }}
         readinessProbe:
           failureThreshold: {{ .Values.mancenter.instance.readiness.failureThreshold | default 3 }}
@@ -54,7 +56,7 @@ spec:
           successThreshold: {{ .Values.mancenter.instance.readiness.successThreshold | default 1 }}
           timeoutSeconds: {{ .Values.mancenter.instance.readiness.timeoutSeconds | default 2 }}
           httpGet:
-            path: {{ .Values.mancenter.instance.readiness.path }}
+            path: {{ if .Values.mancenter.reachability.ingress.deploy }}{{ .Values.mancenter.reachability.ingress.basePath }}{{ end }}{{ .Values.mancenter.instance.readiness.path }}
             port: {{ .Values.mancenter.instance.ports.health.port }}
         resources:
           requests:
@@ -74,6 +76,10 @@ spec:
             secretKeyRef:
               name: {{ .Values.mancenter.instance.enterprise.license.secretName }}
               key: {{ .Values.mancenter.instance.enterprise.license.keyPath }}
+        {{- end }}
+        {{- if .Values.mancenter.reachability.ingress.deploy }}
+        - name: MC_CONTEXT_PATH
+          value: {{ .Values.mancenter.reachability.ingress.basePath }}
         {{- end }}
         volumeMounts: 
         - name: mancenterconfig
