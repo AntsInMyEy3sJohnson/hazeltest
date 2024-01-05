@@ -25,7 +25,7 @@ padogridWithGrafana:
         value: "namespace"
       - name: PADO_MONITORING_PROMETHEUS_URL
         # Implies the PadoGrid Pod will reside in one namespace with the Prometheus Pod -- adjust to FQDN if different namespaces
-        value: "http://prometheus-service:9090"
+        value: "http://prometheus:9090"
   reachability:
     service:
       deploy: true
