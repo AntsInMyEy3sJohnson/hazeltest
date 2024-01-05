@@ -27,8 +27,8 @@ prometheusServer:
     ingress:
       deploy: true
       port: 8080
-      hostName: thelittlevmthatcould
-      basePath: /prometheus
+      # Point this to the correct IP address in your DNS config
+      hostName: prometheus.thelittlevmthatcould.local
   metrics:
     retentionTime: 24h
   config:

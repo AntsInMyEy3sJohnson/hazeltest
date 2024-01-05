@@ -11,7 +11,7 @@ spec:
     - host: {{ .Values.prometheusServer.reachability.ingress.hostName }}
       http:
         paths:
-          - path: {{ .Values.prometheusServer.reachability.ingress.basePath }}
+          - path: /
             pathType: Prefix
             backend:
               service:
