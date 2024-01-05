@@ -4,6 +4,6 @@ description: A chart for deploying an image that launches a Grafana instance wit
 
 type: application
 
-version: 1.0.0
+version: 1.1.0
 
 appVersion: "0.9.32"
