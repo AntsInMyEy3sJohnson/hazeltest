@@ -1,0 +1,21 @@
+{{- if and .Values.mancenter.deploy .Values.mancenter.reachability.service.deploy .Values.mancenter.reachability.ingress.deploy -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "hazelcastimdg.name" . }}-mancenter
+  labels:
+    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  rules:
+    - host: {{ .Values.mancenter.reachability.ingress.hostName }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ template "hazelcastimdg.name" . }}-mancenter
+                port:
+                  name: {{ .Values.mancenter.instance.ports.web.name }}
+{{- end -}}

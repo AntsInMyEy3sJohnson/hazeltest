@@ -1,0 +1,21 @@
+{{- if and .Values.padogridWithGrafana.reachability.ingress.deploy .Values.padogridWithGrafana.reachability.service.deploy -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "padogridwithgrafana.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "padogridwithgrafana.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  rules:
+    - host: {{ .Values.padogridWithGrafana.reachability.ingress.hostName }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ template "padogridwithgrafana.name" . }}
+                port:
+                  name: {{ .Values.padogridWithGrafana.reachability.service.name }}
+{{- end -}}

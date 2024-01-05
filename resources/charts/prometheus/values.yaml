@@ -19,9 +19,16 @@ prometheusServer:
     readiness:
       path: /-/ready
       port: 9090
-  service:
-    type: LoadBalancer
-    port: 9090
+  reachability:
+    service:
+      deploy: true
+      type: ClusterIP
+      port: 9090
+    ingress:
+      deploy: true
+      port: 8080
+      # Point this to the correct IP address in your DNS config
+      hostName: prometheus.thelittlevmthatcould.local
   metrics:
     retentionTime: 24h
   config:

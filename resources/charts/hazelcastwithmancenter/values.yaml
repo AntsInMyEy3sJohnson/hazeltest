@@ -40,7 +40,7 @@ platform:
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
-      count: 3
+      count: 1
       ports:
         member: 5701
         metrics: 8080
@@ -126,10 +126,16 @@ mancenter:
   nodeSelectors:
     enable: false
     selectors: {}
-  deploy: false
-  service:
-    type: LoadBalancer
-    port: 8080
+  deploy: true
+  reachability:
+    service:
+      deploy: true
+      type: ClusterIP
+      port: 8080
+    ingress:
+      deploy: true
+      port: 8080
+      hostName: hazelcastmanagementcenter.thelittlevmthatcould.local
   instance:
     image: hazelcast/management-center:5.3.3
     # Enables injection of enterprise license.
@@ -149,10 +155,8 @@ mancenter:
     imagePullPolicy: IfNotPresent
     prometheusScrape:
       enable: false
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: "8080"
+      path: /metrics
+      port: 8080
     # 'enabled' vs. 'enable' is not a typo, those properties are actually called like so
     javaOpts: "-Dhazelcast.mc.metrics.persistence.enabled=false -Dhazelcast.mc.healthCheck.enable=true"
     ports:
@@ -168,8 +172,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "500m"
+        cpu: "1"
         memory: "2G"
       limits:
-        cpu: "500m"
+        cpu: "2"
         memory: "4G"

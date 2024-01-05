@@ -4,6 +4,6 @@ description: A simplified Helm chart to deploy Prometheus to Kubernetes.
 
 type: application
 
-version: 1.0.0
+version: 1.1.0
 
 appVersion: "2.48.0"
