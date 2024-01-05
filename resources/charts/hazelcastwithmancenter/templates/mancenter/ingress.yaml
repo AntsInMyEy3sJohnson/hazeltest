@@ -11,7 +11,7 @@ spec:
     - host: {{ .Values.mancenter.reachability.ingress.hostName }}
       http:
         paths:
-          - path: {{ .Values.mancenter.reachability.ingress.basePath }}
+          - path: /
             pathType: Prefix
             backend:
               service:

@@ -135,8 +135,7 @@ mancenter:
     ingress:
       deploy: true
       port: 8080
-      hostName: thelittlevmthatcould
-      basePath: /mancenter
+      hostName: hazelcastmanagementcenter.thelittlevmthatcould.local
   instance:
     image: hazelcast/management-center:5.3.3
     # Enables injection of enterprise license.
