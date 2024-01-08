@@ -15,7 +15,7 @@ rules:
   {{ if .Values.features.useSccOnOpenShift -}}
   - apiGroups: ["security.openshift.io"]
     resources: ["securitycontextconstraints"]
-    resourceNames: ["{{ .Release.Name }}-allow-sys-ptrace"]
+    resourceNames: ["{{ .Release.Namespace }}-{{ .Release.Name }}-allow-sys-ptrace"]
     verbs: ["use"]
   {{ end -}}
 {{ end -}}
