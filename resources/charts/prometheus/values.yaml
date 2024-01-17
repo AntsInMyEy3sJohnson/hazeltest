@@ -38,17 +38,17 @@ prometheusServer:
       scrape_configs:
         - job_name: "prometheus"
           static_configs:
-            - targets: ["localhost:9090"]
+            - targets: [ "localhost:9090" ]
         - job_name: "kubernetes-pod-auto-discovery"
           kubernetes_sd_configs:
             - role: pod
           scrape_interval: 5s
-          scrape_timeout: 10s
+          scrape_timeout: 3s
           relabel_configs:
-            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            - source_labels: [ __meta_kubernetes_pod_annotation_prometheus_io_scrape ]
               action: keep
               regex: "true"
-            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            - source_labels: [ __meta_kubernetes_pod_annotation_prometheus_io_path ]
               action: replace
               target_label: __metrics_path__
               regex: (.+)
@@ -57,7 +57,7 @@ prometheusServer:
               regex: ([^:]+)(?::\d+)?;(\d+)
               replacement: $1:$2
               target_label: __address__
-            - source_labels: [__meta_kubernetes_namespace]
+            - source_labels: [ __meta_kubernetes_namespace ]
               action: replace
               target_label: namespace
 
