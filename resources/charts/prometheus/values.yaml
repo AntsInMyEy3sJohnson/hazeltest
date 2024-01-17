@@ -42,7 +42,7 @@ prometheusServer:
         - job_name: "kubernetes-pod-auto-discovery"
           kubernetes_sd_configs:
             - role: pod
-          scrape_interval: 1m
+          scrape_interval: 5s
           scrape_timeout: 10s
           relabel_configs:
             - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
