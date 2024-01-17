@@ -364,14 +364,14 @@ mapTests:
               mapFillPercentage: 0.8
               # Whether the map fill percentage should be determined randomly before the start of each new
               # operation chain. If set to "true", the random value will be taken from the half-open interval
-              # (<lower.mapFillPercentage>, <upper.mapFillPercentage>].
+              # (<upper.mapFillPercentage>, 1.0].
               enableRandomness: true
             lower:
               # The map fill percentage that defines the lower map boundary in relation to the number
               # of elements in the runner's data source.
               mapFillPercentage: 0.2
               # If set to "true", the random value will be taken from the half-open interval
-              # [<lower.mapFillPercentage>, <upper.mapFillPercentage>).
+              # [0.0, <lower.mapFillPercentage>).
               enableRandomness: true
             # The probability with which to execute an action towards the boundary.
             # If the test loop has determined it should currently fill the map, then this setting controls
