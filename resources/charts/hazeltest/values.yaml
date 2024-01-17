@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.9.1
-  digest: e8b85c2ee58e031e1bf1d20b74558ac08c3b914496d8e1d4f2f164665e4020ed
+  # 0.10.0
+  digest: a213831169d7a179601da649a52930d4dd279564fd90a7303f4c2ff9a3aac506
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -41,7 +41,7 @@ config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
   chaosMonkeys:
     memberKiller:
-      enabled: true
+      enabled: false
       numRuns: 100
       chaosProbability: 0.5
       memberAccess:
@@ -186,6 +186,10 @@ config:
               enabled: true
               durationMs: 500
               enableRandomness: true
+            uponModeChange:
+              enabled: true
+              durationMs: 15000
+              enableRandomness: false
           operationChain:
             length: 1_000
             resetAfterChain: true
@@ -200,7 +204,7 @@ config:
     load:
       enabled: true
       numMaps: 10
-      numEntriesPerMap: 5000
+      numEntriesPerMap: 1000
       payloadSizeBytes: 100000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
@@ -230,15 +234,19 @@ config:
             afterChainAction:
               enabled: true
               durationMs: 50
+              enableRandomness: true
+            uponModeChange:
+              enabled: true
+              durationMs: 15000
               enableRandomness: false
           operationChain:
-            length: 5_000
-            resetAfterChain: true
+            length: 3000
+            resetAfterChain: false
             boundaryDefinition:
               upper:
-                mapFillPercentage: 0.96
+                mapFillPercentage: 0.9
                 enableRandomness: true
               lower:
-                mapFillPercentage: 0.3
+                mapFillPercentage: 0.1
                 enableRandomness: true
               actionTowardsBoundaryProbability: 0.9

@@ -572,7 +572,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet")
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
 
@@ -618,7 +618,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponSet: true})
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
@@ -634,7 +634,7 @@ func TestExecuteMapAction(t *testing.T) {
 			t.Log("\t\twhen target map already contains key")
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 				action := insert
 
@@ -664,7 +664,7 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -694,7 +694,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove yields error")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -727,7 +727,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and remove does not yield error")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -762,7 +762,7 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -792,7 +792,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get yields error")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -825,7 +825,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
-				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -858,7 +858,7 @@ func TestExecuteMapAction(t *testing.T) {
 		}
 		t.Log("\twhen unknown action is provided")
 		{
-			rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
+			rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
@@ -1040,9 +1040,16 @@ func TestCheckForModeChange(t *testing.T) {
 
 	t.Log("given a function that determines whether the map action mode should be changed")
 	{
-		t.Log("\twhen the currently stored number of elements is less than the lower boundary")
+		t.Log("\twhen currently stored number of elements is less than lower boundary")
 		{
-			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 19, drain)
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
+			lowerBoundary := float32(0.5)
+			currentCacheSize := uint32(lowerBoundary*float32(len(theFellowship)) - 1)
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentCacheSize, drain)
 
 			msg := "\t\tmode check must yield fill as next mode"
 
@@ -1060,10 +1067,17 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen the currently stored number of elements is equal to lower boundary")
+		t.Log("\twhen currently stored number of elements matches lower boundary")
 		{
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
 			currentMode := drain
-			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 20, currentMode)
+			lowerBoundary := float32(0.3)
+			currentCacheSize := uint32(math.Round(float64(len(theFellowship)) * float64(lowerBoundary)))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentCacheSize, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1083,8 +1097,15 @@ func TestCheckForModeChange(t *testing.T) {
 
 		t.Log("\twhen the currently stored number of elements is in between the lower and the upper boundary")
 		{
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
 			currentMode := drain
-			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 50, currentMode)
+			upperBoundary := float32(0.8)
+			currentCacheSize := uint32(float32(len(theFellowship))*upperBoundary) - 1
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentCacheSize, currentMode)
 
 			msg := "\t\tmode check must return current mode"
 
@@ -1104,8 +1125,15 @@ func TestCheckForModeChange(t *testing.T) {
 
 		t.Log("\twhen the currently stored number of elements is equal to the upper boundary")
 		{
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
 			currentMode := fill
-			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 80, currentMode)
+			upperBoundary := float32(0.8)
+			currentCacheSize := uint32(math.Round(float64(len(theFellowship)) * float64(upperBoundary)))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentCacheSize, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1125,7 +1153,12 @@ func TestCheckForModeChange(t *testing.T) {
 
 		t.Log("\twhen the currently stored number of elements is greater than the upper boundary")
 		{
-			nextMode, forceActionTowardsMode := checkForModeChange(0.8, 0.2, 100, 81, fill)
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, 0.2, uint32(len(theFellowship)), fill)
 
 			msg := "\t\tmode check must return drain as next mode"
 
@@ -1145,7 +1178,12 @@ func TestCheckForModeChange(t *testing.T) {
 
 		t.Log("\twhen the currently stored number of elements is zero and the current mode is unset")
 		{
-			nextMode, forceActionTowardsMode := checkForModeChange(1.0, 0.0, 1_000, 0, "")
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 0, "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -1166,7 +1204,12 @@ func TestCheckForModeChange(t *testing.T) {
 
 		t.Log("\twhen currently stored number of elements is greater than zero and current mode is unset")
 		{
-			nextMode, forceActionTowardsMode := checkForModeChange(1.0, 0.0, 1_000, 500, "")
+			btl := boundaryTestLoop[string]{
+				execution: &testLoopExecution[string]{
+					elements: theFellowship,
+				},
+			}
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 500, "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -1204,6 +1247,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						numMaps,
 						numRuns,
+						sleepConfigDisabled,
 						sleepConfigDisabled,
 						sleepConfigDisabled,
 						1.0,
@@ -1249,6 +1293,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						numMaps,
 						numRuns,
+						sleepConfigDisabled,
 						sleepConfigDisabled,
 						sleepConfigDisabled,
 						1.0, 0.0,
@@ -1303,6 +1348,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						numRuns,
 						sleepConfigDisabled,
 						sleepConfigDisabled,
+						sleepConfigDisabled,
 						1.0, 0.0,
 						0.5,
 						chainLength,
@@ -1328,6 +1374,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						1,
 						1,
+						sleepConfigDisabled,
 						sleepConfigDisabled,
 						sleepConfigDisabled,
 						1.0, 0.0,
@@ -1716,7 +1763,7 @@ func TestRunOperationChain(t *testing.T) {
 		t.Log("\twhen the chain length is zero")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, 0, true)
+			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, 0, true)
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 			mc := &modeCache{}
@@ -1781,7 +1828,7 @@ func TestRunOperationChain(t *testing.T) {
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				chainLength := 10 * len(theFellowship)
-				rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, chainLength, true)
+				rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 1.0, chainLength, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				mc := &modeCache{}
@@ -1855,6 +1902,7 @@ func TestRunOperationChain(t *testing.T) {
 					1,
 					sleepConfigDisabled,
 					sleepConfigDisabled,
+					sleepConfigDisabled,
 					float32(upperBoundary),
 					float32(lowerBoundary),
 					0.6,
@@ -1894,7 +1942,7 @@ func TestRunOperationChain(t *testing.T) {
 
 		t.Log("\twhen sleep between operation chains has been enabled")
 		{
-			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, &sleepConfig{true, 1_000, false}, 1.0, 0.0, 1.0, 1, true)
+			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, &sleepConfig{true, 1_000, false}, sleepConfigDisabled, 1.0, 0.0, 1.0, 1, true)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -1902,6 +1950,26 @@ func TestRunOperationChain(t *testing.T) {
 			tl.s = ts
 
 			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]struct{}{})
+
+			msg := "\t\tsleep must have been invoked"
+
+			if ts.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen sleep upon mode change has been enabled")
+		{
+			rc := assembleRunnerConfigForBoundaryTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, &sleepConfig{true, 1_000, false}, 1.0, 0.0, 1.0, 1, true)
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+
+			ts := &testSleeper{}
+			tl.s = ts
+
+			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]struct{}{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2334,6 +2402,7 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	numRuns uint32,
 	sleepBetweenRuns *sleepConfig,
 	sleepBetweenOperationChains *sleepConfig,
+	sleepUponModeChange *sleepConfig,
 	upperBoundaryMapFillPercentage, lowerBoundaryMapFillPercentage, actionTowardsBoundaryProbability float32,
 	operationChainLength int,
 	resetAfterChain bool,
@@ -2343,6 +2412,7 @@ func assembleRunnerConfigForBoundaryTestLoop(
 	c.boundary = &boundaryTestLoopConfig{
 		sleepBetweenOperationChains: sleepBetweenOperationChains,
 		sleepAfterChainAction:       sleepConfigDisabled,
+		sleepUponModeChange:         sleepUponModeChange,
 		chainLength:                 operationChainLength,
 		resetAfterChain:             resetAfterChain,
 		upper: &boundaryDefinition{

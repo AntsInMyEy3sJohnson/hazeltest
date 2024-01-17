@@ -54,6 +54,7 @@ type (
 	boundaryTestLoopConfig struct {
 		sleepBetweenOperationChains      *sleepConfig
 		sleepAfterChainAction            *sleepConfig
+		sleepUponModeChange              *sleepConfig
 		chainLength                      int
 		resetAfterChain                  bool
 		upper                            *boundaryDefinition
@@ -182,6 +183,27 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 		})
 	})
 
+	var sleepUponModeChangeEnabled bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.uponModeChange.enabled", client.ValidateBool, func(a any) {
+			sleepUponModeChangeEnabled = a.(bool)
+		})
+	})
+
+	var sleepUponModeChangeDurationMs int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.uponModeChange.durationMs", client.ValidateInt, func(a any) {
+			sleepUponModeChangeDurationMs = a.(int)
+		})
+	})
+
+	var sleepUponModeChangeEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.sleeps.uponModeChange.enableRandomness", client.ValidateBool, func(a any) {
+			sleepUponModeChangeEnableRandomness = a.(bool)
+		})
+	})
+
 	var operationChainLength int
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.boundary.operationChain.length", client.ValidateInt, func(a any) {
@@ -267,6 +289,11 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 			enabled:          sleepAfterChainActionEnabled,
 			durationMs:       sleepAfterChainActionDurationMs,
 			enableRandomness: sleepAfterChainActionEnableRandomness,
+		},
+		sleepUponModeChange: &sleepConfig{
+			enabled:          sleepUponModeChangeEnabled,
+			durationMs:       sleepUponModeChangeDurationMs,
+			enableRandomness: sleepUponModeChangeEnableRandomness,
 		},
 		chainLength:     operationChainLength,
 		resetAfterChain: resetAfterChain,

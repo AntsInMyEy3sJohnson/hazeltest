@@ -313,7 +313,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	upperBoundary, lowerBoundary := evaluateMapFillBoundaries(l.execution.runnerConfig.boundary)
 	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
-	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.TraceLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.InfoLevel)
 
 	for j := 0; j < chainLength; j++ {
 
@@ -322,7 +322,13 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
-		modes.current, modes.forceActionTowardsMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
+		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(keysCache)), modes.current)
+		if nextMode != modes.current && modes.current != "" {
+			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, len(keysCache)), log.InfoLevel)
+			l.s.sleep(l.execution.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc)
+		}
+		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
+
 		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(keysCache))
 
 		lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
@@ -407,11 +413,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 			return nil
 		}
 	case read:
-		if v, err := m.Get(l.execution.ctx, key); err != nil {
+		if _, err := m.Get(l.execution.ctx, key); err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
-			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
+			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
 			return nil
 		}
 
@@ -469,21 +475,22 @@ func determineNextMapAction(mc *modeCache, lastAction mapAction, actionProbabili
 
 }
 
-func checkForModeChange(upperBoundary, lowerBoundary float32,
-	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) (actionMode, bool) {
+func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary float32, currentCacheSize uint32, currentMode actionMode) (actionMode, bool) {
 
 	if currentCacheSize == 0 || currentMode == "" {
 		return fill, false
 	}
 
-	total := float64(totalNumberOfElements)
-	current := float64(currentCacheSize)
+	maxNumElements := float64(len(l.execution.elements))
+	currentNumElements := float64(currentCacheSize)
 
-	if current <= math.Round(total*float64(lowerBoundary)) {
+	if currentNumElements <= math.Round(maxNumElements*float64(lowerBoundary)) {
+		lp.LogRunnerEvent(fmt.Sprintf("enforcing 'fill' mode -- current number of elements: %d; total number of elements: %d", currentCacheSize, len(l.execution.elements)), log.TraceLevel)
 		return fill, true
 	}
 
-	if current >= math.Round(total*float64(upperBoundary)) {
+	if currentNumElements >= math.Round(maxNumElements*float64(upperBoundary)) {
+		lp.LogRunnerEvent(fmt.Sprintf("enforcing 'drain' mode -- current number of elements: %d; total number of elements: %d", currentCacheSize, len(l.execution.elements)), log.TraceLevel)
 		return drain, true
 	}
 

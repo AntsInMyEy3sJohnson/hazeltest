@@ -33,6 +33,9 @@ var (
 		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                true,
 		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":             100,
 		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":       true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled":                  true,
+		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs":               6_000,
+		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness":         false,
 		runnerKeyPath + ".testLoop.boundary.operationChain.length":                          1_000,
 		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                 true,
 		// Provide int value to verify config population can handle this case, too
@@ -312,6 +315,21 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 
 		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness"
 		if rc.boundary.sleepAfterChainAction.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled"
+		if rc.boundary.sleepUponModeChange.enabled != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs"
+		if rc.boundary.sleepUponModeChange.durationMs != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness"
+		if rc.boundary.sleepUponModeChange.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 

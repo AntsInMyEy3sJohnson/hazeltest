@@ -317,6 +317,19 @@ mapTests:
             enabled: true
             durationMs: 500
             enableRandomness: true
+          # Whether the runner's boundary test loop should sleep whenever it changed its map fill mode. For example, if
+          # the previous map fill mode was 'fill', the upper fill boundary threshold was reached and the test loop
+          # now switches to 'drain', this sleep will tell it to wait before moving on.
+          # This sleeping behavior is useful for letting metrics collection systems (such as Prometheus or the
+          # Hazelcast Management Center itself) catch up and read the current map metrics before the next actions
+          # of the test loop begin altering them again. For example, by configuring a long-enough sleep, you can make
+          # sure the map fill states at the point of mode change are correctly recorded by the metrics system. (For this
+          # reason, randomness is disabled on this sleep by default, but you can enable it if the precision of metrics
+          # collection is not important in your use case.)
+          uponModeChange:
+            enabled: true
+            durationMs: 6000
+            enableRandomness: false
         # The definition of the test loop's operation chain.
         operationChain:
           # Defines how often the test loop will "bounce" between the upper and the lower map fill boundary.
@@ -351,14 +364,14 @@ mapTests:
               mapFillPercentage: 0.8
               # Whether the map fill percentage should be determined randomly before the start of each new
               # operation chain. If set to "true", the random value will be taken from the half-open interval
-              # (<lower.mapFillPercentage>, <upper.mapFillPercentage>].
+              # (<upper.mapFillPercentage>, 1.0].
               enableRandomness: true
             lower:
               # The map fill percentage that defines the lower map boundary in relation to the number
               # of elements in the runner's data source.
               mapFillPercentage: 0.2
               # If set to "true", the random value will be taken from the half-open interval
-              # [<lower.mapFillPercentage>, <upper.mapFillPercentage>).
+              # [0.0, <lower.mapFillPercentage>).
               enableRandomness: true
             # The probability with which to execute an action towards the boundary.
             # If the test loop has determined it should currently fill the map, then this setting controls
@@ -373,11 +386,11 @@ mapTests:
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
-    numEntriesPerMap: 5000
+    numEntriesPerMap: 500
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
     # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
     # reduce the application's memory footprint)
-    payloadSizeBytes: 100000
+    payloadSizeBytes: 10000000
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
@@ -407,14 +420,18 @@ mapTests:
             enabled: true
             durationMs: 50
             enableRandomness: false
+          uponModeChange:
+            enabled: true
+            durationMs: 15000
+            enableRandomness: false
         operationChain:
-          length: 5_000
-          resetAfterChain: true
+          length: 500
+          resetAfterChain: false
           boundaryDefinition:
             upper:
-              mapFillPercentage: 0.96
+              mapFillPercentage: 0.7
               enableRandomness: true
             lower:
-              mapFillPercentage: 0.3
+              mapFillPercentage: 0.4
               enableRandomness: true
             actionTowardsBoundaryProbability: 0.9
