@@ -324,7 +324,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(keysCache)), modes.current)
 		if nextMode != modes.current && modes.current != "" {
-			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position '%d' with %d map items currently under management", modes.current, nextMode, mapName, j, len(keysCache)), log.InfoLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, len(keysCache)), log.InfoLevel)
 			l.s.sleep(l.execution.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc)
 		}
 		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
