@@ -6,7 +6,7 @@ type: application
 
 version: 1.2.1
 
-appVersion: "0.9.1"
+appVersion: "0.10.0"
 
 # Useful commands:
 # helm upgrade --install hazeltest . --namespace=hazelcastimdg
