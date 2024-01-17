@@ -322,7 +322,13 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
-		modes.current, modes.forceActionTowardsMode = checkForModeChange(upperBoundary, lowerBoundary, uint32(len(l.execution.elements)), uint32(len(keysCache)), modes.current)
+		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(keysCache)), modes.current)
+		if nextMode != modes.current && modes.current != "" {
+			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position '%d'", modes.current, nextMode, mapName, j), log.TraceLevel)
+			l.s.sleep(l.execution.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc)
+		}
+		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
+
 		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(keysCache))
 
 		lp.LogRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), log.TraceLevel)
@@ -469,21 +475,22 @@ func determineNextMapAction(mc *modeCache, lastAction mapAction, actionProbabili
 
 }
 
-func checkForModeChange(upperBoundary, lowerBoundary float32,
-	totalNumberOfElements, currentCacheSize uint32, currentMode actionMode) (actionMode, bool) {
+func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary float32, currentCacheSize uint32, currentMode actionMode) (actionMode, bool) {
 
 	if currentCacheSize == 0 || currentMode == "" {
 		return fill, false
 	}
 
-	total := float64(totalNumberOfElements)
-	current := float64(currentCacheSize)
+	maxNumElements := float64(len(l.execution.elements))
+	currentNumElements := float64(currentCacheSize)
 
-	if current <= math.Round(total*float64(lowerBoundary)) {
+	if currentNumElements <= math.Round(maxNumElements*float64(lowerBoundary)) {
+		lp.LogRunnerEvent(fmt.Sprintf("enforcing 'fill' mode -- current number of elements: %d; total number of elements: %d", currentCacheSize, len(l.execution.elements)), log.TraceLevel)
 		return fill, true
 	}
 
-	if current >= math.Round(total*float64(upperBoundary)) {
+	if currentNumElements >= math.Round(maxNumElements*float64(upperBoundary)) {
+		lp.LogRunnerEvent(fmt.Sprintf("enforcing 'drain' mode -- current number of elements: %d; total number of elements: %d", currentCacheSize, len(l.execution.elements)), log.TraceLevel)
 		return drain, true
 	}
 
