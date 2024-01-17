@@ -2,7 +2,7 @@ platform:
   deploy: true
   nodeSelectors:
     enable: false
-    selectors: {}
+    selectors: { }
   service:
     type: NodePort
     port: 5701
@@ -40,7 +40,7 @@ platform:
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
-      count: 1
+      count: 2
       ports:
         member: 5701
         metrics: 8080
@@ -125,7 +125,7 @@ platform:
 mancenter:
   nodeSelectors:
     enable: false
-    selectors: {}
+    selectors: { }
   deploy: true
   reachability:
     service:
