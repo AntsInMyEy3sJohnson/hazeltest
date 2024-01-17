@@ -386,11 +386,11 @@ mapTests:
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
-    numEntriesPerMap: 5000
+    numEntriesPerMap: 500
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
     # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
     # reduce the application's memory footprint)
-    payloadSizeBytes: 100000
+    payloadSizeBytes: 10000000
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
@@ -422,16 +422,16 @@ mapTests:
             enableRandomness: false
           uponModeChange:
             enabled: true
-            durationMs: 6000
+            durationMs: 15000
             enableRandomness: false
         operationChain:
-          length: 5_000
-          resetAfterChain: true
+          length: 500
+          resetAfterChain: false
           boundaryDefinition:
             upper:
-              mapFillPercentage: 0.96
+              mapFillPercentage: 0.7
               enableRandomness: true
             lower:
-              mapFillPercentage: 0.3
+              mapFillPercentage: 0.4
               enableRandomness: true
             actionTowardsBoundaryProbability: 0.9
