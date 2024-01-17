@@ -317,6 +317,19 @@ mapTests:
             enabled: true
             durationMs: 500
             enableRandomness: true
+          # Whether the runner's boundary test loop should sleep whenever it changed its map fill mode. For example, if
+          # the previous map fill mode was 'fill', the upper fill boundary threshold was reached and the test loop
+          # now switches to 'drain', this sleep will tell it to wait before moving on.
+          # This sleeping behavior is useful for letting metrics collection systems (such as Prometheus or the
+          # Hazelcast Management Center itself) catch up and read the current map metrics before the next actions
+          # of the test loop begin altering them again. For example, by configuring a long-enough sleep, you can make
+          # sure the map fill states at the point of mode change are correctly recorded by the metrics system. (For this
+          # reason, randomness is disabled on this sleep by default, but you can enable it if the precision of metrics
+          # collection is not important in your use case.)
+          uponModeChange:
+            enabled: true
+            durationMs: 6000
+            enableRandomness: false
         # The definition of the test loop's operation chain.
         operationChain:
           # Defines how often the test loop will "bounce" between the upper and the lower map fill boundary.
@@ -406,6 +419,10 @@ mapTests:
           afterChainAction:
             enabled: true
             durationMs: 50
+            enableRandomness: false
+          uponModeChange:
+            enabled: true
+            durationMs: 6000
             enableRandomness: false
         operationChain:
           length: 5_000
