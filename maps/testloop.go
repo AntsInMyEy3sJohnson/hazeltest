@@ -313,7 +313,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	upperBoundary, lowerBoundary := evaluateMapFillBoundaries(l.execution.runnerConfig.boundary)
 	actionProbability := l.execution.runnerConfig.boundary.actionTowardsBoundaryProbability
 
-	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.TraceLevel)
+	lp.LogRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), log.InfoLevel)
 
 	for j := 0; j < chainLength; j++ {
 
@@ -324,7 +324,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(keysCache)), modes.current)
 		if nextMode != modes.current && modes.current != "" {
-			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position '%d'", modes.current, nextMode, mapName, j), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position '%d' with %d map items currently under management", modes.current, nextMode, mapName, j, len(keysCache)), log.InfoLevel)
 			l.s.sleep(l.execution.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc)
 		}
 		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
@@ -413,11 +413,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 			return nil
 		}
 	case read:
-		if v, err := m.Get(l.execution.ctx, key); err != nil {
+		if _, err := m.Get(l.execution.ctx, key); err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
-			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s': %v", key, mapName, v), log.TraceLevel)
+			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
 			return nil
 		}
 
