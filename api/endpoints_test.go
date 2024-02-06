@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -551,7 +550,7 @@ func parseRunnerNumberValuesBackToInt(m map[string]any) {
 
 func tryResponseRead(body io.ReadCloser) ([]byte, error) {
 
-	if data, err := ioutil.ReadAll(body); err == nil {
+	if data, err := io.ReadAll(body); err == nil {
 		return data, nil
 	} else {
 		return nil, errors.New("unable to read response body")
