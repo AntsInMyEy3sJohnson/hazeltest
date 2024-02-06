@@ -529,6 +529,57 @@ func TestReadinessHandler(t *testing.T) {
 
 		}
 
+		t.Log("\twhen client signals readiness after others have signalled readiness and non-readiness")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseNotReady()
+			RaiseReady()
+			RaiseNotReady()
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 200"
+			expectedStatusCode := 200
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
+			}
+		}
+
+		t.Log("\twhen client invoke raise readiness without having invoked raise not ready first")
+		{
+			RaiseReady()
+			RaiseNotReady()
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 200 anyway"
+			expectedStatusCode := 200
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
+			}
+		}
+
 	}
 
 }
