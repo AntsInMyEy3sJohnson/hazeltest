@@ -54,7 +54,7 @@ func init() {
 
 	log.SetLevel(logLevel)
 	log.SetOutput(out)
-	log.SetReportCaller(true)
+	log.SetReportCaller(false)
 
 }
 
