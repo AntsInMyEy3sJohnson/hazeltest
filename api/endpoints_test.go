@@ -394,6 +394,7 @@ func TestReadinessHandler(t *testing.T) {
 		t.Log("\twhen initial state is given")
 		{
 			r = &readiness{false, false, 0}
+
 			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 			response := recorder.Result()
@@ -413,6 +414,8 @@ func TestReadinessHandler(t *testing.T) {
 
 		t.Log("\twhen client has raised not ready")
 		{
+			r = &readiness{false, false, 0}
+
 			RaiseNotReady()
 
 			recorder := httptest.NewRecorder()
@@ -449,8 +452,10 @@ func TestReadinessHandler(t *testing.T) {
 
 		}
 
-		t.Log("\twhen client has raised readiness")
+		t.Log("\twhen client has raised readiness after at least one client has registered")
 		{
+			r = &readiness{false, true, 0}
+
 			RaiseReady()
 
 			recorder := httptest.NewRecorder()
@@ -505,8 +510,35 @@ func TestReadinessHandler(t *testing.T) {
 
 		}
 
+		t.Log("\twhen client has raised readiness and no client has registered yet")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
+
+			expectedStatusCode := http.StatusServiceUnavailable
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
 		t.Log("\twhen one client has raised readiness and another raises not ready afterwards")
 		{
+			r = &readiness{false, false, 0}
+
 			RaiseReady()
 			RaiseNotReady()
 
@@ -519,7 +551,7 @@ func TestReadinessHandler(t *testing.T) {
 			}(response.Body)
 
 			msg := "\t\treadiness handler must return 503"
-			expectedStatusCode := 503
+			expectedStatusCode := http.StatusServiceUnavailable
 			actualStatusCode := response.StatusCode
 			if actualStatusCode == expectedStatusCode {
 				t.Log(msg, checkMark)
@@ -547,7 +579,7 @@ func TestReadinessHandler(t *testing.T) {
 			}(response.Body)
 
 			msg := "\t\treadiness handler must return 200"
-			expectedStatusCode := 200
+			expectedStatusCode := http.StatusOK
 			actualStatusCode := response.StatusCode
 			if actualStatusCode == expectedStatusCode {
 				t.Log(msg, checkMark)
@@ -558,6 +590,8 @@ func TestReadinessHandler(t *testing.T) {
 
 		t.Log("\twhen client invoke raise readiness without having invoked raise not ready first")
 		{
+			r = &readiness{false, false, 0}
+
 			RaiseReady()
 			RaiseNotReady()
 			RaiseReady()
@@ -571,7 +605,7 @@ func TestReadinessHandler(t *testing.T) {
 			}(response.Body)
 
 			msg := "\t\treadiness handler must return 200 anyway"
-			expectedStatusCode := 200
+			expectedStatusCode := http.StatusOK
 			actualStatusCode := response.StatusCode
 			if actualStatusCode == expectedStatusCode {
 				t.Log(msg, checkMark)
