@@ -76,11 +76,6 @@ func RaiseReady() {
 	m.Lock()
 	{
 		r.numNonReadyActors--
-		// Clients should invoke RaiseNotReady first, but cannot be enforced to do so, so make
-		// sure lowest the number of non-ready actors can go is zero
-		if r.numNonReadyActors < 0 {
-			r.numNonReadyActors = 0
-		}
 		lp.LogApiEvent(fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
 		if r.numNonReadyActors == 0 && r.atLeastOneActorRegistered && !r.Up {
 			r.Up = true

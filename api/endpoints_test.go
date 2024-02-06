@@ -454,8 +454,11 @@ func TestReadinessHandler(t *testing.T) {
 
 		t.Log("\twhen client has raised readiness after at least one client has registered")
 		{
-			r = &readiness{false, true, 0}
 
+			r = &readiness{false, false, 0}
+
+			// RaiseNotReady will register actor
+			RaiseNotReady()
 			RaiseReady()
 
 			recorder := httptest.NewRecorder()
@@ -604,8 +607,8 @@ func TestReadinessHandler(t *testing.T) {
 				_ = body.Close()
 			}(response.Body)
 
-			msg := "\t\treadiness handler must return 200 anyway"
-			expectedStatusCode := http.StatusOK
+			msg := "\t\treadiness handler must return 503"
+			expectedStatusCode := http.StatusServiceUnavailable
 			actualStatusCode := response.StatusCode
 			if actualStatusCode == expectedStatusCode {
 				t.Log(msg, checkMark)
