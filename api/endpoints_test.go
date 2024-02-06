@@ -455,7 +455,6 @@ func TestReadinessHandler(t *testing.T) {
 			RaiseReady()
 
 			recorder := httptest.NewRecorder()
-			recorder = httptest.NewRecorder()
 
 			readinessHandler(recorder, request)
 
@@ -503,6 +502,30 @@ func TestReadinessHandler(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen one client has raised readiness and another raises not ready afterwards")
+		{
+			RaiseReady()
+			RaiseNotReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 503"
+			expectedStatusCode := 503
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
 			}
 
 		}

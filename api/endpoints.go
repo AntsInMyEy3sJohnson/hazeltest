@@ -60,6 +60,7 @@ func RaiseNotReady() {
 
 	m.Lock()
 	{
+		r.Up = false
 		r.numNonReadyActors++
 		if !r.atLeastOneActorRegistered {
 			r.atLeastOneActorRegistered = true
