@@ -87,6 +87,12 @@ const (
 	noop mapAction = "noop"
 )
 
+const (
+	statusKeyNumInsertsFailed = "numInsertsFailed"
+	statusKeyNumReadsFailed   = "numReadsFailed"
+	statusKeyNumRemovesFailed = "numRemovesFailed"
+)
+
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -212,7 +218,7 @@ func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber 
 
 }
 
-func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
+func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) {
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -236,7 +242,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
-		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
+		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache, statusRecord); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
@@ -299,6 +305,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	mapName string,
 	mapNumber uint16,
 	keysCache map[string]struct{},
+	statusRecord map[string]any,
 ) error {
 
 	chainLength := l.execution.runnerConfig.boundary.chainLength
@@ -352,7 +359,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
 
-		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
+		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next, statusRecord); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, currentRun), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
@@ -385,7 +392,28 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction) error {
+func increaseNumInsertsFailed(g *status.Gatherer, statusRecord map[string]any) {
+
+	statusRecord[statusKeyNumInsertsFailed] = statusRecord[statusKeyNumInsertsFailed].(int) + 1
+	g.Updates <- status.Update{Key: statusKeyNumInsertsFailed, Value: statusRecord[statusKeyNumInsertsFailed]}
+
+}
+
+func increaseNumRemovesFailed(g *status.Gatherer, statusRecord map[string]any) {
+
+	statusRecord[statusKeyNumRemovesFailed] = statusRecord[statusKeyNumRemovesFailed].(int) + 1
+	g.Updates <- status.Update{Key: statusKeyNumRemovesFailed, Value: statusRecord[statusKeyNumRemovesFailed]}
+
+}
+
+func increaseNumReadsFailed(g *status.Gatherer, statusRecord map[string]any) {
+
+	statusRecord[statusKeyNumReadsFailed] = statusRecord[statusKeyNumReadsFailed].(int) + 1
+	g.Updates <- status.Update{Key: statusKeyNumReadsFailed, Value: statusRecord[statusKeyNumReadsFailed]}
+
+}
+
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction, statusRecord map[string]any) error {
 
 	elementID := l.execution.getElementIdFunc(element)
 
@@ -394,6 +422,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
+			increaseNumInsertsFailed(l.g, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -402,6 +431,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
+			increaseNumRemovesFailed(l.g, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -410,6 +440,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case read:
 		if _, err := m.Get(l.execution.ctx, key); err != nil {
+			increaseNumReadsFailed(l.g, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -504,7 +535,7 @@ func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.G
 func runWrapper[t any](c *testLoopExecution[t],
 	gatherer *status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
-	runFunc func(hzMap, string, uint16)) {
+	runFunc func(hzMap, string, uint16, map[string]any)) {
 
 	defer gatherer.StopListen()
 	go gatherer.Listen()
@@ -530,7 +561,12 @@ func runWrapper[t any](c *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			runFunc(m, mapName, i)
+			statusRecord := map[string]any{
+				statusKeyNumInsertsFailed: 0,
+				statusKeyNumReadsFailed:   0,
+				statusKeyNumRemovesFailed: 0,
+			}
+			runFunc(m, mapName, i, statusRecord)
 		}(i)
 	}
 	wg.Wait()
@@ -556,7 +592,8 @@ func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns u
 
 }
 
-func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
+// TODO Make use of status recorder in batch test loop
+func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, _ map[string]any) {
 
 	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.batch.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
