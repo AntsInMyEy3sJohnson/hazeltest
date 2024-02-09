@@ -1,6 +1,7 @@
 package chaos
 
 import (
+	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -182,7 +183,7 @@ func (m *memberKillerMonkey) causeChaos() {
 			member, err := m.chooser.choose(*mc.accessConfig)
 			if err != nil {
 				var msg string
-				if err == noMemberFoundError {
+				if errors.Is(err, noMemberFoundError) {
 					msg = "no hazelcast member available to be killed -- will try again in next iteration"
 				} else {
 					msg = "unable to choose hazelcast member to kill -- will try again in next iteration"
