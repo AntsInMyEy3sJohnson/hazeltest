@@ -51,8 +51,9 @@ func NewGatherer() *Gatherer {
 		l: &mutexLocker{
 			m: sync.Mutex{},
 		},
-		status:  map[string]any{},
-		Updates: make(chan Update),
+		status: map[string]any{},
+		// TODO Make buffer size configurable
+		Updates: make(chan Update, 10),
 	}
 
 }

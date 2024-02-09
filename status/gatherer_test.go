@@ -109,6 +109,8 @@ func TestGatherer_StopListen(t *testing.T) {
 		t.Log("\twhen listener runs on goroutine")
 		{
 			g := NewGatherer()
+			// Use unbuffered channel for this test case
+			g.Updates = make(chan Update)
 			wg := &stateExposingWaitGroup{
 				wg:    sync.WaitGroup{},
 				count: 0,
