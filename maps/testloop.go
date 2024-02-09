@@ -47,11 +47,9 @@ type (
 		next mapAction
 	}
 	boundaryTestLoop[t any] struct {
-		execution    *testLoopExecution[t]
-		s            sleeper
-		g            *status.Gatherer
-		modeCaches   []*modeCache
-		actionCaches []*actionCache
+		execution *testLoopExecution[t]
+		s         sleeper
+		g         *status.Gatherer
 	}
 	testLoopExecution[t any] struct {
 		id                     uuid.UUID
@@ -105,8 +103,6 @@ func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *statu
 	l.execution = lc
 	l.s = s
 	l.g = g
-	l.modeCaches = make([]*modeCache, l.execution.runnerConfig.numMaps)
-	l.actionCaches = make([]*actionCache, l.execution.runnerConfig.numMaps)
 	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
@@ -220,8 +216,8 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
-	l.modeCaches[mapNumber] = &modeCache{}
-	l.actionCaches[mapNumber] = &actionCache{}
+	mc := &modeCache{}
+	ac := &actionCache{}
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
 
@@ -240,7 +236,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
-		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
+		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
@@ -248,7 +244,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		if l.execution.runnerConfig.boundary.resetAfterChain {
 			lp.LogRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
-			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache)
+			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache, mc, ac)
 		}
 
 	}
@@ -257,12 +253,12 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}, mc *modeCache, ac *actionCache) {
 
 	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
 
-	l.modeCaches[mapNumber] = &modeCache{}
-	l.actionCaches[mapNumber] = &actionCache{}
+	*mc = modeCache{}
+	*ac = actionCache{}
 
 	p := assemblePredicate(client.ID(), mapNumber)
 	lp.LogRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), log.TraceLevel)
