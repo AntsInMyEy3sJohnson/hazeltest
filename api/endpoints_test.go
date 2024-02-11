@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -395,6 +394,7 @@ func TestReadinessHandler(t *testing.T) {
 		t.Log("\twhen initial state is given")
 		{
 			r = &readiness{false, false, 0}
+
 			recorder := httptest.NewRecorder()
 			readinessHandler(recorder, request)
 			response := recorder.Result()
@@ -414,6 +414,8 @@ func TestReadinessHandler(t *testing.T) {
 
 		t.Log("\twhen client has raised not ready")
 		{
+			r = &readiness{false, false, 0}
+
 			RaiseNotReady()
 
 			recorder := httptest.NewRecorder()
@@ -450,12 +452,16 @@ func TestReadinessHandler(t *testing.T) {
 
 		}
 
-		t.Log("\twhen client has raised readiness")
+		t.Log("\twhen client has raised readiness after at least one client has registered")
 		{
+
+			r = &readiness{false, false, 0}
+
+			// RaiseNotReady will register actor
+			RaiseNotReady()
 			RaiseReady()
 
 			recorder := httptest.NewRecorder()
-			recorder = httptest.NewRecorder()
 
 			readinessHandler(recorder, request)
 
@@ -507,6 +513,110 @@ func TestReadinessHandler(t *testing.T) {
 
 		}
 
+		t.Log("\twhen client has raised readiness and no client has registered yet")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(response.Body)
+
+			expectedStatusCode := http.StatusServiceUnavailable
+			msg := fmt.Sprintf("\t\treadiness handler must return http status %d", expectedStatusCode)
+			if response.StatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen one client has raised readiness and another raises not ready afterwards")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseReady()
+			RaiseNotReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 503"
+			expectedStatusCode := http.StatusServiceUnavailable
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
+			}
+
+		}
+
+		t.Log("\twhen client signals readiness after others have signalled readiness and non-readiness")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseNotReady()
+			RaiseReady()
+			RaiseNotReady()
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 200"
+			expectedStatusCode := http.StatusOK
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
+			}
+		}
+
+		t.Log("\twhen client invoke raise readiness without having invoked raise not ready first")
+		{
+			r = &readiness{false, false, 0}
+
+			RaiseReady()
+			RaiseNotReady()
+			RaiseReady()
+
+			recorder := httptest.NewRecorder()
+			readinessHandler(recorder, request)
+
+			response := recorder.Result()
+			defer func(body io.ReadCloser) {
+				_ = body.Close()
+			}(response.Body)
+
+			msg := "\t\treadiness handler must return 503"
+			expectedStatusCode := http.StatusServiceUnavailable
+			actualStatusCode := response.StatusCode
+			if actualStatusCode == expectedStatusCode {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%d', got '%d'\n", expectedStatusCode, actualStatusCode))
+			}
+		}
+
 	}
 
 }
@@ -528,7 +638,7 @@ func parseRunnerNumberValuesBackToInt(m map[string]any) {
 
 func tryResponseRead(body io.ReadCloser) ([]byte, error) {
 
-	if data, err := ioutil.ReadAll(body); err == nil {
+	if data, err := io.ReadAll(body); err == nil {
 		return data, nil
 	} else {
 		return nil, errors.New("unable to read response body")
