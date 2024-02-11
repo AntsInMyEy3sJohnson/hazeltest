@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  # 0.10.0
-  digest: a213831169d7a179601da649a52930d4dd279564fd90a7303f4c2ff9a3aac506
+  # 0.10.1
+  digest: 56c91d7cf3e785bbf4b23cd05fbf45b4a171ca2f545caa13d81a99fbadb469cb
   pullPolicy: IfNotPresent
 
 httpPort: 8080
@@ -41,7 +41,7 @@ config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
   chaosMonkeys:
     memberKiller:
-      enabled: false
+      enabled: true
       numRuns: 100
       chaosProbability: 0.5
       memberAccess:
