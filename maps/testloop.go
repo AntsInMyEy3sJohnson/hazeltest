@@ -592,8 +592,7 @@ func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns u
 
 }
 
-// TODO Make use of status recorder in batch test loop
-func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, _ map[string]any) {
+func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) {
 
 	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.batch.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
@@ -604,19 +603,19 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, 
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 		lp.LogRunnerEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := l.ingestAll(m, mapName, mapNumber)
+		err := l.ingestAll(m, mapName, mapNumber, statusRecord)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
-		err = l.readAll(m, mapName, mapNumber)
+		err = l.readAll(m, mapName, mapNumber, statusRecord)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
-		err = l.removeSome(m, mapName, mapNumber)
+		err = l.removeSome(m, mapName, mapNumber, statusRecord)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
@@ -627,19 +626,21 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, 
 
 }
 
-func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.execution.elements {
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		containsKey, err := m.ContainsKey(l.execution.ctx, key)
 		if err != nil {
+			// TODO Make this an update to the status gatherer, too
 			return err
 		}
 		if containsKey {
 			continue
 		}
 		if err = m.Set(l.execution.ctx, key, v); err != nil {
+			increaseNumInsertsFailed(l.g, statusRecord)
 			return err
 		}
 		numNewlyIngested++
@@ -651,12 +652,13 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) 
 
 }
 
-func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) error {
 
 	for _, v := range l.execution.elements {
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.execution.ctx, key)
 		if err != nil {
+			increaseNumReadsFailed(l.g, statusRecord)
 			return err
 		}
 		if valueFromHZ == nil {
@@ -664,6 +666,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 		}
 		err = l.execution.deserializeElementFunc(valueFromHZ)
 		if err != nil {
+			// TODO Make this an update to the status gatherer, too
 			return err
 		}
 	}
@@ -674,7 +677,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 
 }
 
-func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) error {
 
 	numElementsToDelete := rand.Intn(len(l.execution.elements))
 	removed := 0
@@ -692,6 +695,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16)
 		}
 		_, err = m.Remove(l.execution.ctx, key)
 		if err != nil {
+			increaseNumRemovesFailed(l.g, statusRecord)
 			return err
 		}
 		removed++

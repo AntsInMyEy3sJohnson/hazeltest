@@ -2350,6 +2350,68 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 }
 
+func TestIngestAll(t *testing.T) {
+
+	t.Log("given a hazelcast map and elements for insertion")
+	{
+		t.Log("\twhen target map does not contain key yet and set does not yield error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			statusRecord := map[string]any{
+				statusKeyNumInsertsFailed: 0,
+			}
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of contains key invocations must be equal to number of elements in source data"
+			expected := len(tl.execution.elements)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tnumber of set invocations must be equal to number of elements in source data, too"
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tstatus record must indicate there have been zero failed insert attempts"
+			expected = 0
+			actual = statusRecord[statusKeyNumInsertsFailed].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+		}
+
+		t.Log("\twhen target map contains all keys")
+		{
+
+		}
+	}
+
+}
+
 func checkMapActionResults(currentMode actionMode, numInvocations, insertCount, removeCount int, actionProbability float64) (bool, bool) {
 
 	numInvocationsAsFloat := float64(numInvocations)
