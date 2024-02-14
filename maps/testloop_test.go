@@ -59,6 +59,114 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 }
 
+func TestIncreaseNumInsertsFailed(t *testing.T) {
+
+	t.Log("given a status gatherer and the current status record")
+	{
+		t.Log("\twhen the status record indicates no inserts have failed yet")
+		{
+			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
+			statusRecord := map[string]any{
+				statusKeyNumInsertsFailed: 0,
+			}
+
+			increaseNumInsertsFailed(g, statusRecord)
+
+			msg := "\t\tstatus record must have been updated and indicate one insert has failed"
+			expectedNumInsertsFailed := 1
+			actualNumInsertsFailed := statusRecord[statusKeyNumInsertsFailed]
+			if actualNumInsertsFailed == expectedNumInsertsFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumInsertsFailed, actualNumInsertsFailed))
+			}
+
+			msg = "\t\tstatus gatherer must have received update"
+			recordedUpdate := <-g.Updates
+
+			if recordedUpdate.Key == statusKeyNumInsertsFailed && recordedUpdate.Value.(int) == expectedNumInsertsFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
+func TestIncreaseNumRemovesFailed(t *testing.T) {
+
+	t.Log("given a status gatherer and the current status record")
+	{
+		t.Log("\twhen the status record indicates no removes have failed yet")
+		{
+			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
+			statusRecord := map[string]any{
+				statusKeyNumRemovesFailed: 0,
+			}
+
+			increaseNumRemovesFailed(g, statusRecord)
+
+			msg := "\t\tstatus record must have been updated and indicate one remove has failed"
+			expectedNumRemovesFailed := 1
+			actualNumRemovesFailed := statusRecord[statusKeyNumRemovesFailed]
+			if actualNumRemovesFailed == expectedNumRemovesFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumRemovesFailed, actualNumRemovesFailed))
+			}
+
+			msg = "\t\tstatus gatherer must have received update"
+			recordedUpdate := <-g.Updates
+
+			if recordedUpdate.Key == statusKeyNumRemovesFailed && recordedUpdate.Value.(int) == expectedNumRemovesFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
+func TestIncreaseNumReadsFailed(t *testing.T) {
+
+	t.Log("given a status gatherer and the current status record")
+	{
+		t.Log("\twhen the status record indicates no reads have failed yet")
+		{
+			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
+			statusRecord := map[string]any{
+				statusKeyNumReadsFailed: 0,
+			}
+
+			increaseNumReadsFailed(g, statusRecord)
+
+			msg := "\t\tstatus record must have been updated and indicate one read has failed"
+			expectedNumReadsFailed := 1
+			actualNumReadsFailed := statusRecord[statusKeyNumReadsFailed]
+			if actualNumReadsFailed == expectedNumReadsFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumReadsFailed, actualNumReadsFailed))
+			}
+
+			msg = "\t\tstatus gatherer must have received update"
+			recordedUpdate := <-g.Updates
+
+			if recordedUpdate.Key == statusKeyNumReadsFailed && recordedUpdate.Value.(int) == expectedNumReadsFailed {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
 func TestPopulateLocalCache(t *testing.T) {
 
 	t.Log("given a method to populate the boundary test loop's local key cache")
