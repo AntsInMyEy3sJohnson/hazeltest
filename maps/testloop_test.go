@@ -2406,7 +2406,114 @@ func TestIngestAll(t *testing.T) {
 
 		t.Log("\twhen target map contains all keys")
 		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			for _, v := range theFellowship {
+				ms.m.data.Store(assembleMapKey(uint16(0), tl.execution.getElementIdFunc(v)), v)
+			}
 
+			statusRecord := map[string]any{
+				statusKeyNumInsertsFailed: 0,
+			}
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of contains key invocations must be equal to number of elements in source data"
+			expected := len(theFellowship)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tnumber of inserts must be zero"
+			expected = 0
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tstatus record must indicate zero failed inserts"
+			actual = statusRecord[statusKeyNumInsertsFailed].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+		}
+
+		t.Log("\twhen target map contains no keys and insert yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{
+				returnErrorUponSet: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			statusRecord := map[string]any{
+				statusKeyNumInsertsFailed: 0,
+			}
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			expected := 1
+			msg = fmt.Sprintf("\t\tnumber of contains key checks must be %d\n", expected)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = fmt.Sprintf("\t\tnumber of inserts must be %d\n", expected)
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tstatus report must indicate there was one failed insert attempt"
+			actual = statusRecord[statusKeyNumInsertsFailed].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tcorresponding update must have been sent to status gatherer"
+			update := <-tl.g.Updates
+			if update.Key == statusKeyNumInsertsFailed && update.Value == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 	}
 
