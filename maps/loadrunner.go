@@ -65,7 +65,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	if !config.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogRunnerEvent("loadRunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("load runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
