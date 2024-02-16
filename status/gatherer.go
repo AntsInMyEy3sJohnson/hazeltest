@@ -21,6 +21,7 @@ type (
 		unlock()
 	}
 	mutexLocker struct {
+		// TODO Use sync.RWMutex instead
 		m sync.Mutex
 	}
 )
