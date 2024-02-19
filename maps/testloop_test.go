@@ -61,7 +61,7 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
-	statusFunctions := map[string]func(*status.Gatherer, map[string]any){
+	statusRecordModificationFunctions := map[string]func(*status.Gatherer, map[string]any){
 		statusKeyNumInsertsFailed:          increaseNumInsertsFailed,
 		statusKeyNumReadsFailed:            increaseNumReadsFailed,
 		statusKeyNumNilReads:               increaseNumNilReads,
@@ -83,7 +83,7 @@ func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 		for k, v := range statusRecord {
 			t.Log(fmt.Sprintf("\twhen function '%s' is invoked on status record", k))
 			{
-				f := statusFunctions[k]
+				f := statusRecordModificationFunctions[k]
 				f(g, statusRecord)
 
 				msg := "\t\tcorresponding value in status record must have been updated"
@@ -2357,9 +2357,7 @@ func TestIngestAll(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
-			for _, v := range theFellowship {
-				ms.m.data.Store(assembleMapKey(uint16(0), tl.execution.getElementIdFunc(v)), v)
-			}
+			populateDummyHzMapStore(&ms)
 
 			statusRecord := map[string]any{
 				statusKeyNumInsertsFailed: 0,
@@ -2457,6 +2455,90 @@ func TestIngestAll(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+		}
+	}
+
+}
+
+func TestReadAll(t *testing.T) {
+
+	t.Log("given a hazelcast map")
+	{
+		t.Log("\twhen map contains all elements expected based on data source and no access operation fails")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 12, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[string]any{
+				statusKeyNumReadsFailed:            0,
+				statusKeyNumNilReads:               0,
+				statusKeyNumDeserializationsFailed: 0,
+			}
+			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+
+			msg := "\t\tstatus record must indicate so"
+			for k, v := range statusRecord {
+				if v == 0 {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of get invocations must be equal to number of elements in source data"
+			expected := len(theFellowship)
+			actual := ms.m.getInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+		}
+
+		t.Log("\twhen map contains all elements and get invocations yield errors")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			statusRecord := map[string]any{
+				statusKeyNumReadsFailed: 0,
+			}
+			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus record must indicate one failed read"
+			expected := 1
+			actual := statusRecord[statusKeyNumReadsFailed].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tcorresponding update must have been sent to status gatherer"
+			update := <-tl.g.Updates
+			if update.Key == statusKeyNumReadsFailed && update.Value == expected {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 	}
 
