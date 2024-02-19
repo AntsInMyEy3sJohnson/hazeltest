@@ -59,109 +59,52 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 }
 
-func TestIncreaseNumInsertsFailed(t *testing.T) {
+func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
-	t.Log("given a status gatherer and the current status record")
-	{
-		t.Log("\twhen the status record indicates no inserts have failed yet")
-		{
-			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
-			statusRecord := map[string]any{
-				statusKeyNumInsertsFailed: 0,
-			}
-
-			increaseNumInsertsFailed(g, statusRecord)
-
-			msg := "\t\tstatus record must have been updated and indicate one insert has failed"
-			expectedNumInsertsFailed := 1
-			actualNumInsertsFailed := statusRecord[statusKeyNumInsertsFailed]
-			if actualNumInsertsFailed == expectedNumInsertsFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumInsertsFailed, actualNumInsertsFailed))
-			}
-
-			msg = "\t\tstatus gatherer must have received update"
-			recordedUpdate := <-g.Updates
-
-			if recordedUpdate.Key == statusKeyNumInsertsFailed && recordedUpdate.Value.(int) == expectedNumInsertsFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-		}
+	statusFunctions := map[string]func(*status.Gatherer, map[string]any){
+		statusKeyNumInsertsFailed:          increaseNumInsertsFailed,
+		statusKeyNumReadsFailed:            increaseNumReadsFailed,
+		statusKeyNumNilReads:               increaseNumNilReads,
+		statusKeyNumDeserializationsFailed: increaseNumDeserializationsFailed,
+		statusKeyNumRemovesFailed:          increaseNumRemovesFailed,
 	}
 
-}
-
-func TestIncreaseNumRemovesFailed(t *testing.T) {
-
-	t.Log("given a status gatherer and the current status record")
-	{
-		t.Log("\twhen the status record indicates no removes have failed yet")
-		{
-			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
-			statusRecord := map[string]any{
-				statusKeyNumRemovesFailed: 0,
-			}
-
-			increaseNumRemovesFailed(g, statusRecord)
-
-			msg := "\t\tstatus record must have been updated and indicate one remove has failed"
-			expectedNumRemovesFailed := 1
-			actualNumRemovesFailed := statusRecord[statusKeyNumRemovesFailed]
-			if actualNumRemovesFailed == expectedNumRemovesFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumRemovesFailed, actualNumRemovesFailed))
-			}
-
-			msg = "\t\tstatus gatherer must have received update"
-			recordedUpdate := <-g.Updates
-
-			if recordedUpdate.Key == statusKeyNumRemovesFailed && recordedUpdate.Value.(int) == expectedNumRemovesFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-		}
+	statusRecord := map[string]any{
+		statusKeyNumInsertsFailed:          0,
+		statusKeyNumReadsFailed:            0,
+		statusKeyNumNilReads:               0,
+		statusKeyNumDeserializationsFailed: 0,
+		statusKeyNumRemovesFailed:          0,
 	}
 
-}
-
-func TestIncreaseNumReadsFailed(t *testing.T) {
-
-	t.Log("given a status gatherer and the current status record")
+	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
 	{
-		t.Log("\twhen the status record indicates no reads have failed yet")
-		{
-			g := &status.Gatherer{Updates: make(chan status.Update, 1)}
-			statusRecord := map[string]any{
-				statusKeyNumReadsFailed: 0,
+		g := &status.Gatherer{Updates: make(chan status.Update, 1)}
+		for k, v := range statusRecord {
+			t.Log(fmt.Sprintf("\twhen function '%s' is invoked on status record", k))
+			{
+				f := statusFunctions[k]
+				f(g, statusRecord)
+
+				msg := "\t\tcorresponding value in status record must have been updated"
+				expected := v.(int) + 1
+				actual := statusRecord[k]
+
+				if expected == actual {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("after invoking '%s', expected %d, got %d", k, expected, actual))
+				}
+
+				msg = "\t\tstatus gatherer must have received corresponding update"
+				update := <-g.Updates
+
+				if update.Key == k && update.Value == expected {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
 			}
-
-			increaseNumReadsFailed(g, statusRecord)
-
-			msg := "\t\tstatus record must have been updated and indicate one read has failed"
-			expectedNumReadsFailed := 1
-			actualNumReadsFailed := statusRecord[statusKeyNumReadsFailed]
-			if actualNumReadsFailed == expectedNumReadsFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expectedNumReadsFailed, actualNumReadsFailed))
-			}
-
-			msg = "\t\tstatus gatherer must have received update"
-			recordedUpdate := <-g.Updates
-
-			if recordedUpdate.Key == statusKeyNumReadsFailed && recordedUpdate.Value.(int) == expectedNumReadsFailed {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
 		}
 	}
 
