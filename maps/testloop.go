@@ -88,9 +88,11 @@ const (
 )
 
 const (
-	statusKeyNumInsertsFailed = "numInsertsFailed"
-	statusKeyNumReadsFailed   = "numReadsFailed"
-	statusKeyNumRemovesFailed = "numRemovesFailed"
+	statusKeyNumInsertsFailed          = "numInsertsFailed"
+	statusKeyNumReadsFailed            = "numReadsFailed"
+	statusKeyNumNilReads               = "numNilReads"
+	statusKeyNumRemovesFailed          = "numRemovesFailed"
+	statusKeyNumDeserializationsFailed = "numDeserializationsFailed"
 )
 
 var (
@@ -395,21 +397,41 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 func increaseNumInsertsFailed(g *status.Gatherer, statusRecord map[string]any) {
 
 	statusRecord[statusKeyNumInsertsFailed] = statusRecord[statusKeyNumInsertsFailed].(int) + 1
-	g.Updates <- status.Update{Key: statusKeyNumInsertsFailed, Value: statusRecord[statusKeyNumInsertsFailed]}
+	sendUpdate(g, statusKeyNumInsertsFailed, statusRecord[statusKeyNumInsertsFailed])
 
 }
 
 func increaseNumRemovesFailed(g *status.Gatherer, statusRecord map[string]any) {
 
 	statusRecord[statusKeyNumRemovesFailed] = statusRecord[statusKeyNumRemovesFailed].(int) + 1
-	g.Updates <- status.Update{Key: statusKeyNumRemovesFailed, Value: statusRecord[statusKeyNumRemovesFailed]}
+	sendUpdate(g, statusKeyNumRemovesFailed, statusRecord[statusKeyNumRemovesFailed])
 
 }
 
 func increaseNumReadsFailed(g *status.Gatherer, statusRecord map[string]any) {
 
 	statusRecord[statusKeyNumReadsFailed] = statusRecord[statusKeyNumReadsFailed].(int) + 1
-	g.Updates <- status.Update{Key: statusKeyNumReadsFailed, Value: statusRecord[statusKeyNumReadsFailed]}
+	sendUpdate(g, statusKeyNumReadsFailed, statusRecord[statusKeyNumReadsFailed])
+
+}
+
+func increaseNumNilReads(g *status.Gatherer, statusRecord map[string]any) {
+
+	statusRecord[statusKeyNumNilReads] = statusRecord[statusKeyNumNilReads].(int) + 1
+	sendUpdate(g, statusKeyNumNilReads, statusRecord[statusKeyNumNilReads])
+
+}
+
+func increaseNumDeserializationsFailed(g *status.Gatherer, statusRecord map[string]any) {
+
+	statusRecord[statusKeyNumDeserializationsFailed] = statusRecord[statusKeyNumDeserializationsFailed].(int) + 1
+	sendUpdate(g, statusKeyNumDeserializationsFailed, statusRecord[statusKeyNumDeserializationsFailed])
+
+}
+
+func sendUpdate(g *status.Gatherer, key string, value any) {
+
+	g.Updates <- status.Update{Key: key, Value: value}
 
 }
 
@@ -565,6 +587,7 @@ func runWrapper[t any](c *testLoopExecution[t],
 				statusKeyNumInsertsFailed: 0,
 				statusKeyNumReadsFailed:   0,
 				statusKeyNumRemovesFailed: 0,
+				statusKeyNumNilReads:      0,
 			}
 			runFunc(m, mapName, i, statusRecord)
 		}(i)
@@ -662,11 +685,12 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 			return err
 		}
 		if valueFromHZ == nil {
+			increaseNumNilReads(l.g, statusRecord)
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
 		}
 		err = l.execution.deserializeElementFunc(valueFromHZ)
 		if err != nil {
-			// TODO Make this an update to the status gatherer, too
+			increaseNumDeserializationsFailed(l.g, statusRecord)
 			return err
 		}
 	}
