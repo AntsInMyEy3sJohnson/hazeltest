@@ -2572,7 +2572,74 @@ func TestReadAll(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
 			}
+		}
+	}
+}
 
+func TestRemoveSome(t *testing.T) {
+
+	t.Log("given a hazelcast map containing state")
+	{
+		t.Log("\twhen remove operation does not yield error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[string]any{
+				statusKeyNumRemovesFailed: 0,
+			}
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0), statusRecord)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tstatus record must indicate zero failed remove invocations"
+			expected := 0
+			actual := statusRecord[statusKeyNumRemovesFailed].(int)
+
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+		}
+
+		t.Log("\twhen remove operation yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[string]any{
+				statusKeyNumRemovesFailed: 0,
+			}
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0), statusRecord)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus record must indicate one failed remove invocation"
+			expected := 1
+			actual := statusRecord[statusKeyNumRemovesFailed].(int)
+
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
 		}
 	}
 

@@ -689,7 +689,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 
 func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16, statusRecord map[string]any) error {
 
-	numElementsToDelete := rand.Intn(len(l.execution.elements))
+	numElementsToDelete := rand.Intn(len(l.execution.elements)) + 1
 	removed := 0
 
 	elements := l.execution.elements
