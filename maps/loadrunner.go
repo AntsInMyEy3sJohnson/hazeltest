@@ -3,7 +3,6 @@ package maps
 import (
 	"context"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -94,7 +93,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
+	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
@@ -135,18 +134,6 @@ func getLoadElementID(element any) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
-
-}
-
-func deserializeLoadElement(elementFromHz any) error {
-
-	_, ok := elementFromHz.(loadElement)
-
-	if !ok {
-		return errors.New("unable to deserialize value retrieved from hazelcast map into loadelement instance")
-	}
-
-	return nil
 
 }
 

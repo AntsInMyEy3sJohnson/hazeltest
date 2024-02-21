@@ -20,7 +20,6 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	getElementID        func(element any) string
-	deserializeElement  func(element any) error
 	looper[t any]       interface {
 		init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer)
 		run()
@@ -52,14 +51,13 @@ type (
 		g         *status.Gatherer
 	}
 	testLoopExecution[t any] struct {
-		id                     uuid.UUID
-		source                 string
-		mapStore               hzMapStore
-		runnerConfig           *runnerConfig
-		elements               []t
-		ctx                    context.Context
-		getElementIdFunc       getElementID
-		deserializeElementFunc deserializeElement
+		id               uuid.UUID
+		source           string
+		mapStore         hzMapStore
+		runnerConfig     *runnerConfig
+		elements         []t
+		ctx              context.Context
+		getElementIdFunc getElementID
 	}
 )
 
@@ -88,11 +86,10 @@ const (
 )
 
 const (
-	statusKeyNumInsertsFailed          = "numInsertsFailed"
-	statusKeyNumReadsFailed            = "numReadsFailed"
-	statusKeyNumNilReads               = "numNilReads"
-	statusKeyNumRemovesFailed          = "numRemovesFailed"
-	statusKeyNumDeserializationsFailed = "numDeserializationsFailed"
+	statusKeyNumInsertsFailed = "numInsertsFailed"
+	statusKeyNumReadsFailed   = "numReadsFailed"
+	statusKeyNumNilReads      = "numNilReads"
+	statusKeyNumRemovesFailed = "numRemovesFailed"
 )
 
 var (
@@ -422,13 +419,6 @@ func increaseNumNilReads(g *status.Gatherer, statusRecord map[string]any) {
 
 }
 
-func increaseNumDeserializationsFailed(g *status.Gatherer, statusRecord map[string]any) {
-
-	statusRecord[statusKeyNumDeserializationsFailed] = statusRecord[statusKeyNumDeserializationsFailed].(int) + 1
-	sendUpdate(g, statusKeyNumDeserializationsFailed, statusRecord[statusKeyNumDeserializationsFailed])
-
-}
-
 func sendUpdate(g *status.Gatherer, key string, value any) {
 
 	g.Updates <- status.Update{Key: key, Value: value}
@@ -466,6 +456,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
+			// TODO Check whether value was nil, increase num nil reads, if so
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
 			return nil
 		}
@@ -687,11 +678,6 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 		if valueFromHZ == nil {
 			increaseNumNilReads(l.g, statusRecord)
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
-		}
-		err = l.execution.deserializeElementFunc(valueFromHZ)
-		if err != nil {
-			increaseNumDeserializationsFailed(l.g, statusRecord)
-			return err
 		}
 	}
 

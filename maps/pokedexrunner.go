@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/gob"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -126,7 +125,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
-	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID, deserializePokemon}
+	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID}
 
 	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
 
@@ -148,17 +147,6 @@ func getPokemonID(element any) string {
 
 	pokemon := element.(pokemon)
 	return fmt.Sprintf("%d", pokemon.ID)
-
-}
-
-func deserializePokemon(elementFromHZ any) error {
-
-	_, ok := elementFromHZ.(pokemon)
-	if !ok {
-		return errors.New("unable to serialize value retrieved from hazelcast map into pokemon instance")
-	}
-
-	return nil
 
 }
 

@@ -41,12 +41,6 @@ func fellowshipMemberName(element any) string {
 
 }
 
-func deserializeFellowshipMember(_ any) error {
-
-	return nil
-
-}
-
 func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 	mapNumber := uint16(0)
@@ -62,19 +56,17 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
 	statusRecordModificationFunctions := map[string]func(*status.Gatherer, map[string]any){
-		statusKeyNumInsertsFailed:          increaseNumInsertsFailed,
-		statusKeyNumReadsFailed:            increaseNumReadsFailed,
-		statusKeyNumNilReads:               increaseNumNilReads,
-		statusKeyNumDeserializationsFailed: increaseNumDeserializationsFailed,
-		statusKeyNumRemovesFailed:          increaseNumRemovesFailed,
+		statusKeyNumInsertsFailed: increaseNumInsertsFailed,
+		statusKeyNumReadsFailed:   increaseNumReadsFailed,
+		statusKeyNumNilReads:      increaseNumNilReads,
+		statusKeyNumRemovesFailed: increaseNumRemovesFailed,
 	}
 
 	statusRecord := map[string]any{
-		statusKeyNumInsertsFailed:          0,
-		statusKeyNumReadsFailed:            0,
-		statusKeyNumNilReads:               0,
-		statusKeyNumDeserializationsFailed: 0,
-		statusKeyNumRemovesFailed:          0,
+		statusKeyNumInsertsFailed: 0,
+		statusKeyNumReadsFailed:   0,
+		statusKeyNumNilReads:      0,
+		statusKeyNumRemovesFailed: 0,
 	}
 
 	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
@@ -2472,9 +2464,8 @@ func TestReadAll(t *testing.T) {
 			populateDummyHzMapStore(&ms)
 
 			statusRecord := map[string]any{
-				statusKeyNumReadsFailed:            0,
-				statusKeyNumNilReads:               0,
-				statusKeyNumDeserializationsFailed: 0,
+				statusKeyNumReadsFailed: 0,
+				statusKeyNumNilReads:    0,
 			}
 			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
 
@@ -2652,14 +2643,13 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runne
 func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
-		id:                     id,
-		source:                 source,
-		mapStore:               ms,
-		runnerConfig:           rc,
-		elements:               theFellowship,
-		ctx:                    nil,
-		getElementIdFunc:       fellowshipMemberName,
-		deserializeElementFunc: deserializeFellowshipMember,
+		id:               id,
+		source:           source,
+		mapStore:         ms,
+		runnerConfig:     rc,
+		elements:         theFellowship,
+		ctx:              nil,
+		getElementIdFunc: fellowshipMemberName,
 	}
 
 }
