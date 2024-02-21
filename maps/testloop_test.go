@@ -2495,7 +2495,7 @@ func TestReadAll(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen map contains all elements and get invocations yield errors")
+		t.Log("\twhen get invocation yields error")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
@@ -2528,6 +2528,49 @@ func TestReadAll(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen map contains elements and get yields no error, but retrieved value is nil")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
+
+			statusRecord := map[string]any{
+				statusKeyNumReadsFailed: 0,
+				statusKeyNumNilReads:    0,
+			}
+
+			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus record must indicate zero failed reads"
+			expected := 0
+			actual := statusRecord[statusKeyNumReadsFailed].(int)
+
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+			}
+
+			msg = "\t\tstatus record must indicate one nil read"
+			expected = 1
+			actual = statusRecord[statusKeyNumNilReads].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
 			}
 
 		}

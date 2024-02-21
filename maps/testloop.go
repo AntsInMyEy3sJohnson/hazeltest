@@ -677,7 +677,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 		}
 		if valueFromHZ == nil {
 			increaseNumNilReads(l.g, statusRecord)
-			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
+			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
 		}
 	}
 
