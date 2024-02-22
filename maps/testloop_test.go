@@ -606,6 +606,36 @@ func TestChooseRandomKeyFromCache(t *testing.T) {
 
 }
 
+func TestRunWrapper(t *testing.T) {
+
+	t.Log("given a wrapper function to kick off both boundary and batch test loops")
+	{
+		t.Log("\twhen at least one map is provided")
+		{
+			rc := assembleRunnerConfigForBatchTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			runWrapper(tl.execution, tl.g, func(config *runnerConfig, u uint16) string {
+				return "banana"
+			}, func(h hzMap, s string, u uint16, m map[string]any) {
+				// No-op
+			})
+
+			waitForStatusGatheringDone(tl.g)
+
+			msg := "\t\tstatus gatherer must contain initial state: %s"
+			for _, v := range []string{statusKeyNumInsertsFailed, statusKeyNumReadsFailed, statusKeyNumRemovesFailed, statusKeyNumNilReads} {
+				if ok, detail := expectedStatusPresent(tl.g.AssembleStatusCopy(), v, 0); ok {
+					t.Log(fmt.Sprintf(msg, v), checkMark)
+				} else {
+					t.Fatal(fmt.Sprintf(msg, v), ballotX, detail)
+				}
+			}
+		}
+	}
+
+}
+
 func TestExecuteMapAction(t *testing.T) {
 
 	t.Log("given various actions to execute on maps")

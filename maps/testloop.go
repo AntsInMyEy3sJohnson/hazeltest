@@ -547,7 +547,7 @@ func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.G
 	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
 }
 
-func runWrapper[t any](c *testLoopExecution[t],
+func runWrapper[t any](tle *testLoopExecution[t],
 	gatherer *status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hzMap, string, uint16, map[string]any)) {
@@ -555,7 +555,7 @@ func runWrapper[t any](c *testLoopExecution[t],
 	defer gatherer.StopListen()
 	go gatherer.Listen()
 
-	rc := c.runnerConfig
+	rc := tle.runnerConfig
 	insertLoopWithInitialStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
 	var wg sync.WaitGroup
@@ -563,16 +563,16 @@ func runWrapper[t any](c *testLoopExecution[t],
 		wg.Add(1)
 		go func(i uint16) {
 			defer wg.Done()
-			mapName := assembleMapNameFunc(c.runnerConfig, i)
+			mapName := assembleMapNameFunc(tle.runnerConfig, i)
 			lp.LogRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			m, err := c.mapStore.GetMap(c.ctx, mapName)
+			m, err := tle.mapStore.GetMap(tle.ctx, mapName)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
 				return
 			}
 			defer func() {
-				_ = m.Destroy(c.ctx)
+				_ = m.Destroy(tle.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
@@ -581,6 +581,9 @@ func runWrapper[t any](c *testLoopExecution[t],
 				statusKeyNumReadsFailed:   0,
 				statusKeyNumRemovesFailed: 0,
 				statusKeyNumNilReads:      0,
+			}
+			for k, v := range statusRecord {
+				gatherer.Updates <- status.Update{Key: k, Value: v}
 			}
 			runFunc(m, mapName, i, statusRecord)
 		}(i)
