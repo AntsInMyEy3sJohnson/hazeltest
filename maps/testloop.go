@@ -359,7 +359,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 		lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
 
 		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next, statusRecord); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, currentRun), log.WarnLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in iteration '%d': %v", actions.next, mapName, currentRun, err), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
 			actions.last = actions.next
@@ -451,12 +451,14 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 			return nil
 		}
 	case read:
-		if _, err := m.Get(l.execution.ctx, key); err != nil {
+		if v, err := m.Get(l.execution.ctx, key); err != nil {
 			increaseNumReadsFailed(l.g, statusRecord)
-			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
+			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
+		} else if v == nil {
+			increaseNumNilReads(l.g, statusRecord)
+			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
 		} else {
-			// TODO Check whether value was nil, increase num nil reads, if so
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
 			return nil
 		}

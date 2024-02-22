@@ -621,7 +621,10 @@ func TestExecuteMapAction(t *testing.T) {
 
 				mapNumber := 0
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action, map[string]any{})
+				statusRecord := map[string]any{
+					statusKeyNumInsertsFailed: 0,
+				}
+				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action, statusRecord)
 
 				msg := "\t\t\tno error must be returned"
 
@@ -656,8 +659,16 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 element, got %d", count))
 				}
-			}
 
+				msg = "\t\t\tstatus record must indicate zero failed set operations"
+				expected := 0
+				actual := statusRecord[statusKeyNumInsertsFailed].(int)
+				if expected == actual {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+				}
+			}
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponSet: true})
@@ -727,7 +738,10 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove, map[string]any{})
+				statusRecord := map[string]any{
+					statusKeyNumRemovesFailed: 0,
+				}
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove, statusRecord)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -748,6 +762,15 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 remove invocations, got %d", ms.m.removeInvocations))
+				}
+
+				msg = "\t\t\tstatus record must indicate zero failed remove attempts"
+				expected := 0
+				actual := statusRecord[statusKeyNumRemovesFailed].(int)
+				if expected == actual {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 				}
 			}
 
@@ -841,10 +864,15 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read, map[string]any{})
+				go tl.g.Listen()
+				statusRecord := map[string]any{
+					statusKeyNumNilReads: 0,
+				}
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read, statusRecord)
+				tl.g.StopListen()
 
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
+				msg := "\t\t\terror must be returned"
+				if err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -862,6 +890,16 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 invocations, got %d", ms.m.getInvocations))
+				}
+
+				waitForStatusGatheringDone(tl.g)
+
+				msg = "\t\t\tstatus record must inform about one nil read"
+				statusCopy := tl.g.AssembleStatusCopy()
+				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
 				}
 			}
 
