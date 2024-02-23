@@ -96,10 +96,10 @@ func TestStatusHandler(t *testing.T) {
 		{
 			resetMaps()
 
-			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoopStatus(Maps, sourceMapLoadRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
 			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {

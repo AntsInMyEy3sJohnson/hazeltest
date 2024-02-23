@@ -73,7 +73,6 @@ const (
 	boundary runnerLoopType = "boundary"
 )
 
-// TODO include state in status endpoint
 const (
 	start                  state = "start"
 	populateConfigComplete state = "populateConfigComplete"
@@ -84,7 +83,13 @@ const (
 	testLoopComplete       state = "testLoopComplete"
 )
 
-const ()
+const (
+	statusKeyNumInsertsFailed statusKey = "numInsertsFailed"
+	statusKeyNumReadsFailed   statusKey = "numReadsFailed"
+	statusKeyNumNilReads      statusKey = "numNilReads"
+	statusKeyNumRemovesFailed statusKey = "numRemovesFailed"
+	statusKeyCurrentState     statusKey = "currentState"
+)
 
 var (
 	runners []runner

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
 	"math/rand"
@@ -68,7 +67,6 @@ func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
 	l.config = lc
 	l.s = s
 	l.g = g
-	api.RegisterTestLoopStatus(api.Queues, lc.source, l.g.AssembleStatusCopy)
 }
 
 func (l *testLoop[t]) run() {

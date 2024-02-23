@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
 	"math"
@@ -21,7 +20,7 @@ type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	getElementID        func(element any) string
 	looper[t any]       interface {
-		init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
 		run()
 	}
 	sleeper interface {
@@ -34,7 +33,7 @@ type (
 	batchTestLoop[t any] struct {
 		execution *testLoopExecution[t]
 		s         sleeper
-		g         *status.Gatherer
+		gatherer  *status.Gatherer
 	}
 	modeCache struct {
 		current actionMode
@@ -48,7 +47,7 @@ type (
 	boundaryTestLoop[t any] struct {
 		execution *testLoopExecution[t]
 		s         sleeper
-		g         *status.Gatherer
+		gatherer  *status.Gatherer
 	}
 	testLoopExecution[t any] struct {
 		id               uuid.UUID
@@ -86,13 +85,6 @@ const (
 	noop mapAction = "noop"
 )
 
-const (
-	statusKeyNumInsertsFailed statusKey = "numInsertsFailed"
-	statusKeyNumReadsFailed   statusKey = "numReadsFailed"
-	statusKeyNumNilReads      statusKey = "numNilReads"
-	statusKeyNumRemovesFailed statusKey = "numRemovesFailed"
-)
-
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -105,18 +97,17 @@ var (
 	}
 )
 
-func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
 	l.execution = lc
 	l.s = s
-	l.g = g
-	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
+	l.gatherer = gatherer
 }
 
 func (l *boundaryTestLoop[t]) run() {
 
 	runWrapper(
 		l.execution,
-		l.g,
+		l.gatherer,
 		assembleMapName,
 		l.runForMap,
 	)
@@ -435,7 +426,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
-			increaseNumInsertsFailed(l.g, statusRecord)
+			increaseNumInsertsFailed(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -444,7 +435,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
-			increaseNumRemovesFailed(l.g, statusRecord)
+			increaseNumRemovesFailed(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -453,11 +444,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case read:
 		if v, err := m.Get(l.execution.ctx, key); err != nil {
-			increaseNumReadsFailed(l.g, statusRecord)
+			increaseNumReadsFailed(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else if v == nil {
-			increaseNumNilReads(l.g, statusRecord)
+			increaseNumNilReads(l.gatherer, statusRecord)
 			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
@@ -541,11 +532,10 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
 	l.execution = lc
 	l.s = s
-	l.g = g
-	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
+	l.gatherer = gatherer
 }
 
 func runWrapper[t any](tle *testLoopExecution[t],
@@ -597,7 +587,7 @@ func (l *batchTestLoop[t]) run() {
 
 	runWrapper(
 		l.execution,
-		l.g,
+		l.gatherer,
 		assembleMapName,
 		l.runForMap,
 	)
@@ -660,7 +650,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, 
 			continue
 		}
 		if err = m.Set(l.execution.ctx, key, v); err != nil {
-			increaseNumInsertsFailed(l.g, statusRecord)
+			increaseNumInsertsFailed(l.gatherer, statusRecord)
 			return err
 		}
 		numNewlyIngested++
@@ -678,11 +668,11 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.execution.ctx, key)
 		if err != nil {
-			increaseNumReadsFailed(l.g, statusRecord)
+			increaseNumReadsFailed(l.gatherer, statusRecord)
 			return err
 		}
 		if valueFromHZ == nil {
-			increaseNumNilReads(l.g, statusRecord)
+			increaseNumNilReads(l.gatherer, statusRecord)
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
 		}
 	}
@@ -711,7 +701,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16,
 		}
 		_, err = m.Remove(l.execution.ctx, key)
 		if err != nil {
-			increaseNumRemovesFailed(l.g, statusRecord)
+			increaseNumRemovesFailed(l.gatherer, statusRecord)
 			return err
 		}
 		removed++

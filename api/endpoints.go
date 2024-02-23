@@ -90,8 +90,8 @@ func statusHandler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case methodGet:
-		testLoopStatus := assembleTestLoopStatus()
-		bytes, _ := json.Marshal(testLoopStatus)
+		runnerStatus := assembleRunnerStatus()
+		bytes, _ := json.Marshal(runnerStatus)
 		_, _ = w.Write(bytes)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)

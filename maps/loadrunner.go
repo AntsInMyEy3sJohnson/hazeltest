@@ -21,6 +21,7 @@ type (
 		source    string
 		mapStore  hzMapStore
 		l         looper[loadElement]
+		gatherer  *status.Gatherer
 	}
 	loadElement struct {
 		Key     string
@@ -34,8 +35,18 @@ var (
 )
 
 func init() {
-	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &batchTestLoop[loadElement]{}})
+	lr := &loadRunner{
+		assigner:  &client.DefaultConfigPropertyAssigner{},
+		stateList: []state{},
+		name:      "mapsLoadrunner",
+		source:    "loadRunner",
+		mapStore:  &defaultHzMapStore{},
+		l:         &batchTestLoop[loadElement]{},
+		gatherer:  status.NewGatherer(),
+	}
+	register(lr)
 	gob.Register(loadElement{})
+	api.RegisterRunnerStatus(api.Maps, lr.source, lr.gatherer.AssembleStatusCopy)
 }
 
 func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
@@ -95,7 +106,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -108,6 +119,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 func (r *loadRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 

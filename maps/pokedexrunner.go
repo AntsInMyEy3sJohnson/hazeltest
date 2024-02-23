@@ -21,6 +21,7 @@ type (
 		source    string
 		mapStore  hzMapStore
 		l         looper[pokemon]
+		gatherer  *status.Gatherer
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -55,14 +56,17 @@ var (
 )
 
 func init() {
-	register(&pokedexRunner{
+	pr := &pokedexRunner{
 		assigner:  &client.DefaultConfigPropertyAssigner{},
 		stateList: []state{},
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
 		mapStore:  &defaultHzMapStore{},
-	})
+		gatherer:  status.NewGatherer(),
+	}
+	register(pr)
 	gob.Register(pokemon{})
+	api.RegisterRunnerStatus(api.Maps, pr.source, pr.gatherer.AssembleStatusCopy)
 }
 
 func initializePokemonTestLoop(rc *runnerConfig) (looper[pokemon], error) {
@@ -140,6 +144,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 func (r *pokedexRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 

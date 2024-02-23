@@ -22,6 +22,7 @@ type (
 		source     string
 		queueStore hzQueueStore
 		l          looper[tweet]
+		gatherer   *status.Gatherer
 	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
@@ -39,8 +40,17 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
+	tr := &tweetRunner{
+		assigner:   &client.DefaultConfigPropertyAssigner{},
+		stateList:  []state{},
+		name:       "queuesTweetRunner",
+		source:     "tweetRunner",
+		queueStore: &defaultHzQueueStore{},
+		l:          &testLoop[tweet]{},
+	}
+	register(tr)
 	gob.Register(tweet{})
+	api.RegisterRunnerStatus(api.Queues, tr.source, tr.gatherer.AssembleStatusCopy)
 }
 
 func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {

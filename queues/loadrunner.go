@@ -20,6 +20,7 @@ type (
 		source     string
 		queueStore hzQueueStore
 		l          looper[loadElement]
+		gatherer   *status.Gatherer
 	}
 	loadElement struct {
 		Payload string
@@ -32,8 +33,18 @@ var (
 )
 
 func init() {
-	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesLoadrunner", source: "loadRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
+	lr := &loadRunner{
+		assigner:   &client.DefaultConfigPropertyAssigner{},
+		stateList:  []state{},
+		name:       "queuesLoadrunner",
+		source:     "loadRunner",
+		queueStore: &defaultHzQueueStore{},
+		l:          &testLoop[loadElement]{},
+		gatherer:   status.NewGatherer(),
+	}
+	register(lr)
 	gob.Register(loadElement{})
+	api.RegisterRunnerStatus(api.Queues, lr.source, lr.gatherer.AssembleStatusCopy)
 }
 
 func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
