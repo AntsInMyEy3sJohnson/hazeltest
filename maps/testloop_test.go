@@ -2753,16 +2753,6 @@ func generateMapActionResults(currentMode actionMode, numInvocations int, action
 
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
-
-	for {
-		if done := g.ListeningStopped(); done {
-			return
-		}
-	}
-
-}
-
 func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, statusKey, string) {
 
 	if numMapsFromStatus, ok := status[string(statusKeyNumMaps)]; !ok || numMapsFromStatus != expectedNumMaps {

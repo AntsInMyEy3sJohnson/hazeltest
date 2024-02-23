@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/logging"
+	"hazeltest/status"
 	"sync"
 )
 
@@ -102,6 +103,16 @@ func register(r runner) {
 
 func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
+}
+
+func waitForStatusGatheringDone(g *status.Gatherer) {
+
+	for {
+		if done := g.ListeningStopped(); done {
+			return
+		}
+	}
+
 }
 
 func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {

@@ -79,26 +79,48 @@ func TestInitializePokemonTestLoop(t *testing.T) {
 
 }
 
+func isCurrentStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+
+	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
+		return true
+	}
+
+	return false
+
+}
+
 func TestRunPokedexMapTests(t *testing.T) {
 
 	t.Log("given the pokedex runner to run map tests")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
-		genericMsg := "\t\tstate transitions must be correct"
+		genericMsgStateTransitions := "\t\tstate transitions must be correct"
+		genericMsgLatestStateInGatherer := "\t\tlatest state in gatherer must be correct"
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
+			go r.gatherer.Listen()
 
 			r.runMapTests(hzCluster, hzMembers)
+			r.gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
+
+			waitForStatusGatheringDone(r.gatherer)
+
+			if isCurrentStatePresentInGatherer(r.gatherer, start) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
 		}
 		t.Log("\twhen runner has been disabled")
 		{
@@ -108,14 +130,25 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
+			go r.gatherer.Listen()
 
 			r.runMapTests(hzCluster, hzMembers)
+			r.gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+			latestState := populateConfigComplete
+			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
+			}
+
+			waitForStatusGatheringDone(r.gatherer)
+
+			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
 		}
 		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
@@ -127,14 +160,25 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
+			go r.gatherer.Listen()
 
 			r.runMapTests(hzCluster, hzMembers)
+			r.gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
+			}
+
+			waitForStatusGatheringDone(r.gatherer)
+			latestState := r.stateList[len(r.stateList)-1]
+
+			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
 		}
 	}
