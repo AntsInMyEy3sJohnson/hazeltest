@@ -33,22 +33,24 @@ var (
 )
 
 func init() {
-	lr := &loadRunner{
+	register(&loadRunner{
 		assigner:   &client.DefaultConfigPropertyAssigner{},
 		stateList:  []state{},
 		name:       "queuesLoadrunner",
 		source:     "loadRunner",
 		queueStore: &defaultHzQueueStore{},
 		l:          &testLoop[loadElement]{},
-		gatherer:   status.NewGatherer(),
-	}
-	register(lr)
+	})
 	gob.Register(loadElement{})
-	api.RegisterRunnerStatus(api.Queues, lr.source, lr.gatherer.AssembleStatusCopy)
 }
 
-func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *loadRunner) getSourceName() string {
+	return r.source
+}
 
+func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	c, err := populateLoadConfig(r.assigner)
@@ -82,7 +84,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
