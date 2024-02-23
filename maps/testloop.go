@@ -28,7 +28,6 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	defaultSleeper struct{}
-	statusKey      string
 )
 
 type (
@@ -69,9 +68,10 @@ type (
 
 const (
 	updateStep            uint32     = 50
-	statusKeyNumMaps                 = "numMaps"
-	statusKeyNumRuns                 = "numRuns"
-	statusKeyTotalNumRuns            = "totalNumRuns"
+	statusKeyNumMaps      statusKey  = "numMaps"
+	statusKeyNumRuns      statusKey  = "numRuns"
+	statusKeyTotalNumRuns statusKey  = "totalNumRuns"
+	statusKeyFinished     statusKey  = "finished"
 	fill                  actionMode = "fill"
 	drain                 actionMode = "drain"
 	insert                mapAction  = "insert"
@@ -606,9 +606,9 @@ func (l *batchTestLoop[t]) run() {
 
 func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
 
-	c <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
-	c <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
-	c <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
+	c <- status.Update{Key: string(statusKeyNumMaps), Value: numMaps}
+	c <- status.Update{Key: string(statusKeyNumRuns), Value: numRuns}
+	c <- status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns}
 
 }
 

@@ -33,8 +33,6 @@ var (
 	}
 )
 
-const statusKeyFinished = "finished"
-
 func fellowshipMemberName(element any) string {
 
 	return element.(string)
@@ -2765,21 +2763,21 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, string, string) {
+func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, statusKey, string) {
 
-	if numMapsFromStatus, ok := status[statusKeyNumMaps]; !ok || numMapsFromStatus != expectedNumMaps {
+	if numMapsFromStatus, ok := status[string(statusKeyNumMaps)]; !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
 	}
 
-	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != expectedNumRuns {
+	if numRunsFromStatus, ok := status[string(statusKeyNumRuns)]; !ok || numRunsFromStatus != expectedNumRuns {
 		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
 	}
 
-	if totalRunsFromStatus, ok := status[statusKeyTotalNumRuns]; !ok || totalRunsFromStatus != expectedTotalRuns {
+	if totalRunsFromStatus, ok := status[string(statusKeyTotalNumRuns)]; !ok || totalRunsFromStatus != expectedTotalRuns {
 		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
-	if runnerFinishedFromStatus, ok := status[statusKeyFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
+	if runnerFinishedFromStatus, ok := status[string(statusKeyFinished)]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
 		return false, statusKeyFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
 	}
 

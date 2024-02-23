@@ -41,7 +41,8 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
-	state string
+	state     string
+	statusKey string
 )
 
 type (
@@ -82,6 +83,8 @@ const (
 	testLoopStart          state = "testLoopStart"
 	testLoopComplete       state = "testLoopComplete"
 )
+
+const ()
 
 var (
 	runners []runner
