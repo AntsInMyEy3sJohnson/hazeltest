@@ -48,7 +48,8 @@ type (
 		runnerKeyPath string
 		queueBaseName string
 	}
-	state string
+	state     string
+	statusKey string
 )
 
 const (
@@ -58,6 +59,10 @@ const (
 	raiseReadyComplete     state = "raiseReadyComplete"
 	testLoopStart          state = "testLoopStart"
 	testLoopComplete       state = "testLoopComplete"
+)
+
+const (
+	statusKeyCurrentState statusKey = "currentState"
 )
 
 var (
