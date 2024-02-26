@@ -28,7 +28,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -46,7 +46,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -64,7 +64,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsg, checkMark)

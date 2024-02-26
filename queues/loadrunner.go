@@ -36,7 +36,7 @@ func init() {
 	register(&loadRunner{
 		assigner:   &client.DefaultConfigPropertyAssigner{},
 		stateList:  []state{},
-		name:       "queuesLoadrunner",
+		name:       "queuesLoadRunner",
 		source:     "loadRunner",
 		queueStore: &defaultHzQueueStore{},
 		l:          &testLoop[loadElement]{},

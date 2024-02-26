@@ -40,20 +40,22 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	tr := &tweetRunner{
+	register(&tweetRunner{
 		assigner:   &client.DefaultConfigPropertyAssigner{},
 		stateList:  []state{},
 		name:       "queuesTweetRunner",
 		source:     "tweetRunner",
 		queueStore: &defaultHzQueueStore{},
 		l:          &testLoop[tweet]{},
-	}
-	register(tr)
+	})
 	gob.Register(tweet{})
-	api.RegisterRunnerStatus(api.Queues, tr.source, tr.gatherer.AssembleStatusCopy)
 }
 
-func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *tweetRunner) getSourceName() string {
+	return "tweetRunner"
+}
+
+func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
 
 	r.appendState(start)
 

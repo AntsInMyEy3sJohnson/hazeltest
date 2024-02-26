@@ -35,18 +35,15 @@ var (
 )
 
 func init() {
-	lr := &loadRunner{
+	register(&loadRunner{
 		assigner:  &client.DefaultConfigPropertyAssigner{},
 		stateList: []state{},
-		name:      "mapsLoadrunner",
+		name:      "mapsLoadRunner",
 		source:    "loadRunner",
 		mapStore:  &defaultHzMapStore{},
 		l:         &batchTestLoop[loadElement]{},
-		gatherer:  status.NewGatherer(),
-	}
-	register(lr)
+	})
 	gob.Register(loadElement{})
-	api.RegisterRunnerStatus(api.Maps, lr.source, lr.gatherer.AssembleStatusCopy)
 }
 
 func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
@@ -62,8 +59,13 @@ func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error
 
 }
 
-func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
+func (r *loadRunner) getSourceName() string {
+	return "loadRunner"
+}
 
+func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populateLoadConfig(r.assigner)

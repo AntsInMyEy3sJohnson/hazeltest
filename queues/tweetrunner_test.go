@@ -28,7 +28,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			}
 			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -46,7 +46,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			}
 			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
 				t.Log(genericMsg, checkMark)
@@ -64,7 +64,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			}
 			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 
-			r.runQueueTests(hzCluster, hzMembers)
+			r.runQueueTests(hzCluster, hzMembers, status.NewGatherer())
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsg, checkMark)

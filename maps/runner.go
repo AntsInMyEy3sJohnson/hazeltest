@@ -3,6 +3,7 @@ package maps
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"hazeltest/status"
@@ -12,7 +13,8 @@ import (
 type (
 	runnerLoopType string
 	runner         interface {
-		runMapTests(hzCluster string, hzMembers []string)
+		getSourceName() string
+		runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -482,8 +484,15 @@ func (t *MapTester) TestMaps() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			defer gatherer.StopListen()
+
 			runner := runners[i]
-			runner.runMapTests(t.HzCluster, t.HzMembers)
+
+			api.RegisterRunnerStatus(api.Maps, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			runner.runMapTests(t.HzCluster, t.HzMembers, gatherer)
 		}(i)
 	}
 

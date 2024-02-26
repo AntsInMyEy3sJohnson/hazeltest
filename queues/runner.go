@@ -270,6 +270,7 @@ func (t *QueueTester) TestQueues() {
 
 }
 
+// TODO Get rid of this function -- use logprovider instead
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{
