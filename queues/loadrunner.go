@@ -97,6 +97,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 func (r *loadRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 
