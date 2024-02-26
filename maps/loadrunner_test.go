@@ -91,11 +91,12 @@ func TestRunLoadMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			go r.gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
@@ -103,12 +104,19 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			if isCurrentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
+			msg := "\t\tgatherer instance must have been set"
+			if gatherer == r.gatherer {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 		t.Log("\twhen runner has been disabled")
@@ -119,11 +127,13 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.enabled": false,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			go r.gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			latestState := populateConfigComplete
 			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
@@ -132,7 +142,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
@@ -149,11 +159,12 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.testLoop.type": "batch",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			go r.gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
@@ -161,7 +172,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			latestState := expectedStatesForFullRun[len(expectedStatesForFullRun)-1]
 			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
@@ -183,9 +194,10 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
 
-			go r.gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
@@ -193,7 +205,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			if isCurrentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)

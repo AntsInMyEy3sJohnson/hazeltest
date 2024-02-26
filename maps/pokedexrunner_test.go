@@ -101,11 +101,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
-			go r.gatherer.Listen()
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
@@ -113,12 +115,19 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			if isCurrentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
+			msg := "\t\tgatherer instance must have been assigned"
+			if gatherer == r.gatherer {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 		}
@@ -130,11 +139,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
-			go r.gatherer.Listen()
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			latestState := populateConfigComplete
 			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
@@ -143,7 +154,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 
 			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
@@ -160,11 +171,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}, gatherer: status.NewGatherer()}
-			go r.gatherer.Listen()
+			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
-			r.gatherer.StopListen()
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
@@ -172,7 +185,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
 
-			waitForStatusGatheringDone(r.gatherer)
+			waitForStatusGatheringDone(gatherer)
 			latestState := r.stateList[len(r.stateList)-1]
 
 			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
