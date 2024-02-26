@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"hazeltest/status"
 	"strings"
 	"sync"
 )
@@ -61,6 +62,26 @@ var (
 	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 	dummyMapOperationLock    sync.Mutex
 )
+
+func waitForStatusGatheringDone(g *status.Gatherer) {
+
+	for {
+		if done := g.ListeningStopped(); done {
+			return
+		}
+	}
+
+}
+
+func latestStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+
+	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
+		return true
+	}
+
+	return false
+
+}
 
 func (d dummyHzMapStore) Shutdown(_ context.Context) error {
 	return nil
