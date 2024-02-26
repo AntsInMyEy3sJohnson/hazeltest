@@ -57,6 +57,7 @@ func (r *tweetRunner) getSourceName() string {
 
 func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
 
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
@@ -105,6 +106,8 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 func (r *tweetRunner) appendState(s state) {
 	r.stateList = append(r.stateList, s)
+
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 }
 
 func parseTweets() (*tweetCollection, error) {

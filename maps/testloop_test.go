@@ -613,11 +613,13 @@ func TestRunWrapper(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			go tl.gatherer.Listen()
 			runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
 			}, func(h hzMap, s string, u uint16, m map[statusKey]any) {
 				// No-op
 			})
+			tl.gatherer.StopListen()
 
 			waitForStatusGatheringDone(tl.gatherer)
 
@@ -1428,7 +1430,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
+					go tl.gatherer.Listen()
 					tl.run()
+					tl.gatherer.StopListen()
+
 					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tall elements must be inserted in map"
@@ -1472,7 +1477,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
+					go tl.gatherer.Listen()
 					tl.run()
+					tl.gatherer.StopListen()
+
 					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tnumber of insert invocations must be zero"
@@ -1525,7 +1533,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
+					go tl.gatherer.Listen()
 					tl.run()
+					tl.gatherer.StopListen()
+
 					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tnumber of set invocations must be roughly equal to half the chain length"
@@ -2114,7 +2125,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
+			tl.gatherer.StopListen()
+
 			waitForStatusGatheringDone(tl.gatherer)
 
 			expectedNumSetInvocations := len(theFellowship)
@@ -2156,7 +2170,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
+			tl.gatherer.StopListen()
+
 			waitForStatusGatheringDone(tl.gatherer)
 
 			expectedNumSetInvocations := len(theFellowship) * 10
@@ -2198,7 +2215,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetMap: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
+			tl.gatherer.StopListen()
+
 			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tno invocations on map must have been attempted"
@@ -2229,7 +2249,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
+			tl.gatherer.StopListen()
+
 			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tno remove invocations must have been attempted"
@@ -2266,7 +2289,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
+			tl.gatherer.StopListen()
+
 			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tinitial status must contain correct values anyway"

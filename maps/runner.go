@@ -107,16 +107,6 @@ func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
-
-	for {
-		if done := g.ListeningStopped(); done {
-			return
-		}
-	}
-
-}
-
 func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {
 
 	var assignmentOps []func() error
