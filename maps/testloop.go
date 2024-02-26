@@ -543,11 +543,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hzMap, string, uint16, map[statusKey]any)) {
 
-	defer gatherer.StopListen()
-	go gatherer.Listen()
-
 	rc := tle.runnerConfig
-	insertLoopWithInitialStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
+	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
 	var wg sync.WaitGroup
 	for i := uint16(0); i < rc.numMaps; i++ {
@@ -594,7 +591,7 @@ func (l *batchTestLoop[t]) run() {
 
 }
 
-func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
+func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
 
 	c <- status.Update{Key: string(statusKeyNumMaps), Value: numMaps}
 	c <- status.Update{Key: string(statusKeyNumRuns), Value: numRuns}

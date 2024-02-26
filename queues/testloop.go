@@ -71,9 +71,6 @@ func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
 
 func (l *testLoop[t]) run() {
 
-	defer l.g.StopListen()
-	go l.g.Listen()
-
 	l.insertLoopWithInitialStatus()
 
 	var numQueuesWg sync.WaitGroup
