@@ -106,7 +106,7 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			if isCurrentStatePresentInGatherer(r.gatherer, start) {
+			if currentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
@@ -144,7 +144,7 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+			if currentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
@@ -175,7 +175,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			waitForStatusGatheringDone(gatherer)
 
 			latestState := expectedStatesForFullRun[len(expectedStatesForFullRun)-1]
-			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+			if currentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
@@ -207,7 +207,7 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			if isCurrentStatePresentInGatherer(r.gatherer, start) {
+			if currentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)

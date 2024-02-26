@@ -79,7 +79,7 @@ func TestInitializePokemonTestLoop(t *testing.T) {
 
 }
 
-func isCurrentStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+func currentStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
 
 	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
 		return true
@@ -117,7 +117,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			if isCurrentStatePresentInGatherer(r.gatherer, start) {
+			if currentStatePresentInGatherer(r.gatherer, start) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
@@ -156,7 +156,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+			if currentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
@@ -188,7 +188,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			waitForStatusGatheringDone(gatherer)
 			latestState := r.stateList[len(r.stateList)-1]
 
-			if isCurrentStatePresentInGatherer(r.gatherer, latestState) {
+			if currentStatePresentInGatherer(r.gatherer, latestState) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
