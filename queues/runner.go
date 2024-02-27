@@ -62,7 +62,10 @@ const (
 )
 
 const (
-	statusKeyCurrentState statusKey = "currentState"
+	statusKeyCurrentState   statusKey = "currentState"
+	statusKeyNumFailedPuts  statusKey = "numFailedPuts"
+	statusKeyNumFailedPolls statusKey = "numFailedPolls"
+	statusKeyNumNilPolls    statusKey = "numNilPolls"
 )
 
 var (

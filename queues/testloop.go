@@ -22,9 +22,9 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName string, o operation)
 	}
 	testLoop[t any] struct {
-		config *testLoopConfig[t]
-		s      sleeper
-		g      *status.Gatherer
+		config   *testLoopConfig[t]
+		s        sleeper
+		gatherer *status.Gatherer
 	}
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
@@ -66,7 +66,7 @@ var (
 func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc
 	l.s = s
-	l.g = g
+	l.gatherer = g
 }
 
 func (l *testLoop[t]) run() {
@@ -98,7 +98,10 @@ func (l *testLoop[t]) run() {
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
-					l.runElementLoop(l.config.elements, q, put, queueName, i)
+					statusRecord := map[statusKey]any{
+						statusKeyNumFailedPuts: 0,
+					}
+					l.runElementLoop(l.config.elements, q, put, queueName, i, statusRecord)
 				}()
 
 			}
@@ -108,7 +111,11 @@ func (l *testLoop[t]) run() {
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
-					l.runElementLoop(l.config.elements, q, poll, queueName, i)
+					statusRecord := map[statusKey]any{
+						statusKeyNumFailedPolls: 0,
+						statusKeyNumNilPolls:    0,
+					}
+					l.runElementLoop(l.config.elements, q, poll, queueName, i, statusRecord)
 				}()
 			}
 
@@ -126,9 +133,9 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	c := l.config
 
 	numQueues := c.runnerConfig.numQueues
-	l.g.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
-	l.g.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
-	l.g.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
+	l.gatherer.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
+	l.gatherer.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
+	l.gatherer.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
 
 }
 
@@ -143,10 +150,10 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int, statusRecord map[statusKey]any) {
 
 	var config *operationConfig
-	var queueFunction func(queue hzQueue, queueName string)
+	var queueFunction func(queue hzQueue, queueName string, statusRecord map[statusKey]any)
 	if o == put {
 		config = l.config.runnerConfig.putConfig
 		queueFunction = l.putElements
@@ -162,7 +169,7 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), log.InfoLevel)
 		}
-		queueFunction(q, queueName)
+		queueFunction(q, queueName, statusRecord)
 		l.s.sleep(config.sleepBetweenRuns, sleepTimeFunc, "betweenRuns", queueName, o)
 		lp.LogRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), log.TraceLevel)
 	}
@@ -171,7 +178,20 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 
 }
 
-func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
+func increaseNumFailedPuts(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyNumFailedPuts] = statusRecord[statusKeyNumFailedPuts].(int) + 1
+	sendUpdate(g, statusKeyNumFailedPuts, statusRecord[statusKeyNumFailedPuts])
+
+}
+
+func sendUpdate(g *status.Gatherer, key statusKey, value any) {
+
+	g.Updates <- status.Update{Key: string(key), Value: value}
+
+}
+
+func (l *testLoop[t]) putElements(q hzQueue, queueName string, statusRecord map[statusKey]any) {
 
 	elements := l.config.elements
 	putConfig := l.config.runnerConfig.putConfig
@@ -185,6 +205,7 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 		} else {
 			err := q.Put(l.config.ctx, e)
 			if err != nil {
+				increaseNumFailedPuts(l.gatherer, statusRecord)
 				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 			} else {
 				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
@@ -197,15 +218,31 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 
 }
 
-func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
+func increaseNumFailedPolls(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyNumFailedPolls] = statusRecord[statusKeyNumFailedPolls].(int) + 1
+	sendUpdate(g, statusKeyNumFailedPolls, statusRecord[statusKeyNumFailedPolls])
+
+}
+
+func increaseNumNilPolls(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyNumNilPolls] = statusRecord[statusKeyNumNilPolls].(int) + 1
+	sendUpdate(g, statusKeyNumNilPolls, statusRecord[statusKeyNumNilPolls])
+
+}
+
+func (l *testLoop[t]) pollElements(q hzQueue, queueName string, statusRecord map[statusKey]any) {
 
 	pollConfig := l.config.runnerConfig.pollConfig
 
 	for i := 0; i < len(l.config.elements); i++ {
 		valueFromQueue, err := q.Poll(l.config.ctx)
 		if err != nil {
+			increaseNumFailedPolls(l.gatherer, statusRecord)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
 		} else if valueFromQueue == nil {
+			increaseNumNilPolls(l.gatherer, statusRecord)
 			lp.LogRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)
