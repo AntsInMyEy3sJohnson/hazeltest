@@ -383,24 +383,24 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 }
 
-func increaseNumInsertsFailed(g *status.Gatherer, statusRecord map[statusKey]any) {
+func increaseNumFailedInserts(g *status.Gatherer, statusRecord map[statusKey]any) {
 
-	statusRecord[statusKeyNumInsertsFailed] = statusRecord[statusKeyNumInsertsFailed].(int) + 1
-	sendUpdate(g, statusKeyNumInsertsFailed, statusRecord[statusKeyNumInsertsFailed])
-
-}
-
-func increaseNumRemovesFailed(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumRemovesFailed] = statusRecord[statusKeyNumRemovesFailed].(int) + 1
-	sendUpdate(g, statusKeyNumRemovesFailed, statusRecord[statusKeyNumRemovesFailed])
+	statusRecord[statusKeyNumFailedInserts] = statusRecord[statusKeyNumFailedInserts].(int) + 1
+	sendUpdate(g, statusKeyNumFailedInserts, statusRecord[statusKeyNumFailedInserts])
 
 }
 
-func increaseNumReadsFailed(g *status.Gatherer, statusRecord map[statusKey]any) {
+func increaseNumFailedRemoves(g *status.Gatherer, statusRecord map[statusKey]any) {
 
-	statusRecord[statusKeyNumReadsFailed] = statusRecord[statusKeyNumReadsFailed].(int) + 1
-	sendUpdate(g, statusKeyNumReadsFailed, statusRecord[statusKeyNumReadsFailed])
+	statusRecord[statusKeyNumFailedRemoves] = statusRecord[statusKeyNumFailedRemoves].(int) + 1
+	sendUpdate(g, statusKeyNumFailedRemoves, statusRecord[statusKeyNumFailedRemoves])
+
+}
+
+func increaseNumFailedReads(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyNumFailedReads] = statusRecord[statusKeyNumFailedReads].(int) + 1
+	sendUpdate(g, statusKeyNumFailedReads, statusRecord[statusKeyNumFailedReads])
 
 }
 
@@ -426,7 +426,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
-			increaseNumInsertsFailed(l.gatherer, statusRecord)
+			increaseNumFailedInserts(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -435,7 +435,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
-			increaseNumRemovesFailed(l.gatherer, statusRecord)
+			increaseNumFailedRemoves(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -444,7 +444,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case read:
 		if v, err := m.Get(l.execution.ctx, key); err != nil {
-			increaseNumReadsFailed(l.gatherer, statusRecord)
+			increaseNumFailedReads(l.gatherer, statusRecord)
 			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else if v == nil {
@@ -565,9 +565,9 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			statusRecord := map[statusKey]any{
-				statusKeyNumInsertsFailed: 0,
-				statusKeyNumReadsFailed:   0,
-				statusKeyNumRemovesFailed: 0,
+				statusKeyNumFailedInserts: 0,
+				statusKeyNumFailedReads:   0,
+				statusKeyNumFailedRemoves: 0,
 				statusKeyNumNilReads:      0,
 			}
 			for k, v := range statusRecord {
@@ -647,7 +647,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, 
 			continue
 		}
 		if err = m.Set(l.execution.ctx, key, v); err != nil {
-			increaseNumInsertsFailed(l.gatherer, statusRecord)
+			increaseNumFailedInserts(l.gatherer, statusRecord)
 			return err
 		}
 		numNewlyIngested++
@@ -665,7 +665,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.execution.ctx, key)
 		if err != nil {
-			increaseNumReadsFailed(l.gatherer, statusRecord)
+			increaseNumFailedReads(l.gatherer, statusRecord)
 			return err
 		}
 		if valueFromHZ == nil {
@@ -698,7 +698,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16,
 		}
 		_, err = m.Remove(l.execution.ctx, key)
 		if err != nil {
-			increaseNumRemovesFailed(l.gatherer, statusRecord)
+			increaseNumFailedRemoves(l.gatherer, statusRecord)
 			return err
 		}
 		removed++

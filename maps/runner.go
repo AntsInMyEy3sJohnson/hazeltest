@@ -87,10 +87,10 @@ const (
 )
 
 const (
-	statusKeyNumInsertsFailed statusKey = "numInsertsFailed"
-	statusKeyNumReadsFailed   statusKey = "numReadsFailed"
+	statusKeyNumFailedInserts statusKey = "numFailedInserts"
+	statusKeyNumFailedReads   statusKey = "numFailedReads"
 	statusKeyNumNilReads      statusKey = "numNilReads"
-	statusKeyNumRemovesFailed statusKey = "numRemovesFailed"
+	statusKeyNumFailedRemoves statusKey = "numFailedRemoves"
 	statusKeyCurrentState     statusKey = "currentState"
 )
 
