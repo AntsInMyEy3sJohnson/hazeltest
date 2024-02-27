@@ -27,6 +27,53 @@ var (
 	}
 )
 
+func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
+
+	statusRecordModificationFunctions := map[statusKey]func(*status.Gatherer, map[statusKey]any){
+		statusKeyNumFailedPuts:  increaseNumFailedPuts,
+		statusKeyNumFailedPolls: increaseNumFailedPolls,
+		statusKeyNumNilPolls:    increaseNumNilPolls,
+	}
+
+	statusRecord := map[statusKey]any{
+		statusKeyNumFailedPuts:  0,
+		statusKeyNumFailedPolls: 0,
+		statusKeyNumNilPolls:    0,
+	}
+
+	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
+	{
+		g := &status.Gatherer{Updates: make(chan status.Update, 1)}
+		for k, v := range statusRecord {
+			t.Log(fmt.Sprintf("\twhen function '%s' is invoked on status record", k))
+			{
+				f := statusRecordModificationFunctions[k]
+				f(g, statusRecord)
+
+				msg := "\t\tcorresponding value in status record must have been updated"
+				expected := v.(int) + 1
+				actual := statusRecord[k]
+
+				if expected == actual {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("after invoking '%s', expected %d, got %d", k, expected, actual))
+				}
+
+				msg = "\t\tstatus gatherer must have received corresponding update"
+				update := <-g.Updates
+
+				if update.Key == string(k) && update.Value == expected {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
+			}
+		}
+	}
+
+}
+
 func TestRun(t *testing.T) {
 
 	testSource := "aNewHope"
@@ -64,7 +111,7 @@ func TestRun(t *testing.T) {
 			}
 
 			msg = "\t\ttest loop status must be correct"
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -97,7 +144,7 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
-		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX, key, detail)
@@ -122,7 +169,7 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
-		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX, key, detail)
@@ -148,7 +195,7 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
-		if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX, key, detail)
