@@ -99,7 +99,9 @@ func (l *testLoop[t]) run() {
 				go func() {
 					defer putWg.Done()
 					statusRecord := map[statusKey]any{
-						statusKeyNumFailedPuts: 0,
+						statusKeyNumFailedPuts:           0,
+						statusKeyNumFailedCapacityChecks: 0,
+						statusKeyQueueFullEvents:         0,
 					}
 					l.runElementLoop(l.config.elements, q, put, queueName, i, statusRecord)
 				}()

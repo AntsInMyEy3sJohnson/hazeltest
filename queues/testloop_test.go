@@ -249,12 +249,15 @@ func TestRun(t *testing.T) {
 	{
 		t.Log("\twhen only put config is provided")
 		{
-			id := uuid.New()
 			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
 			rc := assembleRunnerConfig(true, 1, false, 0, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			go gatherer.Listen()
 			tl.run()
+			gatherer.StopListen()
 
 			msg := "\t\texpected number of puts must have been executed"
 			if qs.q.putInvocations == len(aNewHope) {
@@ -278,7 +281,9 @@ func TestRun(t *testing.T) {
 			}
 
 			msg = "\t\ttest loop status must be correct"
-			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+			waitForStatusGatheringDone(gatherer)
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if ok, key, detail := statusContainsExpectedValues(statusCopy, rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -289,12 +294,15 @@ func TestRun(t *testing.T) {
 
 	t.Log("\twhen both put and poll config are provided, and put runs twice as many times as poll")
 	{
-		id := uuid.New()
 		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 18)
 		rc := assembleRunnerConfig(true, 2, true, 1, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\texpected number of puts must have been executed"
 		if qs.q.putInvocations == 2*len(aNewHope) {
@@ -311,6 +319,7 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
+		waitForStatusGatheringDone(gatherer)
 		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
@@ -321,12 +330,15 @@ func TestRun(t *testing.T) {
 
 	t.Log("\twhen poll is configured but put is not")
 	{
-		id := uuid.New()
 		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 1)
 		rc := assembleRunnerConfig(false, 0, true, 5, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\tall poll attempts must have been made anyway"
 		if qs.q.pollInvocations == 5*len(aNewHope) {
@@ -336,6 +348,7 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
+		waitForStatusGatheringDone(gatherer)
 		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
@@ -346,13 +359,16 @@ func TestRun(t *testing.T) {
 
 	t.Log("\twhen queue reaches its capacity")
 	{
-		id := uuid.New()
 		queueCapacity := 9
 		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, queueCapacity)
 		rc := assembleRunnerConfig(true, 2, false, 0, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\tno puts must be executed"
 		if qs.q.putInvocations == queueCapacity {
@@ -362,7 +378,9 @@ func TestRun(t *testing.T) {
 		}
 
 		msg = "\t\ttest loop status must be correct"
-		if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), rc.numQueues, rc.putConfig, rc.pollConfig); ok {
+		waitForStatusGatheringDone(gatherer)
+		statusCopy := tl.gatherer.AssembleStatusCopy()
+		if ok, key, detail := statusContainsExpectedValues(statusCopy, rc.numQueues, rc.putConfig, rc.pollConfig); ok {
 			t.Log(msg, checkMark)
 		} else {
 			t.Fatal(msg, ballotX, key, detail)
@@ -375,7 +393,8 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPut := &sleepConfig{}
 		scBetweenRunsPoll := &sleepConfig{}
 		rc := assembleRunnerConfig(true, 20, true, 20, scBetweenRunsPut, scBetweenRunsPoll)
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -388,7 +407,9 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\tsleep between runs for put must have zero invocations"
 		if numInvocationsSleepBetweenRunsPut == 0 {
@@ -413,7 +434,8 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPut := &sleepConfig{enabled: true}
 		scBetweenRunsPoll := &sleepConfig{enabled: true}
 		rc := assembleRunnerConfig(true, numRunsPut, true, numRunsPoll, scBetweenRunsPut, scBetweenRunsPoll)
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -426,7 +448,9 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\tnumber of sleeps between runs for put must be equal to number of runs for put"
 		if numInvocationsSleepBetweenRunsPut == numRunsPut {
@@ -450,7 +474,8 @@ func TestRun(t *testing.T) {
 		rc := assembleRunnerConfig(true, 20, true, 20, sleepConfigDisabled, sleepConfigDisabled)
 		rc.putConfig.initialDelay = scInitialDelayPut
 		rc.pollConfig.initialDelay = scInitialDelayPoll
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
+		gatherer := status.NewGatherer()
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsInitialDelayPut := 0
 		numInvocationsInitialDelayPoll := 0
@@ -463,7 +488,9 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
+		go gatherer.Listen()
 		tl.run()
+		gatherer.StopListen()
 
 		msg := "\t\tput initial delay sleep must be invoked exactly once"
 		if numInvocationsInitialDelayPut == 1 {
