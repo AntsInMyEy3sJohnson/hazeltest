@@ -25,20 +25,25 @@ var (
 		durationMs:       0,
 		enableRandomness: false,
 	}
+	testSource = "aNewHope"
 )
 
 func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
 	statusRecordModificationFunctions := map[statusKey]func(*status.Gatherer, map[statusKey]any){
-		statusKeyNumFailedPuts:  increaseNumFailedPuts,
-		statusKeyNumFailedPolls: increaseNumFailedPolls,
-		statusKeyNumNilPolls:    increaseNumNilPolls,
+		statusKeyNumFailedPuts:           increaseNumFailedPuts,
+		statusKeyNumFailedPolls:          increaseNumFailedPolls,
+		statusKeyNumNilPolls:             increaseNumNilPolls,
+		statusKeyNumFailedCapacityChecks: increaseNumFailedCapacityChecks,
+		statusKeyQueueFullEvents:         increaseNumQueueFullEvents,
 	}
 
 	statusRecord := map[statusKey]any{
-		statusKeyNumFailedPuts:  0,
-		statusKeyNumFailedPolls: 0,
-		statusKeyNumNilPolls:    0,
+		statusKeyNumFailedPuts:           0,
+		statusKeyNumFailedPolls:          0,
+		statusKeyNumNilPolls:             0,
+		statusKeyNumFailedCapacityChecks: 0,
+		statusKeyQueueFullEvents:         0,
 	}
 
 	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
@@ -74,18 +79,180 @@ func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
 }
 
-func TestRun(t *testing.T) {
+func TestPutElements(t *testing.T) {
 
-	testSource := "aNewHope"
+	t.Log("given a hazelcast queue and a status record embodying initial state")
+	{
+		t.Log("\twhen check for remaining capacity yields error")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+				returnErrorUponGetQueue:          false,
+				returnErrorUponRemainingCapacity: true,
+			}, 9)
+			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedCapacityChecks: 0,
+			}
+			go gatherer.Listen()
+			tl.putElements(qs.q, "awesomeQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tnumber of checks for remaining queue capacity must be equal to number of elements in source data"
+			expectedNumRemainingCapacityInvocations := len(aNewHope)
+			if qs.q.remainingCapacityInvocations == expectedNumRemainingCapacityInvocations {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno put must have been executed"
+			if qs.q.putInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.q.putInvocations)
+			}
+
+			msg = fmt.Sprintf("\t\tstatus gatherer must have received update about %d failed capacity checks", expectedNumRemainingCapacityInvocations)
+			waitForStatusGatheringDone(gatherer)
+
+			statusCopy := gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedCapacityChecks, expectedNumRemainingCapacityInvocations); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+
+		t.Log("\twhen queue has no remaining capacity")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 0)
+			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedCapacityChecks: 0,
+				statusKeyQueueFullEvents:         0,
+			}
+			go gatherer.Listen()
+			tl.putElements(qs.q, "awesomeQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tstatus record must indicate zero failed remaining capacity checks"
+			waitForStatusGatheringDone(gatherer)
+
+			if statusRecord[statusKeyNumFailedCapacityChecks].(int) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedCapacityChecks])
+			}
+
+			msg = "\t\tnumber of queue full events in status gatherer must be equal to number of elements in queue test loop source data"
+			statusCopy := gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyQueueFullEvents, len(aNewHope)); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+			msg = "\t\tnumber of executed put operations must be zero"
+			if qs.q.putInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.q.putInvocations)
+			}
+		}
+
+		t.Log("\twhen queue has remaining capacity and puts fail")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+				returnErrorUponPut: true,
+			}, 42)
+			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			go gatherer.Listen()
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedPuts: 0,
+			}
+			tl.putElements(qs.q, "anotherAwesomeQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tnumber of executed put attempts must be equal to number of elements in test loop source data"
+			expectedNumPuts := len(aNewHope)
+			if qs.q.putInvocations == expectedNumPuts {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.q.putInvocations)
+			}
+
+			msg = fmt.Sprintf("\t\tstatus gatherer must indicate %d failed put attempts", expectedNumPuts)
+
+			waitForStatusGatheringDone(gatherer)
+
+			statusCopy := gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedPuts, expectedNumPuts); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+
+		t.Log("\twhen queue has remaining capacity and puts succeed")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 42)
+			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, status.NewGatherer())
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedPuts: 0,
+			}
+			tl.putElements(qs.q, "yetAnotherAwesomeQueue", statusRecord)
+
+			msg := "\t\tnumber of put invocations must be equal to number of elements in test loop source data"
+			if qs.q.putInvocations == len(aNewHope) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.q)
+			}
+
+			msg = "\t\tstatus record must indicate zero failed put attempts"
+			if statusRecord[statusKeyNumFailedPuts].(int) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPuts])
+			}
+		}
+	}
+
+}
+
+func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+
+	recordedValue := statusCopy[string(expectedKey)].(int)
+
+	if recordedValue == expectedValue {
+		return true, ""
+	} else {
+		return false, fmt.Sprintf("expected %d, got %d\n", expectedValue, recordedValue)
+	}
+
+}
+
+func TestRun(t *testing.T) {
 
 	t.Log("given the queue test loop")
 	{
 		t.Log("\twhen only put config is provided")
 		{
 			id := uuid.New()
-			qs := assembleDummyQueueStore(false, 9)
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
 			rc := assembleRunnerConfig(true, 1, false, 0, sleepConfigDisabled, sleepConfigDisabled)
-			tl := assembleTestLoop(id, testSource, qs, &rc)
+			tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
 			tl.run()
 
@@ -123,9 +290,9 @@ func TestRun(t *testing.T) {
 	t.Log("\twhen both put and poll config are provided, and put runs twice as many times as poll")
 	{
 		id := uuid.New()
-		qs := assembleDummyQueueStore(false, 18)
+		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 18)
 		rc := assembleRunnerConfig(true, 2, true, 1, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
 		tl.run()
 
@@ -155,9 +322,9 @@ func TestRun(t *testing.T) {
 	t.Log("\twhen poll is configured but put is not")
 	{
 		id := uuid.New()
-		qs := assembleDummyQueueStore(false, 1)
+		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 1)
 		rc := assembleRunnerConfig(false, 0, true, 5, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
 		tl.run()
 
@@ -181,9 +348,9 @@ func TestRun(t *testing.T) {
 	{
 		id := uuid.New()
 		queueCapacity := 9
-		qs := assembleDummyQueueStore(false, queueCapacity)
+		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, queueCapacity)
 		rc := assembleRunnerConfig(true, 2, false, 0, sleepConfigDisabled, sleepConfigDisabled)
-		tl := assembleTestLoop(id, testSource, qs, &rc)
+		tl := assembleTestLoop(id, testSource, qs, &rc, status.NewGatherer())
 
 		tl.run()
 
@@ -208,7 +375,7 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPut := &sleepConfig{}
 		scBetweenRunsPoll := &sleepConfig{}
 		rc := assembleRunnerConfig(true, 20, true, 20, scBetweenRunsPut, scBetweenRunsPoll)
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -246,7 +413,7 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPut := &sleepConfig{enabled: true}
 		scBetweenRunsPoll := &sleepConfig{enabled: true}
 		rc := assembleRunnerConfig(true, numRunsPut, true, numRunsPoll, scBetweenRunsPut, scBetweenRunsPoll)
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -283,7 +450,7 @@ func TestRun(t *testing.T) {
 		rc := assembleRunnerConfig(true, 20, true, 20, sleepConfigDisabled, sleepConfigDisabled)
 		rc.putConfig.initialDelay = scInitialDelayPut
 		rc.pollConfig.initialDelay = scInitialDelayPoll
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(false, 9), &rc)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, status.NewGatherer())
 
 		numInvocationsInitialDelayPut := 0
 		numInvocationsInitialDelayPoll := 0
@@ -356,11 +523,11 @@ func operationConfigStatusContainsExpectedValues(status map[string]any, expected
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerConfig) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerConfig, g *status.Gatherer) testLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}
-	tl.init(&tlc, &defaultSleeper{}, status.NewGatherer())
+	tl.init(&tlc, &defaultSleeper{}, g)
 
 	return tl
 
@@ -411,13 +578,13 @@ func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRu
 
 }
 
-func assembleDummyQueueStore(returnErrorUponGetQueue bool, queueCapacity int) dummyHzQueueStore {
+func assembleDummyQueueStore(b *dummyQueueStoreBehavior, queueCapacity int) dummyHzQueueStore {
 
 	dummyBackend := &list.List{}
 
 	return dummyHzQueueStore{
-		q:                       &dummyHzQueue{data: dummyBackend, queueCapacity: queueCapacity},
-		returnErrorUponGetQueue: returnErrorUponGetQueue,
+		q:        &dummyHzQueue{data: dummyBackend, queueCapacity: queueCapacity, behavior: b},
+		behavior: b,
 	}
 
 }

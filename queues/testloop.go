@@ -178,6 +178,20 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 
 }
 
+func increaseNumFailedCapacityChecks(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyNumFailedCapacityChecks] = statusRecord[statusKeyNumFailedCapacityChecks].(int) + 1
+	sendUpdate(g, statusKeyNumFailedCapacityChecks, statusRecord[statusKeyNumFailedCapacityChecks])
+
+}
+
+func increaseNumQueueFullEvents(g *status.Gatherer, statusRecord map[statusKey]any) {
+
+	statusRecord[statusKeyQueueFullEvents] = statusRecord[statusKeyQueueFullEvents].(int) + 1
+	sendUpdate(g, statusKeyQueueFullEvents, statusRecord[statusKeyQueueFullEvents])
+
+}
+
 func increaseNumFailedPuts(g *status.Gatherer, statusRecord map[statusKey]any) {
 
 	statusRecord[statusKeyNumFailedPuts] = statusRecord[statusKeyNumFailedPuts].(int) + 1
@@ -199,8 +213,10 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string, statusRecord map[
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
 		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
+			increaseNumFailedCapacityChecks(l.gatherer, statusRecord)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
 		} else if remaining == 0 {
+			increaseNumQueueFullEvents(l.gatherer, statusRecord)
 			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
 		} else {
 			err := q.Put(l.config.ctx, e)

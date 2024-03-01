@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 )
 
@@ -15,15 +14,17 @@ type (
 		dummyConfig map[string]any
 	}
 	dummyHzQueueStore struct {
-		q                       *dummyHzQueue
-		returnErrorUponGetQueue bool
+		q        *dummyHzQueue
+		behavior *dummyQueueStoreBehavior
 	}
 	dummyHzQueue struct {
-		queueCapacity      int
-		data               *list.List
-		putInvocations     int
-		pollInvocations    int
-		destroyInvocations int
+		queueCapacity                int
+		data                         *list.List
+		putInvocations               int
+		pollInvocations              int
+		destroyInvocations           int
+		remainingCapacityInvocations int
+		behavior                     *dummyQueueStoreBehavior
 	}
 )
 
@@ -42,6 +43,10 @@ var (
 	dummyQueueOperationLock  sync.Mutex
 )
 
+type dummyQueueStoreBehavior struct {
+	returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut bool
+}
+
 func (d dummyHzQueueStore) Shutdown(_ context.Context) error {
 	return nil
 }
@@ -51,7 +56,7 @@ func (d dummyHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ st
 }
 
 func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (hzQueue, error) {
-	if d.returnErrorUponGetQueue {
+	if d.behavior.returnErrorUponGetQueue {
 		return nil, errors.New("it is but a scratch")
 	}
 	return d.q, nil
@@ -76,11 +81,15 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 func (d *dummyHzQueue) Put(_ context.Context, element any) error {
 
 	dummyQueueOperationLock.Lock()
-	{
-		d.putInvocations++
-		d.data.PushBack(element)
+	defer dummyQueueOperationLock.Unlock()
+
+	d.putInvocations++
+
+	if d.behavior.returnErrorUponPut {
+		return errors.New("some unexpected error")
 	}
-	dummyQueueOperationLock.Unlock()
+
+	d.data.PushBack(element)
 
 	return nil
 
@@ -111,15 +120,25 @@ func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
 
 func (d *dummyHzQueue) RemainingCapacity(_ context.Context) (int, error) {
 
+	dummyQueueOperationLock.Lock()
+	defer dummyQueueOperationLock.Unlock()
+
+	d.remainingCapacityInvocations++
+
+	if d.behavior.returnErrorUponRemainingCapacity {
+		return -1, errors.New("resistance is futile")
+	}
+
 	if d.queueCapacity < 0 {
 		return 0, errors.New("invalid test setup -- queue capacity cannot be negative")
 	}
 
-	if d.queueCapacity == 0 {
-		return math.MaxInt, nil
+	remaining := d.queueCapacity - d.data.Len()
+	if remaining < 0 {
+		remaining = 0
 	}
 
-	return d.queueCapacity - d.data.Len(), nil
+	return remaining, nil
 
 }
 
