@@ -81,7 +81,7 @@ func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
 func TestPutElements(t *testing.T) {
 
-	t.Log("given a hazelcast queue and a status record embodying initial state")
+	t.Log("given a hazelcast queue and a status record")
 	{
 		t.Log("\twhen check for remaining capacity yields error")
 		{
@@ -231,14 +231,115 @@ func TestPutElements(t *testing.T) {
 
 }
 
-func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+func TestPollElements(t *testing.T) {
 
-	recordedValue := statusCopy[string(expectedKey)].(int)
+	t.Log("given a hazelcast queue and a status record")
+	{
+		t.Log("\twhen poll operations yield error")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+				returnErrorUponPoll: true,
+			}, 9)
+			rc := assembleRunnerConfig(false, 0, true, 1, sleepConfigDisabled, sleepConfigDisabled)
 
-	if recordedValue == expectedValue {
-		return true, ""
-	} else {
-		return false, fmt.Sprintf("expected %d, got %d\n", expectedValue, recordedValue)
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedPolls: 0,
+			}
+			go gatherer.Listen()
+			tl.pollElements(qs.q, "yeehawQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tnumber of poll attempts must be equal to number of elements in test loop source data"
+			expectedPolls := len(aNewHope)
+			if qs.q.pollInvocations == expectedPolls {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.q.pollInvocations)
+			}
+
+			msg = fmt.Sprintf("\t\tstatus gatherer must indicate %d failed poll attempts", expectedPolls)
+			waitForStatusGatheringDone(gatherer)
+
+			statusCopy := gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedPolls, expectedPolls); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+		}
+
+		t.Log("\twhen poll operations succeed and polled value is always nil")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
+			rc := assembleRunnerConfig(false, 0, true, 1, sleepConfigDisabled, sleepConfigDisabled)
+
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedPolls: 0,
+				statusKeyNumNilPolls:    0,
+			}
+			go gatherer.Listen()
+			tl.pollElements(qs.q, "anotherYeehawQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tstatus record must indicate zero failed polls"
+			waitForStatusGatheringDone(gatherer)
+
+			if statusRecord[statusKeyNumFailedPolls].(int) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPolls])
+			}
+
+			expectedNumNilPolls := len(aNewHope)
+			statusCopy := gatherer.AssembleStatusCopy()
+			msg = fmt.Sprintf("\t\tstatus gatherer must indicate %d nil polls", expectedNumNilPolls)
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilPolls, expectedNumNilPolls); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+
+		t.Log("\twhen poll operations succeed and retrieved value is not nil")
+		{
+			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
+			for _, v := range aNewHope {
+				qs.q.data.PushFront(v)
+			}
+			rc := assembleRunnerConfig(false, 0, true, 1, sleepConfigDisabled, sleepConfigDisabled)
+
+			gatherer := status.NewGatherer()
+			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedPolls: 0,
+				statusKeyNumNilPolls:    0,
+			}
+			go gatherer.Listen()
+			tl.pollElements(qs.q, "yetAnotherYeehawQueue", statusRecord)
+			gatherer.StopListen()
+
+			msg := "\t\tstatus record must indicate zero failed polls"
+			if statusRecord[statusKeyNumFailedPolls].(int) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPolls])
+			}
+
+			msg = "\t\tstatus gatherer must indicate zero nil polls"
+			if statusRecord[statusKeyNumNilPolls].(int) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, statusRecord[statusKeyNumNilPolls])
+			}
+		}
 	}
 
 }
@@ -505,6 +606,18 @@ func TestRun(t *testing.T) {
 		} else {
 			t.Fatal(msg, ballotX)
 		}
+	}
+
+}
+
+func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+
+	recordedValue := statusCopy[string(expectedKey)].(int)
+
+	if recordedValue == expectedValue {
+		return true, ""
+	} else {
+		return false, fmt.Sprintf("expected %d, got %d\n", expectedValue, recordedValue)
 	}
 
 }

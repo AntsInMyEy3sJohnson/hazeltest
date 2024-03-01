@@ -44,7 +44,7 @@ var (
 )
 
 type dummyQueueStoreBehavior struct {
-	returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut bool
+	returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut, returnErrorUponPoll bool
 }
 
 func (d dummyHzQueueStore) Shutdown(_ context.Context) error {
@@ -97,24 +97,26 @@ func (d *dummyHzQueue) Put(_ context.Context, element any) error {
 
 func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
 
-	var element *list.Element
 	dummyQueueOperationLock.Lock()
-	{
-		d.pollInvocations++
-		// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
-		// against an empty queue --> Replicate behavior here
-		if d.data.Len() == 0 {
-			// Nothing to poll
-			element = nil
-		} else {
-			element = d.data.Front()
-			d.data.Remove(element)
-		}
+	defer dummyQueueOperationLock.Unlock()
 
+	d.pollInvocations++
+
+	if d.behavior.returnErrorUponPoll {
+		return nil, errors.New("i find your lack of faith disturbing")
 	}
-	dummyQueueOperationLock.Unlock()
 
-	return element, nil
+	var element *list.Element
+	// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
+	// against an empty queue --> Replicate behavior here
+	if d.data.Len() == 0 {
+		// Nothing to poll
+		return nil, nil
+	} else {
+		element = d.data.Front()
+		d.data.Remove(element)
+		return element, nil
+	}
 
 }
 
