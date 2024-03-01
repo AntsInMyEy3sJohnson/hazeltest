@@ -1430,11 +1430,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
-					go tl.gatherer.Listen()
 					tl.run()
-					tl.gatherer.StopListen()
-
-					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tall elements must be inserted in map"
 					if ms.m.setInvocations == len(theFellowship) {
@@ -1477,11 +1473,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
-					go tl.gatherer.Listen()
 					tl.run()
-					tl.gatherer.StopListen()
-
-					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tnumber of insert invocations must be zero"
 					if ms.m.setInvocations == 0 {
@@ -1533,11 +1525,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
-					go tl.gatherer.Listen()
 					tl.run()
-					tl.gatherer.StopListen()
-
-					waitForStatusGatheringDone(tl.gatherer)
 
 					msg := "\t\t\t\tnumber of set invocations must be roughly equal to half the chain length"
 					if math.Abs(float64(ms.m.setInvocations-chainLength/2)) < 5 {
