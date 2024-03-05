@@ -87,11 +87,7 @@ const (
 )
 
 const (
-	statusKeyNumFailedInserts statusKey = "numFailedInserts"
-	statusKeyNumFailedReads   statusKey = "numFailedReads"
-	statusKeyNumNilReads      statusKey = "numNilReads"
-	statusKeyNumFailedRemoves statusKey = "numFailedRemoves"
-	statusKeyCurrentState     statusKey = "currentState"
+	statusKeyCurrentState statusKey = "currentState"
 )
 
 var (
@@ -482,6 +478,7 @@ func (t *MapTester) TestMaps() {
 			runner := runners[i]
 
 			api.RegisterRunnerStatus(api.Maps, runner.getSourceName(), gatherer.AssembleStatusCopy)
+
 			runner.runMapTests(t.HzCluster, t.HzMembers, gatherer)
 		}(i)
 	}

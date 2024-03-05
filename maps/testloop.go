@@ -23,6 +23,10 @@ type (
 		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
 		run()
 	}
+	counterTracker interface {
+		init(gatherer *status.Gatherer)
+		increaseCounter(sk statusKey)
+	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
@@ -32,8 +36,9 @@ type (
 type (
 	batchTestLoop[t any] struct {
 		execution *testLoopExecution[t]
-		s         sleeper
 		gatherer  *status.Gatherer
+		ct        counterTracker
+		s         sleeper
 	}
 	modeCache struct {
 		current actionMode
@@ -46,8 +51,9 @@ type (
 	}
 	boundaryTestLoop[t any] struct {
 		execution *testLoopExecution[t]
-		s         sleeper
 		gatherer  *status.Gatherer
+		s         sleeper
+		ct        counterTracker
 	}
 	testLoopExecution[t any] struct {
 		id               uuid.UUID
@@ -57,6 +63,11 @@ type (
 		elements         []t
 		ctx              context.Context
 		getElementIdFunc getElementID
+	}
+	mapTestLoopCountersTracker struct {
+		counters map[statusKey]int
+		l        sync.Mutex
+		gatherer *status.Gatherer
 	}
 )
 
@@ -85,6 +96,13 @@ const (
 	noop mapAction = "noop"
 )
 
+const (
+	statusKeyNumFailedInserts statusKey = "numFailedInserts"
+	statusKeyNumFailedReads   statusKey = "numFailedReads"
+	statusKeyNumNilReads      statusKey = "numNilReads"
+	statusKeyNumFailedRemoves statusKey = "numFailedRemoves"
+)
+
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -95,12 +113,49 @@ var (
 		}
 		return sleepDuration
 	}
+	initialCounterStates = map[statusKey]int{
+		statusKeyNumFailedInserts: 0,
+		statusKeyNumFailedReads:   0,
+		statusKeyNumNilReads:      0,
+		statusKeyNumFailedRemoves: 0,
+	}
 )
+
+func (st *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+	st.l = sync.Mutex{}
+	st.gatherer = gatherer
+
+	statusRecord := make(map[statusKey]any)
+
+	for k, v := range initialCounterStates {
+		statusRecord[k] = v
+		gatherer.Updates <- status.Update{Key: string(k), Value: v}
+	}
+}
+
+func (st *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
+
+	var newValue int
+	st.l.Lock()
+	{
+		newValue = st.counters[sk] + 1
+		st.counters[sk] = newValue
+	}
+	st.l.Unlock()
+
+	st.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+
+}
 
 func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
 	l.execution = lc
 	l.s = s
 	l.gatherer = gatherer
+
+	ct := &mapTestLoopCountersTracker{}
+	ct.init(gatherer)
+
+	l.ct = ct
 }
 
 func (l *boundaryTestLoop[t]) run() {
@@ -209,7 +264,7 @@ func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber 
 
 }
 
-func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, statusRecord map[statusKey]any) {
+func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -233,7 +288,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
-		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache, statusRecord); err != nil {
+		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
@@ -296,7 +351,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	mapName string,
 	mapNumber uint16,
 	keysCache map[string]struct{},
-	statusRecord map[statusKey]any,
 ) error {
 
 	chainLength := l.execution.runnerConfig.boundary.chainLength
@@ -350,7 +404,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
 
-		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next, statusRecord); err != nil {
+		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in iteration '%d': %v", actions.next, mapName, currentRun, err), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
@@ -383,41 +437,7 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 }
 
-func increaseNumFailedInserts(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedInserts] = statusRecord[statusKeyNumFailedInserts].(int) + 1
-	sendUpdate(g, statusKeyNumFailedInserts, statusRecord[statusKeyNumFailedInserts])
-
-}
-
-func increaseNumFailedRemoves(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedRemoves] = statusRecord[statusKeyNumFailedRemoves].(int) + 1
-	sendUpdate(g, statusKeyNumFailedRemoves, statusRecord[statusKeyNumFailedRemoves])
-
-}
-
-func increaseNumFailedReads(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedReads] = statusRecord[statusKeyNumFailedReads].(int) + 1
-	sendUpdate(g, statusKeyNumFailedReads, statusRecord[statusKeyNumFailedReads])
-
-}
-
-func increaseNumNilReads(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumNilReads] = statusRecord[statusKeyNumNilReads].(int) + 1
-	sendUpdate(g, statusKeyNumNilReads, statusRecord[statusKeyNumNilReads])
-
-}
-
-func sendUpdate(g *status.Gatherer, key statusKey, value any) {
-
-	g.Updates <- status.Update{Key: string(key), Value: value}
-
-}
-
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction, statusRecord map[statusKey]any) error {
+func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction) error {
 
 	elementID := l.execution.getElementIdFunc(element)
 
@@ -426,7 +446,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
-			increaseNumFailedInserts(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -435,7 +455,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
-			increaseNumFailedRemoves(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedRemoves)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -444,11 +464,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case read:
 		if v, err := m.Get(l.execution.ctx, key); err != nil {
-			increaseNumFailedReads(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedReads)
 			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else if v == nil {
-			increaseNumNilReads(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumNilReads)
 			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
@@ -536,12 +556,17 @@ func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *s
 	l.execution = lc
 	l.s = s
 	l.gatherer = gatherer
+
+	ct := &mapTestLoopCountersTracker{}
+	ct.init(gatherer)
+
+	l.ct = ct
 }
 
 func runWrapper[t any](tle *testLoopExecution[t],
 	gatherer *status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
-	runFunc func(hzMap, string, uint16, map[statusKey]any)) {
+	runFunc func(hzMap, string, uint16)) {
 
 	rc := tle.runnerConfig
 	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
@@ -564,16 +589,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedInserts: 0,
-				statusKeyNumFailedReads:   0,
-				statusKeyNumFailedRemoves: 0,
-				statusKeyNumNilReads:      0,
-			}
-			for k, v := range statusRecord {
-				gatherer.Updates <- status.Update{Key: string(k), Value: v}
-			}
-			runFunc(m, mapName, i, statusRecord)
+			runFunc(m, mapName, i)
 		}(i)
 	}
 	wg.Wait()
@@ -599,7 +615,7 @@ func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns u
 
 }
 
-func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, statusRecord map[statusKey]any) {
+func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.batch.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
@@ -610,19 +626,19 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, 
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
 		lp.LogRunnerEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), log.TraceLevel)
-		err := l.ingestAll(m, mapName, mapNumber, statusRecord)
+		err := l.ingestAll(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
-		err = l.readAll(m, mapName, mapNumber, statusRecord)
+		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc)
-		err = l.removeSome(m, mapName, mapNumber, statusRecord)
+		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
@@ -633,7 +649,7 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16, 
 
 }
 
-func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, statusRecord map[statusKey]any) error {
+func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.execution.elements {
@@ -647,7 +663,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, 
 			continue
 		}
 		if err = m.Set(l.execution.ctx, key, v); err != nil {
-			increaseNumFailedInserts(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
 		numNewlyIngested++
@@ -659,17 +675,17 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16, 
 
 }
 
-func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, statusRecord map[statusKey]any) error {
+func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) error {
 
 	for _, v := range l.execution.elements {
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.execution.ctx, key)
 		if err != nil {
-			increaseNumFailedReads(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedReads)
 			return err
 		}
 		if valueFromHZ == nil {
-			increaseNumNilReads(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumNilReads)
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
 		}
 	}
@@ -680,7 +696,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16, st
 
 }
 
-func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16, statusRecord map[statusKey]any) error {
+func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16) error {
 
 	numElementsToDelete := rand.Intn(len(l.execution.elements)) + 1
 	removed := 0
@@ -698,7 +714,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16,
 		}
 		_, err = m.Remove(l.execution.ctx, key)
 		if err != nil {
-			increaseNumFailedRemoves(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedRemoves)
 			return err
 		}
 		removed++
