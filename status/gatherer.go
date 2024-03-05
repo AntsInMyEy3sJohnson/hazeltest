@@ -10,10 +10,8 @@ type (
 		Value any
 	}
 	Gatherer struct {
-		l      locker
-		status map[string]any
-		// Not strictly required as of current status gathering needs, but foundation for more sophisticated gathering
-		// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
+		l       locker
+		status  map[string]any
 		Updates chan Update
 	}
 	locker interface {
