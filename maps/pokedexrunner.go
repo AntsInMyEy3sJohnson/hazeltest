@@ -96,7 +96,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogRunnerEvent("pokedexRunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("pokedex runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -133,7 +133,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 
 	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
