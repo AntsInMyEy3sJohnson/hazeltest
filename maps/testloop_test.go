@@ -53,47 +53,83 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
-	statusRecordModificationFunctions := map[statusKey]func(*status.Gatherer, map[statusKey]any){
-		statusKeyNumFailedInserts: increaseNumFailedInserts,
-		statusKeyNumFailedReads:   increaseNumFailedReads,
-		statusKeyNumNilReads:      increaseNumNilReads,
-		statusKeyNumFailedRemoves: increaseNumFailedRemoves,
-	}
+func TestMapTestLoopCountersTrackerInit(t *testing.T) {
 
-	statusRecord := map[statusKey]any{
-		statusKeyNumFailedInserts: 0,
-		statusKeyNumFailedReads:   0,
-		statusKeyNumNilReads:      0,
-		statusKeyNumFailedRemoves: 0,
-	}
-
-	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
+	t.Log("given the tracker's init function")
 	{
-		g := &status.Gatherer{Updates: make(chan status.Update, 1)}
-		for k, v := range statusRecord {
-			t.Log(fmt.Sprintf("\twhen function '%s' is invoked on status record", k))
+		t.Log("\twhen init method is invoked")
+		{
+			st := &mapTestLoopCountersTracker{}
+			g := status.NewGatherer()
+
+			go g.Listen()
+			st.init(g)
+			g.StopListen()
+
+			msg := "\t\tgatherer must have been assigned"
+			if st.gatherer == g {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tall status keys must have been inserted into status record"
+			initialCounterValue := 0
+			for _, v := range counters {
+				if counter, ok := st.counters[v]; ok && counter == initialCounterValue {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+
+			waitForStatusGatheringDone(g)
+			msg = "\t\tgatherer must have received all status keys with initial values"
+			statusCopy := g.AssembleStatusCopy()
+
+			for _, v := range counters {
+				if ok, detail := expectedStatusPresent(statusCopy, v, initialCounterValue); ok {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+			}
+		}
+	}
+
+}
+
+func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
+
+	t.Log("given a method for increasing the value of a specific counter")
+	{
+		st := &mapTestLoopCountersTracker{}
+		g := status.NewGatherer()
+
+		st.gatherer = g
+		st.counters = make(map[statusKey]int)
+
+		for _, v := range counters {
+			t.Log(fmt.Sprintf("\twhen initial value is zero for counter '%s' and increase method is invoked", v))
 			{
-				f := statusRecordModificationFunctions[k]
-				f(g, statusRecord)
+				st.counters[v] = 0
+				st.increaseCounter(v)
 
-				msg := "\t\tcorresponding value in status record must have been updated"
-				expected := v.(int) + 1
-				actual := statusRecord[k]
-
-				if expected == actual {
-					t.Log(msg, checkMark, k)
+				msg := "\t\tcounter increase must be reflected in counter tracker's state"
+				if st.counters[v] == 1 {
+					t.Log(msg, checkMark, v)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("after invoking '%s', expected %d, got %d", k, expected, actual))
+					t.Fatal(msg, ballotX, v)
 				}
 
-				msg = "\t\tstatus gatherer must have received corresponding update"
+				msg = "\t\tcorresponding update must have been sent to status gatherer"
 				update := <-g.Updates
-
-				if update.Key == string(k) && update.Value == expected {
-					t.Log(msg, checkMark, k)
+				if update.Key == string(v) && update.Value == 1 {
+					t.Log(msg, checkMark, v)
 				} else {
-					t.Fatal(msg, ballotX, k)
+					t.Fatal(msg, ballotX, v)
 				}
+
 			}
 		}
 	}
@@ -616,7 +652,7 @@ func TestRunWrapper(t *testing.T) {
 			go tl.gatherer.Listen()
 			runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
-			}, func(h hzMap, s string, u uint16, m map[statusKey]any) {
+			}, func(h hzMap, s string, u uint16) {
 				// No-op
 			})
 			tl.gatherer.StopListen()
@@ -654,7 +690,7 @@ func TestExecuteMapAction(t *testing.T) {
 				statusRecord := map[statusKey]any{
 					statusKeyNumFailedInserts: 0,
 				}
-				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action, statusRecord)
+				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
 
 				msg := "\t\t\tno error must be returned"
 
@@ -706,10 +742,7 @@ func TestExecuteMapAction(t *testing.T) {
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				go tl.gatherer.Listen()
-				statusRecord := map[statusKey]any{
-					statusKeyNumFailedInserts: 0,
-				}
-				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert, statusRecord)
+				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
 				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
@@ -742,7 +775,7 @@ func TestExecuteMapAction(t *testing.T) {
 				populateDummyHzMapStore(&ms)
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
 
-				err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0], action, map[statusKey]any{})
+				err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0], action)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -771,7 +804,7 @@ func TestExecuteMapAction(t *testing.T) {
 				statusRecord := map[statusKey]any{
 					statusKeyNumFailedRemoves: 0,
 				}
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove, statusRecord)
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -813,10 +846,7 @@ func TestExecuteMapAction(t *testing.T) {
 				populateDummyHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
-				statusRecord := map[statusKey]any{
-					statusKeyNumFailedRemoves: 0,
-				}
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove, statusRecord)
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
@@ -861,7 +891,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateDummyHzMapStore(&ms)
 
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove, map[statusKey]any{})
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -895,10 +925,7 @@ func TestExecuteMapAction(t *testing.T) {
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
 				go tl.gatherer.Listen()
-				statusRecord := map[statusKey]any{
-					statusKeyNumNilReads: 0,
-				}
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read, statusRecord)
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
@@ -942,10 +969,7 @@ func TestExecuteMapAction(t *testing.T) {
 				populateDummyHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
-				statusRecord := map[statusKey]any{
-					statusKeyNumFailedReads: 0,
-				}
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read, statusRecord)
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
@@ -989,7 +1013,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateDummyHzMapStore(&ms)
 
-				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read, map[statusKey]any{})
+				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1021,7 +1045,7 @@ func TestExecuteMapAction(t *testing.T) {
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
 
-			err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], unknownAction, map[statusKey]any{})
+			err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], unknownAction)
 
 			msg := "\t\t\terror must be returned"
 			if err != nil {
@@ -1878,7 +1902,7 @@ func TestRunOperationChain(t *testing.T) {
 			ac := &actionCache{}
 			keysCache := map[string]struct{}{}
 
-			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, map[statusKey]any{})
+			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1943,7 +1967,7 @@ func TestRunOperationChain(t *testing.T) {
 				ac := &actionCache{}
 				keysCache := map[string]struct{}{}
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, map[statusKey]any{})
+				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2023,7 +2047,7 @@ func TestRunOperationChain(t *testing.T) {
 				ac := &actionCache{}
 				keysCache := map[string]struct{}{}
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, map[statusKey]any{})
+				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2057,7 +2081,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]struct{}{}, map[statusKey]any{})
+			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]struct{}{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2077,7 +2101,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]struct{}{}, map[statusKey]any{})
+			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]struct{}{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2383,7 +2407,7 @@ func TestIngestAll(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedInserts: 0,
 			}
-			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2434,7 +2458,7 @@ func TestIngestAll(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedInserts: 0,
 			}
-			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 			msg := "\t\tno error must be returned"
 
 			if err == nil {
@@ -2486,7 +2510,7 @@ func TestIngestAll(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedInserts: 0,
 			}
-			err := tl.ingestAll(ms.m, "awesome-map", uint16(0), statusRecord)
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2547,7 +2571,7 @@ func TestReadAll(t *testing.T) {
 				statusKeyNumFailedReads: 0,
 				statusKeyNumNilReads:    0,
 			}
-			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+			err := tl.readAll(ms.m, mapBaseName, 0)
 
 			msg := "\t\tstatus record must indicate so"
 			for k, v := range statusRecord {
@@ -2584,7 +2608,7 @@ func TestReadAll(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedReads: 0,
 			}
-			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+			err := tl.readAll(ms.m, mapBaseName, 0)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2625,7 +2649,7 @@ func TestReadAll(t *testing.T) {
 				statusKeyNumNilReads:    0,
 			}
 
-			err := tl.readAll(ms.m, mapBaseName, 0, statusRecord)
+			err := tl.readAll(ms.m, mapBaseName, 0)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2671,7 +2695,7 @@ func TestRemoveSome(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedRemoves: 0,
 			}
-			err := tl.removeSome(ms.m, mapBaseName, uint16(0), statusRecord)
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2702,7 +2726,7 @@ func TestRemoveSome(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedRemoves: 0,
 			}
-			err := tl.removeSome(ms.m, mapBaseName, uint16(0), statusRecord)
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
 
 			msg := "\t\terror must be returned"
 			if err != nil {

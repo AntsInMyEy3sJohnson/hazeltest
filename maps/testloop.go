@@ -113,23 +113,18 @@ var (
 		}
 		return sleepDuration
 	}
-	initialCounterStates = map[statusKey]int{
-		statusKeyNumFailedInserts: 0,
-		statusKeyNumFailedReads:   0,
-		statusKeyNumNilReads:      0,
-		statusKeyNumFailedRemoves: 0,
-	}
+	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves}
 )
 
 func (st *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
-	st.l = sync.Mutex{}
 	st.gatherer = gatherer
 
-	statusRecord := make(map[statusKey]any)
+	st.counters = make(map[statusKey]int)
 
-	for k, v := range initialCounterStates {
-		statusRecord[k] = v
-		gatherer.Updates <- status.Update{Key: string(k), Value: v}
+	initialCounterValue := 0
+	for _, v := range counters {
+		st.counters[v] = initialCounterValue
+		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
 	}
 }
 
