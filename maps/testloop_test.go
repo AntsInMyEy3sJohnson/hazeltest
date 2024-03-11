@@ -716,10 +716,9 @@ func TestExecuteMapAction(t *testing.T) {
 
 				mapNumber := 0
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-				statusRecord := map[statusKey]any{
-					statusKeyNumFailedInserts: 0,
-				}
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -755,13 +754,13 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 element, got %d", count))
 				}
 
-				msg = "\t\t\tstatus record must indicate zero failed set operations"
-				expected := 0
-				actual := statusRecord[statusKeyNumFailedInserts].(int)
-				if expected == actual {
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\tstatus gatherer must indicate zero failed insert operations"
+				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 0); ok {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+					t.Fatal(msg, ballotX, detail)
 				}
 			}
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
@@ -830,10 +829,9 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
-				statusRecord := map[statusKey]any{
-					statusKeyNumFailedRemoves: 0,
-				}
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -856,13 +854,13 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 remove invocations, got %d", ms.m.removeInvocations))
 				}
 
-				msg = "\t\t\tstatus record must indicate zero failed remove attempts"
-				expected := 0
-				actual := statusRecord[statusKeyNumFailedRemoves].(int)
-				if expected == actual {
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\tstatus gatherer must indicate zero failed remove attempts"
+				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 0); ok {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+					t.Fatal(msg, ballotX, detail)
 				}
 			}
 
@@ -1122,7 +1120,7 @@ func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, exp
 	if recordedValue == expectedValue {
 		return true, ""
 	} else {
-		return false, fmt.Sprintf("expected %d, got %d\n", expectedValue, recordedValue)
+		return false, fmt.Sprintf("expected %d, got %d", expectedValue, recordedValue)
 	}
 
 }
@@ -2451,7 +2449,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
 			msg = "\t\tnumber of set invocations must be equal to number of elements in source data, too"
@@ -2459,7 +2457,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
 			msg = "\t\tstatus record must indicate there have been zero failed insert attempts"
@@ -2468,7 +2466,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 		}
 
@@ -2502,7 +2500,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
 			msg = "\t\tnumber of inserts must be zero"
@@ -2511,7 +2509,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
 			msg = "\t\tstatus record must indicate zero failed inserts"
@@ -2519,7 +2517,7 @@ func TestIngestAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 		}
 
@@ -2536,10 +2534,9 @@ func TestIngestAll(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedInserts: 0,
-			}
+			go tl.gatherer.Listen()
 			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2549,37 +2546,31 @@ func TestIngestAll(t *testing.T) {
 			}
 
 			expected := 1
-			msg = fmt.Sprintf("\t\tnumber of contains key checks must be %d\n", expected)
+			msg = fmt.Sprintf("\t\tnumber of contains key checks must be %d", expected)
 			actual := ms.m.containsKeyInvocations
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
-			msg = fmt.Sprintf("\t\tnumber of inserts must be %d\n", expected)
+			msg = fmt.Sprintf("\t\tnumber of inserts must be %d", expected)
 			actual = ms.m.setInvocations
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 
-			msg = "\t\tstatus report must indicate there was one failed insert attempt"
-			actual = statusRecord[statusKeyNumFailedInserts].(int)
-			if expected == actual {
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must have been informed about one failed insert attempt"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, detail)
 			}
 
-			msg = "\t\tcorresponding update must have been sent to status gatherer"
-			update := <-tl.gatherer.Updates
-			if update.Key == string(statusKeyNumFailedInserts) && update.Value == expected {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
 		}
 	}
 
@@ -2596,18 +2587,23 @@ func TestReadAll(t *testing.T) {
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 			populateDummyHzMapStore(&ms)
 
-			statusRecord := map[statusKey]any{
+			statusRecord := map[statusKey]int{
 				statusKeyNumFailedReads: 0,
 				statusKeyNumNilReads:    0,
 			}
+			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
 
-			msg := "\t\tstatus record must indicate so"
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg := "\t\tstatus gatherer must indicate zero failed operations"
+			statusCopy := tl.gatherer.AssembleStatusCopy()
 			for k, v := range statusRecord {
-				if v == 0 {
-					t.Log(msg, checkMark, k)
+				if ok, detail := expectedStatusPresent(statusCopy, k, v); ok {
+					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, k)
+					t.Fatal(msg, ballotX, detail)
 				}
 			}
 
@@ -2624,7 +2620,7 @@ func TestReadAll(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 		}
 
@@ -2634,10 +2630,9 @@ func TestReadAll(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedReads: 0,
-			}
+			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2646,21 +2641,13 @@ func TestReadAll(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tstatus record must indicate one failed read"
-			expected := 1
-			actual := statusRecord[statusKeyNumFailedReads].(int)
-			if expected == actual {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
-			}
+			waitForStatusGatheringDone(tl.gatherer)
 
-			msg = "\t\tcorresponding update must have been sent to status g"
-			update := <-tl.gatherer.Updates
-			if update.Key == string(statusKeyNumFailedReads) && update.Value == expected {
+			msg = "\t\tstatus gatherer must have been informed about one failed read"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedReads, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, detail)
 			}
 
 		}
@@ -2673,12 +2660,9 @@ func TestReadAll(t *testing.T) {
 
 			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedReads: 0,
-				statusKeyNumNilReads:    0,
-			}
-
+			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2687,23 +2671,22 @@ func TestReadAll(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tstatus record must indicate zero failed reads"
-			expected := 0
-			actual := statusRecord[statusKeyNumFailedReads].(int)
+			waitForStatusGatheringDone(tl.gatherer)
 
-			if expected == actual {
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+
+			msg = "\t\tstatus gatherer must indicate zero failed reads"
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedReads, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, detail)
 			}
 
-			msg = "\t\tstatus record must indicate one nil read"
-			expected = 1
-			actual = statusRecord[statusKeyNumNilReads].(int)
-			if expected == actual {
+			msg = "\t\tstatus gatherer must indicate one nil read"
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, detail)
 			}
 		}
 	}
@@ -2740,7 +2723,7 @@ func TestRemoveSome(t *testing.T) {
 			if expected == actual {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 		}
 
@@ -2752,10 +2735,9 @@ func TestRemoveSome(t *testing.T) {
 
 			populateDummyHzMapStore(&ms)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedRemoves: 0,
-			}
+			go tl.gatherer.Listen()
 			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
+			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -2764,14 +2746,13 @@ func TestRemoveSome(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tstatus record must indicate one failed remove invocation"
-			expected := 1
-			actual := statusRecord[statusKeyNumFailedRemoves].(int)
+			waitForStatusGatheringDone(tl.gatherer)
 
-			if expected == actual {
+			msg = "\t\tstatus gatherer must have been informed about one failed remove invocation"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d\n", expected, actual))
+				t.Fatal(msg, ballotX, detail)
 			}
 		}
 	}
