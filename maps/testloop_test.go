@@ -51,8 +51,6 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 
 }
 
-func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
-
 func TestMapTestLoopCountersTrackerInit(t *testing.T) {
 
 	t.Log("given the tracker's init function")
@@ -103,11 +101,11 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 	t.Log("given a method for increasing the value of a specific counter")
 	{
-		st := &mapTestLoopCountersTracker{}
-		g := status.NewGatherer()
-
-		st.gatherer = g
-		st.counters = make(map[statusKey]int)
+		st := &mapTestLoopCountersTracker{
+			counters: make(map[statusKey]int),
+			l:        sync.Mutex{},
+			gatherer: status.NewGatherer(),
+		}
 
 		for _, v := range counters {
 			t.Log(fmt.Sprintf("\twhen initial value is zero for counter '%s' and increase method is invoked", v))
@@ -123,7 +121,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 				}
 
 				msg = "\t\tcorresponding update must have been sent to status gatherer"
-				update := <-g.Updates
+				update := <-st.gatherer.Updates
 				if update.Key == string(v) && update.Value == 1 {
 					t.Log(msg, checkMark, v)
 				} else {
@@ -131,6 +129,37 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 				}
 
 			}
+		}
+
+		t.Log("\twhen multiple goroutines want to increase a counter")
+		{
+			wg := sync.WaitGroup{}
+			st := &mapTestLoopCountersTracker{
+				counters: make(map[statusKey]int),
+				l:        sync.Mutex{},
+				gatherer: status.NewGatherer(),
+			}
+			go st.gatherer.Listen()
+			st.counters[statusKeyNumFailedInserts] = 0
+			numInvokingGoroutines := 100
+			for i := 0; i < numInvokingGoroutines; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					st.increaseCounter(statusKeyNumFailedInserts)
+				}()
+			}
+			wg.Wait()
+			st.gatherer.StopListen()
+
+			msg := "\t\tfinal counter value must be equal to number of invoking goroutines"
+
+			if st.counters[statusKeyNumFailedInserts] == numInvokingGoroutines {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 	}
 
