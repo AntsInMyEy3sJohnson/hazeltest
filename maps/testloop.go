@@ -116,29 +116,29 @@ var (
 	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves}
 )
 
-func (st *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
-	st.gatherer = gatherer
+func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+	ct.gatherer = gatherer
 
-	st.counters = make(map[statusKey]int)
+	ct.counters = make(map[statusKey]int)
 
 	initialCounterValue := 0
 	for _, v := range counters {
-		st.counters[v] = initialCounterValue
+		ct.counters[v] = initialCounterValue
 		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
 	}
 }
 
-func (st *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
+func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
 	var newValue int
-	st.l.Lock()
+	ct.l.Lock()
 	{
-		newValue = st.counters[sk] + 1
-		st.counters[sk] = newValue
+		newValue = ct.counters[sk] + 1
+		ct.counters[sk] = newValue
 	}
-	st.l.Unlock()
+	ct.l.Unlock()
 
-	st.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
 
 }
 
