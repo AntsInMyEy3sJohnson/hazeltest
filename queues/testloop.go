@@ -29,6 +29,7 @@ type (
 		config   *testLoopConfig[t]
 		s        sleeper
 		gatherer *status.Gatherer
+		ct       counterTracker
 	}
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
@@ -65,7 +66,7 @@ const (
 	statusKeyNumFailedPolls          statusKey = "numFailedPolls"
 	statusKeyNumNilPolls             statusKey = "numNilPolls"
 	statusKeyNumFailedCapacityChecks statusKey = "numFailedCapacityChecks"
-	statusKeyQueueFullEvents         statusKey = "numQueueFullEvents"
+	statusKeyNumQueueFullEvents      statusKey = "numQueueFullEvents"
 )
 
 var (
@@ -78,7 +79,7 @@ var (
 		}
 		return sleepDuration
 	}
-	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyQueueFullEvents}
+	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyNumQueueFullEvents}
 )
 
 func (ct *queueTestLoopCountersTracker) init(gatherer *status.Gatherer) {
@@ -112,6 +113,11 @@ func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
 	l.config = lc
 	l.s = s
 	l.gatherer = g
+
+	ct := &queueTestLoopCountersTracker{}
+	ct.init(g)
+
+	l.ct = ct
 }
 
 func (l *testLoop[t]) run() {
@@ -143,12 +149,7 @@ func (l *testLoop[t]) run() {
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
-					statusRecord := map[statusKey]any{
-						statusKeyNumFailedPuts:           0,
-						statusKeyNumFailedCapacityChecks: 0,
-						statusKeyQueueFullEvents:         0,
-					}
-					l.runElementLoop(l.config.elements, q, put, queueName, i, statusRecord)
+					l.runElementLoop(l.config.elements, q, put, queueName, i)
 				}()
 
 			}
@@ -158,11 +159,7 @@ func (l *testLoop[t]) run() {
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
-					statusRecord := map[statusKey]any{
-						statusKeyNumFailedPolls: 0,
-						statusKeyNumNilPolls:    0,
-					}
-					l.runElementLoop(l.config.elements, q, poll, queueName, i, statusRecord)
+					l.runElementLoop(l.config.elements, q, poll, queueName, i)
 				}()
 			}
 
@@ -197,10 +194,10 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int, statusRecord map[statusKey]any) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
 
 	var config *operationConfig
-	var queueFunction func(queue hzQueue, queueName string, statusRecord map[statusKey]any)
+	var queueFunction func(queue hzQueue, queueName string)
 	if o == put {
 		config = l.config.runnerConfig.putConfig
 		queueFunction = l.putElements
@@ -216,7 +213,7 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), log.InfoLevel)
 		}
-		queueFunction(q, queueName, statusRecord)
+		queueFunction(q, queueName)
 		l.s.sleep(config.sleepBetweenRuns, sleepTimeFunc, "betweenRuns", queueName, o)
 		lp.LogRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), log.TraceLevel)
 	}
@@ -225,34 +222,7 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 
 }
 
-func increaseNumFailedCapacityChecks(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedCapacityChecks] = statusRecord[statusKeyNumFailedCapacityChecks].(int) + 1
-	sendUpdate(g, statusKeyNumFailedCapacityChecks, statusRecord[statusKeyNumFailedCapacityChecks])
-
-}
-
-func increaseNumQueueFullEvents(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyQueueFullEvents] = statusRecord[statusKeyQueueFullEvents].(int) + 1
-	sendUpdate(g, statusKeyQueueFullEvents, statusRecord[statusKeyQueueFullEvents])
-
-}
-
-func increaseNumFailedPuts(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedPuts] = statusRecord[statusKeyNumFailedPuts].(int) + 1
-	sendUpdate(g, statusKeyNumFailedPuts, statusRecord[statusKeyNumFailedPuts])
-
-}
-
-func sendUpdate(g *status.Gatherer, key statusKey, value any) {
-
-	g.Updates <- status.Update{Key: string(key), Value: value}
-
-}
-
-func (l *testLoop[t]) putElements(q hzQueue, queueName string, statusRecord map[statusKey]any) {
+func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 
 	elements := l.config.elements
 	putConfig := l.config.runnerConfig.putConfig
@@ -260,15 +230,15 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string, statusRecord map[
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
 		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
-			increaseNumFailedCapacityChecks(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedCapacityChecks)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
 		} else if remaining == 0 {
-			increaseNumQueueFullEvents(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
 			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
 		} else {
 			err := q.Put(l.config.ctx, e)
 			if err != nil {
-				increaseNumFailedPuts(l.gatherer, statusRecord)
+				l.ct.increaseCounter(statusKeyNumFailedPuts)
 				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 			} else {
 				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
@@ -281,31 +251,17 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string, statusRecord map[
 
 }
 
-func increaseNumFailedPolls(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumFailedPolls] = statusRecord[statusKeyNumFailedPolls].(int) + 1
-	sendUpdate(g, statusKeyNumFailedPolls, statusRecord[statusKeyNumFailedPolls])
-
-}
-
-func increaseNumNilPolls(g *status.Gatherer, statusRecord map[statusKey]any) {
-
-	statusRecord[statusKeyNumNilPolls] = statusRecord[statusKeyNumNilPolls].(int) + 1
-	sendUpdate(g, statusKeyNumNilPolls, statusRecord[statusKeyNumNilPolls])
-
-}
-
-func (l *testLoop[t]) pollElements(q hzQueue, queueName string, statusRecord map[statusKey]any) {
+func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
 
 	pollConfig := l.config.runnerConfig.pollConfig
 
 	for i := 0; i < len(l.config.elements); i++ {
 		valueFromQueue, err := q.Poll(l.config.ctx)
 		if err != nil {
-			increaseNumFailedPolls(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumFailedPolls)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
 		} else if valueFromQueue == nil {
-			increaseNumNilPolls(l.gatherer, statusRecord)
+			l.ct.increaseCounter(statusKeyNumNilPolls)
 			lp.LogRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)

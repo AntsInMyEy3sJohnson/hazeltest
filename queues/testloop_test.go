@@ -142,57 +142,6 @@ func TestQueueTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 }
 
-func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
-
-	statusRecordModificationFunctions := map[statusKey]func(*status.Gatherer, map[statusKey]any){
-		statusKeyNumFailedPuts:           increaseNumFailedPuts,
-		statusKeyNumFailedPolls:          increaseNumFailedPolls,
-		statusKeyNumNilPolls:             increaseNumNilPolls,
-		statusKeyNumFailedCapacityChecks: increaseNumFailedCapacityChecks,
-		statusKeyQueueFullEvents:         increaseNumQueueFullEvents,
-	}
-
-	statusRecord := map[statusKey]any{
-		statusKeyNumFailedPuts:           0,
-		statusKeyNumFailedPolls:          0,
-		statusKeyNumNilPolls:             0,
-		statusKeyNumFailedCapacityChecks: 0,
-		statusKeyQueueFullEvents:         0,
-	}
-
-	t.Log("given a status gatherer and a status record indicating no operations have failed yet")
-	{
-		g := &status.Gatherer{Updates: make(chan status.Update, 1)}
-		for k, v := range statusRecord {
-			t.Log(fmt.Sprintf("\twhen function '%s' is invoked on status record", k))
-			{
-				f := statusRecordModificationFunctions[k]
-				f(g, statusRecord)
-
-				msg := "\t\tcorresponding value in status record must have been updated"
-				expected := v.(int) + 1
-				actual := statusRecord[k]
-
-				if expected == actual {
-					t.Log(msg, checkMark, k)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("after invoking '%s', expected %d, got %d", k, expected, actual))
-				}
-
-				msg = "\t\tstatus gatherer must have received corresponding update"
-				update := <-g.Updates
-
-				if update.Key == string(k) && update.Value == expected {
-					t.Log(msg, checkMark, k)
-				} else {
-					t.Fatal(msg, ballotX, k)
-				}
-			}
-		}
-	}
-
-}
-
 func TestPutElements(t *testing.T) {
 
 	t.Log("given a hazelcast queue and a status record")
@@ -207,11 +156,8 @@ func TestPutElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedCapacityChecks: 0,
-			}
 			go gatherer.Listen()
-			tl.putElements(qs.q, "awesomeQueue", statusRecord)
+			tl.putElements(qs.q, "awesomeQueue")
 			gatherer.StopListen()
 
 			msg := "\t\tnumber of checks for remaining queue capacity must be equal to number of elements in source data"
@@ -247,26 +193,22 @@ func TestPutElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedCapacityChecks: 0,
-				statusKeyQueueFullEvents:         0,
-			}
 			go gatherer.Listen()
-			tl.putElements(qs.q, "awesomeQueue", statusRecord)
+			tl.putElements(qs.q, "awesomeQueue")
 			gatherer.StopListen()
 
-			msg := "\t\tstatus record must indicate zero failed remaining capacity checks"
+			msg := "\t\tstatus gatherer must indicate zero failed remaining capacity checks"
 			waitForStatusGatheringDone(gatherer)
 
-			if statusRecord[statusKeyNumFailedCapacityChecks].(int) == 0 {
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedCapacityChecks, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedCapacityChecks])
+				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tnumber of queue full events in status gatherer must be equal to number of elements in queue test loop source data"
-			statusCopy := gatherer.AssembleStatusCopy()
-			if ok, detail := expectedStatusPresent(statusCopy, statusKeyQueueFullEvents, len(aNewHope)); ok {
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumQueueFullEvents, len(aNewHope)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -290,10 +232,7 @@ func TestPutElements(t *testing.T) {
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
 			go gatherer.Listen()
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedPuts: 0,
-			}
-			tl.putElements(qs.q, "anotherAwesomeQueue", statusRecord)
+			tl.putElements(qs.q, "anotherAwesomeQueue")
 			gatherer.StopListen()
 
 			msg := "\t\tnumber of executed put attempts must be equal to number of elements in test loop source data"
@@ -322,10 +261,9 @@ func TestPutElements(t *testing.T) {
 			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, status.NewGatherer())
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedPuts: 0,
-			}
-			tl.putElements(qs.q, "yetAnotherAwesomeQueue", statusRecord)
+			go tl.gatherer.Listen()
+			tl.putElements(qs.q, "yetAnotherAwesomeQueue")
+			tl.gatherer.StopListen()
 
 			msg := "\t\tnumber of put invocations must be equal to number of elements in test loop source data"
 			if qs.q.putInvocations == len(aNewHope) {
@@ -334,11 +272,13 @@ func TestPutElements(t *testing.T) {
 				t.Fatal(msg, ballotX, qs.q)
 			}
 
-			msg = "\t\tstatus record must indicate zero failed put attempts"
-			if statusRecord[statusKeyNumFailedPuts].(int) == 0 {
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must indicate zero failed put attempts"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedPuts, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPuts])
+				t.Fatal(msg, ballotX, detail)
 			}
 		}
 	}
@@ -359,11 +299,8 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedPolls: 0,
-			}
 			go gatherer.Listen()
-			tl.pollElements(qs.q, "yeehawQueue", statusRecord)
+			tl.pollElements(qs.q, "yeehawQueue")
 			gatherer.StopListen()
 
 			msg := "\t\tnumber of poll attempts must be equal to number of elements in test loop source data"
@@ -394,25 +331,21 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedPolls: 0,
-				statusKeyNumNilPolls:    0,
-			}
 			go gatherer.Listen()
-			tl.pollElements(qs.q, "anotherYeehawQueue", statusRecord)
+			tl.pollElements(qs.q, "anotherYeehawQueue")
 			gatherer.StopListen()
 
-			msg := "\t\tstatus record must indicate zero failed polls"
+			msg := "\t\tstatus gatherer must indicate zero failed polls"
 			waitForStatusGatheringDone(gatherer)
 
-			if statusRecord[statusKeyNumFailedPolls].(int) == 0 {
+			statusCopy := gatherer.AssembleStatusCopy()
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedPolls, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPolls])
+				t.Fatal(msg, ballotX, detail)
 			}
 
 			expectedNumNilPolls := len(aNewHope)
-			statusCopy := gatherer.AssembleStatusCopy()
 			msg = fmt.Sprintf("\t\tstatus gatherer must indicate %d nil polls", expectedNumNilPolls)
 			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilPolls, expectedNumNilPolls); ok {
 				t.Log(msg, checkMark)
@@ -432,26 +365,25 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			statusRecord := map[statusKey]any{
-				statusKeyNumFailedPolls: 0,
-				statusKeyNumNilPolls:    0,
-			}
 			go gatherer.Listen()
-			tl.pollElements(qs.q, "yetAnotherYeehawQueue", statusRecord)
+			tl.pollElements(qs.q, "yetAnotherYeehawQueue")
 			gatherer.StopListen()
 
-			msg := "\t\tstatus record must indicate zero failed polls"
-			if statusRecord[statusKeyNumFailedPolls].(int) == 0 {
+			waitForStatusGatheringDone(tl.gatherer)
+
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			msg := "\t\tstatus gatherer must indicate zero failed polls"
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedPolls, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, statusRecord[statusKeyNumFailedPolls])
+				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tstatus gatherer must indicate zero nil polls"
-			if statusRecord[statusKeyNumNilPolls].(int) == 0 {
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilPolls, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, statusRecord[statusKeyNumNilPolls])
+				t.Fatal(msg, ballotX, detail)
 			}
 		}
 	}
