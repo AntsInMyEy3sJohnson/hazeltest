@@ -21,6 +21,10 @@ type (
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName string, o operation)
 	}
+	counterTracker interface {
+		init(gatherer *status.Gatherer)
+		increaseCounter(sk statusKey)
+	}
 	testLoop[t any] struct {
 		config   *testLoopConfig[t]
 		s        sleeper
@@ -34,8 +38,13 @@ type (
 		elements     []t
 		ctx          context.Context
 	}
-	operation      string
-	defaultSleeper struct{}
+	operation                    string
+	defaultSleeper               struct{}
+	queueTestLoopCountersTracker struct {
+		counters map[statusKey]int
+		l        sync.Mutex
+		gatherer *status.Gatherer
+	}
 )
 
 const (
@@ -51,6 +60,14 @@ const (
 	poll = operation("poll")
 )
 
+const (
+	statusKeyNumFailedPuts           statusKey = "numFailedPuts"
+	statusKeyNumFailedPolls          statusKey = "numFailedPolls"
+	statusKeyNumNilPolls             statusKey = "numNilPolls"
+	statusKeyNumFailedCapacityChecks statusKey = "numFailedCapacityChecks"
+	statusKeyQueueFullEvents         statusKey = "numQueueFullEvents"
+)
+
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -61,7 +78,35 @@ var (
 		}
 		return sleepDuration
 	}
+	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyQueueFullEvents}
 )
+
+func (ct *queueTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+	ct.gatherer = gatherer
+
+	ct.counters = make(map[statusKey]int)
+
+	initialCounterValue := 0
+	for _, v := range counters {
+		ct.counters[v] = initialCounterValue
+		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+	}
+
+}
+
+func (ct *queueTestLoopCountersTracker) increaseCounter(sk statusKey) {
+
+	var newValue int
+	ct.l.Lock()
+	{
+		newValue = ct.counters[sk] + 1
+		ct.counters[sk] = newValue
+	}
+	ct.l.Unlock()
+
+	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+
+}
 
 func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc

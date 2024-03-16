@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
+	"sync"
 	"testing"
 )
 
@@ -27,6 +28,119 @@ var (
 	}
 	testSource = "aNewHope"
 )
+
+func TestQueueTestLoopCountersTrackerInit(t *testing.T) {
+
+	t.Log("given the tracker's init function")
+	{
+		t.Log("\twhen init method is invoked")
+		{
+			ct := &queueTestLoopCountersTracker{}
+			g := status.NewGatherer()
+
+			go g.Listen()
+			ct.init(g)
+			g.StopListen()
+
+			msg := "\t\tgatherer must have been assigned"
+			if ct.gatherer == g {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tall status keys must have been inserted into status record"
+			initialCounterValue := 0
+			for _, v := range counters {
+				if counter, ok := ct.counters[v]; ok && counter == initialCounterValue {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+
+			waitForStatusGatheringDone(g)
+			msg = "\t\tgatherer must have received all status keys with initial values"
+			statusCopy := g.AssembleStatusCopy()
+
+			for _, v := range counters {
+				if ok, detail := expectedStatusPresent(statusCopy, v, initialCounterValue); ok {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+			}
+		}
+	}
+
+}
+
+func TestQueueTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
+
+	t.Log("given a method for increasing the value of a specific counter")
+	{
+		t.Log("\twhen method is not invoked concurrently")
+		{
+			ct := &queueTestLoopCountersTracker{
+				counters: make(map[statusKey]int),
+				l:        sync.Mutex{},
+				gatherer: status.NewGatherer(),
+			}
+			for _, v := range counters {
+				t.Log(fmt.Sprintf("\t\twhen initial value is zero for counter '%s' and increase method is invoked", v))
+				{
+					ct.counters[v] = 0
+					ct.increaseCounter(v)
+
+					msg := "\t\t\tcounter increase must be reflected in counter tracker's state"
+					if ct.counters[v] == 1 {
+						t.Log(msg, checkMark, v)
+					} else {
+						t.Fatal(msg, ballotX, v)
+					}
+
+					msg = "\t\t\tcorresponding update must have been sent to status gatherer"
+					update := <-ct.gatherer.Updates
+					if update.Key == string(v) && update.Value == 1 {
+						t.Log(msg, checkMark, v)
+					} else {
+						t.Fatal(msg, ballotX, v)
+					}
+				}
+			}
+		}
+		t.Log("\twhen multiple goroutines want to increase a counter")
+		{
+			wg := sync.WaitGroup{}
+			ct := &queueTestLoopCountersTracker{
+				counters: make(map[statusKey]int),
+				l:        sync.Mutex{},
+				gatherer: status.NewGatherer(),
+			}
+			go ct.gatherer.Listen()
+			ct.counters[statusKeyNumFailedPuts] = 0
+			numInvokingGoroutines := 100
+			for i := 0; i < numInvokingGoroutines; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					ct.increaseCounter(statusKeyNumFailedPuts)
+				}()
+			}
+			wg.Wait()
+			ct.gatherer.StopListen()
+
+			msg := "\t\tfinal counter value must be equal to number of invoking goroutines"
+
+			if ct.counters[statusKeyNumFailedPuts] == numInvokingGoroutines {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
 
 func TestIncreaseValueInStatusRecordFunctions(t *testing.T) {
 
