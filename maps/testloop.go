@@ -97,10 +97,11 @@ const (
 )
 
 const (
-	statusKeyNumFailedInserts statusKey = "numFailedInserts"
-	statusKeyNumFailedReads   statusKey = "numFailedReads"
-	statusKeyNumNilReads      statusKey = "numNilReads"
-	statusKeyNumFailedRemoves statusKey = "numFailedRemoves"
+	statusKeyNumFailedInserts   statusKey = "numFailedInserts"
+	statusKeyNumFailedReads     statusKey = "numFailedReads"
+	statusKeyNumNilReads        statusKey = "numNilReads"
+	statusKeyNumFailedRemoves   statusKey = "numFailedRemoves"
+	statusKeyNumFailedKeyChecks statusKey = "numFailedKeyChecks"
 )
 
 var (
@@ -113,7 +114,7 @@ var (
 		}
 		return sleepDuration
 	}
-	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves}
+	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves, statusKeyNumFailedKeyChecks}
 )
 
 func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
@@ -361,7 +362,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	for j := 0; j < chainLength; j++ {
 
 		if (actions.last == insert || actions.last == remove) && j > 0 && uint32(j)%updateStep == 0 {
-			// TODO Include in status endpoint --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
 			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
@@ -651,7 +651,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) 
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		containsKey, err := m.ContainsKey(l.execution.ctx, key)
 		if err != nil {
-			// TODO Make this an update to the status gatherer, too
+			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
 			return err
 		}
 		if containsKey {

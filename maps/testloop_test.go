@@ -2572,6 +2572,39 @@ func TestIngestAll(t *testing.T) {
 			}
 
 		}
+
+		t.Log("\twhen contains key check yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{
+				returnErrorUponContainsKey: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			go tl.gatherer.Listen()
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed about one failed contains key check"
+			waitForStatusGatheringDone(tl.gatherer)
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedKeyChecks, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
 	}
 
 }
