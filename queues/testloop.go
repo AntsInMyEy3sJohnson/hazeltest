@@ -234,7 +234,7 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
 		} else if remaining == 0 {
 			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
-			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.WarnLevel)
 		} else {
 			err := q.Put(l.config.ctx, e)
 			if err != nil {
