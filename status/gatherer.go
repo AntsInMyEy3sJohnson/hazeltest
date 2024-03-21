@@ -15,12 +15,13 @@ type (
 		Updates chan Update
 	}
 	locker interface {
+		rLock()
+		rUnlock()
 		lock()
 		unlock()
 	}
 	mutexLocker struct {
-		// TODO Use sync.RWMutex instead
-		m sync.Mutex
+		m sync.RWMutex
 	}
 )
 
@@ -31,6 +32,18 @@ const (
 var (
 	quitStatusGathering = Update{}
 )
+
+func (l *mutexLocker) rLock() {
+
+	l.m.RLock()
+
+}
+
+func (l *mutexLocker) rUnlock() {
+
+	l.m.RUnlock()
+
+}
 
 func (l *mutexLocker) lock() {
 
@@ -48,7 +61,7 @@ func NewGatherer() *Gatherer {
 
 	return &Gatherer{
 		l: &mutexLocker{
-			m: sync.Mutex{},
+			m: sync.RWMutex{},
 		},
 		status: map[string]any{},
 		// TODO Make buffer size configurable
@@ -61,13 +74,13 @@ func (g *Gatherer) AssembleStatusCopy() map[string]any {
 
 	mapCopy := make(map[string]any, len(g.status))
 
-	g.l.lock()
+	g.l.rLock()
 	{
 		for k, v := range g.status {
 			mapCopy[k] = v
 		}
 	}
-	g.l.unlock()
+	g.l.rUnlock()
 
 	return mapCopy
 
@@ -99,7 +112,7 @@ func (g *Gatherer) StopListen() {
 func (g *Gatherer) ListeningStopped() bool {
 
 	var result bool
-	g.l.lock()
+	g.l.rLock()
 	{
 		if v, ok := g.status[updateKeyFinished]; ok {
 			result = v.(bool)
@@ -107,7 +120,7 @@ func (g *Gatherer) ListeningStopped() bool {
 			result = false
 		}
 	}
-	g.l.unlock()
+	g.l.rUnlock()
 
 	return result
 

@@ -10,8 +10,8 @@ import (
 
 type (
 	testLocker struct {
-		m                    sync.Mutex
-		numLocks, numUnlocks int
+		m                                            sync.RWMutex
+		numRLocks, numRUnlocks, numLocks, numUnlocks int
 	}
 	stateExposingWaitGroup struct {
 		wg    sync.WaitGroup
@@ -38,6 +38,20 @@ func (s *stateExposingWaitGroup) waitingCount() int {
 	return int(atomic.LoadInt32(&s.count))
 }
 
+func (l *testLocker) rLock() {
+
+	l.m.RLock()
+	l.numRLocks++
+
+}
+
+func (l *testLocker) rUnlock() {
+
+	l.m.RUnlock()
+	l.numRUnlocks++
+
+}
+
 func (l *testLocker) lock() {
 
 	l.m.Lock()
@@ -57,6 +71,8 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 	t.Log("given the status gatherer's ability to stop listening")
 	{
 		g := NewGatherer()
+		l := &testLocker{}
+		g.l = l
 		wg := &stateExposingWaitGroup{
 			wg:    sync.WaitGroup{},
 			count: 0,
@@ -95,6 +111,20 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tread lock must have been acquired twice"
+			if l.numRLocks == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numRLocks)
+			}
+
+			msg = "\t\tread lock must have been released twice"
+			if l.numRUnlocks == 2 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numRUnlocks)
 			}
 
 		}
@@ -141,11 +171,7 @@ func TestGatherer_Listen(t *testing.T) {
 	{
 		t.Log("\twhen listener runs on goroutine")
 		{
-			l := &testLocker{
-				m:          sync.Mutex{},
-				numLocks:   0,
-				numUnlocks: 0,
-			}
+			l := &testLocker{}
 			g := &Gatherer{
 				l:       l,
 				status:  map[string]any{},
@@ -241,6 +267,8 @@ func TestGatherer_AssembleStatusCopy(t *testing.T) {
 		t.Log("\twhen status contains elements")
 		{
 			g := NewGatherer()
+			l := &testLocker{}
+			g.l = l
 
 			u1 := Update{"awesomeKey", "awesomeValue"}
 			g.status[u1.Key] = u1.Value
@@ -265,6 +293,20 @@ func TestGatherer_AssembleStatusCopy(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tread lock must have been acquired once"
+			if l.numRLocks == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numRLocks)
+			}
+
+			msg = "\t\tread lock must have been released once"
+			if l.numRUnlocks == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numRUnlocks)
+			}
 		}
 	}
 
@@ -284,6 +326,9 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			}
 
 			g := NewGatherer()
+			l := &testLocker{}
+			g.l = l
+
 			g.insertSynchronously(u)
 
 			msg := "\t\tinserted update must be present in status map"
@@ -292,17 +337,27 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\twrite lock must have been acquired once"
+			if l.numLocks == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numLocks)
+			}
+
+			msg = "\t\twrite lock must have been released once"
+			if l.numUnlocks == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.numUnlocks)
+			}
 		}
 
 		t.Log("\twhen multiple updates are performed simultaneously")
 		{
 			key := "someNumberKey"
 
-			l := &testLocker{
-				m:          sync.Mutex{},
-				numLocks:   0,
-				numUnlocks: 0,
-			}
+			l := &testLocker{}
 			g := &Gatherer{
 				l:       l,
 				status:  map[string]any{},
