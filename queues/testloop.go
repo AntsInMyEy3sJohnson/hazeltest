@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
 	"math/rand"
@@ -22,10 +21,15 @@ type (
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName string, o operation)
 	}
+	counterTracker interface {
+		init(gatherer *status.Gatherer)
+		increaseCounter(sk statusKey)
+	}
 	testLoop[t any] struct {
-		config *testLoopConfig[t]
-		s      sleeper
-		g      *status.Gatherer
+		config   *testLoopConfig[t]
+		s        sleeper
+		gatherer *status.Gatherer
+		ct       counterTracker
 	}
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
@@ -35,8 +39,13 @@ type (
 		elements     []t
 		ctx          context.Context
 	}
-	operation      string
-	defaultSleeper struct{}
+	operation                    string
+	defaultSleeper               struct{}
+	queueTestLoopCountersTracker struct {
+		counters map[statusKey]int
+		l        sync.Mutex
+		gatherer *status.Gatherer
+	}
 )
 
 const (
@@ -52,6 +61,14 @@ const (
 	poll = operation("poll")
 )
 
+const (
+	statusKeyNumFailedPuts           statusKey = "numFailedPuts"
+	statusKeyNumFailedPolls          statusKey = "numFailedPolls"
+	statusKeyNumNilPolls             statusKey = "numNilPolls"
+	statusKeyNumFailedCapacityChecks statusKey = "numFailedCapacityChecks"
+	statusKeyNumQueueFullEvents      statusKey = "numQueueFullEvents"
+)
+
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -62,19 +79,48 @@ var (
 		}
 		return sleepDuration
 	}
+	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyNumQueueFullEvents}
 )
+
+func (ct *queueTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+	ct.gatherer = gatherer
+
+	ct.counters = make(map[statusKey]int)
+
+	initialCounterValue := 0
+	for _, v := range counters {
+		ct.counters[v] = initialCounterValue
+		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+	}
+
+}
+
+func (ct *queueTestLoopCountersTracker) increaseCounter(sk statusKey) {
+
+	var newValue int
+	ct.l.Lock()
+	{
+		newValue = ct.counters[sk] + 1
+		ct.counters[sk] = newValue
+	}
+	ct.l.Unlock()
+
+	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+
+}
 
 func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
 	l.config = lc
 	l.s = s
-	l.g = g
-	api.RegisterTestLoopStatus(api.Queues, lc.source, l.g.AssembleStatusCopy)
+	l.gatherer = g
+
+	ct := &queueTestLoopCountersTracker{}
+	ct.init(g)
+
+	l.ct = ct
 }
 
 func (l *testLoop[t]) run() {
-
-	defer l.g.StopListen()
-	go l.g.Listen()
 
 	l.insertLoopWithInitialStatus()
 
@@ -131,9 +177,9 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	c := l.config
 
 	numQueues := c.runnerConfig.numQueues
-	l.g.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
-	l.g.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
-	l.g.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
+	l.gatherer.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
+	l.gatherer.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
+	l.gatherer.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
 
 }
 
@@ -184,12 +230,15 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
 		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedCapacityChecks)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
 		} else if remaining == 0 {
-			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.TraceLevel)
+			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
+			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.WarnLevel)
 		} else {
 			err := q.Put(l.config.ctx, e)
 			if err != nil {
+				l.ct.increaseCounter(statusKeyNumFailedPuts)
 				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 			} else {
 				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
@@ -209,8 +258,10 @@ func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
 	for i := 0; i < len(l.config.elements); i++ {
 		valueFromQueue, err := q.Poll(l.config.ctx)
 		if err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedPolls)
 			lp.LogRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
 		} else if valueFromQueue == nil {
+			l.ct.increaseCounter(statusKeyNumNilPolls)
 			lp.LogRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)

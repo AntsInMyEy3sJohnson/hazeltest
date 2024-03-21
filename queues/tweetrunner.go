@@ -22,6 +22,7 @@ type (
 		source     string
 		queueStore hzQueueStore
 		l          looper[tweet]
+		gatherer   *status.Gatherer
 	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
@@ -39,12 +40,24 @@ const queueOperationLoggingUpdateStep = 10
 var tweetsFile embed.FS
 
 func init() {
-	register(&tweetRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesTweetRunner", source: "tweetRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[tweet]{}})
+	register(&tweetRunner{
+		assigner:   &client.DefaultConfigPropertyAssigner{},
+		stateList:  []state{},
+		name:       "queuesTweetRunner",
+		source:     "tweetRunner",
+		queueStore: &defaultHzQueueStore{},
+		l:          &testLoop[tweet]{},
+	})
 	gob.Register(tweet{})
 }
 
-func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *tweetRunner) getSourceName() string {
+	return "tweetRunner"
+}
 
+func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
@@ -81,7 +94,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("started tweets queue loop", log.InfoLevel)
 
 	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -93,6 +106,8 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 func (r *tweetRunner) appendState(s state) {
 	r.stateList = append(r.stateList, s)
+
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 }
 
 func parseTweets() (*tweetCollection, error) {

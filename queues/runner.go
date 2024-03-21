@@ -3,8 +3,10 @@ package queues
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
+	"hazeltest/status"
 	"sync"
 )
 
@@ -14,7 +16,8 @@ type (
 		HzMembers []string
 	}
 	runner interface {
-		runQueueTests(hzCluster string, hzMembers []string)
+		getSourceName() string
+		runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer)
 	}
 	runnerConfig struct {
 		enabled                     bool
@@ -45,7 +48,8 @@ type (
 		runnerKeyPath string
 		queueBaseName string
 	}
-	state string
+	state     string
+	statusKey string
 )
 
 const (
@@ -55,6 +59,10 @@ const (
 	raiseReadyComplete     state = "raiseReadyComplete"
 	testLoopStart          state = "testLoopStart"
 	testLoopComplete       state = "testLoopComplete"
+)
+
+const (
+	statusKeyCurrentState statusKey = "currentState"
 )
 
 var (
@@ -251,8 +259,15 @@ func (t *QueueTester) TestQueues() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			defer gatherer.StopListen()
+
 			runner := runners[i]
-			runner.runQueueTests(t.HzCluster, t.HzMembers)
+
+			api.RegisterRunnerStatus(api.Queues, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			runner.runQueueTests(t.HzCluster, t.HzMembers, gatherer)
 		}(i)
 	}
 
@@ -260,6 +275,7 @@ func (t *QueueTester) TestQueues() {
 
 }
 
+// TODO Get rid of this function -- use logprovider instead
 func logInternalStateInfo(msg string) {
 
 	log.WithFields(log.Fields{

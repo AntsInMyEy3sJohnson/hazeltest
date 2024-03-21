@@ -1,7 +1,6 @@
 package maps
 
 import (
-	"fmt"
 	"hazeltest/status"
 	"testing"
 )
@@ -85,7 +84,8 @@ func TestRunLoadMapTests(t *testing.T) {
 	t.Log("given a load runner to run map test loops")
 	{
 		t.Log("\twhen runner configuration cannot be populated")
-		genericMsg := fmt.Sprint("\t\tstate transitions must be correct")
+		genericMsgStateTransitions := "\t\tstate transitions must be correct"
+		genericMsgLatestStateInGatherer := "\t\tlatest state in gatherer must be correct"
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
@@ -93,12 +93,30 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
+			}
+
+			waitForStatusGatheringDone(gatherer)
+
+			if latestStatePresentInGatherer(r.gatherer, start) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
+			msg := "\t\tgatherer instance must have been set"
+			if gatherer == r.gatherer {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 		t.Log("\twhen runner has been disabled")
@@ -111,12 +129,25 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start, populateConfigComplete}, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
+
+			latestState := populateConfigComplete
+			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
+			}
+
+			waitForStatusGatheringDone(gatherer)
+
+			if latestStatePresentInGatherer(r.gatherer, latestState) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
 		}
 		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
@@ -130,13 +161,26 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
-			r.runMapTests(hzCluster, hzMembers)
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
+
+			waitForStatusGatheringDone(gatherer)
+
+			latestState := expectedStatesForFullRun[len(expectedStatesForFullRun)-1]
+			if latestStatePresentInGatherer(r.gatherer, latestState) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
+			}
+
 		}
 
 		t.Log("\twhen test loop cannot be initialized")
@@ -148,15 +192,27 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.testLoop.type": "awesome-non-existing-test-loop-type",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
 
-			r.runMapTests(hzCluster, hzMembers)
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+			r.runMapTests(hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
-				t.Log(genericMsg, checkMark)
+				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
-				t.Fatal(genericMsg, ballotX, msg)
+				t.Fatal(genericMsgStateTransitions, ballotX, msg)
 			}
+
+			waitForStatusGatheringDone(gatherer)
+
+			if latestStatePresentInGatherer(r.gatherer, start) {
+				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
+			} else {
+				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
 		}
 	}
 

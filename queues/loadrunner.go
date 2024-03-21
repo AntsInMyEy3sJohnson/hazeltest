@@ -20,6 +20,7 @@ type (
 		source     string
 		queueStore hzQueueStore
 		l          looper[loadElement]
+		gatherer   *status.Gatherer
 	}
 	loadElement struct {
 		Payload string
@@ -32,12 +33,24 @@ var (
 )
 
 func init() {
-	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "queuesLoadrunner", source: "loadRunner", queueStore: &defaultHzQueueStore{}, l: &testLoop[loadElement]{}})
+	register(&loadRunner{
+		assigner:   &client.DefaultConfigPropertyAssigner{},
+		stateList:  []state{},
+		name:       "queuesLoadRunner",
+		source:     "loadRunner",
+		queueStore: &defaultHzQueueStore{},
+		l:          &testLoop[loadElement]{},
+	})
 	gob.Register(loadElement{})
 }
 
-func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
+func (r *loadRunner) getSourceName() string {
+	return r.source
+}
 
+func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	c, err := populateLoadConfig(r.assigner)
@@ -71,7 +84,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 
 	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -84,6 +97,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string) {
 func (r *loadRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 

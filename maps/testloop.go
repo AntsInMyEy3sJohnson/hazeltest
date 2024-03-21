@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/status"
 	"math"
@@ -20,10 +19,13 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	getElementID        func(element any) string
-	deserializeElement  func(element any) error
 	looper[t any]       interface {
-		init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
 		run()
+	}
+	counterTracker interface {
+		init(gatherer *status.Gatherer)
+		increaseCounter(sk statusKey)
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -34,8 +36,9 @@ type (
 type (
 	batchTestLoop[t any] struct {
 		execution *testLoopExecution[t]
+		gatherer  *status.Gatherer
+		ct        counterTracker
 		s         sleeper
-		g         *status.Gatherer
 	}
 	modeCache struct {
 		current actionMode
@@ -47,21 +50,24 @@ type (
 		next mapAction
 	}
 	boundaryTestLoop[t any] struct {
-		execution    *testLoopExecution[t]
-		s            sleeper
-		g            *status.Gatherer
-		modeCaches   []*modeCache
-		actionCaches []*actionCache
+		execution *testLoopExecution[t]
+		gatherer  *status.Gatherer
+		s         sleeper
+		ct        counterTracker
 	}
 	testLoopExecution[t any] struct {
-		id                     uuid.UUID
-		source                 string
-		mapStore               hzMapStore
-		runnerConfig           *runnerConfig
-		elements               []t
-		ctx                    context.Context
-		getElementIdFunc       getElementID
-		deserializeElementFunc deserializeElement
+		id               uuid.UUID
+		source           string
+		mapStore         hzMapStore
+		runnerConfig     *runnerConfig
+		elements         []t
+		ctx              context.Context
+		getElementIdFunc getElementID
+	}
+	mapTestLoopCountersTracker struct {
+		counters map[statusKey]int
+		l        sync.Mutex
+		gatherer *status.Gatherer
 	}
 )
 
@@ -72,9 +78,10 @@ type (
 
 const (
 	updateStep            uint32     = 50
-	statusKeyNumMaps                 = "numMaps"
-	statusKeyNumRuns                 = "numRuns"
-	statusKeyTotalNumRuns            = "totalNumRuns"
+	statusKeyNumMaps      statusKey  = "numMaps"
+	statusKeyNumRuns      statusKey  = "numRuns"
+	statusKeyTotalNumRuns statusKey  = "totalNumRuns"
+	statusKeyFinished     statusKey  = "finished"
 	fill                  actionMode = "fill"
 	drain                 actionMode = "drain"
 	insert                mapAction  = "insert"
@@ -89,6 +96,14 @@ const (
 	noop mapAction = "noop"
 )
 
+const (
+	statusKeyNumFailedInserts   statusKey = "numFailedInserts"
+	statusKeyNumFailedReads     statusKey = "numFailedReads"
+	statusKeyNumNilReads        statusKey = "numNilReads"
+	statusKeyNumFailedRemoves   statusKey = "numFailedRemoves"
+	statusKeyNumFailedKeyChecks statusKey = "numFailedKeyChecks"
+)
+
 var (
 	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
 		var sleepDuration int
@@ -99,22 +114,51 @@ var (
 		}
 		return sleepDuration
 	}
+	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves, statusKeyNumFailedKeyChecks}
 )
 
-func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+	ct.gatherer = gatherer
+
+	ct.counters = make(map[statusKey]int)
+
+	initialCounterValue := 0
+	for _, v := range counters {
+		ct.counters[v] = initialCounterValue
+		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+	}
+}
+
+func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
+
+	var newValue int
+	ct.l.Lock()
+	{
+		newValue = ct.counters[sk] + 1
+		ct.counters[sk] = newValue
+	}
+	ct.l.Unlock()
+
+	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+
+}
+
+func (l *boundaryTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
 	l.execution = lc
 	l.s = s
-	l.g = g
-	l.modeCaches = make([]*modeCache, l.execution.runnerConfig.numMaps)
-	l.actionCaches = make([]*actionCache, l.execution.runnerConfig.numMaps)
-	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
+	l.gatherer = gatherer
+
+	ct := &mapTestLoopCountersTracker{}
+	ct.init(gatherer)
+
+	l.ct = ct
 }
 
 func (l *boundaryTestLoop[t]) run() {
 
 	runWrapper(
 		l.execution,
-		l.g,
+		l.gatherer,
 		assembleMapName,
 		l.runForMap,
 	)
@@ -220,8 +264,8 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
-	l.modeCaches[mapNumber] = &modeCache{}
-	l.actionCaches[mapNumber] = &actionCache{}
+	mc := &modeCache{}
+	ac := &actionCache{}
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
 
@@ -240,7 +284,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
-		if err := l.runOperationChain(i, m, l.modeCaches[mapNumber], l.actionCaches[mapNumber], mapName, mapNumber, keysCache); err != nil {
+		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
@@ -248,7 +292,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 		if l.execution.runnerConfig.boundary.resetAfterChain {
 			lp.LogRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), log.InfoLevel)
-			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache)
+			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache, mc, ac)
 		}
 
 	}
@@ -257,12 +301,12 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}, mc *modeCache, ac *actionCache) {
 
 	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
 
-	l.modeCaches[mapNumber] = &modeCache{}
-	l.actionCaches[mapNumber] = &actionCache{}
+	*mc = modeCache{}
+	*ac = actionCache{}
 
 	p := assemblePredicate(client.ID(), mapNumber)
 	lp.LogRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), log.TraceLevel)
@@ -318,7 +362,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	for j := 0; j < chainLength; j++ {
 
 		if (actions.last == insert || actions.last == remove) && j > 0 && uint32(j)%updateStep == 0 {
-			// TODO Include in status endpoint --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/20
 			lp.LogRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), log.InfoLevel)
 		}
 
@@ -357,7 +400,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 		lp.LogRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), log.TraceLevel)
 
 		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
-			lp.LogRunnerEvent(fmt.Sprintf("unable to execute action '%s' on map '%s' in iteration '%d'", actions.next, mapName, currentRun), log.WarnLevel)
+			lp.LogRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in iteration '%d': %v", actions.next, mapName, currentRun, err), log.WarnLevel)
 		} else {
 			lp.LogRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), log.TraceLevel)
 			actions.last = actions.next
@@ -398,6 +441,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 	switch action {
 	case insert:
 		if err := m.Set(l.execution.ctx, key, element); err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -406,6 +450,7 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 		}
 	case remove:
 		if _, err := m.Remove(l.execution.ctx, key); err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedRemoves)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
 		} else {
@@ -413,9 +458,13 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumbe
 			return nil
 		}
 	case read:
-		if _, err := m.Get(l.execution.ctx, key); err != nil {
-			lp.LogHzEvent(fmt.Sprintf("failed to read key from '%s' in map '%s'", key, mapName), log.WarnLevel)
+		if v, err := m.Get(l.execution.ctx, key); err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedReads)
+			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
+		} else if v == nil {
+			l.ct.increaseCounter(statusKeyNumNilReads)
+			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
 		} else {
 			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.TraceLevel)
 			return nil
@@ -498,39 +547,40 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
 	l.execution = lc
 	l.s = s
-	l.g = g
-	api.RegisterTestLoopStatus(api.Maps, lc.source, l.g.AssembleStatusCopy)
+	l.gatherer = gatherer
+
+	ct := &mapTestLoopCountersTracker{}
+	ct.init(gatherer)
+
+	l.ct = ct
 }
 
-func runWrapper[t any](c *testLoopExecution[t],
+func runWrapper[t any](tle *testLoopExecution[t],
 	gatherer *status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hzMap, string, uint16)) {
 
-	defer gatherer.StopListen()
-	go gatherer.Listen()
-
-	rc := c.runnerConfig
-	insertLoopWithInitialStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
+	rc := tle.runnerConfig
+	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
 	var wg sync.WaitGroup
 	for i := uint16(0); i < rc.numMaps; i++ {
 		wg.Add(1)
 		go func(i uint16) {
 			defer wg.Done()
-			mapName := assembleMapNameFunc(c.runnerConfig, i)
+			mapName := assembleMapNameFunc(tle.runnerConfig, i)
 			lp.LogRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), log.InfoLevel)
 			start := time.Now()
-			m, err := c.mapStore.GetMap(c.ctx, mapName)
+			m, err := tle.mapStore.GetMap(tle.ctx, mapName)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
 				return
 			}
 			defer func() {
-				_ = m.Destroy(c.ctx)
+				_ = m.Destroy(tle.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
@@ -545,18 +595,18 @@ func (l *batchTestLoop[t]) run() {
 
 	runWrapper(
 		l.execution,
-		l.g,
+		l.gatherer,
 		assembleMapName,
 		l.runForMap,
 	)
 
 }
 
-func insertLoopWithInitialStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
+func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
 
-	c <- status.Update{Key: statusKeyNumMaps, Value: numMaps}
-	c <- status.Update{Key: statusKeyNumRuns, Value: numRuns}
-	c <- status.Update{Key: statusKeyTotalNumRuns, Value: uint32(numMaps) * numRuns}
+	c <- status.Update{Key: string(statusKeyNumMaps), Value: numMaps}
+	c <- status.Update{Key: string(statusKeyNumRuns), Value: numRuns}
+	c <- status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns}
 
 }
 
@@ -601,12 +651,14 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) 
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		containsKey, err := m.ContainsKey(l.execution.ctx, key)
 		if err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
 			return err
 		}
 		if containsKey {
 			continue
 		}
 		if err = m.Set(l.execution.ctx, key, v); err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
 		numNewlyIngested++
@@ -624,14 +676,12 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
 		valueFromHZ, err := m.Get(l.execution.ctx, key)
 		if err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedReads)
 			return err
 		}
 		if valueFromHZ == nil {
-			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil -- value might have been evicted or expired in hazelcast", key)
-		}
-		err = l.execution.deserializeElementFunc(valueFromHZ)
-		if err != nil {
-			return err
+			l.ct.increaseCounter(statusKeyNumNilReads)
+			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
 		}
 	}
 
@@ -643,7 +693,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 
 func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16) error {
 
-	numElementsToDelete := rand.Intn(len(l.execution.elements))
+	numElementsToDelete := rand.Intn(len(l.execution.elements)) + 1
 	removed := 0
 
 	elements := l.execution.elements
@@ -659,6 +709,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16)
 		}
 		_, err = m.Remove(l.execution.ctx, key)
 		if err != nil {
+			l.ct.increaseCounter(statusKeyNumFailedRemoves)
 			return err
 		}
 		removed++

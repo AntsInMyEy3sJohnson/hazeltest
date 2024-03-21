@@ -13,7 +13,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 		{
 			resetMaps()
 
-			assembledStatus := assembleTestLoopStatus()
+			assembledStatus := assembleRunnerStatus()
 			msg := "\t\tstatus map must still contain two elements"
 			if len(assembledStatus) == 2 {
 				t.Log(msg, checkMark)
@@ -33,7 +33,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, ChaosMonkeyStatusType)
 			}
 
-			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
+			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[RunnerDataStructure]any)
 
 			msg = "\t\ttest loops map must still contain maps status"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
@@ -68,23 +68,23 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 
 		t.Log("\twhen non-empty status is provided for two map runners, two queue runners, and one chaos monkey")
 		{
-			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterTestLoopStatus(Maps, sourceMapLoadRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
-			RegisterTestLoopStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
+			RegisterRunnerStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
 				return dummyStatusQueueTweetTestLoop
 			})
-			RegisterTestLoopStatus(Queues, sourceQueueLoadRunner, func() map[string]any {
+			RegisterRunnerStatus(Queues, sourceQueueLoadRunner, func() map[string]any {
 				return dummyStatusQueueLoadTestLoop
 			})
 			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return dummyStatusMemberKillerMonkey
 			})
 
-			assembledStatus := assembleTestLoopStatus()
+			assembledStatus := assembleRunnerStatus()
 			msg := "\t\tassembled map must contain two top-level keys"
 			if len(assembledStatus) == 2 {
 				t.Log(msg, checkMark)
@@ -104,7 +104,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 				t.Fatal(msg, ballotX, ChaosMonkeyStatusType)
 			}
 
-			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
+			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[RunnerDataStructure]any)
 
 			msg = "\t\ttest loops map must contain maps status"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
@@ -196,18 +196,18 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 		{
 			resetMaps()
 
-			RegisterTestLoopStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
 				return map[string]any{}
 			})
-			RegisterTestLoopStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
+			RegisterRunnerStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
 				return map[string]any{}
 			})
 			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return map[string]any{}
 			})
 
-			assembledStatus := assembleTestLoopStatus()
-			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
+			assembledStatus := assembleRunnerStatus()
+			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[RunnerDataStructure]any)
 
 			msg := "\t\ttest loops map must contain key for maps"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
@@ -272,18 +272,18 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 		{
 			resetMaps()
 
-			RegisterTestLoopStatus(Maps, sourceMapLoadRunner, func() map[string]any {
+			RegisterRunnerStatus(Maps, sourceMapLoadRunner, func() map[string]any {
 				return nil
 			})
-			RegisterTestLoopStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
+			RegisterRunnerStatus(Queues, sourceQueueTweetRunner, func() map[string]any {
 				return nil
 			})
 			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return nil
 			})
 
-			assembledStatus := assembleTestLoopStatus()
-			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[TestLoopDataStructure]any)
+			assembledStatus := assembleRunnerStatus()
+			assembledTestLoopsStatus := assembledStatus[TestLoopStatusType].(map[RunnerDataStructure]any)
 
 			msg := "\t\ttest loops map must still contain top-level key for map status"
 			if _, ok := assembledTestLoopsStatus[Maps]; ok {
@@ -349,7 +349,7 @@ func TestAssembleTestLoopStatus(t *testing.T) {
 }
 
 func resetMaps() {
-	mapTestLoopStatusFunctions = sync.Map{}
-	queueTestLoopStatusFunctions = sync.Map{}
+	mapRunnerStatusFunctions = sync.Map{}
+	queueRunnerStatusFunction = sync.Map{}
 	chaosMonkeyStatusFunctions = sync.Map{}
 }

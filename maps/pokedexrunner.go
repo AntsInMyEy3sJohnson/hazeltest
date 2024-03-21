@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/gob"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +21,7 @@ type (
 		source    string
 		mapStore  hzMapStore
 		l         looper[pokemon]
+		gatherer  *status.Gatherer
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -79,8 +79,13 @@ func initializePokemonTestLoop(rc *runnerConfig) (looper[pokemon], error) {
 
 }
 
-func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
+func (r *pokedexRunner) getSourceName() string {
+	return "pokedexRunner"
+}
 
+func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populatePokedexConfig(r.assigner)
@@ -91,7 +96,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogRunnerEvent("pokedexRunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("pokedex runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -126,9 +131,9 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
 
-	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID, deserializePokemon}
+	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -141,6 +146,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string) {
 func (r *pokedexRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 
@@ -148,17 +154,6 @@ func getPokemonID(element any) string {
 
 	pokemon := element.(pokemon)
 	return fmt.Sprintf("%d", pokemon.ID)
-
-}
-
-func deserializePokemon(elementFromHZ any) error {
-
-	_, ok := elementFromHZ.(pokemon)
-	if !ok {
-		return errors.New("unable to serialize value retrieved from hazelcast map into pokemon instance")
-	}
-
-	return nil
 
 }
 

@@ -33,17 +33,9 @@ var (
 	}
 )
 
-const statusKeyFinished = "finished"
-
 func fellowshipMemberName(element any) string {
 
 	return element.(string)
-
-}
-
-func deserializeFellowshipMember(_ any) error {
-
-	return nil
 
 }
 
@@ -55,6 +47,120 @@ func populateDummyHzMapStore(ms *dummyHzMapStore) {
 		key := assembleMapKey(mapNumber, value)
 
 		ms.m.data.Store(key, value)
+	}
+
+}
+
+func TestMapTestLoopCountersTrackerInit(t *testing.T) {
+
+	t.Log("given the tracker's init function")
+	{
+		t.Log("\twhen init method is invoked")
+		{
+			ct := &mapTestLoopCountersTracker{}
+			g := status.NewGatherer()
+
+			go g.Listen()
+			ct.init(g)
+			g.StopListen()
+
+			msg := "\t\tgatherer must have been assigned"
+			if ct.gatherer == g {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tall status keys must have been inserted into status record"
+			initialCounterValue := 0
+			for _, v := range counters {
+				if counter, ok := ct.counters[v]; ok && counter == initialCounterValue {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+
+			waitForStatusGatheringDone(g)
+			msg = "\t\tgatherer must have received all status keys with initial values"
+			statusCopy := g.AssembleStatusCopy()
+
+			for _, v := range counters {
+				if ok, detail := expectedStatusPresent(statusCopy, v, initialCounterValue); ok {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+			}
+		}
+	}
+
+}
+
+func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
+
+	t.Log("given a method for increasing the value of a specific counter")
+	{
+		t.Log("\twhen method is not invoked concurrently")
+		{
+			ct := &mapTestLoopCountersTracker{
+				counters: make(map[statusKey]int),
+				l:        sync.Mutex{},
+				gatherer: status.NewGatherer(),
+			}
+			for _, v := range counters {
+				t.Log(fmt.Sprintf("\t\twhen initial value is zero for counter '%s' and increase method is invoked", v))
+				{
+					ct.counters[v] = 0
+					ct.increaseCounter(v)
+
+					msg := "\t\t\tcounter increase must be reflected in counter tracker's state"
+					if ct.counters[v] == 1 {
+						t.Log(msg, checkMark, v)
+					} else {
+						t.Fatal(msg, ballotX, v)
+					}
+
+					msg = "\t\t\tcorresponding update must have been sent to status gatherer"
+					update := <-ct.gatherer.Updates
+					if update.Key == string(v) && update.Value == 1 {
+						t.Log(msg, checkMark, v)
+					} else {
+						t.Fatal(msg, ballotX, v)
+					}
+				}
+			}
+		}
+		t.Log("\twhen multiple goroutines want to increase a counter")
+		{
+			wg := sync.WaitGroup{}
+			ct := &mapTestLoopCountersTracker{
+				counters: make(map[statusKey]int),
+				l:        sync.Mutex{},
+				gatherer: status.NewGatherer(),
+			}
+			go ct.gatherer.Listen()
+			ct.counters[statusKeyNumFailedInserts] = 0
+			numInvokingGoroutines := 100
+			for i := 0; i < numInvokingGoroutines; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					ct.increaseCounter(statusKeyNumFailedInserts)
+				}()
+			}
+			wg.Wait()
+			ct.gatherer.StopListen()
+
+			msg := "\t\tfinal counter value must be equal to number of invoking goroutines"
+
+			if ct.counters[statusKeyNumFailedInserts] == numInvokingGoroutines {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
 	}
 
 }
@@ -563,6 +669,38 @@ func TestChooseRandomKeyFromCache(t *testing.T) {
 
 }
 
+func TestRunWrapper(t *testing.T) {
+
+	t.Log("given a wrapper function to kick off both boundary and batch test loops")
+	{
+		t.Log("\twhen at least one map is provided")
+		{
+			rc := assembleRunnerConfigForBatchTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			go tl.gatherer.Listen()
+			runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+				return "banana"
+			}, func(h hzMap, s string, u uint16) {
+				// No-op
+			})
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg := "\t\tstatus gatherer must contain initial state: %s"
+			for _, v := range []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumFailedRemoves, statusKeyNumNilReads} {
+				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), v, 0); ok {
+					t.Log(fmt.Sprintf(msg, v), checkMark)
+				} else {
+					t.Fatal(fmt.Sprintf(msg, v), ballotX, detail)
+				}
+			}
+		}
+	}
+
+}
+
 func TestExecuteMapAction(t *testing.T) {
 
 	t.Log("given various actions to execute on maps")
@@ -578,7 +716,9 @@ func TestExecuteMapAction(t *testing.T) {
 
 				mapNumber := 0
 				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -613,15 +753,25 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 element, got %d", count))
 				}
-			}
 
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\tstatus gatherer must indicate zero failed insert operations"
+				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 0); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+			}
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponSet: true})
 				rc := assembleRunnerConfigForBoundaryTestLoop(uint16(1), uint32(1), sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled, 1.0, 0.0, 0.5, 42, true)
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -629,6 +779,17 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX)
 				}
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\ttest loop must have informed status gatherer about error"
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedInserts, 1); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+
 			}
 
 			t.Log("\t\twhen target map already contains key")
@@ -668,7 +829,9 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -690,6 +853,15 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 remove invocations, got %d", ms.m.removeInvocations))
 				}
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\tstatus gatherer must indicate zero failed remove attempts"
+				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 0); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
 			}
 
 			t.Log("\t\twhen target map contains key and remove yields error")
@@ -700,7 +872,9 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateDummyHzMapStore(&ms)
 
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -721,6 +895,17 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.removeInvocations))
+				}
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				msg = "\t\t\ttest loop must have informed status gatherer about error"
+
+				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedRemoves, 1); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
 				}
 
 			}
@@ -766,10 +951,12 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
+				tl.gatherer.StopListen()
 
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
+				msg := "\t\t\terror must be returned"
+				if err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -788,6 +975,16 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 invocations, got %d", ms.m.getInvocations))
 				}
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\tstatus record must inform about one nil read"
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
 			}
 
 			t.Log("\t\twhen target map contains key and get yields error")
@@ -798,7 +995,9 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateDummyHzMapStore(&ms)
 
+				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
+				tl.gatherer.StopListen()
 
 				msg := "\t\t\terror must be returned"
 				if err != nil {
@@ -819,6 +1018,16 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.getInvocations))
+				}
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg = "\t\t\ttest loop must have informed status gatherer about error"
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedReads, 1); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
 				}
 
 			}
@@ -900,6 +1109,18 @@ func TestExecuteMapAction(t *testing.T) {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 invocations, got %d", ms.m.getInvocations))
 			}
 		}
+	}
+
+}
+
+func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+
+	recordedValue := statusCopy[string(expectedKey)].(int)
+
+	if recordedValue == expectedValue {
+		return true, ""
+	} else {
+		return false, fmt.Sprintf("expected %d, got %d", expectedValue, recordedValue)
 	}
 
 }
@@ -1261,7 +1482,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
-					waitForStatusGatheringDone(tl.g)
 
 					msg := "\t\t\t\tall elements must be inserted in map"
 					if ms.m.setInvocations == len(theFellowship) {
@@ -1305,7 +1525,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
-					waitForStatusGatheringDone(tl.g)
 
 					msg := "\t\t\t\tnumber of insert invocations must be zero"
 					if ms.m.setInvocations == 0 {
@@ -1358,7 +1577,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
 
 					tl.run()
-					waitForStatusGatheringDone(tl.g)
 
 					msg := "\t\t\t\tnumber of set invocations must be roughly equal to half the chain length"
 					if math.Abs(float64(ms.m.setInvocations-chainLength/2)) < 5 {
@@ -1387,22 +1605,13 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 					tl.run()
 
-					msg := "\t\t\t\tmode cache must remain populated"
-					if tl.modeCaches[0].current == fill {
+					msg := "\t\t\t\tremove all must not have been invoked"
+					if ms.m.removeAllInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, "expected zero invocations, got %d", ms.m.removeAllInvocations)
 					}
 
-					msg = "\t\t\t\taction cache must remain populated"
-					ac := tl.actionCaches[0]
-					// Next action would have been determined in next iteration of chain, but must be set to empty
-					// inside operation chain loop after successful action execution
-					if ac.last != "" && ac.next == "" {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
 				}
 			}
 
@@ -1420,58 +1629,33 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on remote map does not yield error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := &modeCache{drain, false}
-				otherActionCache := &actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
 						ctx: context.TODO(),
-					},
-					modeCaches: []*modeCache{
-						{current: fill},
-						otherModeCache,
-					},
-					actionCaches: []*actionCache{
-						{
-							last: insert,
-							next: read,
-						},
-						otherActionCache,
 					},
 				}
 
 				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 				populateDummyHzMapStore(&ms)
 
+				mc := &modeCache{current: fill, forceActionTowardsMode: true}
+				ac := &actionCache{last: insert, next: read}
 				keysCache := map[string]struct{}{}
 				ms.m.data.Range(func(key, _ any) bool {
 					keysCache[key.(string)] = struct{}{}
 					return true
 				})
-				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache)
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, mc, ac)
 
 				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
-				if tl.modeCaches[0].current == "" && !tl.modeCaches[0].forceActionTowardsMode {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tlocal mode cache for other map number must have remained unmodified"
-				if tl.modeCaches[1].current == otherModeCache.current {
+				if mc.current == "" && !mc.forceActionTowardsMode {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tlocal action cache for given map number must be cleared"
-				if tl.actionCaches[0].last == "" && tl.actionCaches[0].next == "" {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tlocal action cache for other map number must have remained unmodified"
-				if tl.actionCaches[1].last == otherActionCache.last && tl.actionCaches[1].next == otherActionCache.next {
+				if ac.last == "" && ac.next == "" {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1504,22 +1688,9 @@ func TestResetAfterOperationChain(t *testing.T) {
 			t.Log("\t\twhen remove all on map yields error")
 			{
 				mapNumber := uint16(0)
-				otherModeCache := &modeCache{drain, false}
-				otherActionCache := &actionCache{read, remove}
 				tl := boundaryTestLoop[string]{
 					execution: &testLoopExecution[string]{
 						ctx: context.TODO(),
-					},
-					modeCaches: []*modeCache{
-						{current: fill},
-						otherModeCache,
-					},
-					actionCaches: []*actionCache{
-						{
-							last: insert,
-							next: read,
-						},
-						otherActionCache,
 					},
 				}
 
@@ -1531,31 +1702,19 @@ func TestResetAfterOperationChain(t *testing.T) {
 					keysCache[key.(string)] = struct{}{}
 					return true
 				})
-				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache)
+				mc := &modeCache{current: fill}
+				ac := &actionCache{last: insert, next: read}
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, mc, ac)
 
 				msg := "\t\t\tlocal mode cache for given map number must be cleared anyway"
-				if tl.modeCaches[0].current == "" {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tlocal mode cache for other map number must have remained unmodified"
-				if tl.modeCaches[1].current == otherModeCache.current {
+				if mc.current == "" {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tlocal action cache for given map number must be cleared anyway"
-				if tl.actionCaches[0].last == "" && tl.actionCaches[0].next == "" {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tlocal action cache for other map number must have remained unmodified"
-				if tl.actionCaches[1].last == otherActionCache.last && tl.actionCaches[1].next == otherActionCache.next {
+				if ac.last == "" && ac.next == "" {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2005,8 +2164,11 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
-			waitForStatusGatheringDone(tl.g)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
 
 			expectedNumSetInvocations := len(theFellowship)
 			expectedNumGetInvocations := len(theFellowship)
@@ -2033,7 +2195,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -2047,8 +2209,11 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
-			waitForStatusGatheringDone(tl.g)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
 
 			expectedNumSetInvocations := len(theFellowship) * 10
 			expectedNumGetInvocations := len(theFellowship) * 10
@@ -2075,7 +2240,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -2089,8 +2254,11 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetMap: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
-			waitForStatusGatheringDone(tl.g)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tno invocations on map must have been attempted"
 
@@ -2106,7 +2274,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 			msg = "\t\tvalues in test loop status must be correct"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, uint32(numMaps)*numRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -2120,8 +2288,11 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
-			waitForStatusGatheringDone(tl.g)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tno remove invocations must have been attempted"
 
@@ -2142,7 +2313,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			msg = "\t\tvalues in test loop status must be correct"
 
 			expectedRuns := uint32(numMaps) * numRuns
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -2157,12 +2328,15 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
+			go tl.gatherer.Listen()
 			tl.run()
-			waitForStatusGatheringDone(tl.g)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
 
 			msg := "\t\tinitial status must contain correct values anyway"
 
-			if ok, key, detail := statusContainsExpectedValues(tl.g.AssembleStatusCopy(), numMaps, numRuns, 0, true); ok {
+			if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, 0, true); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
@@ -2242,6 +2416,382 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 }
 
+func TestIngestAll(t *testing.T) {
+
+	t.Log("given a hazelcast map and elements for insertion")
+	{
+		t.Log("\twhen target map does not contain key yet and set does not yield error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedInserts: 0,
+			}
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of contains key invocations must be equal to number of elements in source data"
+			expected := len(tl.execution.elements)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			msg = "\t\tnumber of set invocations must be equal to number of elements in source data, too"
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			msg = "\t\tstatus record must indicate there have been zero failed insert attempts"
+			expected = 0
+			actual = statusRecord[statusKeyNumFailedInserts].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+		}
+
+		t.Log("\twhen target map contains all keys")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedInserts: 0,
+			}
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of contains key invocations must be equal to number of elements in source data"
+			expected := len(theFellowship)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			msg = "\t\tnumber of inserts must be zero"
+			expected = 0
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			msg = "\t\tstatus record must indicate zero failed inserts"
+			actual = statusRecord[statusKeyNumFailedInserts].(int)
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+		}
+
+		t.Log("\twhen target map contains no keys and insert yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{
+				returnErrorUponSet: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			go tl.gatherer.Listen()
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			expected := 1
+			msg = fmt.Sprintf("\t\tnumber of contains key checks must be %d", expected)
+			actual := ms.m.containsKeyInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			msg = fmt.Sprintf("\t\tnumber of inserts must be %d", expected)
+			actual = ms.m.setInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must have been informed about one failed insert attempt"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+		}
+
+		t.Log("\twhen contains key check yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{
+				returnErrorUponContainsKey: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			go tl.gatherer.Listen()
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed about one failed contains key check"
+			waitForStatusGatheringDone(tl.gatherer)
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedKeyChecks, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+	}
+
+}
+
+func TestReadAll(t *testing.T) {
+
+	t.Log("given a hazelcast map")
+	{
+		t.Log("\twhen map contains all elements expected based on data source and no access operation fails")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 12, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[statusKey]int{
+				statusKeyNumFailedReads: 0,
+				statusKeyNumNilReads:    0,
+			}
+			go tl.gatherer.Listen()
+			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg := "\t\tstatus gatherer must indicate zero failed operations"
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			for k, v := range statusRecord {
+				if ok, detail := expectedStatusPresent(statusCopy, k, v); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, detail)
+				}
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of get invocations must be equal to number of elements in source data"
+			expected := len(theFellowship)
+			actual := ms.m.getInvocations
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+		}
+
+		t.Log("\twhen get invocation yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			go tl.gatherer.Listen()
+			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must have been informed about one failed read"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedReads, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+		}
+
+		t.Log("\twhen map contains elements and get yields no error, but retrieved value is nil")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
+
+			go tl.gatherer.Listen()
+			err := tl.readAll(ms.m, mapBaseName, 0)
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+
+			msg = "\t\tstatus gatherer must indicate zero failed reads"
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedReads, 0); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+			msg = "\t\tstatus gatherer must indicate one nil read"
+			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+	}
+}
+
+func TestRemoveSome(t *testing.T) {
+
+	t.Log("given a hazelcast map containing state")
+	{
+		t.Log("\twhen remove operation does not yield error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			populateDummyHzMapStore(&ms)
+
+			statusRecord := map[statusKey]any{
+				statusKeyNumFailedRemoves: 0,
+			}
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tstatus record must indicate zero failed remove invocations"
+			expected := 0
+			actual := statusRecord[statusKeyNumFailedRemoves].(int)
+
+			if expected == actual {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
+			}
+		}
+
+		t.Log("\twhen remove operation yields error")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+
+			populateDummyHzMapStore(&ms)
+
+			go tl.gatherer.Listen()
+			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must have been informed about one failed remove invocation"
+			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 1); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+		}
+	}
+
+}
+
 func checkMapActionResults(currentMode actionMode, numInvocations, insertCount, removeCount int, actionProbability float64) (bool, bool) {
 
 	numInvocationsAsFloat := float64(numInvocations)
@@ -2284,31 +2834,21 @@ func generateMapActionResults(currentMode actionMode, numInvocations int, action
 
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
+func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, statusKey, string) {
 
-	for {
-		if done := g.ListeningStopped(); done {
-			return
-		}
-	}
-
-}
-
-func statusContainsExpectedValues(status map[string]any, expectedNumMaps uint16, expectedNumRuns uint32, expectedTotalRuns uint32, expectedRunnerFinished bool) (bool, string, string) {
-
-	if numMapsFromStatus, ok := status[statusKeyNumMaps]; !ok || numMapsFromStatus != expectedNumMaps {
+	if numMapsFromStatus, ok := status[string(statusKeyNumMaps)]; !ok || numMapsFromStatus != expectedNumMaps {
 		return false, statusKeyNumMaps, fmt.Sprintf("want: %d; got: %d", expectedNumMaps, numMapsFromStatus)
 	}
 
-	if numRunsFromStatus, ok := status[statusKeyNumRuns]; !ok || numRunsFromStatus != expectedNumRuns {
+	if numRunsFromStatus, ok := status[string(statusKeyNumRuns)]; !ok || numRunsFromStatus != expectedNumRuns {
 		return false, statusKeyNumRuns, fmt.Sprintf("want: %d; got: %d", expectedNumRuns, numRunsFromStatus)
 	}
 
-	if totalRunsFromStatus, ok := status[statusKeyTotalNumRuns]; !ok || totalRunsFromStatus != expectedTotalRuns {
+	if totalRunsFromStatus, ok := status[string(statusKeyTotalNumRuns)]; !ok || totalRunsFromStatus != expectedTotalRuns {
 		return false, statusKeyTotalNumRuns, fmt.Sprintf("want: %d; got: %d", expectedTotalRuns, totalRunsFromStatus)
 	}
 
-	if runnerFinishedFromStatus, ok := status[statusKeyFinished]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
+	if runnerFinishedFromStatus, ok := status[string(statusKeyFinished)]; !ok || runnerFinishedFromStatus != expectedRunnerFinished {
 		return false, statusKeyFinished, fmt.Sprintf("want: %t; got: %t", expectedRunnerFinished, runnerFinishedFromStatus)
 	}
 
@@ -2331,10 +2871,7 @@ func numElementsInSyncMap(data *sync.Map) int {
 func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
 	tle := assembleTestLoopExecution(id, source, rc, ms)
-	tl := boundaryTestLoop[string]{
-		modeCaches:   []*modeCache{},
-		actionCaches: []*actionCache{},
-	}
+	tl := boundaryTestLoop[string]{}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
@@ -2353,14 +2890,13 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runne
 func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
-		id:                     id,
-		source:                 source,
-		mapStore:               ms,
-		runnerConfig:           rc,
-		elements:               theFellowship,
-		ctx:                    nil,
-		getElementIdFunc:       fellowshipMemberName,
-		deserializeElementFunc: deserializeFellowshipMember,
+		id:               id,
+		source:           source,
+		mapStore:         ms,
+		runnerConfig:     rc,
+		elements:         theFellowship,
+		ctx:              nil,
+		getElementIdFunc: fellowshipMemberName,
 	}
 
 }

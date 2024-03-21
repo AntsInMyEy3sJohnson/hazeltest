@@ -17,6 +17,7 @@
 # Exclude directories IDEs might introduce
 *.vscode
 *.idea
+*.run
 
 __debug_bin
 *.swp

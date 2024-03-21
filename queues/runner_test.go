@@ -3,6 +3,7 @@ package queues
 import (
 	"errors"
 	"hazeltest/client"
+	"hazeltest/status"
 	"strings"
 	"testing"
 )
@@ -41,6 +42,26 @@ var (
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enableRandomness":          true,
 	}
 )
+
+func waitForStatusGatheringDone(g *status.Gatherer) {
+
+	for {
+		if done := g.ListeningStopped(); done {
+			return
+		}
+	}
+
+}
+
+func latestStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+
+	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
+		return true
+	}
+
+	return false
+
+}
 
 func TestPopulateConfig(t *testing.T) {
 

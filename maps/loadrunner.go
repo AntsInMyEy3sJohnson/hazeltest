@@ -3,7 +3,6 @@ package maps
 import (
 	"context"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +21,7 @@ type (
 		source    string
 		mapStore  hzMapStore
 		l         looper[loadElement]
+		gatherer  *status.Gatherer
 	}
 	loadElement struct {
 		Key     string
@@ -35,7 +35,14 @@ var (
 )
 
 func init() {
-	register(&loadRunner{assigner: &client.DefaultConfigPropertyAssigner{}, stateList: []state{}, name: "mapsLoadrunner", source: "loadRunner", mapStore: &defaultHzMapStore{}, l: &batchTestLoop[loadElement]{}})
+	register(&loadRunner{
+		assigner:  &client.DefaultConfigPropertyAssigner{},
+		stateList: []state{},
+		name:      "mapsLoadRunner",
+		source:    "loadRunner",
+		mapStore:  &defaultHzMapStore{},
+		l:         &batchTestLoop[loadElement]{},
+	})
 	gob.Register(loadElement{})
 }
 
@@ -52,8 +59,13 @@ func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error
 
 }
 
-func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
+func (r *loadRunner) getSourceName() string {
+	return "loadRunner"
+}
 
+func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+
+	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populateLoadConfig(r.assigner)
@@ -65,7 +77,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 
 	if !config.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogRunnerEvent("loadRunner not enabled -- won't run", log.InfoLevel)
+		lp.LogRunnerEvent("load runner not enabled -- won't run", log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -94,9 +106,9 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID, deserializeLoadElement}
+	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID}
 
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -109,6 +121,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string) {
 func (r *loadRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
+	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
 }
 
@@ -135,18 +148,6 @@ func getLoadElementID(element any) string {
 
 	loadElement := element.(loadElement)
 	return loadElement.Key
-
-}
-
-func deserializeLoadElement(elementFromHz any) error {
-
-	_, ok := elementFromHz.(loadElement)
-
-	if !ok {
-		return errors.New("unable to deserialize value retrieved from hazelcast map into loadelement instance")
-	}
-
-	return nil
 
 }
 

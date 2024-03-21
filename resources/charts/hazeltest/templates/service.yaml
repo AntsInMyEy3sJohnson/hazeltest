@@ -1,0 +1,18 @@
+{{ if .Values.reachability.service.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ template "hazeltest.name" . }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ template "hazeltest.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  type: {{ .Values.reachability.service.type | default "ClusterIP" }}
+  ports:
+    - name: http
+      port: {{ .Values.reachability.service.port }}
+{{ end -}}
