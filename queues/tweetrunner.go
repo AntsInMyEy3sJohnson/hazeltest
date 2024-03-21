@@ -94,7 +94,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	lp.LogRunnerEvent("started tweets queue loop", log.InfoLevel)
 
 	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
-	r.l.init(lc, &defaultSleeper{}, status.NewGatherer())
+	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
