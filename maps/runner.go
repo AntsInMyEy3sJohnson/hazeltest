@@ -50,7 +50,7 @@ type (
 
 type (
 	batchTestLoopConfig struct {
-		sleepAfterActionBatch     *sleepConfig
+		sleepAfterBatchAction     *sleepConfig
 		sleepBetweenActionBatches *sleepConfig
 	}
 )
@@ -157,7 +157,7 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 	}
 
 	return &batchTestLoopConfig{
-		sleepAfterActionBatch: &sleepConfig{
+		sleepAfterBatchAction: &sleepConfig{
 			enabled:          sleepAfterBatchActionEnabled,
 			durationMs:       sleepAfterBatchActionDurationMs,
 			enableRandomness: sleepAfterBatchActionEnableRandomness,
