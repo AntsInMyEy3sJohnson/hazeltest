@@ -50,6 +50,7 @@ type (
 
 type (
 	batchTestLoopConfig struct {
+		sleepAfterActionBatch     *sleepConfig
 		sleepBetweenActionBatches *sleepConfig
 	}
 )
@@ -107,6 +108,27 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 
 	var assignmentOps []func() error
 
+	var sleepAfterBatchActionEnabled bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterBatchAction.enabled", client.ValidateBool, func(a any) {
+			sleepAfterBatchActionEnabled = a.(bool)
+		})
+	})
+
+	var sleepAfterBatchActionDurationMs int
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterBatchAction.durationMs", client.ValidateInt, func(a any) {
+			sleepAfterBatchActionDurationMs = a.(int)
+		})
+	})
+
+	var sleepAfterBatchActionEnableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterBatchAction.enableRandomness", client.ValidateBool, func(a any) {
+			sleepAfterBatchActionEnableRandomness = a.(bool)
+		})
+	})
+
 	var sleepBetweenActionBatchesEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
@@ -114,17 +136,17 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 		})
 	})
 
-	var sleepDurationMs int
+	var sleepBetweenActionBatchesDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
-			sleepDurationMs = a.(int)
+			sleepBetweenActionBatchesDurationMs = a.(int)
 		})
 	})
 
-	var enableSleepRandomness bool
+	var sleepBetweenActionBatchesEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
-			enableSleepRandomness = a.(bool)
+			sleepBetweenActionBatchesEnableRandomness = a.(bool)
 		})
 	})
 
@@ -135,10 +157,15 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 	}
 
 	return &batchTestLoopConfig{
+		sleepAfterActionBatch: &sleepConfig{
+			enabled:          sleepAfterBatchActionEnabled,
+			durationMs:       sleepAfterBatchActionDurationMs,
+			enableRandomness: sleepAfterBatchActionEnableRandomness,
+		},
 		sleepBetweenActionBatches: &sleepConfig{
 			enabled:          sleepBetweenActionBatchesEnabled,
-			durationMs:       sleepDurationMs,
-			enableRandomness: enableSleepRandomness,
+			durationMs:       sleepBetweenActionBatchesDurationMs,
+			enableRandomness: sleepBetweenActionBatchesEnableRandomness,
 		},
 	}, nil
 

@@ -261,6 +261,12 @@ mapTests:
       # cluster probably won't resemble load a typical client application might induce).
       batch:
         sleeps:
+          # If this is enabled, the test loop will wait for <durationMs> (or a duration in the interval [1, <durationMs]
+          # in case randomness has been enabled) after execution one action in a batch (e.g. one insert operation).
+          afterBatchAction:
+            enabled: true
+            durationMs: 50
+            enableRandomness: true
           # Can be enabled to make the batch test loop sleep for the given duration after one batch of actions (e.g.,
           # "ingest x elements") has finished, meaning the next action batch will start only after a sleep of <durationMs>
           betweenActionBatches:
@@ -406,6 +412,10 @@ mapTests:
       type: boundary
       batch:
         sleeps:
+          afterBatchAction:
+            enabled: true
+            durationMs: 10
+            enableRandomness: true
           betweenActionBatches:
             enabled: true
             durationMs: 2000
