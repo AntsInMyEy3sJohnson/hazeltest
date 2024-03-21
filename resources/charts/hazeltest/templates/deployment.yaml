@@ -42,7 +42,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.httpPort }}
+              containerPort: {{ .Values.reachability.containerPort }}
           livenessProbe:
             httpGet:
               port: http
