@@ -28,45 +28,45 @@ spec:
       serviceAccountName: {{ .Release.Name }}
       {{ end -}}
       volumes:
-      - name: hazeltest-config
-        configMap:
-          name: {{ template "hazeltest.fullname" . }}-config
-      containers:
-      - name: hazeltest
-        image: "{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.repository }}@sha256:{{ .Values.image.digest }}"
-        {{ if .Values.startupArgs -}}
-        args: [{{ join "," .Values.startupArgs }}]
-        {{ else }}
-        args: ["-config-file=/data/config/custom-config.yaml"]
-        {{ end -}}
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        ports:
-        - name: http
-          containerPort: {{ .Values.httpPort }}
-        livenessProbe:
-          httpGet:
-            port: http
-            path: /liveness
-        readinessProbe:
-          httpGet:
-            port: http
-            path: /readiness
-        resources:
-{{ toYaml .Values.resources | indent 10 }}
-        env:
-        - name: HZ_CLUSTER
-          value: {{ .Values.env.hzCluster }}
-        - name: HZ_MEMBERS
-          value: {{ .Values.env.hzMembers }}
-        - name: LOG_LEVEL
-          value: {{ .Values.env.logLevel }}
-        volumeMounts:
         - name: hazeltest-config
-          mountPath: /data/config
-        {{ if .Values.features.useSccOnOpenShift  -}}
-        securityContext:
-          capabilities:
-            add:
-              - SYS_PTRACE
-        {{ end -}}
+          configMap:
+            name: {{ template "hazeltest.fullname" . }}-config
+      containers:
+        - name: hazeltest
+          image: "{{ .Values.image.registry }}/{{ .Values.image.organization }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}@sha256:{{ .Values.image.digest }}"
+          {{ if .Values.startupArgs -}}
+          args: [{{ join "," .Values.startupArgs }}]
+          {{ else }}
+          args: [ "-config-file=/data/config/custom-config.yaml" ]
+          {{ end -}}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.httpPort }}
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /liveness
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /readiness
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          env:
+            - name: HZ_CLUSTER
+              value: {{ .Values.env.hzCluster }}
+            - name: HZ_MEMBERS
+              value: {{ .Values.env.hzMembers }}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.logLevel }}
+          volumeMounts:
+            - name: hazeltest-config
+              mountPath: /data/config
+          {{ if .Values.features.useSccOnOpenShift  -}}
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+          {{ end -}}
 
