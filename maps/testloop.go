@@ -661,6 +661,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) 
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
+		l.s.sleep(l.execution.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc)
 		numNewlyIngested++
 	}
 
@@ -683,6 +684,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 			l.ct.increaseCounter(statusKeyNumNilReads)
 			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
 		}
+		l.s.sleep(l.execution.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc)
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.execution.elements), mapName), log.TraceLevel)
@@ -713,6 +715,7 @@ func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16)
 			return err
 		}
 		removed++
+		l.s.sleep(l.execution.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc)
 	}
 
 	lp.LogRunnerEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", removed, mapName), log.TraceLevel)

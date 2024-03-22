@@ -21,6 +21,9 @@ var (
 	}
 	batchTestConfig = map[string]any{
 		runnerKeyPath + ".testLoop.type":                                               "batch",
+		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled":              true,
+		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs":           50,
+		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness":     false,
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
 		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
@@ -127,8 +130,8 @@ func TestPopulateConfig(t *testing.T) {
 		{
 			for _, lt := range []runnerLoopType{batch, boundary} {
 				t.Log(fmt.Sprintf("\t\ttest loop type: %s", lt))
-				testConfig := assembleTestConfigForTestLoopType(lt)
-				assigner := testConfigPropertyAssigner{false, testConfig}
+				dummyConfig := assembleTestConfigForTestLoopType(lt)
+				assigner := testConfigPropertyAssigner{false, dummyConfig}
 				b.assigner = assigner
 				rc, err := b.populateConfig()
 
@@ -147,7 +150,7 @@ func TestPopulateConfig(t *testing.T) {
 				}
 
 				msg = "\t\t\tconfig should contain expected values"
-				if valid, detail := configValuesAsExpected(rc, testConfig); valid {
+				if valid, detail := configValuesAsExpected(rc, dummyConfig); valid {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -269,6 +272,21 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 	}
 
 	if rc.loopType == batch {
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled"
+		if rc.batch.sleepAfterBatchAction.enabled != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs"
+		if rc.batch.sleepAfterBatchAction.durationMs != expected[keyPath] {
+			return false, keyPath
+		}
+
+		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness"
+		if rc.batch.sleepAfterBatchAction.enableRandomness != expected[keyPath] {
+			return false, keyPath
+		}
+
 		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
 		if rc.batch.sleepBetweenActionBatches.enabled != expected[keyPath] {
 			return false, keyPath

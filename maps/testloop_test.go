@@ -675,7 +675,7 @@ func TestRunWrapper(t *testing.T) {
 	{
 		t.Log("\twhen at least one map is provided")
 		{
-			rc := assembleRunnerConfigForBatchTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 1, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			go tl.gatherer.Listen()
@@ -2161,7 +2161,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
 			go tl.gatherer.Listen()
@@ -2205,7 +2205,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen multiple goroutines execute test loops")
 		{
 			numMaps, numRuns := uint16(10), uint32(1)
-			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -2250,7 +2250,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen get map yields error")
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetMap: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -2284,7 +2284,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		t.Log("\twhen only one run is executed an error is thrown during read all")
 		{
 			numMaps, numRuns := uint16(1), uint32(1)
-			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -2325,7 +2325,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			id := uuid.New()
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			numMaps, numRuns := uint16(0), uint32(1)
-			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(numMaps, numRuns, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(id, testSource, ms, rc)
 
 			go tl.gatherer.Listen()
@@ -2346,7 +2346,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 		{
 			scBetweenRuns := &sleepConfig{}
 			scBetweenActionBatches := &sleepConfig{}
-			rc := assembleRunnerConfigForBatchTestLoop(1, 20, scBetweenRuns, scBetweenActionBatches)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 20, scBetweenRuns, sleepConfigDisabled, scBetweenActionBatches)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := 0
@@ -2382,7 +2382,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numRuns := uint32(20)
 			scBetweenRuns := &sleepConfig{enabled: true}
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
-			rc := assembleRunnerConfigForBatchTestLoop(1, numRuns, scBetweenRuns, scBetweenActionsBatches)
+			rc := assembleRunnerConfigForBatchTestLoop(1, numRuns, scBetweenRuns, sleepConfigDisabled, scBetweenActionsBatches)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleDummyMapStore(&dummyMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := uint32(0)
@@ -2426,6 +2426,7 @@ func TestIngestAll(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(
 				uint16(1),
 				uint32(9),
+				sleepConfigDisabled,
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
@@ -2476,6 +2477,7 @@ func TestIngestAll(t *testing.T) {
 			rc := assembleRunnerConfigForBatchTestLoop(
 				uint16(1),
 				uint32(9),
+				sleepConfigDisabled,
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
@@ -2531,6 +2533,7 @@ func TestIngestAll(t *testing.T) {
 				uint32(9),
 				sleepConfigDisabled,
 				sleepConfigDisabled,
+				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -2583,6 +2586,7 @@ func TestIngestAll(t *testing.T) {
 				uint32(9),
 				sleepConfigDisabled,
 				sleepConfigDisabled,
+				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
@@ -2605,6 +2609,41 @@ func TestIngestAll(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 		}
+
+		t.Log("\twhen sleep after batch action is enabled")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				&sleepConfig{
+					enabled: true,
+				},
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen()
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
 
 }
@@ -2616,14 +2655,10 @@ func TestReadAll(t *testing.T) {
 		t.Log("\twhen map contains all elements expected based on data source and no access operation fails")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-			rc := assembleRunnerConfigForBatchTestLoop(1, 12, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 12, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 			populateDummyHzMapStore(&ms)
 
-			statusRecord := map[statusKey]int{
-				statusKeyNumFailedReads: 0,
-				statusKeyNumNilReads:    0,
-			}
 			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, mapBaseName, 0)
 			tl.gatherer.StopListen()
@@ -2632,8 +2667,8 @@ func TestReadAll(t *testing.T) {
 
 			msg := "\t\tstatus gatherer must indicate zero failed operations"
 			statusCopy := tl.gatherer.AssembleStatusCopy()
-			for k, v := range statusRecord {
-				if ok, detail := expectedStatusPresent(statusCopy, k, v); ok {
+			for _, v := range counters {
+				if ok, detail := expectedStatusPresent(statusCopy, v, 0); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -2660,7 +2695,7 @@ func TestReadAll(t *testing.T) {
 		t.Log("\twhen get invocation yields error")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
-			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			go tl.gatherer.Listen()
@@ -2688,7 +2723,7 @@ func TestReadAll(t *testing.T) {
 		t.Log("\twhen map contains elements and get yields no error, but retrieved value is nil")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
@@ -2722,6 +2757,43 @@ func TestReadAll(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 		}
+
+		t.Log("\twhen sleep after batch action is enabled")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				&sleepConfig{
+					enabled: true,
+				},
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			populateDummyHzMapStore(&ms)
+
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen()
+			err := tl.readAll(ms.m, "yet-another-awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
 }
 
@@ -2732,7 +2804,7 @@ func TestRemoveSome(t *testing.T) {
 		t.Log("\twhen remove operation does not yield error")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			populateDummyHzMapStore(&ms)
@@ -2763,7 +2835,7 @@ func TestRemoveSome(t *testing.T) {
 		t.Log("\twhen remove operation yields error")
 		{
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
-			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled)
+			rc := assembleRunnerConfigForBatchTestLoop(1, 9, sleepConfigDisabled, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
 
 			populateDummyHzMapStore(&ms)
@@ -2786,6 +2858,42 @@ func TestRemoveSome(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
+			}
+		}
+		t.Log("\twhen sleep after batch action is enabled")
+		{
+			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				uint16(1),
+				uint32(9),
+				sleepConfigDisabled,
+				&sleepConfig{
+					enabled: true,
+				},
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			populateDummyHzMapStore(&ms)
+
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen()
+			err := tl.removeSome(ms.m, "yet-another-awesome-map", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
@@ -2970,11 +3078,12 @@ func assembleRunnerConfigForBatchTestLoop(
 	numMaps uint16,
 	numRuns uint32,
 	sleepBetweenRuns *sleepConfig,
+	sleepAfterChainAction *sleepConfig,
 	sleepBetweenActionBatches *sleepConfig,
 ) *runnerConfig {
 
 	c := assembleBaseRunnerConfig(numMaps, numRuns, sleepBetweenRuns)
-	c.batch = &batchTestLoopConfig{sleepBetweenActionBatches}
+	c.batch = &batchTestLoopConfig{sleepAfterChainAction, sleepBetweenActionBatches}
 
 	return c
 

@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.11.0
-  digest: 97ad54bf004b09cbeec70718078984b40a0f39056cce785ceaa9638a75696bc2
+  tag: 0.12.0
+  digest: 7f7223ed8b34d796a20a664b0b61eecd37771399d960fc0819fae900e22513b7
   pullPolicy: IfNotPresent
 
 resources:
@@ -26,8 +26,8 @@ env:
   # Can be IP addresses or Kubernetes services names
   # Accepts multiple comma-separated values ("service1,service2,service3")
   hzMembers: "hazelcastimdg"
-  # Set this to TRACE if you want to make the people running your IT department's logging platform very angry
-  logLevel: INFO
+  # Set this to TRACE if you want to make the people running your IT department's logging platform very upset
+  logLevel: TRACE
 
 features:
   # Only set this to false if no chaos monkey runs with the 'k8sInCluster' hazelcast member access mode
@@ -177,6 +177,10 @@ config:
         type: boundary
         batch:
           sleeps:
+            afterBatchAction:
+              enabled: true
+              durationMs: 50
+              enableRandomness: true
             betweenActionBatches:
               enabled: true
               durationMs: 5000
@@ -226,6 +230,10 @@ config:
         type: boundary
         batch:
           sleeps:
+            afterBatchAction:
+              enabled: true
+              durationMs: 50
+              enableRandomness: false
             betweenActionBatches:
               enabled: true
               durationMs: 2000
