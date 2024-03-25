@@ -165,78 +165,6 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 }
 
-func TestPopulateLocalCache(t *testing.T) {
-
-	t.Log("given a method to populate the boundary test loop's local key cache")
-	{
-		mapName := "ht_" + mapBaseName
-		t.Log("\twhen retrieving the key set is successful")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-			populateDummyHzMapStore(&ms)
-
-			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tresult must contain keys from map"
-			if len(keys) > 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-
-		t.Log("\twhen retrieved key set is empty")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-
-			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\treturned map must be empty, too"
-			if len(keys) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-
-		t.Log("\twhen key set retrieval fails")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGetKeySet: true})
-
-			keys, err := queryRemoteMapKeys(context.TODO(), ms.m, mapName, 0)
-
-			msg := "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\treturned map must be empty"
-			if len(keys) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-	}
-
-}
-
 func TestChooseRandomElementFromSourceData(t *testing.T) {
 
 	t.Log("given a populated source data as part of the test loop execution's state")
@@ -510,110 +438,6 @@ func TestAssemblePredicate(t *testing.T) {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%s', got '%s'", expectedFilter, actualFilter))
 			}
 
-		}
-	}
-
-}
-
-func TestQueryRemoteMapKeys(t *testing.T) {
-
-	t.Log("given a function to query a remote hazelcast map for keys")
-	{
-		t.Log("\twhen remote map contains entries matching predicate")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-
-			// Insert elements matching own client ID and map number predicate --> Result must contain these
-			populateDummyHzMapStore(&ms)
-
-			// Insert some elements matching own client ID, but not own map number --> Must not be contained in result
-			elementFromSourceData := theFellowship[0]
-			otherMapNumber := 42
-			ms.m.data.Store(fmt.Sprintf("%s-%d-%s", client.ID(), otherMapNumber, elementFromSourceData), elementFromSourceData)
-
-			// Insert elements matching own map number, but not own client ID --> Must be not contained in result
-			otherClientID := uuid.New()
-			ownMapNumber := uint16(0)
-			ms.m.data.Store(fmt.Sprintf("%s-%d-%s", otherClientID, ownMapNumber, elementFromSourceData), elementFromSourceData)
-
-			// Insert elements matching neither client ID nor map number --> Must not be contained in result
-			ms.m.data.Store(fmt.Sprintf("%s-%d-%s", otherClientID, otherMapNumber, elementFromSourceData), elementFromSourceData)
-
-			queriedKeys, err := queryRemoteMapKeys(context.TODO(), ms.m, "", ownMapNumber)
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tnumber of queried keys must be equal to length of source data"
-			if len(queriedKeys) == len(theFellowship) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d elements, got %d", len(theFellowship), len(queriedKeys)))
-			}
-
-			msg = "\t\tqueried keys map must contain only elements matching own client ID and map number"
-			containsOnlyMatchingKeys := true
-			for k := range queriedKeys {
-				if !strings.HasPrefix(k, fmt.Sprintf("%s-%d", client.ID(), ownMapNumber)) {
-					containsOnlyMatchingKeys = false
-				}
-			}
-
-			if containsOnlyMatchingKeys {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-
-		t.Log("\twhen remote map does not contain entries matching predicate")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
-
-			ms.m.data.Store("dumbledore", "wrong franchise, mate")
-
-			queriedKeys, err := queryRemoteMapKeys(context.TODO(), ms.m, "", 0)
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tset of queried keys must be empty"
-			if len(queriedKeys) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 keys, got %d", len(queriedKeys)))
-			}
-		}
-
-		t.Log("\twhen querying key set yields error")
-		{
-			ms := assembleDummyMapStore(&dummyMapStoreBehavior{
-				returnErrorUponGetKeySet: true,
-			})
-
-			queriedKeys, err := queryRemoteMapKeys(context.TODO(), ms.m, "", 0)
-
-			msg := "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tset of queried keys must be empty"
-			if len(queriedKeys) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 keys, got %d", len(queriedKeys)))
-			}
 		}
 	}
 
@@ -1488,13 +1312,6 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, ms.m.setInvocations)
-					}
-
-					msg = "\t\t\t\tremote map must have been queried for keys exactly once"
-					if ms.m.getKeySetInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, ms.m.sizeInvocations)
 					}
 
 					msg = "\t\t\t\tnumber of get invocations must be equal to number of set invocations minus one"
@@ -3010,7 +2827,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms
 }
 
 type dummyMapStoreBehavior struct {
-	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponGetKeySet, returnErrorUponRemoveAll bool
+	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll bool
 }
 
 func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *boundaryMonitoring) dummyHzMapStore {
@@ -3033,7 +2850,6 @@ func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
 			returnErrorUponSet:         b.returnErrorUponSet,
 			returnErrorUponContainsKey: b.returnErrorUponContainsKey,
 			returnErrorUponRemove:      b.returnErrorUponRemove,
-			returnErrorUponGetKeySet:   b.returnErrorUponGetKeySet,
 			returnErrorUponRemoveAll:   b.returnErrorUponRemoveAll,
 		},
 		returnErrorUponGetMap: b.returnErrorUponGetMap,

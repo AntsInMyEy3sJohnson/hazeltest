@@ -34,7 +34,6 @@ type (
 		removeInvocations                         int
 		destroyInvocations                        int
 		sizeInvocations                           int
-		getKeySetInvocations                      int
 		removeAllInvocations                      int
 		lastPredicateFilterForRemoveAllInvocation string
 		data                                      *sync.Map
@@ -42,7 +41,6 @@ type (
 		returnErrorUponSet                        bool
 		returnErrorUponContainsKey                bool
 		returnErrorUponRemove                     bool
-		returnErrorUponGetKeySet                  bool
 		returnErrorUponRemoveAll                  bool
 		bm                                        *boundaryMonitoring
 	}
@@ -258,32 +256,6 @@ func (m *dummyHzMap) Size(_ context.Context) (int, error) {
 func extractFilterFromPredicate(p predicate.Predicate) string {
 
 	return strings.ReplaceAll(strings.Fields(p.String())[2], "%)", "")
-
-}
-
-func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predicate.Predicate) ([]any, error) {
-
-	if m.returnErrorUponGetKeySet {
-		return nil, errors.New("poof!")
-	}
-
-	var result []any
-
-	predicateFilter := extractFilterFromPredicate(predicate)
-
-	dummyMapOperationLock.Lock()
-	{
-		m.getKeySetInvocations++
-		applyFunctionToDummyMapContents(m, func(key, value any) bool {
-			if strings.HasPrefix(key.(string), predicateFilter) {
-				result = append(result, key)
-			}
-			return true
-		})
-	}
-	dummyMapOperationLock.Unlock()
-
-	return result, nil
 
 }
 
