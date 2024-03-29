@@ -25,6 +25,7 @@ type (
 		mapPrefix               string
 		appendMapIndexToMapName bool
 		appendClientIdToMapName bool
+		evictMapPriorToRun      bool
 		sleepBetweenRuns        *sleepConfig
 		loopType                runnerLoopType
 		boundary                *boundaryTestLoopConfig
