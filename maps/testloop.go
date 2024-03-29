@@ -558,6 +558,11 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
+			if tle.runnerConfig.evictMapPriorToRun {
+				if err := m.EvictAll(tle.ctx); err != nil {
+					lp.LogHzEvent(fmt.Sprintf("unable to evict map '%s' prior to run due to error (%v) -- commencing execution anyway", mapName, err), log.WarnLevel)
+				}
+			}
 			runFunc(m, mapName, i)
 		}(i)
 	}

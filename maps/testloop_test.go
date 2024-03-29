@@ -529,12 +529,126 @@ func TestRunWrapper(t *testing.T) {
 
 			waitForStatusGatheringDone(tl.gatherer)
 
-			msg := "\t\tstatus gatherer must contain initial state: %s"
+			sc := tl.gatherer.AssembleStatusCopy()
+
+			msg := "\t\tstatus gatherer must contain initial runner state: %s"
+			if sc[string(statusKeyNumMaps)].(uint16) == numMaps {
+				t.Log(fmt.Sprintf(msg, statusKeyNumMaps), checkMark)
+			} else {
+				t.Fatal(fmt.Sprintf(msg, statusKeyNumMaps), ballotX)
+			}
+
+			if sc[string(statusKeyNumRuns)].(uint32) == numRuns {
+				t.Log(fmt.Sprintf(msg, statusKeyNumRuns), checkMark)
+			} else {
+				t.Fatal(fmt.Sprintf(msg, statusKeyNumRuns), ballotX)
+			}
+
+			if sc[string(statusKeyTotalNumRuns)].(uint32) == uint32(numMaps)*numRuns {
+				t.Log(fmt.Sprintf(msg, statusKeyTotalNumRuns), checkMark)
+			} else {
+				t.Fatal(fmt.Sprintf(msg, statusKeyTotalNumRuns), ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must contain initial test loop state: %s"
 			for _, v := range []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumFailedRemoves, statusKeyNumNilReads} {
 				if ok, detail := expectedStatusPresent(sc, v, 0); ok {
 					t.Log(fmt.Sprintf(msg, v), checkMark)
 				} else {
 					t.Fatal(fmt.Sprintf(msg, v), ballotX, detail)
+				}
+			}
+		}
+
+		t.Log("\twhen evict target map prior to execution is enabled")
+		{
+			t.Log("\t\twhen evict all is successful")
+			{
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{
+						numMaps:            1,
+						numRuns:            1,
+						evictMapPriorToRun: true,
+						sleepBetweenRuns:   sleepConfigDisabled,
+					},
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+				)
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				populateDummyHzMapStore(&ms)
+
+				go tl.gatherer.Listen()
+				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+					return "banana"
+				}, func(h hzMap, s string, u uint16) {
+					// No-op
+				})
+				tl.gatherer.StopListen()
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg := "\tevict all must have been called once"
+				if ms.m.evictAllInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.m.evictAllInvocations)
+				}
+
+				msg = "\tmap must be empty"
+				elementsInMap := 0
+				ms.m.data.Range(func(key, value any) bool {
+					elementsInMap++
+					return true
+				})
+
+				if elementsInMap == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, elementsInMap)
+				}
+
+			}
+
+			t.Log("\t\twhen evict all is unsuccessful")
+			{
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{
+						numMaps:            1,
+						numRuns:            1,
+						evictMapPriorToRun: true,
+						sleepBetweenRuns:   sleepConfigDisabled,
+					},
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+				)
+				ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponEvictAll: true})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				populateDummyHzMapStore(&ms)
+
+				go tl.gatherer.Listen()
+				runFuncCalled := false
+				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+					return "banana"
+				}, func(h hzMap, s string, u uint16) {
+					runFuncCalled = true
+				})
+				tl.gatherer.StopListen()
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg := "\tevict all must have been called once"
+				if ms.m.evictAllInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.m.evictAllInvocations)
+				}
+
+				msg = "\trun func must have been called anyway"
+				if runFuncCalled {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
 				}
 			}
 		}
@@ -3104,7 +3218,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms
 }
 
 type dummyMapStoreBehavior struct {
-	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll bool
+	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll, returnErrorUponEvictAll bool
 }
 
 type runnerProperties struct {
@@ -3135,6 +3249,7 @@ func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
 			returnErrorUponContainsKey: b.returnErrorUponContainsKey,
 			returnErrorUponRemove:      b.returnErrorUponRemove,
 			returnErrorUponRemoveAll:   b.returnErrorUponRemoveAll,
+			returnErrorUponEvictAll:    b.returnErrorUponEvictAll,
 		},
 		returnErrorUponGetMap: b.returnErrorUponGetMap,
 	}
