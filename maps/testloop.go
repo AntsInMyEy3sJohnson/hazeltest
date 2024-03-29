@@ -245,6 +245,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 	mc := &modeCache{}
 	ac := &actionCache{}
+	keysCache := make(map[string]struct{})
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
 
@@ -253,10 +254,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		if i > 0 && i%updateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
-
-		keysCache := make(map[string]struct{})
-
-		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
 		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
@@ -558,7 +555,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			if tle.runnerConfig.evictMapPriorToRun {
+			if tle.runnerConfig.evictMapsPriorToRun {
 				if err := m.EvictAll(tle.ctx); err != nil {
 					lp.LogHzEvent(fmt.Sprintf("unable to evict map '%s' prior to run due to error (%v) -- commencing execution anyway", mapName, err), log.WarnLevel)
 				}
