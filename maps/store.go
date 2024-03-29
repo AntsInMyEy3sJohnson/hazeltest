@@ -15,8 +15,8 @@ type (
 		Remove(ctx context.Context, key any) (any, error)
 		Destroy(ctx context.Context) error
 		Size(ctx context.Context) (int, error)
-		GetKeySetWithPredicate(ctx context.Context, predicate predicate.Predicate) ([]any, error)
 		RemoveAll(ctx context.Context, predicate predicate.Predicate) error
+		EvictAll(ctx context.Context) error
 	}
 	hzMapStore interface {
 		client.HzClientInitializer

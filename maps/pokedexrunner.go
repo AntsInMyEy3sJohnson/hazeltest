@@ -129,7 +129,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 	r.appendState(raiseReadyComplete)
 
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogRunnerEvent("starting pokedex maps loop", log.InfoLevel)
+	lp.LogRunnerEvent("starting pokedex test loop for maps", log.InfoLevel)
 
 	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID}
 

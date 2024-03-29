@@ -25,6 +25,7 @@ type (
 		mapPrefix               string
 		appendMapIndexToMapName bool
 		appendClientIdToMapName bool
+		evictMapsPriorToRun     bool
 		sleepBetweenRuns        *sleepConfig
 		loopType                runnerLoopType
 		boundary                *boundaryTestLoopConfig
@@ -395,6 +396,13 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
+	var evictMapsPriorToRun bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".evictMapsPriorToRun", client.ValidateBool, func(a any) {
+			evictMapsPriorToRun = a.(bool)
+		})
+	})
+
 	var useMapPrefix bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".mapPrefix.enabled", client.ValidateBool, func(a any) {
@@ -470,6 +478,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		enabled:                 enabled,
 		numMaps:                 numMaps,
 		numRuns:                 numRuns,
+		evictMapsPriorToRun:     evictMapsPriorToRun,
 		mapBaseName:             b.mapBaseName,
 		useMapPrefix:            useMapPrefix,
 		mapPrefix:               mapPrefix,

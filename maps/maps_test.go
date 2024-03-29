@@ -34,17 +34,18 @@ type (
 		removeInvocations                         int
 		destroyInvocations                        int
 		sizeInvocations                           int
-		getKeySetInvocations                      int
 		removeAllInvocations                      int
+		evictAllInvocations                       int
 		lastPredicateFilterForRemoveAllInvocation string
-		data                                      *sync.Map
-		returnErrorUponGet                        bool
-		returnErrorUponSet                        bool
-		returnErrorUponContainsKey                bool
-		returnErrorUponRemove                     bool
-		returnErrorUponGetKeySet                  bool
-		returnErrorUponRemoveAll                  bool
-		bm                                        *boundaryMonitoring
+		// TODO Use regular map rather than sync.Map because access to dummyHzMap properties has to ge guarded by lock anyway
+		data                       *sync.Map
+		returnErrorUponGet         bool
+		returnErrorUponSet         bool
+		returnErrorUponContainsKey bool
+		returnErrorUponRemove      bool
+		returnErrorUponRemoveAll   bool
+		returnErrorUponEvictAll    bool
+		bm                         *boundaryMonitoring
 	}
 )
 
@@ -261,33 +262,12 @@ func extractFilterFromPredicate(p predicate.Predicate) string {
 
 }
 
-func (m *dummyHzMap) GetKeySetWithPredicate(_ context.Context, predicate predicate.Predicate) ([]any, error) {
-
-	if m.returnErrorUponGetKeySet {
-		return nil, errors.New("poof!")
-	}
-
-	var result []any
-
-	predicateFilter := extractFilterFromPredicate(predicate)
+func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
 
 	dummyMapOperationLock.Lock()
-	{
-		m.getKeySetInvocations++
-		applyFunctionToDummyMapContents(m, func(key, value any) bool {
-			if strings.HasPrefix(key.(string), predicateFilter) {
-				result = append(result, key)
-			}
-			return true
-		})
-	}
-	dummyMapOperationLock.Unlock()
+	defer dummyMapOperationLock.Unlock()
 
-	return result, nil
-
-}
-
-func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
+	m.removeAllInvocations++
 
 	if m.returnErrorUponRemoveAll {
 		return errors.New("i'm the error everyone told you was never going to happen")
@@ -295,18 +275,30 @@ func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate)
 
 	predicateFilter := extractFilterFromPredicate(predicate)
 
+	m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
+	applyFunctionToDummyMapContents(m, func(key, value any) bool {
+		if strings.HasPrefix(key.(string), predicateFilter) {
+			m.data.Delete(key)
+		}
+		return true
+	})
+
+	return nil
+
+}
+
+func (m *dummyHzMap) EvictAll(_ context.Context) error {
+
 	dummyMapOperationLock.Lock()
-	{
-		m.removeAllInvocations++
-		m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
-		applyFunctionToDummyMapContents(m, func(key, value any) bool {
-			if strings.HasPrefix(key.(string), predicateFilter) {
-				m.data.Delete(key)
-			}
-			return true
-		})
+	defer dummyMapOperationLock.Unlock()
+
+	m.evictAllInvocations++
+
+	if m.returnErrorUponEvictAll {
+		return errors.New("totally unexpected error")
 	}
-	dummyMapOperationLock.Unlock()
+
+	m.data = &sync.Map{}
 
 	return nil
 

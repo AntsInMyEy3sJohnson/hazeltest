@@ -102,7 +102,7 @@ platform:
             size: 50
         # Config for the Hazeltest maps
         ht_*:
-          backup-count: 0
+          backup-count: 1
           # Keep entries around for ten minutes
           max-idle-seconds: 600
           in-memory-format: BINARY

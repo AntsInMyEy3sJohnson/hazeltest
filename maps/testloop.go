@@ -203,7 +203,7 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 				return v, nil
 			}
 		}
-		// Getting to this point means that the 'insert' action was chose elsewhere despite the fact
+		// Getting to this point means that the 'insert' action was chosen elsewhere despite the fact
 		// that all elements have already been stored in cache. This case should not occur,
 		// but when it does nonetheless, it is not sufficiently severe to report an error
 		// and abort execution. So, in this case, we simply choose an element from the source data randomly.
@@ -239,33 +239,13 @@ func assemblePredicate(clientID uuid.UUID, mapNumber uint16) predicate.Predicate
 
 }
 
-func queryRemoteMapKeys(ctx context.Context, m hzMap, mapName string, mapNumber uint16) (map[string]struct{}, error) {
-
-	p := assemblePredicate(client.ID(), mapNumber)
-	lp.LogRunnerEvent(fmt.Sprintf("querying map keys for map '%s' in goroutine %d using predicate '%s'", mapName, mapNumber, p.String()), log.TraceLevel)
-	keySet, err := m.GetKeySetWithPredicate(ctx, p)
-
-	result := make(map[string]struct{})
-
-	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("unable to populate local cache because predicated query for key set on map '%s' was unsuccessful: %s", mapName, err.Error()), log.WarnLevel)
-		return result, err
-	}
-
-	for _, v := range keySet {
-		result[v.(string)] = struct{}{}
-	}
-
-	return result, nil
-
-}
-
 func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
 	mc := &modeCache{}
 	ac := &actionCache{}
+	keysCache := make(map[string]struct{})
 
 	for i := uint32(0); i < l.execution.runnerConfig.numRuns; i++ {
 
@@ -274,15 +254,6 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 		if i > 0 && i%updateStep == 0 {
 			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.execution.runnerConfig.numRuns, mapName, mapNumber), log.InfoLevel)
 		}
-
-		keysCache, err := queryRemoteMapKeys(l.execution.ctx, m, mapName, mapNumber)
-
-		if err != nil {
-			lp.LogRunnerEvent("populating local cache unsuccessful -- aborting since feature is not able to function without local cache", log.ErrorLevel)
-			return
-		}
-
-		lp.LogRunnerEvent(fmt.Sprintf("queried %d element/-s from target map '%s' on map goroutine %d -- using as local state", len(keysCache), mapName, mapNumber), log.TraceLevel)
 
 		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
 			lp.LogRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), log.WarnLevel)
@@ -584,6 +555,11 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
+			if tle.runnerConfig.evictMapsPriorToRun {
+				if err := m.EvictAll(tle.ctx); err != nil {
+					lp.LogHzEvent(fmt.Sprintf("unable to evict map '%s' prior to run due to error (%v) -- commencing execution anyway", mapName, err), log.WarnLevel)
+				}
+			}
 			runFunc(m, mapName, i)
 		}(i)
 	}

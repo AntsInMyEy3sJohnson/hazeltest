@@ -236,6 +236,11 @@ mapTests:
     appendClientIdToMapName: false
     # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
     numRuns: 10000
+    # Whether to evict all maps for this runner prior to the runner's test loop launching. For example, if 'numMaps' is
+    # 10, this property will ensure the maps the runner's test loop will act upon are evicted of all entries before
+    # the test loop starts. If the eviction invocation returns an error, a warning will be logged, but execution
+    # will commence anyway.
+    evictMapsPriorToRun: true
     mapPrefix:
       enabled: true
       # The prefix will be put in front of the map name as-is, so no additional underscores or other 
@@ -400,6 +405,7 @@ mapTests:
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
+    evictMapsPriorToRun: true
     mapPrefix:
       enabled: true
       prefix: "ht_"
@@ -435,13 +441,13 @@ mapTests:
             durationMs: 15000
             enableRandomness: false
         operationChain:
-          length: 500
-          resetAfterChain: false
+          length: 2000
+          resetAfterChain: true
           boundaryDefinition:
             upper:
-              mapFillPercentage: 0.7
+              mapFillPercentage: 0.9
               enableRandomness: true
             lower:
-              mapFillPercentage: 0.4
+              mapFillPercentage: 0.2
               enableRandomness: true
             actionTowardsBoundaryProbability: 0.9
