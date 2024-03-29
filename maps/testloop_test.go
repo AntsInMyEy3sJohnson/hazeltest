@@ -32,10 +32,10 @@ var (
 		enableRandomness: false,
 	}
 	rpOneMapOneRunNoEvictionScDisabled = &runnerProperties{
-		numMaps:            1,
-		numRuns:            1,
-		evictMapPriorToRun: false,
-		sleepBetweenRuns:   sleepConfigDisabled,
+		numMaps:             1,
+		numRuns:             1,
+		evictMapsPriorToRun: false,
+		sleepBetweenRuns:    sleepConfigDisabled,
 	}
 )
 
@@ -509,10 +509,10 @@ func TestRunWrapper(t *testing.T) {
 			numRuns := uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -566,10 +566,10 @@ func TestRunWrapper(t *testing.T) {
 			{
 				rc := assembleRunnerConfigForBatchTestLoop(
 					&runnerProperties{
-						numMaps:            1,
-						numRuns:            1,
-						evictMapPriorToRun: true,
-						sleepBetweenRuns:   sleepConfigDisabled,
+						numMaps:             1,
+						numRuns:             1,
+						evictMapsPriorToRun: true,
+						sleepBetweenRuns:    sleepConfigDisabled,
 					},
 					sleepConfigDisabled,
 					sleepConfigDisabled,
@@ -614,10 +614,10 @@ func TestRunWrapper(t *testing.T) {
 			{
 				rc := assembleRunnerConfigForBatchTestLoop(
 					&runnerProperties{
-						numMaps:            1,
-						numRuns:            1,
-						evictMapPriorToRun: true,
-						sleepBetweenRuns:   sleepConfigDisabled,
+						numMaps:             1,
+						numRuns:             1,
+						evictMapsPriorToRun: true,
+						sleepBetweenRuns:    sleepConfigDisabled,
 					},
 					sleepConfigDisabled,
 					sleepConfigDisabled,
@@ -1512,10 +1512,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						&runnerProperties{
-							numMaps:            numMaps,
-							numRuns:            numRuns,
-							evictMapPriorToRun: false,
-							sleepBetweenRuns:   sleepConfigDisabled,
+							numMaps:             numMaps,
+							numRuns:             numRuns,
+							evictMapsPriorToRun: false,
+							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
 						sleepConfigDisabled,
@@ -1553,10 +1553,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						&runnerProperties{
-							numMaps:            numMaps,
-							numRuns:            numRuns,
-							evictMapPriorToRun: false,
-							sleepBetweenRuns:   sleepConfigDisabled,
+							numMaps:             numMaps,
+							numRuns:             numRuns,
+							evictMapsPriorToRun: false,
+							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
 						sleepConfigDisabled,
@@ -1608,10 +1608,10 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					chainLength := 10 * len(theFellowship)
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						&runnerProperties{
-							numMaps:            numMaps,
-							numRuns:            numRuns,
-							evictMapPriorToRun: false,
-							sleepBetweenRuns:   sleepConfigDisabled,
+							numMaps:             numMaps,
+							numRuns:             numRuns,
+							evictMapsPriorToRun: false,
+							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
 						sleepConfigDisabled,
@@ -2242,10 +2242,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2295,10 +2295,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numMaps, numRuns := uint16(10), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2349,10 +2349,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2392,10 +2392,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numMaps, numRuns := uint16(1), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2442,10 +2442,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			numMaps, numRuns := uint16(0), uint32(1)
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            numMaps,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             numMaps,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2472,10 +2472,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			scBetweenActionBatches := &sleepConfig{}
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            20,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   scBetweenRuns,
+					numMaps:             1,
+					numRuns:             20,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    scBetweenRuns,
 				},
 				sleepConfigDisabled,
 				scBetweenActionBatches,
@@ -2517,10 +2517,10 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			scBetweenActionsBatches := &sleepConfig{enabled: true}
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            numRuns,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   scBetweenRuns,
+					numMaps:             1,
+					numRuns:             numRuns,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    scBetweenRuns,
 				},
 				sleepConfigDisabled,
 				scBetweenActionsBatches,
@@ -2567,10 +2567,10 @@ func TestIngestAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2621,10 +2621,10 @@ func TestIngestAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2678,10 +2678,10 @@ func TestIngestAll(t *testing.T) {
 			})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2734,10 +2734,10 @@ func TestIngestAll(t *testing.T) {
 			})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2769,10 +2769,10 @@ func TestIngestAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
 					enabled: true,
@@ -2814,10 +2814,10 @@ func TestReadAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            12,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             12,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2863,10 +2863,10 @@ func TestReadAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponGet: true})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2900,10 +2900,10 @@ func TestReadAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -2947,10 +2947,10 @@ func TestReadAll(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
 					enabled: true,
@@ -2993,10 +2993,10 @@ func TestRemoveSome(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -3033,10 +3033,10 @@ func TestRemoveSome(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{returnErrorUponRemove: true})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
 				sleepConfigDisabled,
@@ -3070,10 +3070,10 @@ func TestRemoveSome(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
-					numMaps:            1,
-					numRuns:            9,
-					evictMapPriorToRun: false,
-					sleepBetweenRuns:   sleepConfigDisabled,
+					numMaps:             1,
+					numRuns:             9,
+					evictMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
 					enabled: true,
@@ -3222,10 +3222,10 @@ type dummyMapStoreBehavior struct {
 }
 
 type runnerProperties struct {
-	numMaps            uint16
-	numRuns            uint32
-	evictMapPriorToRun bool
-	sleepBetweenRuns   *sleepConfig
+	numMaps             uint16
+	numRuns             uint32
+	evictMapsPriorToRun bool
+	sleepBetweenRuns    *sleepConfig
 }
 
 func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *boundaryMonitoring) dummyHzMapStore {
@@ -3311,7 +3311,7 @@ func assembleBaseRunnerConfig(rp *runnerProperties) *runnerConfig {
 		mapPrefix:               "ht_",
 		appendMapIndexToMapName: false,
 		appendClientIdToMapName: false,
-		evictMapPriorToRun:      rp.evictMapPriorToRun,
+		evictMapsPriorToRun:     rp.evictMapsPriorToRun,
 		sleepBetweenRuns:        rp.sleepBetweenRuns,
 		loopType:                boundary,
 		batch:                   nil,
