@@ -35,14 +35,17 @@ type (
 		destroyInvocations                        int
 		sizeInvocations                           int
 		removeAllInvocations                      int
+		evictAllInvocations                       int
 		lastPredicateFilterForRemoveAllInvocation string
-		data                                      *sync.Map
-		returnErrorUponGet                        bool
-		returnErrorUponSet                        bool
-		returnErrorUponContainsKey                bool
-		returnErrorUponRemove                     bool
-		returnErrorUponRemoveAll                  bool
-		bm                                        *boundaryMonitoring
+		// TODO Use regular map rather than sync.Map because access to dummyHzMap properties has to ge guarded by lock anyway
+		data                       *sync.Map
+		returnErrorUponGet         bool
+		returnErrorUponSet         bool
+		returnErrorUponContainsKey bool
+		returnErrorUponRemove      bool
+		returnErrorUponRemoveAll   bool
+		returnErrorUponEvictAll    bool
+		bm                         *boundaryMonitoring
 	}
 )
 
@@ -261,24 +264,41 @@ func extractFilterFromPredicate(p predicate.Predicate) string {
 
 func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
 
+	dummyMapOperationLock.Lock()
+	defer dummyMapOperationLock.Unlock()
+
+	m.removeAllInvocations++
+
 	if m.returnErrorUponRemoveAll {
 		return errors.New("i'm the error everyone told you was never going to happen")
 	}
 
 	predicateFilter := extractFilterFromPredicate(predicate)
 
+	m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
+	applyFunctionToDummyMapContents(m, func(key, value any) bool {
+		if strings.HasPrefix(key.(string), predicateFilter) {
+			m.data.Delete(key)
+		}
+		return true
+	})
+
+	return nil
+
+}
+
+func (m *dummyHzMap) EvictAll(_ context.Context) error {
+
 	dummyMapOperationLock.Lock()
-	{
-		m.removeAllInvocations++
-		m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
-		applyFunctionToDummyMapContents(m, func(key, value any) bool {
-			if strings.HasPrefix(key.(string), predicateFilter) {
-				m.data.Delete(key)
-			}
-			return true
-		})
+	defer dummyMapOperationLock.Unlock()
+
+	m.evictAllInvocations++
+
+	if m.returnErrorUponEvictAll {
+		return errors.New("totally unexpected error")
 	}
-	dummyMapOperationLock.Unlock()
+
+	m.data = &sync.Map{}
 
 	return nil
 
