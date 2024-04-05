@@ -74,6 +74,13 @@ chaosMonkeys:
       # sleep configuration explained above.
       enableRandomness: true
 
+stateCleaner:
+  maps:
+    enabled: true
+    prefix:
+      enabled: true
+      prefix: "ht_"
+
 queueTests:
   # 'queueTests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
