@@ -12,6 +12,7 @@ import (
 
 const ApiEvent = "api event"
 const RunnerEvent = "runner event"
+const StateCleanerEvent = "state cleaner event"
 const ChaosMonkeyEvent = "chaos monkey event"
 const TimingEvent = "timing event"
 const IoEvent = "io event"
@@ -99,6 +100,14 @@ func (lp *LogProvider) LogChaosMonkeyEvent(msg string, level log.Level) {
 
 	lp.doLog(msg, fields, level)
 
+}
+
+func (lp *LogProvider) LogStateCleanerEvent(msg string, level log.Level) {
+	fields := log.Fields{
+		"kind": StateCleanerEvent,
+	}
+
+	lp.doLog(msg, fields, level)
 }
 
 func (lp *LogProvider) LogRunnerEvent(msg string, level log.Level) {
