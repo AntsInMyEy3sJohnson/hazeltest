@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -9,13 +10,52 @@ type (
 	testConfigPropertyAssigner struct {
 		dummyConfig map[string]any
 	}
+	testCleanerBuilder struct {
+		buildInvocations int
+	}
+	testCleaner    struct{}
+	cleanerWatcher struct {
+		m                sync.Mutex
+		cleanInvocations int
+	}
 )
 
 const (
 	checkMark               = "\u2713"
 	ballotX                 = "\u2717"
 	mapStateCleanerBasePath = "stateCleaner.maps"
+	hzCluster               = "awesome-hz-cluster"
 )
+
+var (
+	hzMembers = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
+	cw        = cleanerWatcher{}
+)
+
+func (cw *cleanerWatcher) reset() {
+	cw.m = sync.Mutex{}
+
+	cw.cleanInvocations = 0
+}
+
+func (c *testCleaner) clean() error {
+
+	cw.m.Lock()
+	defer cw.m.Unlock()
+
+	cw.cleanInvocations++
+
+	fmt.Println("performing awesome cleaning work")
+	return nil
+
+}
+
+func (b *testCleanerBuilder) build() (cleaner, error) {
+
+	b.buildInvocations++
+	return &testCleaner{}, nil
+
+}
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
 
@@ -29,6 +69,48 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	}
 
 	return nil
+
+}
+
+func TestRunCleaners(t *testing.T) {
+
+	t.Log("given a function to invoke registered state cleaner builders")
+	{
+		t.Log("\twhen at least one state cleaner builder has registered")
+		{
+			t.Log("\t\twhen both build and clean invocations are successful")
+			{
+				b := &testCleanerBuilder{}
+				builders = []cleanerBuilder{b}
+
+				err := RunCleaners(hzCluster, hzMembers)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\tbuilder's build method must have been invoked once"
+				if b.buildInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, b.buildInvocations)
+				}
+
+				msg = "\t\tclean method must have been invoked once"
+				if cw.cleanInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanInvocations)
+				}
+
+				cw.reset()
+
+			}
+		}
+	}
 
 }
 
