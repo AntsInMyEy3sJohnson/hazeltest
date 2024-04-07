@@ -24,7 +24,7 @@ type (
 		a       client.ConfigPropertyAssigner
 	}
 	mapCleanerBuilder struct {
-		builder cleanerConfigBuilder
+		cfb cleanerConfigBuilder
 	}
 	mapCleaner struct {
 		keyPath string
@@ -49,7 +49,7 @@ func init() {
 func newMapCleanerBuilder() *mapCleanerBuilder {
 
 	return &mapCleanerBuilder{
-		builder: cleanerConfigBuilder{
+		cfb: cleanerConfigBuilder{
 			keyPath: baseKeyPath + ".maps",
 			a:       client.DefaultConfigPropertyAssigner{},
 		},
@@ -63,15 +63,15 @@ func register(cb cleanerBuilder) {
 
 func (b *mapCleanerBuilder) build() (cleaner, error) {
 
-	config, err := b.builder.populateConfig()
+	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.builder.keyPath, err), log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), log.ErrorLevel)
 		return nil, err
 	}
 
 	return &mapCleaner{
-		keyPath: b.builder.keyPath,
+		keyPath: b.cfb.keyPath,
 		c:       config,
 	}, nil
 
