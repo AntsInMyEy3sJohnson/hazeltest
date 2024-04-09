@@ -89,6 +89,45 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
+func TestMapCleanerBuilderBuild(t *testing.T) {
+
+	t.Log("given a method to build a map cleaner builder")
+	{
+		t.Log("\twhen populate config is successful")
+		{
+			b := newMapCleanerBuilder()
+			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
+
+			c, err := b.build()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tmap cleaner built must carry map state cleaner key path"
+			mc := c.(*mapCleaner)
+
+			if mc.keyPath == mapStateCleanerBasePath {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, mc.keyPath)
+			}
+
+			msg = "\t\tmap cleaner built must carry state cleaner config"
+			if mc.c != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
 func TestRunCleaners(t *testing.T) {
 
 	t.Log("given a function to invoke registered state cleaner builders")
@@ -171,45 +210,6 @@ func runTestCaseAndResetState(testFunc func()) {
 
 	defer cw.reset()
 	testFunc()
-
-}
-
-func TestMapCleanerBuilderBuild(t *testing.T) {
-
-	t.Log("given a method to build a map cleaner builder")
-	{
-		t.Log("\twhen populate config is successful")
-		{
-			b := newMapCleanerBuilder()
-			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
-
-			c, err := b.build()
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tmap cleaner built must carry map state cleaner key path"
-			mc := c.(*mapCleaner)
-
-			if mc.keyPath == mapStateCleanerBasePath {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, mc.keyPath)
-			}
-
-			msg = "\t\tmap cleaner built must carry state cleaner config"
-			if mc.c != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-		}
-	}
 
 }
 
