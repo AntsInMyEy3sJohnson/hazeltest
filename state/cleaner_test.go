@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -11,9 +12,15 @@ type (
 		dummyConfig map[string]any
 	}
 	testCleanerBuilder struct {
+		behavior         *testCleanerBehavior
 		buildInvocations int
 	}
-	testCleaner    struct{}
+	testCleanerBehavior struct {
+		throwErrorUponBuild, throwErrorUponClean bool
+	}
+	testCleaner struct {
+		behavior *testCleanerBehavior
+	}
 	cleanerWatcher struct {
 		m                sync.Mutex
 		cleanInvocations int
@@ -28,8 +35,10 @@ const (
 )
 
 var (
-	hzMembers = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
-	cw        = cleanerWatcher{}
+	hzMembers         = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
+	cw                = cleanerWatcher{}
+	cleanerBuildError = errors.New("something went terribly wrong when attempting to build the cleaner")
+	cleanerCleanError = errors.New("something went terribly wrong when attempting to clean state")
 )
 
 func (cw *cleanerWatcher) reset() {
@@ -45,7 +54,10 @@ func (c *testCleaner) clean() error {
 
 	cw.cleanInvocations++
 
-	fmt.Println("performing awesome cleaning work")
+	if c.behavior.throwErrorUponClean {
+		return cleanerCleanError
+	}
+
 	return nil
 
 }
@@ -53,7 +65,12 @@ func (c *testCleaner) clean() error {
 func (b *testCleanerBuilder) build() (cleaner, error) {
 
 	b.buildInvocations++
-	return &testCleaner{}, nil
+
+	if b.behavior.throwErrorUponBuild {
+		return nil, cleanerBuildError
+	}
+
+	return &testCleaner{behavior: b.behavior}, nil
 
 }
 
@@ -80,37 +97,80 @@ func TestRunCleaners(t *testing.T) {
 		{
 			t.Log("\t\twhen both build and clean invocations are successful")
 			{
-				b := &testCleanerBuilder{}
-				builders = []cleanerBuilder{b}
+				runTestCaseAndResetState(func() {
+					b := &testCleanerBuilder{behavior: &testCleanerBehavior{}}
+					builders = []cleanerBuilder{b}
 
-				err := RunCleaners(hzCluster, hzMembers)
+					err := RunCleaners(hzCluster, hzMembers)
 
-				msg := "\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, err)
-				}
+					msg := "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
 
-				msg = "\t\tbuilder's build method must have been invoked once"
-				if b.buildInvocations == 1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, b.buildInvocations)
-				}
+					msg = "\t\t\tbuilder's build method must have been invoked once"
+					if b.buildInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, b.buildInvocations)
+					}
 
-				msg = "\t\tclean method must have been invoked once"
-				if cw.cleanInvocations == 1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, cw.cleanInvocations)
-				}
-
-				cw.reset()
-
+					msg = "\t\t\tclean method must have been invoked once"
+					if cw.cleanInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, cw.cleanInvocations)
+					}
+				})
 			}
+			t.Log("\t\twhen build invocation yields error")
+			{
+				runTestCaseAndResetState(func() {
+					b := &testCleanerBuilder{behavior: &testCleanerBehavior{
+						throwErrorUponBuild: true,
+					}}
+					builders = []cleanerBuilder{b}
+
+					err := RunCleaners(hzCluster, hzMembers)
+
+					msg := "\t\t\terror during build must be returned"
+					if errors.Is(err, cleanerBuildError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+				})
+			}
+			t.Log("\t\twhen clean invocation yields error")
+			{
+				runTestCaseAndResetState(func() {
+					b := &testCleanerBuilder{behavior: &testCleanerBehavior{
+						throwErrorUponClean: true,
+					}}
+					builders = []cleanerBuilder{b}
+
+					err := RunCleaners(hzCluster, hzMembers)
+
+					msg := "\t\t\terror during clean must be returned"
+					if errors.Is(err, cleanerCleanError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+				})
+			}
+
 		}
 	}
+
+}
+
+func runTestCaseAndResetState(testFunc func()) {
+
+	defer cw.reset()
+	testFunc()
 
 }
 
