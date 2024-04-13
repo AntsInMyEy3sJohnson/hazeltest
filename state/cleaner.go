@@ -13,10 +13,10 @@ import (
 
 type (
 	cleanerBuilder interface {
-		build(hzCluster string, hzMembers []string) (cleaner, error)
+		build(ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error)
 	}
 	cleaner interface {
-		clean() error
+		clean(ctx context.Context) error
 	}
 	cleanerConfig struct {
 		enabled   bool
@@ -36,18 +36,30 @@ type (
 		hzMembers []string
 		keyPath   string
 		c         *cleanerConfig
-		mapStore  hzMapStore
+		ms        hzMapStore
+		ois       hzObjectInfoStore
+		ch        hzClientHandler
 	}
 	hzMap interface {
 		EvictAll(ctx context.Context) error
 	}
 	hzMapStore interface {
-		client.HzClientInitializer
 		GetMap(ctx context.Context, name string) (hzMap, error)
+	}
+	hzObjectInfoStore interface {
 		GetDistributedObjectsInfo(ctx context.Context) ([]types.DistributedObjectInfo, error)
+	}
+	hzClientHandler interface {
+		client.HzClientInitializer
 		client.HzClientCloser
 	}
 	defaultHzMapStore struct {
+		hzClient *hazelcast.Client
+	}
+	defaultHzObjectInfoStore struct {
+		hzClient *hazelcast.Client
+	}
+	defaultHzClientHandler struct {
 		hzClient *hazelcast.Client
 	}
 )
@@ -84,23 +96,28 @@ func register(cb cleanerBuilder) {
 	builders = append(builders, cb)
 }
 
-func (ms *defaultHzMapStore) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
-	ms.hzClient = client.NewHzClientHelper().AssembleHazelcastClient(ctx, clientName, hzCluster, hzMembers)
-}
-
-func (ms *defaultHzMapStore) Shutdown(ctx context.Context) error {
-	return ms.hzClient.Shutdown(ctx)
-}
-
 func (ms *defaultHzMapStore) GetMap(ctx context.Context, name string) (hzMap, error) {
+
 	return ms.hzClient.GetMap(ctx, name)
+
 }
 
-func (ms *defaultHzMapStore) GetDistributedObjectsInfo(ctx context.Context) ([]types.DistributedObjectInfo, error) {
-	return ms.hzClient.GetDistributedObjectsInfo(ctx)
+func (ois *defaultHzObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context) ([]types.DistributedObjectInfo, error) {
+
+	// TODO Wrap return type in interface
+	return ois.hzClient.GetDistributedObjectsInfo(ctx)
+
 }
 
-func (b *mapCleanerBuilder) build(hzCluster string, hzMembers []string) (cleaner, error) {
+func (ch *defaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
+	ch.hzClient = client.NewHzClientHelper().AssembleHazelcastClient(ctx, clientName, hzCluster, hzMembers)
+}
+
+func (ch *defaultHzClientHandler) Shutdown(ctx context.Context) error {
+	return ch.hzClient.Shutdown(ctx)
+}
+
+func (b *mapCleanerBuilder) build(ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -109,27 +126,30 @@ func (b *mapCleanerBuilder) build(hzCluster string, hzMembers []string) (cleaner
 		return nil, err
 	}
 
+	ch := &defaultHzClientHandler{}
+	clientName := "mapStateCleaner"
+	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
+
 	return &mapCleaner{
 		name:      "mapStateCleaner",
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
 		c:         config,
-		mapStore:  &defaultHzMapStore{},
+		ms:        &defaultHzMapStore{ch.hzClient},
+		ois:       &defaultHzObjectInfoStore{ch.hzClient},
+		ch:        ch,
 	}, nil
 
 }
 
-func (c *mapCleaner) clean() error {
+func (c *mapCleaner) clean(ctx context.Context) error {
 
-	ctx := context.TODO()
 	defer func() {
-		_ = c.mapStore.Shutdown(ctx)
+		_ = c.ch.Shutdown(ctx)
 	}()
 
-	c.mapStore.InitHazelcastClient(ctx, c.name, c.hzCluster, c.hzMembers)
-
-	infoList, err := c.mapStore.GetDistributedObjectsInfo(ctx)
+	infoList, err := c.ois.GetDistributedObjectsInfo(ctx)
 
 	if err != nil {
 		return err
@@ -146,7 +166,7 @@ func (c *mapCleaner) clean() error {
 
 	var cleanedMaps []string
 	for _, mapName := range mapNames {
-		hzMap, err := c.mapStore.GetMap(ctx, mapName)
+		hzMap, err := c.ms.GetMap(ctx, mapName)
 		if err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean map '%s' due to error upon retrieval of map object from Hazelcast cluster: %v", mapName, err), log.ErrorLevel)
 			return err
@@ -171,16 +191,20 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 	for _, b := range builders {
 
-		c, err := b.build(hzCluster, hzMembers)
+		ctx := context.TODO()
+
+		c, err := b.build(ctx, hzCluster, hzMembers)
 		if err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder due to error: %v", err), log.ErrorLevel)
 			return err
 		}
 
-		if err := c.clean(); err != nil {
+		if err := c.clean(ctx); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean state: %v", err), log.ErrorLevel)
 			return err
 		}
+
+		ctx.Done()
 	}
 
 	return nil
