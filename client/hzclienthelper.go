@@ -27,7 +27,7 @@ func NewHzClientHelper() HzClientHelper {
 	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}
 }
 
-func (h HzClientHelper) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
+func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
 
 	hzConfig := &hazelcast.Config{}
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, clientName)

@@ -33,7 +33,7 @@ func (d *defaultHzMapStore) Shutdown(ctx context.Context) error {
 }
 
 func (d *defaultHzMapStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.hzClient = client.NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+	d.hzClient = client.NewHzClientHelper().AssembleHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
 }
 
 func (d *defaultHzMapStore) GetMap(ctx context.Context, name string) (hzMap, error) {
