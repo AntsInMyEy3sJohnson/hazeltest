@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/chaos"
@@ -8,6 +9,7 @@ import (
 	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
+	"hazeltest/state"
 	"os"
 	"strings"
 	"sync"
@@ -15,21 +17,30 @@ import (
 
 func main() {
 
+	lp := &logging.LogProvider{ClientID: client.ID()}
+
 	if err := client.ParseConfigs(); err != nil {
-		logConfigurationError("N/A", "config file", err.Error())
+		// Logging with fatal level will cause the application to exit.
+		lp.LogConfigEvent("N/A", "config file", fmt.Sprintf("encountered error upon attempt to parse client configs: %v", err), log.FatalLevel)
 	}
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
-		logConfigurationError("HZ_CLUSTER", "environment variables", "HZ_CLUSTER environment variable must be provided")
+		lp.LogConfigEvent("HZ_CLUSTER", "environment variables", "HZ_CLUSTER environment variable must be provided", log.FatalLevel)
 	}
 
 	hzMembers := os.Getenv("HZ_MEMBERS")
 	if hzMembers == "" {
-		logConfigurationError("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided")
+		lp.LogConfigEvent("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided", log.FatalLevel)
 	}
 
 	hzMemberList := strings.Split(hzMembers, ",")
+
+	// Cleaners have to be run synchronously to make sure state has been evicted from
+	// target Hazelcast cluster prior to start of load tests
+	if err := state.RunCleaners(hzCluster, hzMemberList); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean state in target Hazelcast cluster: %v", err), log.FatalLevel)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -57,16 +68,5 @@ func main() {
 	}()
 
 	wg.Wait()
-
-}
-
-func logConfigurationError(configValue string, source string, msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.ConfigurationEvent,
-		"value":  configValue,
-		"source": source,
-		"client": client.ID(),
-	}).Fatal(msg)
 
 }
