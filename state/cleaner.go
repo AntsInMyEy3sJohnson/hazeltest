@@ -4,11 +4,42 @@ import (
 	"context"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/hazelcast/hazelcast-go-client/types"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"strings"
+)
+
+type (
+	hzMap interface {
+		EvictAll(ctx context.Context) error
+	}
+	hzMapStore interface {
+		GetMap(ctx context.Context, name string) (hzMap, error)
+	}
+	hzObjectInfoStore interface {
+		GetDistributedObjectsInfo(ctx context.Context) ([]hzObjectInfo, error)
+	}
+	hzClientHandler interface {
+		client.HzClientInitializer
+		client.HzClientCloser
+	}
+	hzObjectInfo interface {
+		getName() string
+		getServiceName() string
+	}
+	defaultHzMapStore struct {
+		hzClient *hazelcast.Client
+	}
+	defaultHzObjectInfoStore struct {
+		hzClient *hazelcast.Client
+	}
+	defaultHzClientHandler struct {
+		hzClient *hazelcast.Client
+	}
+	simpleObjectInfo struct {
+		name, serviceName string
+	}
 )
 
 type (
@@ -39,28 +70,6 @@ type (
 		ms        hzMapStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
-	}
-	hzMap interface {
-		EvictAll(ctx context.Context) error
-	}
-	hzMapStore interface {
-		GetMap(ctx context.Context, name string) (hzMap, error)
-	}
-	hzObjectInfoStore interface {
-		GetDistributedObjectsInfo(ctx context.Context) ([]types.DistributedObjectInfo, error)
-	}
-	hzClientHandler interface {
-		client.HzClientInitializer
-		client.HzClientCloser
-	}
-	defaultHzMapStore struct {
-		hzClient *hazelcast.Client
-	}
-	defaultHzObjectInfoStore struct {
-		hzClient *hazelcast.Client
-	}
-	defaultHzClientHandler struct {
-		hzClient *hazelcast.Client
 	}
 )
 
@@ -96,16 +105,43 @@ func register(cb cleanerBuilder) {
 	builders = append(builders, cb)
 }
 
+func (i simpleObjectInfo) getName() string {
+
+	return i.name
+
+}
+
+func (i simpleObjectInfo) getServiceName() string {
+
+	return i.serviceName
+
+}
+
 func (ms *defaultHzMapStore) GetMap(ctx context.Context, name string) (hzMap, error) {
 
 	return ms.hzClient.GetMap(ctx, name)
 
 }
 
-func (ois *defaultHzObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context) ([]types.DistributedObjectInfo, error) {
+func (ois *defaultHzObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context) ([]hzObjectInfo, error) {
 
-	// TODO Wrap return type in interface
-	return ois.hzClient.GetDistributedObjectsInfo(ctx)
+	infos, err := ois.hzClient.GetDistributedObjectsInfo(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var result []hzObjectInfo
+
+	for _, v := range infos {
+		i := &simpleObjectInfo{
+			name:        v.Name,
+			serviceName: v.ServiceName,
+		}
+		result = append(result, i)
+	}
+
+	return result, nil
 
 }
 
@@ -157,10 +193,10 @@ func (c *mapCleaner) clean(ctx context.Context) error {
 
 	var mapNames []string
 	for _, distributedObjectInfo := range infoList {
-		objectName := distributedObjectInfo.Name
-		if distributedObjectInfo.ServiceName == hzMapService && !strings.HasPrefix(objectName, hzInternalMapPrefix) {
-			lp.LogStateCleanerEvent(fmt.Sprintf("identified the following map to evict: %s", distributedObjectInfo.Name), log.TraceLevel)
-			mapNames = append(mapNames, distributedObjectInfo.Name)
+		objectName := distributedObjectInfo.getName()
+		if distributedObjectInfo.getServiceName() == hzMapService && !strings.HasPrefix(objectName, hzInternalMapPrefix) {
+			lp.LogStateCleanerEvent(fmt.Sprintf("identified the following map to evict: %s", objectName), log.TraceLevel)
+			mapNames = append(mapNames, objectName)
 		}
 	}
 
