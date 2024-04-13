@@ -16,7 +16,7 @@ type (
 		lp       *logging.LogProvider
 	}
 	HzClientInitializer interface {
-		InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
+		InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string)
 	}
 	HzClientCloser interface {
 		Shutdown(ctx context.Context) error
