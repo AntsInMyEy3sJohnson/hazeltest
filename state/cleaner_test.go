@@ -62,7 +62,7 @@ func (c *testCleaner) clean() error {
 
 }
 
-func (b *testCleanerBuilder) build() (cleaner, error) {
+func (b *testCleanerBuilder) build(_ string, _ []string) (cleaner, error) {
 
 	b.buildInvocations++
 
@@ -98,7 +98,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			b := newMapCleanerBuilder()
 			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
 
-			c, err := b.build()
+			c, err := b.build(hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -122,7 +122,6 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
-
 		}
 	}
 

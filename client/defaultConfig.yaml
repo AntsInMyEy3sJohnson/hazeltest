@@ -79,6 +79,10 @@ stateCleaner:
     enabled: true
     prefix:
       enabled: true
+      # Caution: The map state cleaner will not evict maps internal to Hazelcast itself. Such maps start with a prefix
+      # of two underscores, and the map state cleaner will skip all such maps even if two underscores have been
+      # explicitly provided using the property below. Therefore, it is advisable not to use map starting with this
+      # prefix as regular payload maps.
       prefix: "ht_"
 
 queueTests:
