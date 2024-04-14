@@ -21,6 +21,7 @@ type (
 		GetDistributedObjectsInfo(ctx context.Context) ([]hzObjectInfo, error)
 	}
 	hzClientHandler interface {
+		getClient() *hazelcast.Client
 		client.HzClientInitializer
 		client.HzClientCloser
 	}
@@ -44,7 +45,7 @@ type (
 
 type (
 	cleanerBuilder interface {
-		build(ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error)
+		build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error)
 	}
 	cleaner interface {
 		clean(ctx context.Context) error
@@ -153,7 +154,11 @@ func (ch *defaultHzClientHandler) Shutdown(ctx context.Context) error {
 	return ch.hzClient.Shutdown(ctx)
 }
 
-func (b *mapCleanerBuilder) build(ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error) {
+func (ch *defaultHzClientHandler) getClient() *hazelcast.Client {
+	return ch.hzClient
+}
+
+func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -162,7 +167,6 @@ func (b *mapCleanerBuilder) build(ctx context.Context, hzCluster string, hzMembe
 		return nil, err
 	}
 
-	ch := &defaultHzClientHandler{}
 	clientName := "mapStateCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
@@ -172,8 +176,8 @@ func (b *mapCleanerBuilder) build(ctx context.Context, hzCluster string, hzMembe
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
 		c:         config,
-		ms:        &defaultHzMapStore{ch.hzClient},
-		ois:       &defaultHzObjectInfoStore{ch.hzClient},
+		ms:        &defaultHzMapStore{ch.getClient()},
+		ois:       &defaultHzObjectInfoStore{ch.getClient()},
 		ch:        ch,
 	}, nil
 
@@ -229,7 +233,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 		ctx := context.TODO()
 
-		c, err := b.build(ctx, hzCluster, hzMembers)
+		c, err := b.build(&defaultHzClientHandler{}, ctx, hzCluster, hzMembers)
 		if err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder due to error: %v", err), log.ErrorLevel)
 			return err

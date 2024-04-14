@@ -1,8 +1,10 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client"
 	"sync"
 	"testing"
 )
@@ -25,6 +27,9 @@ type (
 		m                sync.Mutex
 		cleanInvocations int
 	}
+	testHzClientHandler struct {
+		hzClient *hazelcast.Client
+	}
 )
 
 const (
@@ -41,13 +46,25 @@ var (
 	cleanerCleanError = errors.New("something went terribly wrong when attempting to clean state")
 )
 
+func (ch *testHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	// no-op
+}
+
+func (ch *testHzClientHandler) Shutdown(_ context.Context) error {
+	return nil
+}
+
+func (ch *testHzClientHandler) getClient() *hazelcast.Client {
+	return nil
+}
+
 func (cw *cleanerWatcher) reset() {
 	cw.m = sync.Mutex{}
 
 	cw.cleanInvocations = 0
 }
 
-func (c *testCleaner) clean() error {
+func (c *testCleaner) clean(_ context.Context) error {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -62,7 +79,7 @@ func (c *testCleaner) clean() error {
 
 }
 
-func (b *testCleanerBuilder) build(_ string, _ []string) (cleaner, error) {
+func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ string, _ []string) (cleaner, error) {
 
 	b.buildInvocations++
 
@@ -98,7 +115,8 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			b := newMapCleanerBuilder()
 			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
 
-			c, err := b.build(hzCluster, hzMembers)
+			tch := &testHzClientHandler{}
+			c, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
