@@ -140,6 +140,27 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tmap cleaner built must carry hazelcast map store"
+			if mc.ms != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap cleaner built must carry hazelcast object info store"
+			if mc.ois != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap cleaner built must carry hazelcast client handler"
+			if mc.ch != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 	}
 
