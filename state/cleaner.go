@@ -183,11 +183,21 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzClu
 
 }
 
+// TODO Test case: Even when prefix usage has been disabled, the cleaner must still leave Hazelcast-internal maps untouched
+
 func (c *mapCleaner) clean(ctx context.Context) error {
 
 	defer func() {
 		_ = c.ch.Shutdown(ctx)
 	}()
+
+	if !c.c.enabled {
+		// TODO Decision on whether to run this cleaner should be made prior to initializing context, but that
+		//  would require refactoring of current two-step approach (build, clean) into three-step approach (parse config, build, clean)
+		//  or else caller does not have access to config
+		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), log.InfoLevel)
+		return nil
+	}
 
 	infoList, err := c.ois.GetDistributedObjectsInfo(ctx)
 
@@ -196,9 +206,28 @@ func (c *mapCleaner) clean(ctx context.Context) error {
 	}
 
 	var mapNames []string
+	requiredTrueConditionFunctions := []func(name, serviceName string) bool{
+		func(_, serviceName string) bool {
+			return serviceName == hzMapService
+		},
+		func(name, _ string) bool {
+			return !strings.HasPrefix(name, hzInternalMapPrefix)
+		},
+	}
+	if c.c.usePrefix {
+		requiredTrueConditionFunctions = append(requiredTrueConditionFunctions, func(name, _ string) bool {
+			return strings.HasPrefix(name, c.c.prefix)
+		})
+	}
 	for _, distributedObjectInfo := range infoList {
+		allConditionsTrue := true
 		objectName := distributedObjectInfo.getName()
-		if distributedObjectInfo.getServiceName() == hzMapService && !strings.HasPrefix(objectName, hzInternalMapPrefix) {
+		for _, v := range requiredTrueConditionFunctions {
+			if result := v(objectName, distributedObjectInfo.getServiceName()); !result {
+				allConditionsTrue = false
+			}
+		}
+		if allConditionsTrue {
 			lp.LogStateCleanerEvent(fmt.Sprintf("identified the following map to evict: %s", objectName), log.TraceLevel)
 			mapNames = append(mapNames, objectName)
 		}
