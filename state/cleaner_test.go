@@ -327,6 +327,29 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 			}
 
 		}
+		t.Log("\twhen object info retrieval yields error")
+		{
+			ois := &testHzObjectInfoStore{
+				returnErrorUponGetObjectInfos: true,
+			}
+
+			candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
+
+			msg := "\t\t\terror must be returned"
+			if errors.Is(err, getDistributedObjectInfoError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\t\tlist of identified candidates must be empty"
+			if len(candidates) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(candidates))
+			}
+
+		}
 	}
 
 }

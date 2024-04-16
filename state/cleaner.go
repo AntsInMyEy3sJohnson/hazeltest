@@ -216,11 +216,10 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 	infos, err := ois.GetDistributedObjectsInfo(ctx)
 
-	if err != nil {
-		return nil, err
-	}
-
 	var result []hzObjectInfo
+	if err != nil {
+		return result, err
+	}
 
 	for _, v := range infos {
 		if !strings.HasPrefix(v.getName(), hzInternalDataStructurePrefix) && v.getServiceName() == hzService {
