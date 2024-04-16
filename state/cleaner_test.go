@@ -38,7 +38,7 @@ type (
 		returnErrorUponGetMap bool
 	}
 	testHzObjectInfoStore struct {
-		objectInfos                         []simpleObjectInfo
+		objectInfos                         []hzObjectInfo
 		getDistributedObjectInfoInvocations int
 		returnErrorUponGetObjectInfos       bool
 	}
@@ -201,7 +201,7 @@ func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *test
 
 func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string) *testHzObjectInfoStore {
 
-	var objectInfos []simpleObjectInfo
+	var objectInfos []hzObjectInfo
 	for i := 0; i < numObjects; i++ {
 		for _, v := range objectNamePrefixes {
 			objectInfos = append(objectInfos, *newMapObjectInfoFromName(fmt.Sprintf("%sload-%d", v, i)))
@@ -212,7 +212,7 @@ func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string) *test
 
 }
 
-func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []simpleObjectInfo) string {
+func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObjectInfo) string {
 
 	for _, v := range objectInfos {
 		if v.getName() == name {
@@ -256,45 +256,76 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 			serviceName: hzQueueService,
 		}
 
-		t.Log("\twhen object info list contains information on both valid candidates and elements not viable as candidates")
+		t.Log("\twhen object info retrieval does not yield error")
 		{
-			objectInfos := []hzObjectInfo{valid, invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+			t.Log("\t\twhen object info list contains information on both valid candidates and elements not viable as candidates")
+			{
+				objectInfos := []hzObjectInfo{valid, invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+				ois := &testHzObjectInfoStore{
+					objectInfos: objectInfos,
+				}
 
-			candidates := identifyCandidateDataStructuresFromObjectInfo(objectInfos, hzMapService)
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
 
-			msg := "\t\tonly valid candidate must be returned"
-			if len(candidates) == 1 && candidates[0] == valid {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tonly valid candidate must be returned"
+				if len(candidates) == 1 && candidates[0] == valid {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
-		}
 
-		t.Log("\twhen object info list only contains information on elements that are not viable candidates")
-		{
-			objectInfos := []hzObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+			t.Log("\t\twhen object info list only contains information on elements that are not viable candidates")
+			{
+				ois := &testHzObjectInfoStore{
+					objectInfos: []hzObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue},
+				}
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
 
-			candidates := identifyCandidateDataStructuresFromObjectInfo(objectInfos, hzMapService)
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
 
-			msg := "\t\treturned list of candidates must be empty"
-			if len(candidates) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				msg = "\t\t\treturned list of candidates must be empty"
+				if len(candidates) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
-		}
 
-		t.Log("\twhen object info list is empty")
-		{
-			candidates := identifyCandidateDataStructuresFromObjectInfo(make([]hzObjectInfo, 0), hzMapService)
+			t.Log("\t\twhen object info list is empty")
+			{
+				ois := &testHzObjectInfoStore{
+					objectInfos: make([]hzObjectInfo, 0),
+				}
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
 
-			msg := "\t\treturned list of candidates must be empty, too"
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
 
-			if len(candidates) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				msg = "\t\t\treturned list of candidates must be empty, too"
+				if len(candidates) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
+
 		}
 	}
 
@@ -468,7 +499,7 @@ func TestMapCleanerClean(t *testing.T) {
 				getMapInvocations: 0,
 			}
 			ois := &testHzObjectInfoStore{
-				objectInfos:                         make([]simpleObjectInfo, 0),
+				objectInfos:                         make([]hzObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})

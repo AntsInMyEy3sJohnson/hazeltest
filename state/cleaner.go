@@ -212,17 +212,23 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzClu
 
 }
 
-func identifyCandidateDataStructuresFromObjectInfo(info []hzObjectInfo, hzService string) []hzObjectInfo {
+func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context, hzService string) ([]hzObjectInfo, error) {
+
+	infos, err := ois.GetDistributedObjectsInfo(ctx)
+
+	if err != nil {
+		return nil, err
+	}
 
 	var result []hzObjectInfo
 
-	for _, v := range info {
+	for _, v := range infos {
 		if !strings.HasPrefix(v.getName(), hzInternalDataStructurePrefix) && v.getServiceName() == hzService {
 			result = append(result, v)
 		}
 	}
 
-	return result
+	return result, nil
 
 }
 
@@ -237,13 +243,11 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	infoList, err := c.ois.GetDistributedObjectsInfo(ctx)
+	candidateMaps, err := identifyCandidateDataStructures(c.ois, ctx, hzMapService)
 
 	if err != nil {
 		return 0, err
 	}
-
-	candidateMaps := identifyCandidateDataStructuresFromObjectInfo(infoList, hzMapService)
 	if len(candidateMaps) > 0 {
 		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d map candidate/-s for cleaning", len(candidateMaps)), log.TraceLevel)
 	} else {
