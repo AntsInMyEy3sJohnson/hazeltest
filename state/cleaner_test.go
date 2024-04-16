@@ -29,7 +29,8 @@ type (
 		cleanInvocations int
 	}
 	testHzClientHandler struct {
-		hzClient *hazelcast.Client
+		hzClient            *hazelcast.Client
+		shutdownInvocations int
 	}
 	testHzMapStore struct {
 		maps              map[string]*testHzMap
@@ -96,6 +97,7 @@ func (ch *testHzClientHandler) InitHazelcastClient(_ context.Context, _ string, 
 }
 
 func (ch *testHzClientHandler) Shutdown(_ context.Context) error {
+	ch.shutdownInvocations++
 	return nil
 }
 
@@ -204,7 +206,7 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []simpl
 
 }
 
-func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore) *mapCleaner {
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler) *mapCleaner {
 
 	return &mapCleaner{
 		name:      mapCleanerName,
@@ -214,7 +216,7 @@ func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectI
 		c:         c,
 		ms:        ms,
 		ois:       ois,
-		ch:        &testHzClientHandler{},
+		ch:        ch,
 	}
 
 }
@@ -231,7 +233,7 @@ func TestMapCleanerClean(t *testing.T) {
 				prefixToConsider := "ht_"
 				prefixes := []string{prefixToConsider, "gimli_"}
 
-				dummyMapStore := populateDummyMapStore(9, prefixes)
+				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
 				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes)
 
 				// Add object representing queue, so we can verify that no attempt was made to retrieve it
@@ -251,7 +253,8 @@ func TestMapCleanerClean(t *testing.T) {
 					usePrefix: true,
 					prefix:    prefixToConsider,
 				}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore)
+				ch := &testHzClientHandler{}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
 
 				ctx := context.TODO()
 				err := mc.clean(ctx)
@@ -295,6 +298,71 @@ func TestMapCleanerClean(t *testing.T) {
 						}
 					}
 				}
+
+				msg = "\t\t\thazelcast client must have been closed"
+				if ch.shutdownInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ch.shutdownInvocations)
+				}
+
+			}
+			t.Log("\t\twhen prefix usage has been disabled")
+			{
+				numMapObjects := 9
+				prefixes := []string{"ht_", "gimli_"}
+
+				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes)
+
+				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
+				// even when prefix usage has been disabled
+				hzInternalMapName := "__sql.catalog"
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
+				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
+
+				c := &cleanerConfig{
+					enabled:   true,
+					usePrefix: false,
+					prefix:    "",
+				}
+				ch := &testHzClientHandler{}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
+
+				err := mc.clean(context.TODO())
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tget all must have been invoked on all maps that are not Hazelcast-internal maps"
+				if dummyMapStore.getMapInvocations == numMapObjects*len(prefixes) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocations)
+				}
+
+				invokedMsg := "\t\t\tevict all must have been invoked on all maps that are not Hazelcast-internal maps"
+				notInvokedMsg := "\t\t\tevict all must not have been invoked on Hazelcast-internal maps"
+				for k, v := range dummyMapStore.maps {
+					if !strings.HasPrefix(k, hzInternalMapName) {
+						if v.evictAllInvocations == 1 {
+							t.Log(invokedMsg, checkMark, k)
+						} else {
+							t.Fatal(invokedMsg, ballotX, k)
+						}
+					} else {
+						if v.evictAllInvocations == 0 {
+							t.Log(notInvokedMsg, checkMark, k)
+						} else {
+							t.Fatal(notInvokedMsg, ballotX, k)
+						}
+					}
+				}
+
 			}
 
 		}
