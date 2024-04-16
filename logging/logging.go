@@ -102,9 +102,10 @@ func (lp *LogProvider) LogChaosMonkeyEvent(msg string, level log.Level) {
 
 }
 
-func (lp *LogProvider) LogStateCleanerEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level log.Level) {
 	fields := log.Fields{
-		"kind": StateCleanerEvent,
+		"kind":      StateCleanerEvent,
+		"hzService": hzService,
 	}
 
 	lp.doLog(msg, fields, level)
