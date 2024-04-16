@@ -39,7 +39,7 @@ func main() {
 	// Cleaners have to be run synchronously to make sure state has been evicted from
 	// target Hazelcast cluster prior to start of load tests
 	if err := state.RunCleaners(hzCluster, hzMemberList); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean state in target Hazelcast cluster: %v", err), log.FatalLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean state in target Hazelcast cluster: %v", err), "N/A", log.FatalLevel)
 	}
 
 	var wg sync.WaitGroup

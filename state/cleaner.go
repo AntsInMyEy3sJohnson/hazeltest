@@ -54,7 +54,7 @@ type (
 
 type (
 	cleanerBuilder interface {
-		build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error)
+		build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error)
 	}
 	cleaner interface {
 		clean(ctx context.Context) (int, error)
@@ -198,13 +198,13 @@ func (ch *defaultHzClientHandler) getClient() *hazelcast.Client {
 	return ch.hzClient
 }
 
-func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error) {
+func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), log.ErrorLevel)
-		return nil, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), hzMapService, log.ErrorLevel)
+		return nil, hzMapService, err
 	}
 
 	clientName := "mapCleaner"
@@ -219,7 +219,7 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzClu
 		ms:        &defaultHzMapStore{ch.getClient()},
 		ois:       &defaultHzObjectInfoStore{ch.getClient()},
 		ch:        ch,
-	}, nil
+	}, hzMapService, nil
 
 }
 
@@ -249,7 +249,7 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 	}()
 
 	if !c.c.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), hzMapService, log.InfoLevel)
 		return 0, nil
 	}
 
@@ -259,15 +259,15 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	if len(candidateMaps) > 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d map candidate/-s for cleaning", len(candidateMaps)), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d map candidate/-s for cleaning", len(candidateMaps)), hzMapService, log.TraceLevel)
 	} else {
-		lp.LogStateCleanerEvent("no map candidates for cleaning identified in target hazelcast cluster", log.TraceLevel)
+		lp.LogStateCleanerEvent("no map candidates for cleaning identified in target hazelcast cluster", hzMapService, log.TraceLevel)
 		return 0, nil
 	}
 
 	var filteredMaps []hzObjectInfo
 	if c.c.usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d map candidate/-s identified for cleaning", c.c.prefix, len(candidateMaps)), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d map candidate/-s identified for cleaning", c.c.prefix, len(candidateMaps)), hzMapService, log.TraceLevel)
 		for _, v := range candidateMaps {
 			if strings.HasPrefix(v.getName(), c.c.prefix) {
 				filteredMaps = append(filteredMaps, v)
@@ -282,14 +282,14 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 	for _, v := range filteredMaps {
 		m, err := c.ms.GetMap(ctx, v.getName())
 		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean map '%s' due to error upon retrieval of map object from Hazelcast cluster: %v", v, err), log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean map '%s' due to error upon retrieval of map object from Hazelcast cluster: %v", v, err), hzMapService, log.ErrorLevel)
 			return len(cleanedMaps), err
 		}
 		if err := m.EvictAll(ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean map '%s': %v", v, err), log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean map '%s': %v", v, err), hzMapService, log.ErrorLevel)
 			return len(cleanedMaps), err
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("map '%s' successfully cleaned", v), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("map '%s' successfully cleaned", v), hzMapService, log.TraceLevel)
 		cleanedMaps = append(cleanedMaps, v.getName())
 	}
 
@@ -297,13 +297,13 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 
 }
 
-func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, error) {
+func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), log.ErrorLevel)
-		return nil, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), hzQueueService, log.ErrorLevel)
+		return nil, hzQueueService, err
 	}
 
 	clientName := "queueCleaner"
@@ -318,7 +318,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzC
 		qs:        &defaultHzQueueStore{hzClient: ch.getClient()},
 		ois:       &defaultHzObjectInfoStore{hzClient: ch.getClient()},
 		ch:        ch,
-	}, nil
+	}, hzQueueService, nil
 
 }
 
@@ -329,25 +329,25 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 	}()
 
 	if !c.c.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), hzQueueService, log.InfoLevel)
 		return 0, nil
 	}
 
-	candidateQueues, err := identifyCandidateDataStructures(c.ois, ctx, hzMapService)
+	candidateQueues, err := identifyCandidateDataStructures(c.ois, ctx, hzQueueService)
 
 	if err != nil {
 		return 0, err
 	}
 	if len(candidateQueues) > 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d queue candidate/-s for cleaning", len(candidateQueues)), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d queue candidate/-s for cleaning", len(candidateQueues)), hzQueueService, log.TraceLevel)
 	} else {
-		lp.LogStateCleanerEvent("no queue candidates for cleaning identified in target hazelcast cluster", log.TraceLevel)
+		lp.LogStateCleanerEvent("no queue candidates for cleaning identified in target hazelcast cluster", hzQueueService, log.TraceLevel)
 		return 0, nil
 	}
 
 	var filteredQueues []hzObjectInfo
 	if c.c.usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d queue candidate/-s identified for cleaning", c.c.prefix, len(candidateQueues)), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d queue candidate/-s identified for cleaning", c.c.prefix, len(candidateQueues)), hzQueueService, log.TraceLevel)
 		for _, v := range candidateQueues {
 			if strings.HasPrefix(v.getName(), c.c.prefix) {
 				filteredQueues = append(filteredQueues, v)
@@ -361,14 +361,14 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 	for _, v := range filteredQueues {
 		q, err := c.qs.GetQueue(ctx, v.getName())
 		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean queue '%s' due to error upon retrieval of queue object from Hazelcast cluster: %v", v, err), log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean queue '%s' due to error upon retrieval of queue object from Hazelcast cluster: %v", v, err), hzQueueService, log.ErrorLevel)
 			return len(cleanedQueues), err
 		}
 		if err := q.Clear(ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean queue '%s': %v", v, err), log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean queue '%s': %v", v, err), hzQueueService, log.ErrorLevel)
 			return len(cleanedQueues), err
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("queue '%s' successfully cleaned", v), log.TraceLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("queue '%s' successfully cleaned", v), hzQueueService, log.TraceLevel)
 		cleanedQueues = append(cleanedQueues, v.getName())
 	}
 
@@ -384,24 +384,24 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 		err := func() error {
 			defer cancel()
 
-			c, err := b.build(&defaultHzClientHandler{}, ctx, hzCluster, hzMembers)
+			c, hzService, err := b.build(&defaultHzClientHandler{}, ctx, hzCluster, hzMembers)
 			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder due to error: %v", err), log.ErrorLevel)
+				lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
 				return err
 			}
 
 			if numCleanedDataStructures, err := c.clean(ctx); err != nil {
 				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), log.ErrorLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), log.ErrorLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
 				}
 				return err
 			} else {
 				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structures", numCleanedDataStructures), log.InfoLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structures", numCleanedDataStructures), hzService, log.InfoLevel)
 				} else {
-					lp.LogStateCleanerEvent("execution of cleaner was successful; however, zero data structures were cleaned", log.InfoLevel)
+					lp.LogStateCleanerEvent("execution of cleaner was successful; however, zero data structures were cleaned", hzService, log.InfoLevel)
 				}
 			}
 

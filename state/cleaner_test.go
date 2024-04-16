@@ -144,15 +144,15 @@ func (c *testCleaner) clean(_ context.Context) (int, error) {
 
 }
 
-func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ string, _ []string) (cleaner, error) {
+func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ string, _ []string) (cleaner, string, error) {
 
 	b.buildInvocations++
 
 	if b.behavior.throwErrorUponBuild {
-		return nil, cleanerBuildError
+		return nil, hzMapService, cleanerBuildError
 	}
 
-	return &testCleaner{behavior: b.behavior}, nil
+	return &testCleaner{behavior: b.behavior}, hzMapService, nil
 
 }
 
@@ -737,13 +737,20 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
 
 			tch := &testHzClientHandler{}
-			c, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
+			c, hzService, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tbuild method must report hazelcast service type corresponding to map cleaner"
+			if hzService == hzMapService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, hzService)
 			}
 
 			msg = "\t\tmap cleaner built must carry map state cleaner key path"
