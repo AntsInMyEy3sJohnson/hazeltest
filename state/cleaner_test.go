@@ -43,8 +43,9 @@ type (
 		returnErrorUponGetObjectInfos       bool
 	}
 	testHzMap struct {
-		data                map[string]any
-		evictAllInvocations int
+		data                    map[string]any
+		evictAllInvocations     int
+		returnErrorUponEvictAll bool
 	}
 )
 
@@ -63,11 +64,16 @@ var (
 	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
 	getMapError                   = errors.New("something somewhere went terribly wrong when attempting to get a map from the target hazelcast cluster")
+	evictAllError                 = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
 )
 
 func (m *testHzMap) EvictAll(_ context.Context) error {
 
 	m.evictAllInvocations++
+
+	if m.returnErrorUponEvictAll {
+		return evictAllError
+	}
 
 	clear(m.data)
 
@@ -432,10 +438,12 @@ func TestMapCleanerClean(t *testing.T) {
 				enabled: true,
 			}
 			numMapObjects := 9
-			ms := populateDummyMapStore(numMapObjects, []string{"ht_"})
+			prefixes := []string{"ht_"}
+
+			ms := populateDummyMapStore(numMapObjects, prefixes)
 			ms.returnErrorUponGetMap = true
 
-			ois := populateDummyObjectInfos(numMapObjects, []string{"ht_"})
+			ois := populateDummyObjectInfos(numMapObjects, prefixes)
 
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
 
@@ -463,6 +471,57 @@ func TestMapCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, k)
 				}
 			}
+		}
+		t.Log("\twhen info retrieval and get map operations succeed, but evict all fails")
+		{
+			numMapObjects := 9
+			prefixes := []string{"ht_"}
+
+			ms := populateDummyMapStore(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes)
+
+			erroneousEvictAllMapName := "ht_load-0"
+			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
+
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+
+			err := mc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, evictAllError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tthere must have been only one get map invocation"
+			if ms.getMapInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			invokedOnceMsg := "\t\tthere must have been only one evict all invocation"
+			notInvokedMsg := "\t\tno evict all must have been performed"
+			for k, v := range ms.maps {
+				if k == erroneousEvictAllMapName {
+					if v.evictAllInvocations == 1 {
+						t.Log(invokedOnceMsg, checkMark, k)
+					} else {
+						t.Fatal(invokedOnceMsg, ballotX, k)
+					}
+				} else {
+					if v.evictAllInvocations == 0 {
+						t.Log(notInvokedMsg, checkMark, k)
+					} else {
+						t.Fatal(notInvokedMsg, ballotX, k)
+					}
+				}
+			}
+
 		}
 	}
 
