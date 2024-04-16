@@ -239,6 +239,67 @@ func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectI
 
 }
 
+func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
+
+	t.Log("given a function to identify possible candidates for state cleaning from an object info list")
+	{
+		valid := &simpleObjectInfo{
+			name:        "ht_load-1",
+			serviceName: hzMapService,
+		}
+		invalidBecauseSystemInternal := &simpleObjectInfo{
+			name:        "__sql.catalog",
+			serviceName: hzMapService,
+		}
+		invalidBecauseRepresentsQueue := &simpleObjectInfo{
+			name:        "ht_load-2",
+			serviceName: hzQueueService,
+		}
+
+		t.Log("\twhen object info list contains information on both valid candidates and elements not viable as candidates")
+		{
+			objectInfos := []hzObjectInfo{valid, invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+
+			candidates := identifyCandidateDataStructuresFromObjectInfo(objectInfos, hzMapService)
+
+			msg := "\t\tonly valid candidate must be returned"
+			if len(candidates) == 1 && candidates[0] == valid {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen object info list only contains information on elements that are not viable candidates")
+		{
+			objectInfos := []hzObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+
+			candidates := identifyCandidateDataStructuresFromObjectInfo(objectInfos, hzMapService)
+
+			msg := "\t\treturned list of candidates must be empty"
+			if len(candidates) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen object info list is empty")
+		{
+			candidates := identifyCandidateDataStructuresFromObjectInfo(make([]hzObjectInfo, 0), hzMapService)
+
+			msg := "\t\treturned list of candidates must be empty, too"
+
+			if len(candidates) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestMapCleanerClean(t *testing.T) {
 
 	t.Log("given a map cleaner build method")
