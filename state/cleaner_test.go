@@ -225,7 +225,7 @@ func TestMapCleanerClean(t *testing.T) {
 
 	t.Log("given a map cleaner build method")
 	{
-		t.Log("\twhen target hazeltest cluster contains multiple maps and queues")
+		t.Log("\twhen target hazeltest cluster contains multiple maps and queues, and all retrieval operations are successful")
 		{
 			t.Log("\t\twhen prefix usage has been enabled")
 			{
@@ -338,15 +338,15 @@ func TestMapCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, err)
 				}
 
-				msg = "\t\t\tget all must have been invoked on all maps that are not Hazelcast-internal maps"
+				msg = "\t\t\tget all must have been invoked on all maps that are not hazelcast-internal maps"
 				if dummyMapStore.getMapInvocations == numMapObjects*len(prefixes) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocations)
 				}
 
-				invokedMsg := "\t\t\tevict all must have been invoked on all maps that are not Hazelcast-internal maps"
-				notInvokedMsg := "\t\t\tevict all must not have been invoked on Hazelcast-internal maps"
+				invokedMsg := "\t\t\tevict all must have been invoked on all maps that are not hazelcast-internal maps"
+				notInvokedMsg := "\t\t\tevict all must not have been invoked on hazelcast-internal maps"
 				for k, v := range dummyMapStore.maps {
 					if !strings.HasPrefix(k, hzInternalMapName) {
 						if v.evictAllInvocations == 1 {
@@ -365,6 +365,39 @@ func TestMapCleanerClean(t *testing.T) {
 
 			}
 
+		}
+		t.Log("\twhen target hazelcast cluster does not contain any maps")
+		{
+			c := &cleanerConfig{
+				enabled:   true,
+				usePrefix: false,
+				prefix:    "",
+			}
+			ms := &testHzMapStore{
+				maps:              make(map[string]*testHzMap),
+				getMapInvocations: 0,
+			}
+			ois := &testHzObjectInfoStore{
+				objectInfos:                         make([]simpleObjectInfo, 0),
+				getDistributedObjectInfoInvocations: 0,
+			}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+
+			err := mc.clean(context.TODO())
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno get map operations must have been performed"
+			if ms.getMapInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocations)
+			}
 		}
 	}
 
