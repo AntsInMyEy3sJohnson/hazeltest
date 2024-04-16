@@ -165,10 +165,30 @@ func newQueueObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
 	}
 }
 
-func populateDummyObjectsWithMapObjectInfoFromName(objectInfos *[]simpleObjectInfo, testMaps map[string]*testHzMap, nameOfNewMapObject string) {
+func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
 
-	*objectInfos = append(*objectInfos, *newMapObjectInfoFromName(nameOfNewMapObject))
-	testMaps[nameOfNewMapObject] = &testHzMap{data: make(map[string]any)}
+	testMaps := make(map[string]*testHzMap)
+
+	for i := 0; i < numMapObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: make(map[string]any)}
+		}
+	}
+
+	return &testHzMapStore{maps: testMaps}
+
+}
+
+func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string) *testHzObjectInfoStore {
+
+	var objectInfos []simpleObjectInfo
+	for i := 0; i < numObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			objectInfos = append(objectInfos, *newMapObjectInfoFromName(fmt.Sprintf("%sload-%d", v, i)))
+		}
+	}
+
+	return &testHzObjectInfoStore{objectInfos: objectInfos}
 
 }
 
@@ -184,97 +204,97 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []simpl
 
 }
 
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore) *mapCleaner {
+
+	return &mapCleaner{
+		name:      mapCleanerName,
+		hzCluster: hzCluster,
+		hzMembers: hzMembers,
+		keyPath:   mapCleanerBasePath,
+		c:         c,
+		ms:        ms,
+		ois:       ois,
+		ch:        &testHzClientHandler{},
+	}
+
+}
+
 func TestMapCleanerClean(t *testing.T) {
 
 	t.Log("given a map cleaner build method")
 	{
 		t.Log("\twhen target hazeltest cluster contains multiple maps and queues")
 		{
-			numMapObjects := 9
-			var objectInfos []simpleObjectInfo
-			testMaps := make(map[string]*testHzMap)
-			prefixToConsider := "ht_"
+			t.Log("\t\twhen prefix usage has been enabled")
+			{
+				numMapObjects := 9
+				prefixToConsider := "ht_"
+				prefixes := []string{prefixToConsider, "gimli_"}
 
-			for i := 0; i < numMapObjects; i++ {
-				populateDummyObjectsWithMapObjectInfoFromName(&objectInfos, testMaps, fmt.Sprintf("%sload-%d", prefixToConsider, i))
-				populateDummyObjectsWithMapObjectInfoFromName(&objectInfos, testMaps, fmt.Sprintf("gimli_load-%d", i))
-			}
+				dummyMapStore := populateDummyMapStore(9, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes)
 
-			// Add object representing queue, so we can verify that no attempt was made to retrieve it
-			// The name of this object matches the given predicate, so method under test must use service name to establish
-			// object in question represents queue
-			queueObjectName := fmt.Sprintf("%sload-42", prefixToConsider)
-			objectInfos = append(objectInfos, *newQueueObjectInfoFromName(queueObjectName))
-			testMaps[queueObjectName] = &testHzMap{data: make(map[string]any)}
+				// Add object representing queue, so we can verify that no attempt was made to retrieve it
+				// The name of this object matches the given predicate, so method under test must use service name to establish
+				// object in question represents queue
+				queueObjectName := fmt.Sprintf("%sload-42", prefixToConsider)
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(queueObjectName))
+				dummyMapStore.maps[queueObjectName] = &testHzMap{data: make(map[string]any)}
 
-			// Add Hazelcast-internal map
-			hzInternalMapName := "__sql.catalog"
-			objectInfos = append(objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
-			testMaps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
+				// Add Hazelcast-internal map
+				hzInternalMapName := "__sql.catalog"
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
+				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
-			ms := &testHzMapStore{
-				maps: testMaps,
-			}
-			ois := &testHzObjectInfoStore{
-				objectInfos: objectInfos,
-			}
-			mc := mapCleaner{
-				name:      mapCleanerName,
-				hzCluster: hzCluster,
-				hzMembers: hzMembers,
-				keyPath:   mapCleanerBasePath,
-				c: &cleanerConfig{
+				c := &cleanerConfig{
 					enabled:   true,
 					usePrefix: true,
 					prefix:    prefixToConsider,
-				},
-				ms:  ms,
-				ois: ois,
-				ch:  &testHzClientHandler{},
-			}
+				}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore)
 
-			ctx := context.TODO()
-			err := mc.clean(ctx)
+				ctx := context.TODO()
+				err := mc.clean(ctx)
 
-			msg := "\t\tno error must be returned"
+				msg := "\t\t\tno error must be returned"
 
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tdistributed objects info must have been queried once"
-			if ois.getDistributedObjectInfoInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tget map must have been invoked only on maps whose prefix matches configuration"
-			if ms.getMapInvocations == numMapObjects {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, ms.getMapInvocations)
-			}
-
-			invokedOnceMsg := "\t\tevict all must have been invoked on all maps whose prefix matches configuration"
-			notInvokedMsg := "\t\tevict all must not have been invoked on data structure that is either not a map or whose name does not correspond to given prefix"
-			for k, v := range testMaps {
-				if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, objectInfos) == hzMapService {
-					if v.evictAllInvocations == 1 {
-						t.Log(invokedOnceMsg, checkMark, k)
-					} else {
-						t.Fatal(invokedOnceMsg, ballotX, k, v.evictAllInvocations)
-					}
+				if err == nil {
+					t.Log(msg, checkMark)
 				} else {
-					if v.evictAllInvocations == 0 {
-						t.Log(notInvokedMsg, checkMark, k)
-					} else {
-						t.Fatal(notInvokedMsg, ballotX, k, v.evictAllInvocations)
-					}
+					t.Fatal(msg, ballotX)
 				}
 
+				msg = "\t\t\tdistributed objects info must have been queried once"
+				if dummyObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tget map must have been invoked only on maps whose prefix matches configuration"
+				if dummyMapStore.getMapInvocations == numMapObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocations)
+				}
+
+				invokedOnceMsg := "\t\t\tevict all must have been invoked on all maps whose prefix matches configuration"
+				notInvokedMsg := "\t\t\tevict all must not have been invoked on data structure that is either not a map or whose name does not correspond to given prefix"
+				for k, v := range dummyMapStore.maps {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, dummyObjectInfoStore.objectInfos) == hzMapService {
+						if v.evictAllInvocations == 1 {
+							t.Log(invokedOnceMsg, checkMark, k)
+						} else {
+							t.Fatal(invokedOnceMsg, ballotX, k, v.evictAllInvocations)
+						}
+					} else {
+						if v.evictAllInvocations == 0 {
+							t.Log(notInvokedMsg, checkMark, k)
+						} else {
+							t.Fatal(notInvokedMsg, ballotX, k, v.evictAllInvocations)
+						}
+					}
+				}
 			}
 
 		}
