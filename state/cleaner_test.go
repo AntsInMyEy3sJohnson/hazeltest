@@ -129,7 +129,7 @@ func (cw *cleanerWatcher) reset() {
 	cw.cleanInvocations = 0
 }
 
-func (c *testCleaner) clean(_ context.Context) error {
+func (c *testCleaner) clean(_ context.Context) (int, error) {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -137,10 +137,10 @@ func (c *testCleaner) clean(_ context.Context) error {
 	cw.cleanInvocations++
 
 	if c.behavior.throwErrorUponClean {
-		return cleanerCleanError
+		return 0, cleanerCleanError
 	}
 
-	return nil
+	return cw.cleanInvocations, nil
 
 }
 
@@ -275,7 +275,7 @@ func TestMapCleanerClean(t *testing.T) {
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
 
 				ctx := context.TODO()
-				err := mc.clean(ctx)
+				numCleaned, err := mc.clean(ctx)
 
 				msg := "\t\t\tno error must be returned"
 
@@ -317,6 +317,13 @@ func TestMapCleanerClean(t *testing.T) {
 					}
 				}
 
+				msg = fmt.Sprintf("\t\tcleaner must report %d cleaned data structures", numMapObjects)
+				if numCleaned == numMapObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleaned)
+				}
+
 				msg = "\t\t\thazelcast client must have been closed"
 				if ch.shutdownInvocations == 1 {
 					t.Log(msg, checkMark)
@@ -345,7 +352,7 @@ func TestMapCleanerClean(t *testing.T) {
 				ch := &testHzClientHandler{}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
 
-				err := mc.clean(context.TODO())
+				numCleaned, err := mc.clean(context.TODO())
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -355,7 +362,8 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 
 				msg = "\t\t\tget all must have been invoked on all maps that are not hazelcast-internal maps"
-				if dummyMapStore.getMapInvocations == numMapObjects*len(prefixes) {
+				expectedCleaned := numMapObjects * len(prefixes)
+				if dummyMapStore.getMapInvocations == expectedCleaned {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocations)
@@ -379,6 +387,13 @@ func TestMapCleanerClean(t *testing.T) {
 					}
 				}
 
+				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", expectedCleaned)
+				if numCleaned == expectedCleaned {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleaned)
+				}
+
 			}
 
 		}
@@ -397,7 +412,7 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
 
-			err := mc.clean(context.TODO())
+			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -412,6 +427,13 @@ func TestMapCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, ms.getMapInvocations)
 			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
 		}
 		t.Log("\twhen retrieval of object info fails")
 		{
@@ -423,13 +445,20 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{})
 
-			err := mc.clean(context.TODO())
+			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
 			}
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
@@ -447,7 +476,7 @@ func TestMapCleanerClean(t *testing.T) {
 
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
 
-			err := mc.clean(context.TODO())
+			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getMapError) {
@@ -471,6 +500,13 @@ func TestMapCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, k)
 				}
 			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
 		}
 		t.Log("\twhen info retrieval and get map operations succeed, but evict all fails")
 		{
@@ -488,7 +524,7 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
 
-			err := mc.clean(context.TODO())
+			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, evictAllError) {
@@ -522,6 +558,55 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 			}
 
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+		}
+		t.Log("\twhen cleaner has not been enabled")
+		{
+			c := &cleanerConfig{
+				enabled: false,
+			}
+			ms := &testHzMapStore{}
+			ois := &testHzObjectInfoStore{}
+			ch := &testHzClientHandler{}
+
+			mc := assembleMapCleaner(c, ms, ois, ch)
+
+			numCleaned, err := mc.clean(context.TODO())
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tno retrieval of object infos must have been attempted"
+			if ois.getDistributedObjectInfoInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ois.getDistributedObjectInfoInvocations)
+			}
+
+			msg = "\t\tno map retrieval must have been attempted"
+			if ms.getMapInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocations)
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
 		}
 	}
 
@@ -659,7 +744,6 @@ func TestRunCleaners(t *testing.T) {
 					}
 				})
 			}
-
 		}
 	}
 
