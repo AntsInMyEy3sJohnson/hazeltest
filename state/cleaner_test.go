@@ -33,12 +33,14 @@ type (
 		shutdownInvocations int
 	}
 	testHzMapStore struct {
-		maps              map[string]*testHzMap
-		getMapInvocations int
+		maps                  map[string]*testHzMap
+		getMapInvocations     int
+		returnErrorUponGetMap bool
 	}
 	testHzObjectInfoStore struct {
 		objectInfos                         []simpleObjectInfo
 		getDistributedObjectInfoInvocations int
+		returnErrorUponGetObjectInfos       bool
 	}
 	testHzMap struct {
 		data                map[string]any
@@ -55,10 +57,12 @@ const (
 )
 
 var (
-	hzMembers         = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
-	cw                = cleanerWatcher{}
-	cleanerBuildError = errors.New("something went terribly wrong when attempting to build the cleaner")
-	cleanerCleanError = errors.New("something went terribly wrong when attempting to clean state")
+	hzMembers                     = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
+	cw                            = cleanerWatcher{}
+	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
+	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
+	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
+	getMapError                   = errors.New("something somewhere went terribly wrong when attempting to get a map from the target hazelcast cluster")
 )
 
 func (m *testHzMap) EvictAll(_ context.Context) error {
@@ -75,6 +79,10 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hzMap, error) 
 
 	ms.getMapInvocations++
 
+	if ms.returnErrorUponGetMap {
+		return nil, getMapError
+	}
+
 	return ms.maps[name], nil
 
 }
@@ -82,6 +90,10 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hzMap, error) 
 func (ois *testHzObjectInfoStore) GetDistributedObjectsInfo(_ context.Context) ([]hzObjectInfo, error) {
 
 	ois.getDistributedObjectInfoInvocations++
+
+	if ois.returnErrorUponGetObjectInfos {
+		return nil, getDistributedObjectInfoError
+	}
 
 	var hzObjectInfos []hzObjectInfo
 	for _, v := range ois.objectInfos {
@@ -322,9 +334,7 @@ func TestMapCleanerClean(t *testing.T) {
 				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
-					enabled:   true,
-					usePrefix: false,
-					prefix:    "",
+					enabled: true,
 				}
 				ch := &testHzClientHandler{}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
@@ -369,9 +379,7 @@ func TestMapCleanerClean(t *testing.T) {
 		t.Log("\twhen target hazelcast cluster does not contain any maps")
 		{
 			c := &cleanerConfig{
-				enabled:   true,
-				usePrefix: false,
-				prefix:    "",
+				enabled: true,
 			}
 			ms := &testHzMapStore{
 				maps:              make(map[string]*testHzMap),
@@ -397,6 +405,63 @@ func TestMapCleanerClean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, ms.getMapInvocations)
+			}
+		}
+		t.Log("\twhen retrieval of object info fails")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			ois := &testHzObjectInfoStore{
+				returnErrorUponGetObjectInfos: true,
+			}
+			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{})
+
+			err := mc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, getDistributedObjectInfoError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			numMapObjects := 9
+			ms := populateDummyMapStore(numMapObjects, []string{"ht_"})
+			ms.returnErrorUponGetMap = true
+
+			ois := populateDummyObjectInfos(numMapObjects, []string{"ht_"})
+
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+
+			err := mc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, getMapError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tthere must have been only one get map invocation"
+			if ms.getMapInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocations)
+			}
+
+			msg = "\t\tthere must have been no evict all invocations on any map"
+			for k, v := range ms.maps {
+				if v.evictAllInvocations == 0 {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
 			}
 		}
 	}
