@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.12.1
-  digest: 096ce9e62434214e7586156dd8e92d965060fb0a13593ba207cbe26b255abf04
+  tag: 0.13.0
+  digest: c96299a21cc5a096ce30e43376fdc8eea227cb7b5bad4f0ac3021d2f9c8a5fd5
   pullPolicy: IfNotPresent
 
 resources:
@@ -70,6 +70,17 @@ config:
         enabled: true
         durationSeconds: 30
         enableRandomness: true
+  stateCleaner:
+    maps:
+      enabled: true
+      prefix:
+        enabled: true
+        prefix: "ht_"
+    queues:
+      enabled: true
+      prefix:
+        enabled: true
+        prefix: "ht_"
   queueTests:
     tweets:
       enabled: true
@@ -165,7 +176,7 @@ config:
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
-      evictMapsPriorToRun: true
+      evictMapsPriorToRun: false
       mapPrefix:
         enabled: true
         prefix: "ht_"
@@ -219,7 +230,7 @@ config:
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
-      evictMapsPriorToRun: true
+      evictMapsPriorToRun: false
       mapPrefix:
         enabled: true
         prefix: "ht_"
