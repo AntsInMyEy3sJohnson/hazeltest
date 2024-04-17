@@ -323,6 +323,53 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzC
 
 }
 
+func runGenericClean(
+	ctx context.Context,
+	hzService string,
+	c *cleanerConfig,
+	identifyDataStructures func() ([]hzObjectInfo, error),
+	retrieveAndClean func(name string, ctx context.Context) error,
+) ([]string, error) {
+
+	candidateDataStructures, err := identifyDataStructures()
+
+	if err != nil {
+		return make([]string, 0), err
+	}
+
+	if len(candidateDataStructures) > 0 {
+		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d data structure candidate/-s to be considered for state cleaning", len(candidateDataStructures)), hzService, log.TraceLevel)
+	} else {
+		lp.LogStateCleanerEvent("no data structure candidates for state cleaning identified in target hazelcast cluster", hzService, log.TraceLevel)
+		return make([]string, 0), nil
+	}
+
+	var filteredDataStructures []hzObjectInfo
+	if c.usePrefix {
+		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", c.prefix, len(candidateDataStructures)), hzService, log.TraceLevel)
+		for _, v := range candidateDataStructures {
+			if strings.HasPrefix(v.getName(), c.prefix) {
+				filteredDataStructures = append(filteredDataStructures, v)
+			}
+		}
+	} else {
+		filteredDataStructures = candidateDataStructures
+	}
+
+	var cleaned []string
+	for _, v := range filteredDataStructures {
+		if err := retrieveAndClean(v.getName(), ctx); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
+			return cleaned, err
+		}
+		lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.TraceLevel)
+		cleaned = append(cleaned, v.getName())
+	}
+
+	return cleaned, nil
+
+}
+
 func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 
 	defer func() {
@@ -334,46 +381,26 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	candidateQueues, err := identifyCandidateDataStructures(c.ois, ctx, hzQueueService)
-
-	if err != nil {
-		return 0, err
-	}
-	if len(candidateQueues) > 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d queue candidate/-s for cleaning", len(candidateQueues)), hzQueueService, log.TraceLevel)
-	} else {
-		lp.LogStateCleanerEvent("no queue candidates for cleaning identified in target hazelcast cluster", hzQueueService, log.TraceLevel)
-		return 0, nil
-	}
-
-	var filteredQueues []hzObjectInfo
-	if c.c.usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d queue candidate/-s identified for cleaning", c.c.prefix, len(candidateQueues)), hzQueueService, log.TraceLevel)
-		for _, v := range candidateQueues {
-			if strings.HasPrefix(v.getName(), c.c.prefix) {
-				filteredQueues = append(filteredQueues, v)
+	cleaned, err := runGenericClean(
+		ctx,
+		hzQueueService,
+		c.c,
+		func() ([]hzObjectInfo, error) {
+			return identifyCandidateDataStructures(c.ois, ctx, hzQueueService)
+		},
+		func(name string, ctx context.Context) error {
+			q, err := c.qs.GetQueue(ctx, name)
+			if err != nil {
+				return err
 			}
-		}
-	} else {
-		filteredQueues = candidateQueues
-	}
+			if err := q.Clear(ctx); err != nil {
+				return err
+			}
+			return nil
+		},
+	)
 
-	var cleanedQueues []string
-	for _, v := range filteredQueues {
-		q, err := c.qs.GetQueue(ctx, v.getName())
-		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean queue '%s' due to error upon retrieval of queue object from Hazelcast cluster: %v", v, err), hzQueueService, log.ErrorLevel)
-			return len(cleanedQueues), err
-		}
-		if err := q.Clear(ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean queue '%s': %v", v, err), hzQueueService, log.ErrorLevel)
-			return len(cleanedQueues), err
-		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("queue '%s' successfully cleaned", v), hzQueueService, log.TraceLevel)
-		cleanedQueues = append(cleanedQueues, v.getName())
-	}
-
-	return len(cleanedQueues), nil
+	return len(cleaned), err
 
 }
 
