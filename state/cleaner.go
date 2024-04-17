@@ -254,47 +254,27 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	candidateMaps, err := identifyCandidateDataStructures(c.ois, ctx, hzMapService)
-
-	if err != nil {
-		return 0, err
-	}
-	if len(candidateMaps) > 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d map candidate/-s for cleaning", len(candidateMaps)), hzMapService, log.TraceLevel)
-	} else {
-		lp.LogStateCleanerEvent("no map candidates for cleaning identified in target hazelcast cluster", hzMapService, log.TraceLevel)
-		return 0, nil
-	}
-
-	var filteredMaps []hzObjectInfo
-	if c.c.usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d map candidate/-s identified for cleaning", c.c.prefix, len(candidateMaps)), hzMapService, log.TraceLevel)
-		for _, v := range candidateMaps {
-			if strings.HasPrefix(v.getName(), c.c.prefix) {
-				filteredMaps = append(filteredMaps, v)
-			}
-		}
-	} else {
-		filteredMaps = candidateMaps
-	}
-
-	// TODO Send names of cleaned data structures to status gatherer
-	var cleanedMaps []string
-	for _, v := range filteredMaps {
-		m, err := c.ms.GetMap(ctx, v.getName())
+	retrieveAndClean := func(name string, ctx context.Context) error {
+		m, err := c.ms.GetMap(ctx, name)
 		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean map '%s' due to error upon retrieval of map object from Hazelcast cluster: %v", v, err), hzMapService, log.ErrorLevel)
-			return len(cleanedMaps), err
+			return err
 		}
 		if err := m.EvictAll(ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean map '%s': %v", v, err), hzMapService, log.ErrorLevel)
-			return len(cleanedMaps), err
+			return err
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("map '%s' successfully cleaned", v), hzMapService, log.TraceLevel)
-		cleanedMaps = append(cleanedMaps, v.getName())
+		return nil
 	}
 
-	return len(cleanedMaps), nil
+	cleaned, err := runGenericClean(
+		c.ois,
+		ctx,
+		hzMapService,
+		c.c,
+		retrieveAndClean,
+	)
+
+	// TODO Send names of cleaned data structures to status gatherer
+	return len(cleaned), err
 
 }
 
