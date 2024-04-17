@@ -588,6 +588,214 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 
 		}
+		t.Log("\twhen target hazelcast cluster does not contain any queues")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			qs := &testHzQueueStore{queues: make(map[string]*testHzQueue)}
+			ois := &testHzObjectInfoStore{
+				objectInfos:                         make([]hzObjectInfo, 0),
+				getDistributedObjectInfoInvocations: 0,
+			}
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+
+			numCleaned, err := qc.clean(context.TODO())
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno get queue operations must have been performed"
+			if qs.getQueueInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.getQueueInvocations)
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+		}
+		t.Log("\twhen retrieval of object info fails")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			ois := &testHzObjectInfoStore{
+				returnErrorUponGetObjectInfos: true,
+			}
+			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ois, &testHzClientHandler{})
+
+			numCleaned, err := qc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, getDistributedObjectInfoError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+		}
+		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			numQueueOperations := 9
+			prefixes := []string{"ht_"}
+
+			qs := populateDummyQueueStore(numQueueOperations, prefixes)
+			qs.returnErrorUponGetQueue = true
+
+			ois := populateDummyObjectInfos(numQueueOperations, prefixes, hzQueueService)
+
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+
+			numCleaned, err := qc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, getQueueError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tthere must have been only one get queue invocation"
+			if qs.getQueueInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.getQueueInvocations)
+			}
+
+			msg = "\t\tthere must have been no clear invocations on any queue"
+			for k, v := range qs.queues {
+				if v.clearInvocations == 0 {
+					t.Log(msg, checkMark, k)
+				} else {
+					t.Fatal(msg, ballotX, k)
+				}
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+		}
+		t.Log("\twhen info retrieval and get queue operations succeed, but clear operation fails")
+		{
+			numQueueObjects := 9
+			prefixes := []string{"ht_"}
+
+			qs := populateDummyQueueStore(numQueueObjects, prefixes)
+			ois := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+
+			erroneousClearMapName := "ht_load-0"
+			qs.queues[erroneousClearMapName].returnErrorUponClear = true
+
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+
+			numCleaned, err := qc.clean(context.TODO())
+
+			msg := "\t\tcorresponding error must be returned"
+			if errors.Is(err, queueClearError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tthere must have been only one get queue invocation"
+			if qs.getQueueInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.getQueueInvocations)
+			}
+
+			invokedOnceMsg := "\t\tthere must have been only one invocation of clear"
+			notInvokedMsg := "\t\tno clear invocation must have been performed"
+			for k, v := range qs.queues {
+				if k == erroneousClearMapName {
+					if v.clearInvocations == 1 {
+						t.Log(invokedOnceMsg, checkMark, k)
+					} else {
+						t.Fatal(invokedOnceMsg, ballotX, k)
+					}
+				} else {
+					if v.clearInvocations == 0 {
+						t.Log(notInvokedMsg, checkMark, k)
+					} else {
+						t.Fatal(notInvokedMsg, ballotX, k)
+					}
+				}
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+		}
+		t.Log("\twhen cleaner has not been enabled")
+		{
+			c := &cleanerConfig{
+				enabled: false,
+			}
+			qs := &testHzQueueStore{}
+			ois := &testHzObjectInfoStore{}
+			ch := &testHzClientHandler{}
+
+			qc := assembleQueueCleaner(c, qs, ois, ch)
+
+			numCleaned, err := qc.clean(context.TODO())
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tno retrieval of object infos must have been attempted"
+			if ois.getDistributedObjectInfoInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ois.getDistributedObjectInfoInvocations)
+			}
+
+			msg = "\t\tno queue retrieval must have been attempted"
+			if qs.getQueueInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.getQueueInvocations)
+			}
+
+			msg = "\t\tcleaner must report zero cleaned data structures"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+		}
 	}
 
 }
