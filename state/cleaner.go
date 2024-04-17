@@ -97,7 +97,8 @@ type (
 )
 
 const (
-	baseKeyPath                   = "stateCleaner"
+	mapCleanerBasePath            = "stateCleaner.maps"
+	queueCleanerBasePath          = "stateCleaner.queues"
 	hzInternalDataStructurePrefix = "__"
 	hzMapService                  = "hz:impl:mapService"
 	hzQueueService                = "hz:impl:queueService"
@@ -118,7 +119,7 @@ func newMapCleanerBuilder() *mapCleanerBuilder {
 
 	return &mapCleanerBuilder{
 		cfb: cleanerConfigBuilder{
-			keyPath: baseKeyPath + ".maps",
+			keyPath: mapCleanerBasePath,
 			a:       client.DefaultConfigPropertyAssigner{},
 		},
 	}
@@ -129,7 +130,7 @@ func newQueueCleanerBuilder() *queueCleanerBuilder {
 
 	return &queueCleanerBuilder{
 		cfb: cleanerConfigBuilder{
-			keyPath: baseKeyPath + ".queues",
+			keyPath: queueCleanerBasePath,
 			a:       client.DefaultConfigPropertyAssigner{},
 		},
 	}
