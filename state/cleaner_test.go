@@ -1173,6 +1173,73 @@ func TestMapCleanerClean(t *testing.T) {
 
 }
 
+func TestQueueCleanerBuilderBuild(t *testing.T) {
+
+	t.Log("given a method to build a queue cleaner builder")
+	{
+		t.Log("\twhen populate config is successful")
+		{
+			b := newQueueCleanerBuilder()
+			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(queueCleanerBasePath)}
+
+			tch := &testHzClientHandler{}
+			c, hzService, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tbuild method must report hazelcast service type corresponding to map cleaner"
+			if hzService == hzQueueService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, hzService)
+			}
+
+			msg = "\t\tqueue cleaner built must carry queue state cleaner key path"
+			qc := c.(*queueCleaner)
+
+			if qc.keyPath == queueCleanerBasePath {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qc.keyPath)
+			}
+
+			msg = "\t\tqueue cleaner built must carry state cleaner config"
+			if qc.c != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tqueue cleaner built must carry hazelcast queue store"
+			if qc.qs != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tqueue cleaner built must carry hazelcast object info store"
+			if qc.ois != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tqueue cleaner built must carry hazelcast client handler"
+			if qc.ch != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestMapCleanerBuilderBuild(t *testing.T) {
 
 	t.Log("given a method to build a map cleaner builder")
@@ -1180,7 +1247,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 		t.Log("\twhen populate config is successful")
 		{
 			b := newMapCleanerBuilder()
-			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig()}
+			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(mapCleanerBasePath)}
 
 			tch := &testHzClientHandler{}
 			c, hzService, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
@@ -1324,12 +1391,12 @@ func runTestCaseAndResetState(testFunc func()) {
 
 }
 
-func assembleTestConfig() map[string]any {
+func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
-		mapCleanerBasePath + ".enabled":        true,
-		mapCleanerBasePath + ".prefix.enabled": true,
-		mapCleanerBasePath + ".prefix.prefix":  "ht_",
+		basePath + ".enabled":        true,
+		basePath + ".prefix.enabled": true,
+		basePath + ".prefix.prefix":  "ht_",
 	}
 
 }
