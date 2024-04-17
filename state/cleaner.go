@@ -274,6 +274,7 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 	)
 
 	// TODO Send names of cleaned data structures to status gatherer
+	//  --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/41
 	return len(cleaned), err
 
 }
