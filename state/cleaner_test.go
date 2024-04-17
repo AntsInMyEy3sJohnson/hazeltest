@@ -37,6 +37,11 @@ type (
 		getMapInvocations     int
 		returnErrorUponGetMap bool
 	}
+	testHzQueueStore struct {
+		queues                  map[string]*testHzQueue
+		getQueueInvocations     int
+		returnErrorUponGetQueue bool
+	}
 	testHzObjectInfoStore struct {
 		objectInfos                         []hzObjectInfo
 		getDistributedObjectInfoInvocations int
@@ -47,14 +52,19 @@ type (
 		evictAllInvocations     int
 		returnErrorUponEvictAll bool
 	}
+	testHzQueue struct {
+		data                 chan string
+		clearInvocations     int
+		returnErrorUponClear bool
+	}
 )
 
 const (
-	checkMark          = "\u2713"
-	ballotX            = "\u2717"
-	mapCleanerBasePath = "stateCleaner.maps"
-	hzCluster          = "awesome-hz-cluster"
-	mapCleanerName     = "awesome-map-cleaner"
+	checkMark        = "\u2713"
+	ballotX          = "\u2717"
+	hzCluster        = "awesome-hz-cluster"
+	mapCleanerName   = "awesome-map-cleaner"
+	queueCleanerName = "awesome-queue-cleaner"
 )
 
 var (
@@ -64,7 +74,9 @@ var (
 	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
 	getMapError                   = errors.New("something somewhere went terribly wrong when attempting to get a map from the target hazelcast cluster")
-	evictAllError                 = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
+	mapEvictAllError              = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
+	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
+	queueClearError               = errors.New("something somewhere went terribly wrong upon attempt to perform clear operation on queue")
 )
 
 func (m *testHzMap) EvictAll(_ context.Context) error {
@@ -72,7 +84,7 @@ func (m *testHzMap) EvictAll(_ context.Context) error {
 	m.evictAllInvocations++
 
 	if m.returnErrorUponEvictAll {
-		return evictAllError
+		return mapEvictAllError
 	}
 
 	clear(m.data)
@@ -90,6 +102,38 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hzMap, error) 
 	}
 
 	return ms.maps[name], nil
+
+}
+
+func (q *testHzQueue) Clear(_ context.Context) error {
+
+	q.clearInvocations++
+
+	if q.returnErrorUponClear {
+		return queueClearError
+	}
+
+	for {
+		select {
+		case <-q.data:
+			// Receive item from channel and discard it
+		default:
+			// Channel empty, no more events to receive
+			return nil
+		}
+	}
+
+}
+
+func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hzQueue, error) {
+
+	qs.getQueueInvocations++
+
+	if qs.returnErrorUponGetQueue {
+		return nil, getQueueError
+	}
+
+	return qs.queues[names], nil
 
 }
 
@@ -185,6 +229,24 @@ func newQueueObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
 	}
 }
 
+func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *testHzQueueStore {
+
+	testQueues := make(map[string]*testHzQueue)
+
+	for i := 0; i < numQueueObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			testQueues[fmt.Sprintf("%sload-%d", v, i)] = &testHzQueue{
+				data: make(chan string, 9),
+			}
+		}
+	}
+
+	return &testHzQueueStore{
+		queues: testQueues,
+	}
+
+}
+
 func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
 
 	testMaps := make(map[string]*testHzMap)
@@ -199,12 +261,12 @@ func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *test
 
 }
 
-func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string) *testHzObjectInfoStore {
+func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
 
 	var objectInfos []hzObjectInfo
 	for i := 0; i < numObjects; i++ {
 		for _, v := range objectNamePrefixes {
-			objectInfos = append(objectInfos, *newMapObjectInfoFromName(fmt.Sprintf("%sload-%d", v, i)))
+			objectInfos = append(objectInfos, *&simpleObjectInfo{name: fmt.Sprintf("%sload-%d", v, i), serviceName: hzServiceName})
 		}
 	}
 
@@ -221,6 +283,21 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObj
 	}
 
 	return ""
+
+}
+
+func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObjectInfoStore, ch *testHzClientHandler) *queueCleaner {
+
+	return &queueCleaner{
+		name:      queueCleanerName,
+		hzCluster: hzCluster,
+		hzMembers: hzMembers,
+		keyPath:   queueCleanerBasePath,
+		c:         c,
+		qs:        qs,
+		ois:       ois,
+		ch:        ch,
+	}
 
 }
 
@@ -354,6 +431,167 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 
 }
 
+func TestQueueCleanerClean(t *testing.T) {
+
+	t.Log("given a queue cleaner build method")
+	{
+		t.Log("\twhen target hazeltest cluster contains multiple maps and queues, and all retrieval operations are successful")
+		{
+			t.Log("\t\twhen prefix usage has been enabled")
+			{
+				numQueueObjects := 9
+				prefixToConsider := "ht_"
+				prefixes := []string{prefixToConsider, "aragorn_"}
+
+				dummyQueueStore := populateDummyQueueStore(numQueueObjects, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+
+				// Add object representing map, so we can verify that no attempt was made to retrieve it
+				// The name of this object matches the given predicate, so method under test must use service name to establish
+				// object in question represents map
+				mapObjectName := fmt.Sprintf("%sload-42", prefixToConsider)
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(mapObjectName))
+				dummyQueueStore.queues[mapObjectName] = &testHzQueue{}
+
+				// Add Hazelcast-internal map
+				hzInternalQueueName := "__awesome.internal.queue"
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
+				dummyQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
+
+				c := &cleanerConfig{
+					enabled:   true,
+					usePrefix: true,
+					prefix:    prefixToConsider,
+				}
+				ch := &testHzClientHandler{}
+				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch)
+
+				numCleaned, err := qc.clean(context.TODO())
+
+				msg := "\t\t\tno error must be returned"
+
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tdistributed objects info must have been queried once"
+				if dummyObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tget queue must have been invoked only on queues whose prefix matches configuration"
+				if dummyQueueStore.getQueueInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, dummyQueueStore.getQueueInvocations)
+				}
+
+				invokedOnceMsg := "\t\t\tclear must have been invoked on all data structures whose prefix matches configuration"
+				notInvokedMsg := "\t\t\tclear must not have been invoked on data structure that is either not a queue or whose name does not correspond to given prefix"
+				for k, v := range dummyQueueStore.queues {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, dummyObjectInfoStore.objectInfos) == hzQueueService {
+						if v.clearInvocations == 1 {
+							t.Log(invokedOnceMsg, checkMark, k)
+						} else {
+							t.Fatal(invokedOnceMsg, ballotX, k, v.clearInvocations)
+						}
+					} else {
+						if v.clearInvocations == 0 {
+							t.Log(notInvokedMsg, checkMark, k)
+						} else {
+							t.Fatal(notInvokedMsg, ballotX, k, v.clearInvocations)
+						}
+					}
+				}
+
+				msg = fmt.Sprintf("\t\tcleaner must report %d cleaned data structures", numQueueObjects)
+				if numCleaned == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleaned)
+				}
+
+				msg = "\t\t\thazelcast client must have been closed"
+				if ch.shutdownInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ch.shutdownInvocations)
+				}
+
+			}
+			t.Log("\t\twhen prefix usage has been disabled")
+			{
+				numQueueObjects := 9
+				prefixes := []string{"ht_", "gimli_"}
+
+				dummyQueueStore := populateDummyQueueStore(numQueueObjects, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+
+				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
+				// even when prefix usage has been disabled
+				hzInternalQueueName := "__awesome.internal.queue"
+				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
+				dummyQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
+
+				c := &cleanerConfig{
+					enabled: true,
+				}
+				ch := &testHzClientHandler{}
+				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch)
+
+				numCleaned, err := qc.clean(context.TODO())
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tget all must have been invoked on all maps that are not hazelcast-internal maps"
+				expectedCleaned := numQueueObjects * len(prefixes)
+				if dummyQueueStore.getQueueInvocations == expectedCleaned {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, dummyQueueStore.getQueueInvocations)
+				}
+
+				invokedMsg := "\t\t\tclear must have been invoked on all queues that are not hazelcast-internal queues"
+				notInvokedMsg := "\t\t\tclear must not have been invoked on hazelcast-internal queues"
+				for k, v := range dummyQueueStore.queues {
+					if !strings.HasPrefix(k, hzInternalQueueName) {
+						if v.clearInvocations == 1 {
+							t.Log(invokedMsg, checkMark, k)
+						} else {
+							t.Fatal(invokedMsg, ballotX, k)
+						}
+					} else {
+						if v.clearInvocations == 0 {
+							t.Log(notInvokedMsg, checkMark, k)
+						} else {
+							t.Fatal(notInvokedMsg, ballotX, k)
+						}
+					}
+				}
+
+				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", expectedCleaned)
+				if numCleaned == expectedCleaned {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleaned)
+				}
+
+			}
+
+		}
+	}
+
+}
+
 func TestMapCleanerClean(t *testing.T) {
 
 	t.Log("given a map cleaner build method")
@@ -367,7 +605,7 @@ func TestMapCleanerClean(t *testing.T) {
 				prefixes := []string{prefixToConsider, "gimli_"}
 
 				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add object representing queue, so we can verify that no attempt was made to retrieve it
 				// The name of this object matches the given predicate, so method under test must use service name to establish
@@ -453,7 +691,7 @@ func TestMapCleanerClean(t *testing.T) {
 				prefixes := []string{"ht_", "gimli_"}
 
 				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes)
+				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
@@ -587,7 +825,7 @@ func TestMapCleanerClean(t *testing.T) {
 			ms := populateDummyMapStore(numMapObjects, prefixes)
 			ms.returnErrorUponGetMap = true
 
-			ois := populateDummyObjectInfos(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
 
@@ -629,7 +867,7 @@ func TestMapCleanerClean(t *testing.T) {
 			prefixes := []string{"ht_"}
 
 			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ois := populateDummyObjectInfos(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			erroneousEvictAllMapName := "ht_load-0"
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
@@ -642,7 +880,7 @@ func TestMapCleanerClean(t *testing.T) {
 			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tcorresponding error must be returned"
-			if errors.Is(err, evictAllError) {
+			if errors.Is(err, mapEvictAllError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
