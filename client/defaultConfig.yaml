@@ -74,6 +74,23 @@ chaosMonkeys:
       # sleep configuration explained above.
       enableRandomness: true
 
+# Caution: State cleaners will not modify data structures internal to Hazelcast itself. Such data structures
+# start with a prefix of two underscores, and state cleaners will skip all such data structures even if
+# two underscores have been explicitly provided using the prefix configuration below. It is generally advisable
+# not to assign names starting with two underscores to regular payload data structures.
+stateCleaner:
+  maps:
+    enabled: true
+    prefix:
+      enabled: true
+      prefix: "ht_"
+  queues:
+    enabled: true
+    prefix:
+      enabled: true
+      prefix: "ht_"
+
+
 queueTests:
   # 'queueTests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,

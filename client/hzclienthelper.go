@@ -16,7 +16,7 @@ type (
 		lp       *logging.LogProvider
 	}
 	HzClientInitializer interface {
-		InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string)
+		InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string)
 	}
 	HzClientCloser interface {
 		Shutdown(ctx context.Context) error
@@ -27,10 +27,10 @@ func NewHzClientHelper() HzClientHelper {
 	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}
 }
 
-func (h HzClientHelper) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) *hazelcast.Client {
+func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
 
 	hzConfig := &hazelcast.Config{}
-	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, runnerName)
+	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, clientName)
 	hzConfig.Cluster.Name = hzCluster
 
 	hzConfig.Cluster.Unisocket = RetrieveArgValue(ArgUseUniSocketClient).(bool)

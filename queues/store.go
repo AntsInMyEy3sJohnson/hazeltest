@@ -28,7 +28,7 @@ func (d *defaultHzQueueStore) Shutdown(ctx context.Context) error {
 }
 
 func (d *defaultHzQueueStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.client = client.NewHzClientHelper().InitHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+	d.client = client.NewHzClientHelper().AssembleHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
 }
 
 func (d *defaultHzQueueStore) GetQueue(ctx context.Context, name string) (hzQueue, error) {

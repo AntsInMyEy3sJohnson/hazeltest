@@ -241,7 +241,7 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 				l.ct.increaseCounter(statusKeyNumFailedPuts)
 				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
 			} else {
-				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s': %v", queueName, e), log.TraceLevel)
+				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s'", queueName), log.TraceLevel)
 			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {

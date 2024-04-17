@@ -1,5 +1,5 @@
 # Slightly adapted version of https://github.com/docker-library/golang/issues/209#issuecomment-530591780
-FROM golang:1.21.5 as builder
+FROM golang:1.21.9 as builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY . .
 ARG TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o main .
 
-FROM alpine:3.19.0
+FROM alpine:3.19.1
 
 WORKDIR /root
 
