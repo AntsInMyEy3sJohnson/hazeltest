@@ -1343,6 +1343,40 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+		t.Log("\twhen populate config is unsuccessful")
+		{
+			b := newMapCleanerBuilder()
+			b.cfb.a = &testConfigPropertyAssigner{returnErrorUponAssignConfigValue: true}
+
+			c, service, err := b.build(
+				&testHzClientHandler{},
+				context.TODO(),
+				hzCluster,
+				hzMembers,
+			)
+
+			msg := "\t\tcleaner must be nil"
+			if c == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tbuilder must report type of hazelcast service for which builder was to be assembled"
+			if service == hzMapService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, service)
+			}
+
+			msg = "\t\tright kind of error must be returned"
+			if errors.Is(err, assignConfigPropertyError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+		}
 	}
 
 }
