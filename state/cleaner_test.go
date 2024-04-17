@@ -12,7 +12,8 @@ import (
 
 type (
 	testConfigPropertyAssigner struct {
-		dummyConfig map[string]any
+		dummyConfig                      map[string]any
+		returnErrorUponAssignConfigValue bool
 	}
 	testCleanerBuilder struct {
 		behavior         *testCleanerBehavior
@@ -70,6 +71,7 @@ const (
 var (
 	hzMembers                     = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
 	cw                            = cleanerWatcher{}
+	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
 	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
@@ -201,6 +203,10 @@ func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ strin
 }
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
+
+	if a.returnErrorUponAssignConfigValue {
+		return assignConfigPropertyError
+	}
 
 	if value, ok := a.dummyConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
@@ -1235,6 +1241,40 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+		}
+		t.Log("\twhen populate config is unsuccessful")
+		{
+			b := newQueueCleanerBuilder()
+			b.cfb.a = &testConfigPropertyAssigner{returnErrorUponAssignConfigValue: true}
+
+			c, service, err := b.build(
+				&testHzClientHandler{},
+				context.TODO(),
+				hzCluster,
+				hzMembers,
+			)
+
+			msg := "\t\tcleaner must be nil"
+			if c == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tbuilder must report type of hazelcast service for which builder was to be assembled"
+			if service == hzQueueService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, service)
+			}
+
+			msg = "\t\tright kind of error must be returned"
+			if errors.Is(err, assignConfigPropertyError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
 		}
 	}
 
