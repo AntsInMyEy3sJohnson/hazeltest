@@ -324,14 +324,14 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzC
 }
 
 func runGenericClean(
+	ois hzObjectInfoStore,
 	ctx context.Context,
 	hzService string,
 	c *cleanerConfig,
-	identifyDataStructures func() ([]hzObjectInfo, error),
 	retrieveAndClean func(name string, ctx context.Context) error,
 ) ([]string, error) {
 
-	candidateDataStructures, err := identifyDataStructures()
+	candidateDataStructures, err := identifyCandidateDataStructures(ois, ctx, hzService)
 
 	if err != nil {
 		return make([]string, 0), err
@@ -381,23 +381,23 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
+	retrieveAndClean := func(name string, ctx context.Context) error {
+		q, err := c.qs.GetQueue(ctx, name)
+		if err != nil {
+			return err
+		}
+		if err := q.Clear(ctx); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	cleaned, err := runGenericClean(
+		c.ois,
 		ctx,
 		hzQueueService,
 		c.c,
-		func() ([]hzObjectInfo, error) {
-			return identifyCandidateDataStructures(c.ois, ctx, hzQueueService)
-		},
-		func(name string, ctx context.Context) error {
-			q, err := c.qs.GetQueue(ctx, name)
-			if err != nil {
-				return err
-			}
-			if err := q.Clear(ctx); err != nil {
-				return err
-			}
-			return nil
-		},
+		retrieveAndClean,
 	)
 
 	return len(cleaned), err
