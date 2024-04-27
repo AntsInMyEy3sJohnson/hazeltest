@@ -4,8 +4,9 @@ import (
 	"sync"
 )
 
-type StatusType string
+type ActorGroup string
 type RunnerDataStructure string
+type queryActorStateFunc func() map[string]any
 
 const (
 	Maps   RunnerDataStructure = "maps"
@@ -13,15 +14,34 @@ const (
 )
 
 const (
-	TestLoopStatusType    StatusType = "testLoops"
-	ChaosMonkeyStatusType StatusType = "chaosMonkeys"
+	MapRunners    ActorGroup = "mapRunners"
+	QueueRunners  ActorGroup = "queueRunners"
+	ChaosMonkeys  ActorGroup = "chaosMonkeys"
+	StateCleaners ActorGroup = "stateCleaners"
 )
 
 var (
-	mapRunnerStatusFunctions   sync.Map
-	queueRunnerStatusFunction  sync.Map
-	chaosMonkeyStatusFunctions sync.Map
+	mapRunnerStatusFunctions      sync.Map
+	queueRunnerStatusFunction     sync.Map
+	chaosMonkeyStatusFunctions    sync.Map
+	statefulActorsStatusFunctions = struct {
+		sync.RWMutex
+		m map[ActorGroup]map[string]queryActorStateFunc
+	}{m: make(map[ActorGroup]map[string]queryActorStateFunc)}
 )
+
+func RegisterStatefulActor(t ActorGroup, actorName string, queryStatusFunc func() map[string]any) {
+
+	statefulActorsStatusFunctions.Lock()
+	defer statefulActorsStatusFunctions.Unlock()
+
+	if _, ok := statefulActorsStatusFunctions.m[t]; !ok {
+		statefulActorsStatusFunctions.m[t] = make(map[string]queryActorStateFunc)
+	}
+
+	statefulActorsStatusFunctions.m[t][actorName] = queryStatusFunc
+
+}
 
 func RegisterRunnerStatus(s RunnerDataStructure, source string, queryStatusFunc func() map[string]any) {
 
@@ -40,7 +60,25 @@ func RegisterChaosMonkeyStatus(source string, queryStatusFunc func() map[string]
 
 }
 
-func assembleRunnerStatus() map[StatusType]any {
+func assembleActorStatus() map[ActorGroup]map[string]any {
+
+	statefulActorsStatusFunctions.RLock()
+	defer statefulActorsStatusFunctions.RUnlock()
+
+	result := make(map[ActorGroup]map[string]any)
+
+	for actorGroup, registeredActors := range statefulActorsStatusFunctions.m {
+		result[actorGroup] = make(map[string]any)
+		for actor, actorStateQueryFunc := range registeredActors {
+			result[actorGroup][actor] = actorStateQueryFunc()
+		}
+	}
+
+	return result
+
+}
+
+func assembleRunnerStatus() map[ActorGroup]any {
 
 	mapTestLoopStatus := map[string]any{}
 	populateWithStatus(mapTestLoopStatus, &mapRunnerStatusFunctions)
@@ -51,12 +89,12 @@ func assembleRunnerStatus() map[StatusType]any {
 	chaosMonkeyStatus := map[string]any{}
 	populateWithStatus(chaosMonkeyStatus, &chaosMonkeyStatusFunctions)
 
-	return map[StatusType]any{
-		TestLoopStatusType: map[RunnerDataStructure]any{
+	return map[ActorGroup]any{
+		MapRunners: map[RunnerDataStructure]any{
 			Maps:   mapTestLoopStatus,
 			Queues: queueTestLoopStatus,
 		},
-		ChaosMonkeyStatusType: chaosMonkeyStatus,
+		ChaosMonkeys: chaosMonkeyStatus,
 	}
 
 }

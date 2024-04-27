@@ -77,7 +77,7 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
-			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
+			decodedTestLoopsData := decodedData[string(MapRunners)].(map[string]any)
 			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -142,7 +142,7 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
-			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
+			decodedTestLoopsData := decodedData[string(MapRunners)].(map[string]any)
 			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
 				t.Log(msg, checkMark)
 			} else {
@@ -186,7 +186,7 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tchaos monkey map must contain exactly one element"
-			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeys)].(map[string]any)
 			if len(chaosMonkeyStatus) == 1 {
 				t.Log(msg, checkMark)
 			} else {
@@ -246,14 +246,14 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tstatus map must still contain top-level key for test loop status"
-			if _, ok := decodedData[string(TestLoopStatusType)]; ok {
+			if _, ok := decodedData[string(MapRunners)]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\ttest loop status map must still contain two top-level elements"
-			testLoopStatus := decodedData[string(TestLoopStatusType)].(map[string]any)
+			testLoopStatus := decodedData[string(MapRunners)].(map[string]any)
 
 			if len(testLoopStatus) == 2 {
 				t.Log(msg, checkMark)
@@ -291,14 +291,14 @@ func TestStatusHandler(t *testing.T) {
 			}
 
 			msg = "\t\tstatus map must contain top-level key for chaos monkey status"
-			if _, ok := decodedData[string(ChaosMonkeyStatusType)]; ok {
+			if _, ok := decodedData[string(ChaosMonkeys)]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tchaos monkey map must contain exactly one element"
-			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeys)].(map[string]any)
 			if len(chaosMonkeyStatus) == 1 {
 				t.Log(msg, checkMark)
 			} else {
