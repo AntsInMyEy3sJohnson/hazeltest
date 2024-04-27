@@ -11,37 +11,38 @@ func TestRegisterStatefulActor(t *testing.T) {
 	{
 		t.Log("\twhen stateful actors register with status types for which no actors have previously registered")
 		{
+			actors := map[ActorGroup]map[string]map[string]any{
+				MapRunners: {
+					"pokedex": {
+						"aragorn": "the king",
+					},
+				},
+				StateCleaners: {
+					"maps": {
+						"gimli": "dwarf (never to be thrown)",
+					},
+					"queues": {
+						"pippin": "fool of a took",
+					},
+				},
+			}
 
-			dummyMapRunnerKey, dummyMapRunnerValue := "awesomeKey", "awesomeValue"
-
-			RegisterStatefulActor(MapRunners, "pokedex", func() map[string]any {
-				return map[string]any{
-					dummyMapRunnerKey: dummyMapRunnerValue,
+			for k1, v1 := range actors {
+				for k2, v2 := range v1 {
+					RegisterStatefulActor(k1, k2, func() map[string]any {
+						return v2
+					})
 				}
-			})
+			}
 
-			dummyMapStateCleanerKey, dummyMapStateCleanerValue := "anotherAwesomeKey", "anotherAwesomeValue"
-			RegisterStatefulActor(StateCleaners, "maps", func() map[string]any {
-				return map[string]any{
-					dummyMapStateCleanerKey: dummyMapStateCleanerValue,
-				}
-			})
-
-			dummyQueueStateCleanerKey, dummyQueueStateCleanerValue := "yetAnotherAwesomeKey", "yetAnotherAwesomeValue"
-			RegisterStatefulActor(StateCleaners, "queues", func() map[string]any {
-				return map[string]any{
-					dummyQueueStateCleanerKey: dummyQueueStateCleanerValue,
-				}
-			})
-
-			msg := "\t\tthere must be one state query function for reach of the registered actors"
+			msg := "\t\tthere must be one sub-map for each actor group"
 
 			result := assembleActorStatus()
 
-			if len(result) == 3 {
+			if len(result) == 2 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, len(result))
 			}
 
 		}
