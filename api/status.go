@@ -30,16 +30,16 @@ var (
 	}{m: make(map[ActorGroup]map[string]queryActorStateFunc)}
 )
 
-func RegisterStatefulActor(t ActorGroup, actorName string, queryStatusFunc func() map[string]any) {
+func RegisterStatefulActor(g ActorGroup, actorName string, queryStatusFunc func() map[string]any) {
 
 	statefulActorsStatusFunctions.Lock()
 	defer statefulActorsStatusFunctions.Unlock()
 
-	if _, ok := statefulActorsStatusFunctions.m[t]; !ok {
-		statefulActorsStatusFunctions.m[t] = make(map[string]queryActorStateFunc)
+	if _, ok := statefulActorsStatusFunctions.m[g]; !ok {
+		statefulActorsStatusFunctions.m[g] = make(map[string]queryActorStateFunc)
 	}
 
-	statefulActorsStatusFunctions.m[t][actorName] = queryStatusFunc
+	statefulActorsStatusFunctions.m[g][actorName] = queryStatusFunc
 
 }
 
