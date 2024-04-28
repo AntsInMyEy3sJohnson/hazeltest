@@ -19,13 +19,17 @@ func TestRegisterStatefulActor(t *testing.T) {
 				},
 				StateCleaners: {
 					"maps": {
-						"gimli": "dwarf (never to be thrown)",
+						"gimli":             "dwarf (never to be thrown)",
+						"legolas":           "dude with never-ending supply of arrows to shoot (how convenient)",
+						"gandalf the white": "actually has power here",
 					},
 					"queues": {
-						"pippin": "fool of a took",
+						"pippin": "fool of a took (would like to have second breakfast)",
+						"merry":  "thinks aragorn does not know about second breakfast",
 					},
 					"topics": {
 						"frodo": "the ring bearer",
+						"sam":   "the real mvp",
 					},
 				},
 			}
