@@ -24,14 +24,20 @@ func TestRegisterStatefulActor(t *testing.T) {
 					"queues": {
 						"pippin": "fool of a took",
 					},
+					"topics": {
+						"frodo": "the ring bearer",
+					},
 				},
 			}
 
-			for k1, v1 := range actors {
-				for k2, v2 := range v1 {
-					RegisterStatefulActor(k1, k2, func() map[string]any {
-						return v2
-					})
+			for actorGroup, actorsWithinGroup := range actors {
+				for actor, actorStateMap := range actorsWithinGroup {
+					registerFunc := func(m map[string]any) queryActorStateFunc {
+						return func() map[string]any {
+							return m
+						}
+					}(actorStateMap)
+					RegisterStatefulActor(actorGroup, actor, registerFunc)
 				}
 			}
 
@@ -43,6 +49,20 @@ func TestRegisterStatefulActor(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, len(result))
+			}
+
+			msg = "\t\tresult must contain expected values for each actor"
+			for actorGroup, actorsWithinGroup := range actors {
+				for actor, actorStateMap := range actorsWithinGroup {
+					for actorStateKey, actorStateValue := range actorStateMap {
+						assembledActorState := result[actorGroup][actor].(map[string]any)
+						if assembledActorState[actorStateKey] == actorStateValue {
+							t.Log(msg, checkMark, actorGroup, actor, actorStateKey)
+						} else {
+							t.Fatal(msg, ballotX, actorGroup, actor, actorStateKey)
+						}
+					}
+				}
 			}
 
 		}
