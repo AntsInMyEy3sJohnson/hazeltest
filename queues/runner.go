@@ -266,7 +266,7 @@ func (t *QueueTester) TestQueues() {
 
 			runner := runners[i]
 
-			api.RegisterRunnerStatus(api.Queues, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			api.RegisterStatefulActor(api.QueueRunners, runner.getSourceName(), gatherer.AssembleStatusCopy)
 			runner.runQueueTests(t.HzCluster, t.HzMembers, gatherer)
 		}(i)
 	}
