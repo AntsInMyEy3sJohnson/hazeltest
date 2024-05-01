@@ -11,6 +11,49 @@ func TestRegisterStatefulActor(t *testing.T) {
 	{
 		t.Log("\twhen stateful actors register with status types for which no actors have previously registered")
 		{
+			actorGroup := MapRunners
+			actorName := "pokedex"
+			dummyKey := "awesome-key"
+			dummyFn := func() map[string]any {
+				return map[string]any{
+					dummyKey: "awesome-value",
+				}
+			}
+			RegisterStatefulActor(actorGroup, actorName, dummyFn)
+
+			msg := "\t\tlist of stateful actors must contain entry for actor group"
+			if _, ok := statefulActorsStatusFunctions.m[actorGroup]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tactor must have been stored beneath actor group"
+			actorGroupList := statefulActorsStatusFunctions.m[actorGroup]
+
+			if _, ok := actorGroupList[actorName]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tquery status function must have been associated with actor"
+			if _, ok := actorGroupList[actorName]()[dummyKey]; ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
+func TestAssembleActorStatus(t *testing.T) {
+
+	t.Log("given a function to assemble a status representation for all registered actors")
+	{
+		t.Log("\twhen multiple actors from multiple actor groups have registered")
+		{
 			actors := map[ActorGroup]map[string]map[string]any{
 				MapRunners: {
 					"pokedex": {
@@ -68,7 +111,6 @@ func TestRegisterStatefulActor(t *testing.T) {
 					}
 				}
 			}
-
 		}
 	}
 
