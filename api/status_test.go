@@ -75,6 +75,8 @@ func TestAssembleActorStatus(t *testing.T) {
 	{
 		t.Log("\twhen multiple actors from multiple actor groups have registered")
 		{
+			tracker = newStatefulActorTracker()
+
 			actors := map[ActorGroup]map[string]map[string]any{
 				MapRunners: {
 					"pokedex": {
