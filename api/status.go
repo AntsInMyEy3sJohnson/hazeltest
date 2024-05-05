@@ -15,11 +15,6 @@ type (
 )
 
 const (
-	Maps   RunnerDataStructure = "maps"
-	Queues RunnerDataStructure = "queues"
-)
-
-const (
 	MapRunners    ActorGroup = "mapRunners"
 	QueueRunners  ActorGroup = "queueRunners"
 	ChaosMonkeys  ActorGroup = "chaosMonkeys"
