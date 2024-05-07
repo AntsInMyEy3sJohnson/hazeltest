@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
+	"hazeltest/status"
 	"strings"
 	"sync"
 	"testing"
@@ -57,6 +58,9 @@ type (
 		data                 chan string
 		clearInvocations     int
 		returnErrorUponClear bool
+	}
+	testCleanedTracker struct {
+		numInvocations int
 	}
 )
 
@@ -190,7 +194,7 @@ func (c *testCleaner) clean(_ context.Context) (int, error) {
 
 }
 
-func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ string, _ []string) (cleaner, string, error) {
+func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ *status.Gatherer, _ string, _ []string) (cleaner, string, error) {
 
 	b.buildInvocations++
 
@@ -218,6 +222,12 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	}
 
 	return nil
+
+}
+
+func (t *testCleanedTracker) addCleanedDataStructure(_, _ string) {
+
+	t.numInvocations++
 
 }
 
@@ -292,7 +302,7 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObj
 
 }
 
-func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObjectInfoStore, ch *testHzClientHandler) *queueCleaner {
+func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *queueCleaner {
 
 	return &queueCleaner{
 		name:      queueCleanerName,
@@ -303,11 +313,12 @@ func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObj
 		qs:        qs,
 		ois:       ois,
 		ch:        ch,
+		t:         t,
 	}
 
 }
 
-func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler) *mapCleaner {
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *mapCleaner {
 
 	return &mapCleaner{
 		name:      mapCleanerName,
@@ -318,6 +329,7 @@ func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectI
 		ms:        ms,
 		ois:       ois,
 		ch:        ch,
+		t:         t,
 	}
 
 }
@@ -470,7 +482,8 @@ func TestQueueCleanerClean(t *testing.T) {
 					prefix:    prefixToConsider,
 				}
 				ch := &testHzClientHandler{}
-				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch)
+				tracker := &testCleanedTracker{}
+				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch, tracker)
 
 				numCleaned, err := qc.clean(context.TODO())
 
@@ -514,11 +527,18 @@ func TestQueueCleanerClean(t *testing.T) {
 					}
 				}
 
-				msg = fmt.Sprintf("\t\tcleaner must report %d cleaned data structures", numQueueObjects)
+				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", numQueueObjects)
 				if numCleaned == numQueueObjects {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, numCleaned)
+				}
+
+				msg = fmt.Sprintf("\t\t\tcleaned data structure tracker must have been invoked %d times", numQueueObjects)
+				if tracker.numInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, tracker.numInvocations)
 				}
 
 				msg = "\t\t\thazelcast client must have been closed"
@@ -547,7 +567,8 @@ func TestQueueCleanerClean(t *testing.T) {
 					enabled: true,
 				}
 				ch := &testHzClientHandler{}
-				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch)
+				tracker := &testCleanedTracker{}
+				qc := assembleQueueCleaner(c, dummyQueueStore, dummyObjectInfoStore, ch, tracker)
 
 				numCleaned, err := qc.clean(context.TODO())
 
@@ -591,6 +612,13 @@ func TestQueueCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, numCleaned)
 				}
 
+				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", expectedCleaned)
+				if tracker.numInvocations == expectedCleaned {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, tracker.numInvocations)
+				}
+
 			}
 
 		}
@@ -604,7 +632,9 @@ func TestQueueCleanerClean(t *testing.T) {
 				objectInfos:                         make([]hzObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
-			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+
+			tracker := &testCleanedTracker{}
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -628,6 +658,13 @@ func TestQueueCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen retrieval of object info fails")
 		{
@@ -637,7 +674,8 @@ func TestQueueCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{
 				returnErrorUponGetObjectInfos: true,
 			}
-			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ois, &testHzClientHandler{})
+			tracker := &testCleanedTracker{}
+			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -654,6 +692,13 @@ func TestQueueCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
 		{
@@ -668,7 +713,8 @@ func TestQueueCleanerClean(t *testing.T) {
 
 			ois := populateDummyObjectInfos(numQueueOperations, prefixes, hzQueueService)
 
-			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+			tracker := &testCleanedTracker{}
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -701,6 +747,13 @@ func TestQueueCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen info retrieval and get queue operations succeed, but clear operation fails")
 		{
@@ -716,7 +769,9 @@ func TestQueueCleanerClean(t *testing.T) {
 			c := &cleanerConfig{
 				enabled: true,
 			}
-			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{})
+
+			tracker := &testCleanedTracker{}
+			qc := assembleQueueCleaner(c, qs, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -759,6 +814,13 @@ func TestQueueCleanerClean(t *testing.T) {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
 
+			msg = "\t\tcleaned tracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
+
 		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
@@ -769,7 +831,8 @@ func TestQueueCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{}
 			ch := &testHzClientHandler{}
 
-			qc := assembleQueueCleaner(c, qs, ois, ch)
+			tracker := &testCleanedTracker{}
+			qc := assembleQueueCleaner(c, qs, ois, ch, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -800,6 +863,13 @@ func TestQueueCleanerClean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
 			}
 		}
 	}
@@ -839,7 +909,9 @@ func TestMapCleanerClean(t *testing.T) {
 					prefix:    prefixToConsider,
 				}
 				ch := &testHzClientHandler{}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
+
+				tracker := &testCleanedTracker{}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, tracker)
 
 				ctx := context.TODO()
 				numCleaned, err := mc.clean(ctx)
@@ -884,11 +956,18 @@ func TestMapCleanerClean(t *testing.T) {
 					}
 				}
 
-				msg = fmt.Sprintf("\t\tcleaner must report %d cleaned data structures", numMapObjects)
+				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", numMapObjects)
 				if numCleaned == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, numCleaned)
+				}
+
+				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", numMapObjects)
+				if tracker.numInvocations == numMapObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, tracker.numInvocations)
 				}
 
 				msg = "\t\t\thazelcast client must have been closed"
@@ -917,7 +996,8 @@ func TestMapCleanerClean(t *testing.T) {
 					enabled: true,
 				}
 				ch := &testHzClientHandler{}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch)
+				tracker := &testCleanedTracker{}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, tracker)
 
 				numCleaned, err := mc.clean(context.TODO())
 
@@ -961,6 +1041,13 @@ func TestMapCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, numCleaned)
 				}
 
+				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", expectedCleaned)
+				if tracker.numInvocations == expectedCleaned {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, tracker.numInvocations)
+				}
+
 			}
 
 		}
@@ -977,7 +1064,8 @@ func TestMapCleanerClean(t *testing.T) {
 				objectInfos:                         make([]hzObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+			tracker := &testCleanedTracker{}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1001,6 +1089,13 @@ func TestMapCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen retrieval of object info fails")
 		{
@@ -1010,7 +1105,8 @@ func TestMapCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{
 				returnErrorUponGetObjectInfos: true,
 			}
-			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{})
+			tracker := &testCleanedTracker{}
+			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1027,6 +1123,13 @@ func TestMapCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
 		{
@@ -1041,7 +1144,8 @@ func TestMapCleanerClean(t *testing.T) {
 
 			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+			tracker := &testCleanedTracker{}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1074,6 +1178,13 @@ func TestMapCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 		t.Log("\twhen info retrieval and get map operations succeed, but evict all fails")
 		{
@@ -1089,7 +1200,9 @@ func TestMapCleanerClean(t *testing.T) {
 			c := &cleanerConfig{
 				enabled: true,
 			}
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{})
+
+			tracker := &testCleanedTracker{}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1132,6 +1245,13 @@ func TestMapCleanerClean(t *testing.T) {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
 
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
+
 		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
@@ -1142,7 +1262,8 @@ func TestMapCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{}
 			ch := &testHzClientHandler{}
 
-			mc := assembleMapCleaner(c, ms, ois, ch)
+			tracker := &testCleanedTracker{}
+			mc := assembleMapCleaner(c, ms, ois, ch, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1174,6 +1295,13 @@ func TestMapCleanerClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
 			}
+
+			msg = "\t\ttracker must have been invoked zero times"
+			if tracker.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tracker.numInvocations)
+			}
 		}
 	}
 
@@ -1189,7 +1317,8 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(queueCleanerBasePath)}
 
 			tch := &testHzClientHandler{}
-			c, hzService, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
+			g := status.NewGatherer()
+			c, hzService, err := b.build(tch, context.TODO(), g, hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1241,6 +1370,13 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tqueue cleaner built must carry tracker"
+			if qc.t != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 		t.Log("\twhen populate config is unsuccessful")
 		{
@@ -1250,6 +1386,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 			c, service, err := b.build(
 				&testHzClientHandler{},
 				context.TODO(),
+				status.NewGatherer(),
 				hzCluster,
 				hzMembers,
 			)
@@ -1290,7 +1427,8 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(mapCleanerBasePath)}
 
 			tch := &testHzClientHandler{}
-			c, hzService, err := b.build(tch, context.TODO(), hzCluster, hzMembers)
+			g := status.NewGatherer()
+			c, hzService, err := b.build(tch, context.TODO(), g, hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1342,6 +1480,14 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tmap cleaner built must carry tracker"
+			if mc.t != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 		t.Log("\twhen populate config is unsuccessful")
 		{
@@ -1351,6 +1497,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			c, service, err := b.build(
 				&testHzClientHandler{},
 				context.TODO(),
+				status.NewGatherer(),
 				hzCluster,
 				hzMembers,
 			)
