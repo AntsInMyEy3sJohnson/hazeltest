@@ -231,105 +231,33 @@ func (t *testCleanedTracker) addCleanedDataStructure(_, _ string) {
 
 }
 
-func newMapObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
-	return &simpleObjectInfo{
-		name:        objectInfoName,
-		serviceName: hzMapService,
-	}
-}
+func TestAddCleanedDataStructure(t *testing.T) {
 
-func newQueueObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
-	return &simpleObjectInfo{
-		name:        objectInfoName,
-		serviceName: hzQueueService,
-	}
-}
+	t.Log("given a cleaned data structure tracker with a method to add a cleaned data structure")
+	{
+		t.Log("\twhen status gatherer has been correctly populated")
+		{
+			g := status.NewGatherer()
+			go g.Listen()
 
-func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *testHzQueueStore {
+			tracker := &cleanedDataStructureTracker{g}
 
-	testQueues := make(map[string]*testHzQueue)
+			name, kind := "awesome-map", "map"
+			tracker.addCleanedDataStructure(name, kind)
 
-	for i := 0; i < numQueueObjects; i++ {
-		for _, v := range objectNamePrefixes {
-			testQueues[fmt.Sprintf("%sload-%d", v, i)] = &testHzQueue{
-				data: make(chan string, 9),
+			g.StopListen()
+
+			waitForStatusGatheringDone(g)
+
+			msg := "\t\tinformation about cleaned data structure must have been added to status gatherer"
+
+			statusCopy := g.AssembleStatusCopy()
+			if statusCopy[name].(string) == kind {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
-	}
-
-	return &testHzQueueStore{
-		queues: testQueues,
-	}
-
-}
-
-func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
-
-	testMaps := make(map[string]*testHzMap)
-
-	for i := 0; i < numMapObjects; i++ {
-		for _, v := range objectNamePrefixes {
-			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: make(map[string]any)}
-		}
-	}
-
-	return &testHzMapStore{maps: testMaps}
-
-}
-
-func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
-
-	var objectInfos []hzObjectInfo
-	for i := 0; i < numObjects; i++ {
-		for _, v := range objectNamePrefixes {
-			objectInfos = append(objectInfos, *&simpleObjectInfo{name: fmt.Sprintf("%sload-%d", v, i), serviceName: hzServiceName})
-		}
-	}
-
-	return &testHzObjectInfoStore{objectInfos: objectInfos}
-
-}
-
-func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObjectInfo) string {
-
-	for _, v := range objectInfos {
-		if v.getName() == name {
-			return v.getServiceName()
-		}
-	}
-
-	return ""
-
-}
-
-func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *queueCleaner {
-
-	return &queueCleaner{
-		name:      queueCleanerName,
-		hzCluster: hzCluster,
-		hzMembers: hzMembers,
-		keyPath:   queueCleanerBasePath,
-		c:         c,
-		qs:        qs,
-		ois:       ois,
-		ch:        ch,
-		t:         t,
-	}
-
-}
-
-func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *mapCleaner {
-
-	return &mapCleaner{
-		name:      mapCleanerName,
-		hzCluster: hzCluster,
-		hzMembers: hzMembers,
-		keyPath:   mapCleanerBasePath,
-		c:         c,
-		ms:        ms,
-		ois:       ois,
-		ch:        ch,
-		t:         t,
 	}
 
 }
@@ -1618,6 +1546,119 @@ func assembleTestConfig(basePath string) map[string]any {
 		basePath + ".enabled":        true,
 		basePath + ".prefix.enabled": true,
 		basePath + ".prefix.prefix":  "ht_",
+	}
+
+}
+
+func waitForStatusGatheringDone(g *status.Gatherer) {
+
+	for {
+		if done := g.ListeningStopped(); done {
+			return
+		}
+	}
+
+}
+
+func newMapObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
+	return &simpleObjectInfo{
+		name:        objectInfoName,
+		serviceName: hzMapService,
+	}
+}
+
+func newQueueObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
+	return &simpleObjectInfo{
+		name:        objectInfoName,
+		serviceName: hzQueueService,
+	}
+}
+
+func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *testHzQueueStore {
+
+	testQueues := make(map[string]*testHzQueue)
+
+	for i := 0; i < numQueueObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			testQueues[fmt.Sprintf("%sload-%d", v, i)] = &testHzQueue{
+				data: make(chan string, 9),
+			}
+		}
+	}
+
+	return &testHzQueueStore{
+		queues: testQueues,
+	}
+
+}
+
+func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
+
+	testMaps := make(map[string]*testHzMap)
+
+	for i := 0; i < numMapObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: make(map[string]any)}
+		}
+	}
+
+	return &testHzMapStore{maps: testMaps}
+
+}
+
+func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
+
+	var objectInfos []hzObjectInfo
+	for i := 0; i < numObjects; i++ {
+		for _, v := range objectNamePrefixes {
+			objectInfos = append(objectInfos, *&simpleObjectInfo{name: fmt.Sprintf("%sload-%d", v, i), serviceName: hzServiceName})
+		}
+	}
+
+	return &testHzObjectInfoStore{objectInfos: objectInfos}
+
+}
+
+func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObjectInfo) string {
+
+	for _, v := range objectInfos {
+		if v.getName() == name {
+			return v.getServiceName()
+		}
+	}
+
+	return ""
+
+}
+
+func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *queueCleaner {
+
+	return &queueCleaner{
+		name:      queueCleanerName,
+		hzCluster: hzCluster,
+		hzMembers: hzMembers,
+		keyPath:   queueCleanerBasePath,
+		c:         c,
+		qs:        qs,
+		ois:       ois,
+		ch:        ch,
+		t:         t,
+	}
+
+}
+
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, t cleanedTracker) *mapCleaner {
+
+	return &mapCleaner{
+		name:      mapCleanerName,
+		hzCluster: hzCluster,
+		hzMembers: hzMembers,
+		keyPath:   mapCleanerBasePath,
+		c:         c,
+		ms:        ms,
+		ois:       ois,
+		ch:        ch,
+		t:         t,
 	}
 
 }
