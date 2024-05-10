@@ -411,16 +411,17 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 
 func RunCleaners(hzCluster string, hzMembers []string) error {
 
-	g := status.NewGatherer()
-	go g.Listen()
-
-	defer g.StopListen()
-
 	for _, b := range builders {
 
+		g := status.NewGatherer()
+		go g.Listen()
+
 		ctx, cancel := context.WithCancel(context.Background())
-		err := func(gatherer *status.Gatherer) error {
-			defer cancel()
+		err := func() error {
+			defer func() {
+				cancel()
+				g.StopListen()
+			}()
 
 			c, hzService, err := b.build(&defaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
 			if err != nil {
@@ -444,7 +445,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 			}
 
 			return nil
-		}(g)
+		}()
 
 		<-ctx.Done()
 

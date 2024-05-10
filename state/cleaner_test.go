@@ -18,6 +18,7 @@ type (
 	}
 	testCleanerBuilder struct {
 		behavior         *testCleanerBehavior
+		gathererPassedIn *status.Gatherer
 		buildInvocations int
 	}
 	testCleanerBehavior struct {
@@ -83,6 +84,7 @@ var (
 	mapEvictAllError              = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
 	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
 	queueClearError               = errors.New("something somewhere went terribly wrong upon attempt to perform clear operation on queue")
+	emptyTestCleanerBehavior      = &testCleanerBehavior{}
 )
 
 func (m *testHzMap) EvictAll(_ context.Context) error {
@@ -194,9 +196,10 @@ func (c *testCleaner) clean(_ context.Context) (int, error) {
 
 }
 
-func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, _ *status.Gatherer, _ string, _ []string) (cleaner, string, error) {
+func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, g *status.Gatherer, _ string, _ []string) (cleaner, string, error) {
 
 	b.buildInvocations++
+	b.gathererPassedIn = g
 
 	if b.behavior.throwErrorUponBuild {
 		return nil, hzMapService, cleanerBuildError
@@ -1460,12 +1463,12 @@ func TestRunCleaners(t *testing.T) {
 
 	t.Log("given a function to invoke registered state cleaner builders")
 	{
-		t.Log("\twhen at least one state cleaner builder has registered")
+		t.Log("\twhen one state cleaner builder has registered")
 		{
 			t.Log("\t\twhen both build and clean invocations are successful")
 			{
 				runTestCaseAndResetState(func() {
-					b := &testCleanerBuilder{behavior: &testCleanerBehavior{}}
+					b := &testCleanerBuilder{behavior: emptyTestCleanerBehavior}
 					builders = []cleanerBuilder{b}
 
 					err := RunCleaners(hzCluster, hzMembers)
@@ -1528,6 +1531,31 @@ func TestRunCleaners(t *testing.T) {
 					}
 				})
 			}
+		}
+		t.Log("\twhen multiple state cleaner builders have registered")
+		{
+			runTestCaseAndResetState(func() {
+				b0, b1 := &testCleanerBuilder{behavior: emptyTestCleanerBehavior}, &testCleanerBuilder{behavior: emptyTestCleanerBehavior}
+				builders = []cleanerBuilder{b0, b1}
+
+				err := RunCleaners(hzCluster, hzMembers)
+
+				msg := "\t\tno error must be returned"
+
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tbuilders must have received own status gatherer"
+				if b0.gathererPassedIn != b1.gathererPassedIn {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			})
 		}
 	}
 
