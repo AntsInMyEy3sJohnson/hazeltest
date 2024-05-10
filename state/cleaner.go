@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"hazeltest/status"
@@ -227,6 +228,7 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
 	t := &cleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
 	return &mapCleaner{
 		name:      clientName,
@@ -309,6 +311,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
 	t := &cleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
 	return &queueCleaner{
 		name:      clientName,
