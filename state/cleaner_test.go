@@ -53,12 +53,16 @@ type (
 	testHzMap struct {
 		data                    map[string]any
 		evictAllInvocations     int
+		sizeInvocations         int
 		returnErrorUponEvictAll bool
+		returnErrorUponSize     bool
 	}
 	testHzQueue struct {
 		data                 chan string
 		clearInvocations     int
+		sizeInvocations      int
 		returnErrorUponClear bool
+		returnErrorUponSize  bool
 	}
 	testCleanedTracker struct {
 		numInvocations int
@@ -82,8 +86,10 @@ var (
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
 	getMapError                   = errors.New("something somewhere went terribly wrong when attempting to get a map from the target hazelcast cluster")
 	mapEvictAllError              = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
+	mapSizeError                  = errors.New("something somewhere went terribly wrong upon attempt to query the map's size")
 	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
 	queueClearError               = errors.New("something somewhere went terribly wrong upon attempt to perform clear operation on queue")
+	queueSizeError                = errors.New("something somewhere went terribly wrong upon attempt to query the queue's size")
 	emptyTestCleanerBehavior      = &testCleanerBehavior{}
 )
 
@@ -98,6 +104,18 @@ func (m *testHzMap) EvictAll(_ context.Context) error {
 	clear(m.data)
 
 	return nil
+
+}
+
+func (m *testHzMap) Size(_ context.Context) (int, error) {
+
+	m.sizeInvocations++
+
+	if m.returnErrorUponSize {
+		return 0, mapSizeError
+	}
+
+	return len(m.data), nil
 
 }
 
@@ -130,6 +148,18 @@ func (q *testHzQueue) Clear(_ context.Context) error {
 			return nil
 		}
 	}
+
+}
+
+func (q *testHzQueue) Size(_ context.Context) (int, error) {
+
+	q.sizeInvocations++
+
+	if q.returnErrorUponSize {
+		return 0, queueSizeError
+	}
+
+	return len(q.data), nil
 
 }
 
@@ -228,7 +258,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
-func (t *testCleanedTracker) addCleanedDataStructure(_, _ string) {
+func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
 
 	t.numInvocations++
 
@@ -245,8 +275,9 @@ func TestAddCleanedDataStructure(t *testing.T) {
 
 			tracker := &cleanedDataStructureTracker{g}
 
-			name, kind := "awesome-map", "map"
-			tracker.addCleanedDataStructure(name, kind)
+			name := "awesome-map"
+			size := 9
+			tracker.addCleanedDataStructure(name, size)
 
 			g.StopListen()
 
@@ -255,7 +286,7 @@ func TestAddCleanedDataStructure(t *testing.T) {
 			msg := "\t\tinformation about cleaned data structure must have been added to status gatherer"
 
 			statusCopy := g.AssembleStatusCopy()
-			if statusCopy[name].(string) == kind {
+			if statusCopy[name].(int) == size {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)

@@ -15,9 +15,11 @@ import (
 type (
 	hzMap interface {
 		EvictAll(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
 	}
 	hzQueue interface {
 		Clear(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
 	}
 	hzMapStore interface {
 		GetMap(ctx context.Context, name string) (hzMap, error)
@@ -62,7 +64,7 @@ type (
 		clean(ctx context.Context) (int, error)
 	}
 	cleanedTracker interface {
-		addCleanedDataStructure(name, kind string)
+		addCleanedDataStructure(name string, cleaned int)
 	}
 	cleanerConfig struct {
 		enabled   bool
@@ -209,9 +211,9 @@ func (ch *defaultHzClientHandler) getClient() *hazelcast.Client {
 	return ch.hzClient
 }
 
-func (t *cleanedDataStructureTracker) addCleanedDataStructure(name, kind string) {
+func (t *cleanedDataStructureTracker) addCleanedDataStructure(name string, cleaned int) {
 
-	t.g.Updates <- status.Update{Key: name, Value: kind}
+	t.g.Updates <- status.Update{Key: name, Value: cleaned}
 
 }
 
@@ -274,16 +276,23 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) error {
+	retrieveAndClean := func(name string, ctx context.Context) (int, error) {
 		m, err := c.ms.GetMap(ctx, name)
 		if err != nil {
-			return err
+			return 0, err
+		}
+		size, err := m.Size(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if size == 0 {
+			return 0, nil
 		}
 		if err := m.EvictAll(ctx); err != nil {
-			return err
+			return size, err
 		}
-		c.t.addCleanedDataStructure(name, "map")
-		return nil
+		c.t.addCleanedDataStructure(name, size)
+		return size, nil
 	}
 
 	numCleaned, err := runGenericClean(
@@ -332,7 +341,7 @@ func runGenericClean(
 	ctx context.Context,
 	hzService string,
 	c *cleanerConfig,
-	retrieveAndClean func(name string, ctx context.Context) error,
+	retrieveAndClean func(name string, ctx context.Context) (int, error),
 ) (int, error) {
 
 	candidateDataStructures, err := identifyCandidateDataStructures(ois, ctx, hzService)
@@ -360,17 +369,20 @@ func runGenericClean(
 		filteredDataStructures = candidateDataStructures
 	}
 
-	numCleaned := 0
+	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		if err := retrieveAndClean(v.getName(), ctx); err != nil {
+		if numCleanedElements, err := retrieveAndClean(v.getName(), ctx); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
-			return numCleaned, err
+			return numCleanedDataStructures, err
+		} else if numCleanedElements > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.InfoLevel)
+		} else {
+			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v), hzService, log.InfoLevel)
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.TraceLevel)
-		numCleaned++
+		numCleanedDataStructures++
 	}
 
-	return numCleaned, nil
+	return numCleanedDataStructures, nil
 
 }
 
@@ -385,16 +397,20 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) error {
+	retrieveAndClean := func(name string, ctx context.Context) (int, error) {
 		q, err := c.qs.GetQueue(ctx, name)
 		if err != nil {
-			return err
+			return 0, err
+		}
+		size, err := q.Size(ctx)
+		if err != nil {
+			return size, err
 		}
 		if err := q.Clear(ctx); err != nil {
-			return err
+			return size, err
 		}
-		c.t.addCleanedDataStructure(name, "queue")
-		return nil
+		c.t.addCleanedDataStructure(name, size)
+		return size, nil
 	}
 
 	numCleaned, err := runGenericClean(
