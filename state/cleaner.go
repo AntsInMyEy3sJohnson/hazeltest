@@ -265,6 +265,25 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 }
 
+func (c *mapCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+	m, err := c.ms.GetMap(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	size, err := m.Size(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if size == 0 {
+		return 0, nil
+	}
+	if err := m.EvictAll(ctx); err != nil {
+		return size, err
+	}
+	c.t.addCleanedDataStructure(name, size)
+	return size, nil
+}
+
 func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 
 	defer func() {
@@ -276,31 +295,12 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) (int, error) {
-		m, err := c.ms.GetMap(ctx, name)
-		if err != nil {
-			return 0, err
-		}
-		size, err := m.Size(ctx)
-		if err != nil {
-			return 0, err
-		}
-		if size == 0 {
-			return 0, nil
-		}
-		if err := m.EvictAll(ctx); err != nil {
-			return size, err
-		}
-		c.t.addCleanedDataStructure(name, size)
-		return size, nil
-	}
-
 	numCleaned, err := runGenericClean(
 		c.ois,
 		ctx,
 		hzMapService,
 		c.c,
-		retrieveAndClean,
+		c.retrieveAndClean,
 	)
 
 	return numCleaned, err
@@ -386,6 +386,27 @@ func runGenericClean(
 
 }
 
+func (c *queueCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+
+	q, err := c.qs.GetQueue(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	size, err := q.Size(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if size == 0 {
+		return 0, nil
+	}
+	if err := q.Clear(ctx); err != nil {
+		return size, err
+	}
+	c.t.addCleanedDataStructure(name, size)
+	return size, nil
+
+}
+
 func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 
 	defer func() {
@@ -397,28 +418,12 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) (int, error) {
-		q, err := c.qs.GetQueue(ctx, name)
-		if err != nil {
-			return 0, err
-		}
-		size, err := q.Size(ctx)
-		if err != nil {
-			return size, err
-		}
-		if err := q.Clear(ctx); err != nil {
-			return size, err
-		}
-		c.t.addCleanedDataStructure(name, size)
-		return size, nil
-	}
-
 	numCleaned, err := runGenericClean(
 		c.ois,
 		ctx,
 		hzQueueService,
 		c.c,
-		retrieveAndClean,
+		c.retrieveAndClean,
 	)
 
 	return numCleaned, err
