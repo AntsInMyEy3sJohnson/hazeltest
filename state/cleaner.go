@@ -278,7 +278,7 @@ func (c *mapCleaner) retrieveAndClean(name string, ctx context.Context) (int, er
 		return 0, nil
 	}
 	if err := m.EvictAll(ctx); err != nil {
-		return size, err
+		return 0, err
 	}
 	c.t.addCleanedDataStructure(name, size)
 	return size, nil
