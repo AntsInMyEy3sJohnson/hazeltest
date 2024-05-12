@@ -264,6 +264,165 @@ func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
 
 }
 
+func TestMapCleanerRetrieveAndClean(t *testing.T) {
+
+	t.Log("given a map cleaner method for retrieving and cleaning maps")
+	{
+		t.Log("\twhen get map operation yields error")
+		{
+			dummyMapStore := &testHzMapStore{returnErrorUponGetMap: true}
+			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := mc.retrieveAndClean("blubb", context.TODO())
+
+			msg := "\t\tmethod must report zero cleaned entries"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, getMapError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+		t.Log("\twhen query size operation yields error")
+		{
+			mapName := "awesome-map"
+			testMaps := map[string]*testHzMap{
+				mapName: {returnErrorUponSize: true},
+			}
+			dummyMapStore := &testHzMapStore{maps: testMaps}
+
+			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := mc.retrieveAndClean(mapName, context.TODO())
+
+			msg := "\t\tmethod must report zero cleaned entries"
+
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, mapSizeError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen target map contains zero entries")
+		{
+			mapName := "another-awesome-map"
+			dummyData := map[string]any{}
+			testMaps := map[string]*testHzMap{
+				mapName: {data: dummyData},
+			}
+			dummyMapStore := &testHzMapStore{maps: testMaps}
+
+			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := mc.retrieveAndClean(mapName, context.TODO())
+
+			msg := "\t\tnumber of cleaned elements must be reported to be zero"
+			if numCleaned == len(dummyData) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tevict all must not have been invoked"
+			evictAllInvocations := testMaps[mapName].evictAllInvocations
+			if evictAllInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, evictAllInvocations)
+			}
+		}
+		t.Log("\twhen evict all on target map yields error")
+		{
+			dummyMap := map[string]any{
+				"blubb": "blubbi",
+			}
+			mapName := "yet-another-awesome-map"
+			testMaps := map[string]*testHzMap{
+				mapName: {data: dummyMap, returnErrorUponEvictAll: true},
+			}
+			dummyMapStore := &testHzMapStore{maps: testMaps}
+
+			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := mc.retrieveAndClean(mapName, context.TODO())
+
+			msg := "\t\treported number of cleaned elements must be zero"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, mapEvictAllError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+		t.Log("\twhen evict all is successful on target map that previously contained at least one element")
+		{
+			dummyMap := map[string]any{
+				"blubba": "blubbo",
+				"blubbi": "blubbe",
+			}
+			mapName := "super-cool-awesome-map"
+			testMaps := map[string]*testHzMap{
+				mapName: {data: dummyMap},
+			}
+			dummyMapStore := &testHzMapStore{maps: testMaps}
+
+			ct := &testCleanedTracker{}
+			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, ct)
+
+			lenDummyMapBeforeEviction := len(dummyMap)
+			numCleaned, err := mc.retrieveAndClean(mapName, context.TODO())
+
+			msg := "\t\treported number of cleaned elements in data structure must be equal to size of target map before eviction"
+			if numCleaned == lenDummyMapBeforeEviction {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tcleaned data structure must have been added to tracker"
+			if ct.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ct.numInvocations)
+			}
+		}
+	}
+
+}
+
 func TestAddCleanedDataStructure(t *testing.T) {
 
 	t.Log("given a cleaned data structure tracker with a method to add a cleaned data structure")
