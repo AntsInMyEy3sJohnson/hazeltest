@@ -400,7 +400,7 @@ func (c *queueCleaner) retrieveAndClean(name string, ctx context.Context) (int, 
 		return 0, nil
 	}
 	if err := q.Clear(ctx); err != nil {
-		return size, err
+		return 0, err
 	}
 	c.t.addCleanedDataStructure(name, size)
 	return size, nil
