@@ -264,6 +264,165 @@ func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
 
 }
 
+func TestQueueCleanerRetrieveAndClean(t *testing.T) {
+
+	t.Log("given a queue cleaner method for retrieving and cleaning queues")
+	{
+		t.Log("\twhen get queue operation yields error")
+		{
+			dummyQueueStore := &testHzQueueStore{returnErrorUponGetQueue: true}
+			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := qc.retrieveAndClean("some-name", context.TODO())
+
+			msg := "\t\tmethod must report zero cleaned entries"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, getQueueError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+		t.Log("\twhen query size operation yields error")
+		{
+			queueName := "some-name"
+			testQueues := map[string]*testHzQueue{
+				queueName: {returnErrorUponSize: true},
+			}
+			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+
+			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := qc.retrieveAndClean(queueName, context.TODO())
+
+			msg := "\t\tmethod must report zero cleaned entries"
+
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, queueSizeError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen target queue contains zero entries")
+		{
+			queueName := "awesome-queue"
+			dummyData := make(chan string)
+			testQueues := map[string]*testHzQueue{
+				queueName: {data: dummyData},
+			}
+			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+
+			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := qc.retrieveAndClean(queueName, context.TODO())
+
+			msg := "\t\tnumber of cleaned elements must be reported to be zero"
+			if numCleaned == len(dummyData) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tclear must not have been invoked"
+			clearInvocations := testQueues[queueName].clearInvocations
+			if clearInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, clearInvocations)
+			}
+		}
+		t.Log("\twhen clear on target queue yields error")
+		{
+			dummyQueue := make(chan string, 1)
+			dummyQueue <- "my-value"
+
+			queueName := "awesome-queue"
+			testQueues := map[string]*testHzQueue{
+				queueName: {data: dummyQueue, returnErrorUponClear: true},
+			}
+			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+
+			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
+
+			numCleaned, err := qc.retrieveAndClean(queueName, context.TODO())
+
+			msg := "\t\treported number of cleaned elements must be zero"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\terror must be returned"
+			if errors.Is(err, queueClearError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+		t.Log("\twhen clear is successful on target queue that previously contained at least one element")
+		{
+			dummyQueue := make(chan string, 2)
+			dummyQueue <- "my-value"
+			dummyQueue <- "my-other-value"
+
+			queueName := "awesome-queue"
+			testQueues := map[string]*testHzQueue{
+				queueName: {data: dummyQueue},
+			}
+			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+
+			ct := &testCleanedTracker{}
+			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, ct)
+
+			sizeDummyQueueBeforeClear := len(dummyQueue)
+			numCleaned, err := qc.retrieveAndClean(queueName, context.TODO())
+
+			msg := "\t\treported number of cleaned elements in data structure must be equal to size of target queue before eviction"
+			if numCleaned == sizeDummyQueueBeforeClear {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleaned)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tcleaned data structure must have been added to tracker"
+			if ct.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ct.numInvocations)
+			}
+		}
+	}
+
+}
+
 func TestMapCleanerRetrieveAndClean(t *testing.T) {
 
 	t.Log("given a map cleaner method for retrieving and cleaning maps")
