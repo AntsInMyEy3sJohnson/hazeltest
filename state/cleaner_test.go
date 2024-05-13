@@ -1957,8 +1957,10 @@ func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *
 
 	for i := 0; i < numQueueObjects; i++ {
 		for _, v := range objectNamePrefixes {
+			ch := make(chan string, 9)
+			ch <- "awesome-dummy-value"
 			testQueues[fmt.Sprintf("%sload-%d", v, i)] = &testHzQueue{
-				data: make(chan string, 9),
+				data: ch,
 			}
 		}
 	}
@@ -1975,7 +1977,10 @@ func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *test
 
 	for i := 0; i < numMapObjects; i++ {
 		for _, v := range objectNamePrefixes {
-			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: make(map[string]any)}
+			m := map[string]any{
+				"awesome-dummy-key": "awesome-dummy-value",
+			}
+			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: m}
 		}
 	}
 
