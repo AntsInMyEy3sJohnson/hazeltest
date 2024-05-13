@@ -5,10 +5,7 @@ import "fmt"
 const (
 	sourceMapPokedexRunner  = "pokedexRunner"
 	sourceMapLoadRunner     = "loadRunner"
-	sourceQueueTweetRunner  = "tweetRunner"
-	sourceQueueLoadRunner   = "loadRunner"
 	statusKeyNumMaps        = "numMaps"
-	statusKeyNumQueues      = "numQueues"
 	statusKeyNumRuns        = "numRuns"
 	statusKeyTotalRuns      = "totalRuns"
 	statusKeyRunnerFinished = "runnerFinished"
@@ -38,21 +35,6 @@ var (
 		statusKeyTotalRuns:      5 * 100,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusQueueTweetTestLoop = map[string]any{
-		statusKeyNumQueues:      2,
-		statusKeyNumRuns:        500,
-		statusKeyTotalRuns:      2 * 500,
-		statusKeyRunnerFinished: false,
-	}
-	dummyStatusQueueLoadTestLoop = map[string]any{
-		statusKeyNumQueues:      10,
-		statusKeyNumRuns:        500,
-		statusKeyTotalRuns:      10 * 500,
-		statusKeyRunnerFinished: false,
-	}
-)
-
-var (
 	dummyStatusMemberKillerMonkey = map[string]any{
 		statusKeyNumRuns:          100,
 		statusKeyNumMembersKilled: 15,
