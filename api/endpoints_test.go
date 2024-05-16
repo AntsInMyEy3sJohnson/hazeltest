@@ -69,40 +69,36 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for test loop and chaos monkey status contributors"
-			if len(decodedData) == 2 {
+			msg = "\t\tdecoded map must contain top-level keys for each of the available actor groups"
+			if len(decodedData) == len(availableActorGroups) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
-			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
-			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Maps)
+			msg = "\t\tfor each of the actor groups, top-level key must store empty map"
+			for _, v := range availableActorGroups {
+				if len(decodedData[string(v)].(map[string]any)) == 0 {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
 			}
-
-			if _, ok := decodedTestLoopsData[string(Queues)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Queues)
-			}
-
 		}
 
-		t.Log("\twhen two map test loops and one chaos monkey have registered")
+		t.Log("\twhen two map runners and one chaos monkey have registered")
 		{
-			resetMaps()
+			tracker = newStatefulActorTracker()
 
-			RegisterRunnerStatus(Maps, sourceMapPokedexRunner, func() map[string]any {
+			RegisterStatefulActor(MapRunners, sourceMapPokedexRunner, func() map[string]any {
 				return dummyStatusMapPokedexTestLoop
 			})
-			RegisterRunnerStatus(Maps, sourceMapLoadRunner, func() map[string]any {
+
+			RegisterStatefulActor(MapRunners, sourceMapLoadRunner, func() map[string]any {
 				return dummyStatusMapLoadTestLoop
 			})
-			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
+
+			RegisterStatefulActor(ChaosMonkeys, sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return dummyStatusMemberKillerMonkey
 			})
 
@@ -134,59 +130,44 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdecoded map must contain top-level keys for test loop status and chaos monkey status"
-			if len(decodedData) == 2 {
+			msg = "\t\tdecoded map must contain top-level keys for each of the available actor groups"
+			if len(decodedData) == len(availableActorGroups) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\ttest loops map must contain top-level keys for map and queue test loops"
-			decodedTestLoopsData := decodedData[string(TestLoopStatusType)].(map[string]any)
-			if _, ok := decodedTestLoopsData[string(Maps)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Maps)
-			}
-
-			if _, ok := decodedTestLoopsData[string(Queues)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Queues)
-			}
-
-			msg = "\t\tmap for map test loop status must contain keys for both registered test loops"
-			statusPokedexRunnerTestLoop, okPokedex := decodedTestLoopsData[string(Maps)].(map[string]any)[sourceMapPokedexRunner]
-			if okPokedex {
-				t.Log(msg, checkMark)
+			msg = "\t\tmap runner status map must contain top-level keys for map and queue runners"
+			decodedTestLoopsData := decodedData[string(MapRunners)].(map[string]any)
+			if _, ok := decodedTestLoopsData[sourceMapPokedexRunner]; ok {
+				t.Log(msg, checkMark, sourceMapPokedexRunner)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapPokedexRunner)
 			}
 
-			statusLoadRunnerTestLoop, okLoad := decodedTestLoopsData[string(Maps)].(map[string]any)[sourceMapLoadRunner]
-			if okLoad {
-				t.Log(msg, checkMark)
+			if _, ok := decodedTestLoopsData[sourceMapLoadRunner]; ok {
+				t.Log(msg, checkMark, sourceMapLoadRunner)
 			} else {
 				t.Fatal(msg, ballotX, sourceMapLoadRunner)
 			}
 
-			msg = "\t\tnested maps must be equal to registered status"
-			parseRunnerNumberValuesBackToInt(statusPokedexRunnerTestLoop.(map[string]any))
-			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, statusPokedexRunnerTestLoop.(map[string]any)); ok {
+			msg = "\t\tnested maps must contain expected values"
+			parseRunnerNumberValuesBackToInt(decodedTestLoopsData[sourceMapPokedexRunner].(map[string]any))
+			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, decodedTestLoopsData[sourceMapPokedexRunner].(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			parseRunnerNumberValuesBackToInt(statusLoadRunnerTestLoop.(map[string]any))
-			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, statusLoadRunnerTestLoop.(map[string]any)); ok {
+			parseRunnerNumberValuesBackToInt(decodedTestLoopsData[sourceMapLoadRunner].(map[string]any))
+			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, decodedTestLoopsData[sourceMapLoadRunner].(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tchaos monkey map must contain exactly one element"
-			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeys)].(map[string]any)
 			if len(chaosMonkeyStatus) == 1 {
 				t.Log(msg, checkMark)
 			} else {
@@ -204,9 +185,9 @@ func TestStatusHandler(t *testing.T) {
 		}
 		t.Log("\twhen only chaos monkey has registered")
 		{
-			resetMaps()
+			tracker = newStatefulActorTracker()
 
-			RegisterChaosMonkeyStatus(sourceChaosMonkeyMemberKiller, func() map[string]any {
+			RegisterStatefulActor(ChaosMonkeys, sourceChaosMonkeyMemberKiller, func() map[string]any {
 				return dummyStatusMemberKillerMonkey
 			})
 
@@ -238,67 +219,22 @@ func TestStatusHandler(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tstatus map must contain exactly two elements"
-			if len(decodedData) == 2 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tstatus map must still contain top-level key for test loop status"
-			if _, ok := decodedData[string(TestLoopStatusType)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\ttest loop status map must still contain two top-level elements"
-			testLoopStatus := decodedData[string(TestLoopStatusType)].(map[string]any)
-
-			if len(testLoopStatus) == 2 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\ttest loop status map must still contain top-level keys for maps and queues"
-			if _, ok := testLoopStatus[string(Maps)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Maps)
-			}
-
-			if _, ok := testLoopStatus[string(Queues)]; ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, Queues)
-			}
-
-			mapsStatus := testLoopStatus[string(Maps)].(map[string]any)
-			msg = "\t\tstatus for maps must be empty"
-			if len(mapsStatus) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			queuesStatus := testLoopStatus[string(Queues)].(map[string]any)
-			msg = "\t\tstatus for queues must be empty"
-			if len(queuesStatus) == 0 {
+			msg = "\t\tstatus map must contain one top-level element for each available actor group"
+			if len(decodedData) == len(availableActorGroups) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tstatus map must contain top-level key for chaos monkey status"
-			if _, ok := decodedData[string(ChaosMonkeyStatusType)]; ok {
+			if _, ok := decodedData[string(ChaosMonkeys)]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tchaos monkey map must contain exactly one element"
-			chaosMonkeyStatus := decodedData[string(ChaosMonkeyStatusType)].(map[string]any)
+			chaosMonkeyStatus := decodedData[string(ChaosMonkeys)].(map[string]any)
 			if len(chaosMonkeyStatus) == 1 {
 				t.Log(msg, checkMark)
 			} else {

@@ -513,7 +513,7 @@ func (t *MapTester) TestMaps() {
 
 			runner := runners[i]
 
-			api.RegisterRunnerStatus(api.Maps, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			api.RegisterStatefulActor(api.MapRunners, runner.getSourceName(), gatherer.AssembleStatusCopy)
 
 			runner.runMapTests(t.HzCluster, t.HzMembers, gatherer)
 		}(i)

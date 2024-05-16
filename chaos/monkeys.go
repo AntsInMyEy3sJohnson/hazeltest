@@ -138,7 +138,7 @@ func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c 
 	m.readyFunc = readyFunc
 	m.notReadyFunc = notReadyFunc
 
-	api.RegisterChaosMonkeyStatus("memberKiller", m.g.AssembleStatusCopy)
+	api.RegisterStatefulActor(api.ChaosMonkeys, "memberKiller", m.g.AssembleStatusCopy)
 
 }
 

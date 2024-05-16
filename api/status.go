@@ -4,73 +4,67 @@ import (
 	"sync"
 )
 
-type StatusType string
-type RunnerDataStructure string
-
-const (
-	Maps   RunnerDataStructure = "maps"
-	Queues RunnerDataStructure = "queues"
+type (
+	statefulActorTracker struct {
+		sync.RWMutex
+		m map[ActorGroup]map[string]queryActorStateFunc
+	}
+	ActorGroup          string
+	RunnerDataStructure string
+	queryActorStateFunc func() map[string]any
 )
 
 const (
-	TestLoopStatusType    StatusType = "testLoops"
-	ChaosMonkeyStatusType StatusType = "chaosMonkeys"
+	MapRunners    ActorGroup = "mapRunners"
+	QueueRunners  ActorGroup = "queueRunners"
+	ChaosMonkeys  ActorGroup = "chaosMonkeys"
+	StateCleaners ActorGroup = "stateCleaners"
 )
 
 var (
-	mapRunnerStatusFunctions   sync.Map
-	queueRunnerStatusFunction  sync.Map
-	chaosMonkeyStatusFunctions sync.Map
+	availableActorGroups = []ActorGroup{MapRunners, QueueRunners, ChaosMonkeys, StateCleaners}
+	tracker              = newStatefulActorTracker()
 )
 
-func RegisterRunnerStatus(s RunnerDataStructure, source string, queryStatusFunc func() map[string]any) {
+func newStatefulActorTracker() *statefulActorTracker {
 
-	switch s {
-	case Maps:
-		mapRunnerStatusFunctions.Store(source, queryStatusFunc)
-	case Queues:
-		queueRunnerStatusFunction.Store(source, queryStatusFunc)
+	t := &statefulActorTracker{m: make(map[ActorGroup]map[string]queryActorStateFunc)}
+
+	for _, g := range availableActorGroups {
+		t.m[g] = make(map[string]queryActorStateFunc)
 	}
 
-}
-
-func RegisterChaosMonkeyStatus(source string, queryStatusFunc func() map[string]any) {
-
-	chaosMonkeyStatusFunctions.Store(source, queryStatusFunc)
+	return t
 
 }
 
-func assembleRunnerStatus() map[StatusType]any {
+func RegisterStatefulActor(g ActorGroup, actorName string, queryStatusFunc func() map[string]any) {
 
-	mapTestLoopStatus := map[string]any{}
-	populateWithStatus(mapTestLoopStatus, &mapRunnerStatusFunctions)
+	tracker.Lock()
+	defer tracker.Unlock()
 
-	queueTestLoopStatus := map[string]any{}
-	populateWithStatus(queueTestLoopStatus, &queueRunnerStatusFunction)
-
-	chaosMonkeyStatus := map[string]any{}
-	populateWithStatus(chaosMonkeyStatus, &chaosMonkeyStatusFunctions)
-
-	return map[StatusType]any{
-		TestLoopStatusType: map[RunnerDataStructure]any{
-			Maps:   mapTestLoopStatus,
-			Queues: queueTestLoopStatus,
-		},
-		ChaosMonkeyStatusType: chaosMonkeyStatus,
+	if _, ok := tracker.m[g]; !ok {
+		tracker.m[g] = make(map[string]queryActorStateFunc)
 	}
 
+	tracker.m[g][actorName] = queryStatusFunc
+
 }
 
-func populateWithStatus(target map[string]any, statusFunctionsMap *sync.Map) {
+func assembleActorStatus() map[ActorGroup]map[string]any {
 
-	statusFunctionsMap.Range(func(key, value any) bool {
-		runnerStatus := value.(func() map[string]any)()
-		if runnerStatus != nil {
-			target[key.(string)] = runnerStatus
-		} else {
-			target[key.(string)] = map[string]any{}
+	tracker.RLock()
+	defer tracker.RUnlock()
+
+	result := make(map[ActorGroup]map[string]any)
+
+	for actorGroup, registeredActors := range tracker.m {
+		result[actorGroup] = make(map[string]any)
+		for actor, actorStateQueryFunc := range registeredActors {
+			result[actorGroup][actor] = actorStateQueryFunc()
 		}
-		return true
-	})
+	}
+
+	return result
 
 }

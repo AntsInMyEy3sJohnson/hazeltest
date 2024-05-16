@@ -5,17 +5,21 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
+	"hazeltest/status"
 	"strings"
 )
 
 type (
 	hzMap interface {
 		EvictAll(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
 	}
 	hzQueue interface {
 		Clear(ctx context.Context) error
+		Size(ctx context.Context) (int, error)
 	}
 	hzMapStore interface {
 		GetMap(ctx context.Context, name string) (hzMap, error)
@@ -54,10 +58,13 @@ type (
 
 type (
 	cleanerBuilder interface {
-		build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error)
+		build(ch hzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (cleaner, string, error)
 	}
 	cleaner interface {
 		clean(ctx context.Context) (int, error)
+	}
+	cleanedTracker interface {
+		addCleanedDataStructure(name string, cleaned int)
 	}
 	cleanerConfig struct {
 		enabled   bool
@@ -71,6 +78,9 @@ type (
 	mapCleanerBuilder struct {
 		cfb cleanerConfigBuilder
 	}
+	cleanedDataStructureTracker struct {
+		g *status.Gatherer
+	}
 	mapCleaner struct {
 		name      string
 		hzCluster string
@@ -80,6 +90,7 @@ type (
 		ms        hzMapStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
+		t         cleanedTracker
 	}
 	queueCleanerBuilder struct {
 		cfb cleanerConfigBuilder
@@ -93,6 +104,7 @@ type (
 		qs        hzQueueStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
+		t         cleanedTracker
 	}
 )
 
@@ -199,7 +211,13 @@ func (ch *defaultHzClientHandler) getClient() *hazelcast.Client {
 	return ch.hzClient
 }
 
-func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error) {
+func (t *cleanedDataStructureTracker) addCleanedDataStructure(name string, cleaned int) {
+
+	t.g.Updates <- status.Update{Key: name, Value: cleaned}
+
+}
+
+func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (cleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -211,6 +229,9 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzClu
 	clientName := "mapCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
+	t := &cleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
+
 	return &mapCleaner{
 		name:      clientName,
 		hzCluster: hzCluster,
@@ -220,6 +241,7 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzClu
 		ms:        &defaultHzMapStore{ch.getClient()},
 		ois:       &defaultHzObjectInfoStore{ch.getClient()},
 		ch:        ch,
+		t:         t,
 	}, hzMapService, nil
 
 }
@@ -243,6 +265,25 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 }
 
+func (c *mapCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+	m, err := c.ms.GetMap(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	size, err := m.Size(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if size == 0 {
+		return 0, nil
+	}
+	if err := m.EvictAll(ctx); err != nil {
+		return 0, err
+	}
+	c.t.addCleanedDataStructure(name, size)
+	return size, nil
+}
+
 func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 
 	defer func() {
@@ -254,32 +295,19 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) error {
-		m, err := c.ms.GetMap(ctx, name)
-		if err != nil {
-			return err
-		}
-		if err := m.EvictAll(ctx); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	cleaned, err := runGenericClean(
+	numCleaned, err := runGenericClean(
 		c.ois,
 		ctx,
 		hzMapService,
 		c.c,
-		retrieveAndClean,
+		c.retrieveAndClean,
 	)
 
-	// TODO Send names of cleaned data structures to status gatherer
-	//  --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/41
-	return len(cleaned), err
+	return numCleaned, err
 
 }
 
-func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzCluster string, hzMembers []string) (cleaner, string, error) {
+func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (cleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -291,6 +319,9 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzC
 	clientName := "queueCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
+	t := &cleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
+
 	return &queueCleaner{
 		name:      clientName,
 		hzCluster: hzCluster,
@@ -300,6 +331,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, hzC
 		qs:        &defaultHzQueueStore{hzClient: ch.getClient()},
 		ois:       &defaultHzObjectInfoStore{hzClient: ch.getClient()},
 		ch:        ch,
+		t:         t,
 	}, hzQueueService, nil
 
 }
@@ -309,20 +341,20 @@ func runGenericClean(
 	ctx context.Context,
 	hzService string,
 	c *cleanerConfig,
-	retrieveAndClean func(name string, ctx context.Context) error,
-) ([]string, error) {
+	retrieveAndClean func(name string, ctx context.Context) (int, error),
+) (int, error) {
 
 	candidateDataStructures, err := identifyCandidateDataStructures(ois, ctx, hzService)
 
 	if err != nil {
-		return make([]string, 0), err
+		return 0, err
 	}
 
 	if len(candidateDataStructures) > 0 {
 		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d data structure candidate/-s to be considered for state cleaning", len(candidateDataStructures)), hzService, log.TraceLevel)
 	} else {
 		lp.LogStateCleanerEvent("no data structure candidates for state cleaning identified in target hazelcast cluster", hzService, log.TraceLevel)
-		return make([]string, 0), nil
+		return 0, nil
 	}
 
 	var filteredDataStructures []hzObjectInfo
@@ -337,17 +369,41 @@ func runGenericClean(
 		filteredDataStructures = candidateDataStructures
 	}
 
-	var cleaned []string
+	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		if err := retrieveAndClean(v.getName(), ctx); err != nil {
+		if numCleanedElements, err := retrieveAndClean(v.getName(), ctx); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
-			return cleaned, err
+			return numCleanedDataStructures, err
+		} else if numCleanedElements > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.InfoLevel)
+		} else {
+			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v), hzService, log.InfoLevel)
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.TraceLevel)
-		cleaned = append(cleaned, v.getName())
+		numCleanedDataStructures++
 	}
 
-	return cleaned, nil
+	return numCleanedDataStructures, nil
+
+}
+
+func (c *queueCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+
+	q, err := c.qs.GetQueue(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	size, err := q.Size(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if size == 0 {
+		return 0, nil
+	}
+	if err := q.Clear(ctx); err != nil {
+		return 0, err
+	}
+	c.t.addCleanedDataStructure(name, size)
+	return size, nil
 
 }
 
@@ -362,26 +418,15 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	retrieveAndClean := func(name string, ctx context.Context) error {
-		q, err := c.qs.GetQueue(ctx, name)
-		if err != nil {
-			return err
-		}
-		if err := q.Clear(ctx); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	cleaned, err := runGenericClean(
+	numCleaned, err := runGenericClean(
 		c.ois,
 		ctx,
 		hzQueueService,
 		c.c,
-		retrieveAndClean,
+		c.retrieveAndClean,
 	)
 
-	return len(cleaned), err
+	return numCleaned, err
 
 }
 
@@ -389,11 +434,17 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 	for _, b := range builders {
 
+		g := status.NewGatherer()
+		go g.Listen()
+
 		ctx, cancel := context.WithCancel(context.Background())
 		err := func() error {
-			defer cancel()
+			defer func() {
+				cancel()
+				g.StopListen()
+			}()
 
-			c, hzService, err := b.build(&defaultHzClientHandler{}, ctx, hzCluster, hzMembers)
+			c, hzService, err := b.build(&defaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
 			if err != nil {
 				lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
 				return err
