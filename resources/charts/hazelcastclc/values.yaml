@@ -1,0 +1,12 @@
+hazelcastclc:
+  deployment:
+    forceRestartUponHelmUpgrade: true
+  image: antsinmyey3sjohnson/hazelcastclc:5.4.0
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "300M"
+    limits:
+      cpu: "400m"
+      memory: "600M"
