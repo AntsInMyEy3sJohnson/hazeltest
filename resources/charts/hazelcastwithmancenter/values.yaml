@@ -64,6 +64,10 @@ platform:
         periodSeconds: 10
   config:
     hazelcast:
+      management-center:
+        # Enabling scripting requires jar file of desired scripting engine to reside on classpath
+        scripting-enabled: false
+        console-enabled: false
       metrics:
         enabled: true
         # Default is 5 -- by setting this to a higher value, one can decrease load on the Management Center
@@ -93,7 +97,9 @@ platform:
           type: JDBC
           shared: false
           properties:
-            jdbcUrl: jdbc:mysql://hzpersistence:3306
+            jdbcUrl: jdbc:mysql://supersimplemysql.hzpersistence.svc.cluster.local:3306
+            user: hazman
+            password: also-super-secret
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
         # Create very restrictive config for all map names not corresponding to one of
@@ -147,10 +153,10 @@ platform:
           empty-queue-ttl: 120
 
 mancenter:
+  deploy: true
   nodeSelectors:
     enable: false
     selectors: { }
-  deploy: true
   reachability:
     service:
       deploy: true
