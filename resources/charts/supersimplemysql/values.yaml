@@ -6,10 +6,10 @@ mysql:
   imagePullPolicy: IfNotPresent
   resources:
     requests:
-      cpu: "2"
-      memory: "4G"
+      cpu: "500m"
+      memory: "2G"
     limits:
-      cpu: "2"
+      cpu: "1"
       memory: "4G"
   ports:
     mysql:
