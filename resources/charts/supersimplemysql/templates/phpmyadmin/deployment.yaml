@@ -31,6 +31,8 @@ spec:
           ports:
             - name: {{ .Values.phpMyAdmin.ports.apache.name }}
               containerPort: {{ .Values.phpMyAdmin.ports.apache.containerPort }}
+          resources:
+{{ toYaml .Values.phpMyAdmin.resources | indent 12 }}
           env:
             - name: PMA_HOST
               value: "{{ template "supersimplemysql.name" . }}"

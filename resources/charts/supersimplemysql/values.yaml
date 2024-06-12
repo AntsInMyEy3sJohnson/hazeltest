@@ -38,6 +38,13 @@ phpMyAdmin:
     forceRestartUponHelmUpgrade: true
   image: phpmyadmin:5.2.1
   imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "500M"
+    limits:
+      cpu: "400m"
+      memory: "1G"
   ports:
     apache:
       name: apache
