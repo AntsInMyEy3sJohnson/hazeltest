@@ -23,7 +23,7 @@ platform:
     members:
       edition:
         community:
-          image: hazelcast/hazelcast:5.3.6
+          image: hazelcast/hazelcast:5.4.0-jdk21
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
@@ -32,7 +32,7 @@ platform:
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
           # Center down below, the image property appears only once).
-          image: hazelcast/hazelcast-enterprise:5.3.6
+          image: hazelcast/hazelcast-enterprise:5.4.0-jdk21
           license:
             # The name of the Kubernetes Secret containing the license key for
             # the enterprise version of Hazelcast Platform.
@@ -88,6 +88,12 @@ platform:
           kubernetes:
             enabled: true
             service-port: 5701
+      data-connection:
+        hz-persistence-layer:
+          type: JDBC
+          shared: false
+          properties:
+            jdbcUrl: jdbc:mysql://hzpersistence:3306
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
       map:
         # Create very restrictive config for all map names not corresponding to one of
@@ -110,6 +116,24 @@ platform:
             eviction-policy: LRU
             max-size-policy: FREE_HEAP_PERCENTAGE
             size: 15
+        htp_*:
+          backup-count: 1
+          max-idle-seconds: 600
+          in-memory-format: BINARY
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: FREE_HEAP_PERCENTAGE
+            size: 15
+          map-store:
+            enabled: true
+            class-name: com.hazelcast.mapstore.GenericMapStore
+            initial-mode: LAZY
+            offload: true
+            write-delay-seconds: 0
+            write-batch-size: 1
+            write-coalescing: true
+            properties:
+              data-connection-ref: hz-persistence-layer
       queue:
         # Restrictive default
         default:
