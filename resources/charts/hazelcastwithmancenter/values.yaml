@@ -95,9 +95,9 @@ platform:
       data-connection:
         hz-persistence-layer:
           type: JDBC
-          shared: false
+          shared: true
           properties:
-            jdbcUrl: jdbc:mysql://supersimplemysql.hzpersistence.svc.cluster.local:3306
+            jdbcUrl: jdbc:mysql://supersimplemysql:3306/hzpersistence
             user: hazman
             password: also-super-secret
       # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
