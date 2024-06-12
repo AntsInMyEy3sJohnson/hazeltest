@@ -1,0 +1,22 @@
+{{- if .Values.mysql.deployment.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+  labels:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+    app.kubernetes.io/instance: {{ template "supersimplemysql.name" . }}-{{ .Release.Name }}-phpmyadmin
+spec:
+  type: {{ .Values.phpMyAdmin.reachability.serviceType }}
+  selector:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+    app.kubernetes.io/instance: {{ template "supersimplemysql.name" . }}-{{ .Release.Name }}-phpmyadmin
+  ports:
+    - name: {{ .Values.phpMyAdmin.reachability.port.name }}
+      protocol: TCP
+      port: {{ .Values.phpMyAdmin.reachability.port.port }}
+      targetPort: {{ .Values.phpMyAdmin.ports.apache.name }}
+      {{- if eq .Values.phpMyAdmin.reachability.serviceType "NodePort" }}
+      nodePort: {{ .Values.phpMyAdmin.reachability.port.nodePort }}
+      {{- end }}
+{{- end -}}

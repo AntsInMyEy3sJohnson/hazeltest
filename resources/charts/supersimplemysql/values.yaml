@@ -1,1 +1,55 @@
-{ }
+mysql:
+  deployment:
+    deploy: true
+    forceRestartUponHelmUpgrade: false
+  image: mysql:8.4.0
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4G"
+    limits:
+      cpu: "2"
+      memory: "4G"
+  ports:
+    mysql:
+      name: mysql
+      containerPort: 3306
+  database:
+    rootPassword: super-secret
+    startupDatabase: hzpersistence
+    startupDatabaseUser: hazman
+    startupDatabasePassword: also-super-secret
+  reachability:
+    serviceType: ClusterIP
+    port:
+      name: mysql
+      port: 3306
+      nodePort: 30306
+  probes:
+    startup:
+      initialDelaySeconds: 30
+      failureThreshold: 6
+      periodSeconds: 5
+
+phpMyAdmin:
+  deployment:
+    deploy: true
+    forceRestartUponHelmUpgrade: true
+  image: phpmyadmin:5.2.1
+  imagePullPolicy: IfNotPresent
+  ports:
+    apache:
+      name: apache
+      containerPort: 80
+  reachability:
+    serviceType: NodePort
+    port:
+      name: apache
+      port: 8888
+      nodePort: 30888
+  probes:
+    startup:
+      initialDelaySeconds: 20
+      failureThreshold: 6
+      periodSeconds: 5

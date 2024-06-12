@@ -1,0 +1,57 @@
+{{- if .Values.mysql.deployment.deploy -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "supersimplemysql.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}
+    app.kubernetes.io/appVersion: {{ .Chart.AppVersion }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: {{ template "supersimplemysql.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.mysql.deployment.forceRestartUponHelmUpgrade }}
+      annotations:
+        helmRevision: "{{ .Release.Revision }}"
+      {{- end }}
+    spec:
+      containers:
+        - name: mysql
+          image: {{ .Values.mysql.image }}
+          imagePullPolicy: {{ .Values.mysql.imagePullPolicy }}
+          resources:
+{{ toYaml .Values.mysql.resources | indent 12 }}
+          ports:
+            - name: {{ .Values.mysql.ports.mysql.name }}
+              containerPort: {{ .Values.mysql.ports.mysql.containerPort }}
+          startupProbe:
+            tcpSocket:
+              port: {{ .Values.mysql.ports.mysql.containerPort }}
+            initialDelaySeconds: {{ .Values.mysql.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.mysql.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.mysql.probes.startup.periodSeconds }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.mysql.ports.mysql.containerPort }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.mysql.ports.mysql.containerPort }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "{{ .Values.mysql.database.rootPassword }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.mysql.database.startupDatabase }}"
+            - name: MYSQL_USER
+              value: "{{ .Values.mysql.database.startupDatabaseUser }}"
+            - name: MYSQL_PASSWORD
+              value: "{{ .Values.mysql.database.startupDatabasePassword }}"
+{{- end -}}

@@ -1,0 +1,22 @@
+{{- if .Values.mysql.deployment.deploy -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "supersimplemysql.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: {{ .Values.mysql.reachability.serviceType }}
+  selector:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: {{ .Values.mysql.reachability.port.name }}
+      protocol: TCP
+      port: {{ .Values.mysql.reachability.port.port }}
+      targetPort: {{ .Values.mysql.ports.mysql.name }}
+      {{- if eq .Values.mysql.reachability.serviceType "NodePort" }}
+      nodePort: {{ .Values.mysql.reachability.port.nodePort }}
+      {{- end }}
+{{- end -}}
