@@ -35,7 +35,7 @@ chaosMonkeys:
         # The namespace in which to search for Hazelcast member Pods.
         namespace: hazelcastplatform
         # The label selector to use for identifying the Hazelcast member Pods.
-        labelSelector: app.kubernetes.io/name=hazelcastimdg
+        labelSelector: app.kubernetes.io/name=hazelcastplatform
       # Mode for accessing Hazelcast members from within the Kubernetes cluster. Useful when Hazeltest itself gets
       # deployed to Kubernetes because, while member access can be achieved with out-of-cluster mode in combination
       # with mounting the kubeconfig file and specifying its path accordingly, the in-cluster mode only relies on
@@ -50,7 +50,7 @@ chaosMonkeys:
       # actions on Hazelcast member Pods are not supported.
       k8sInCluster:
         # Same as for out-of-cluster config.
-        labelSelector: app.kubernetes.io/name=hazelcastimdg
+        labelSelector: app.kubernetes.io/name=hazelcastplatform
     # Configures the monkey's sleep behavior for between runs.
     sleep:
       # Whether a sleep should be performed between runs.

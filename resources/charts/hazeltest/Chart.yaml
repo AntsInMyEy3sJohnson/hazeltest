@@ -9,5 +9,5 @@ version: 1.2.1-0.14.0
 appVersion: "0.14.0"
 
 # Useful commands:
-# helm upgrade --install hazeltest . --namespace=hazelcastimdg
-# helm uninstall hazeltest --namespace=hazelcastimdg
+# helm upgrade --install hazeltest . --namespace=hazelcastplatform
+# helm uninstall hazeltest --namespace=hazelcastplatform

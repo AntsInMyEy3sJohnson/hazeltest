@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ template "hazelcastimdg.name" . }}
+  name: {{ template "hazelcastplatform.name" . }}
   labels:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  serviceName: {{ template "hazelcastimdg.fullname" . }}
+  serviceName: {{ template "hazelcastplatform.fullname" . }}
   replicas: {{ .Values.platform.cluster.members.count }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
+      app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
+        app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         # Include revision in Pod template so template hash changes with every new revision
@@ -34,56 +34,56 @@ spec:
       {{- end }}
       terminationGracePeriodSeconds: {{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}
       volumes:
-      - name: hzconfig
-        configMap:
-          name: {{ template "hazelcastimdg.fullname" . }}-config
+        - name: hzconfig
+          configMap:
+            name: {{ template "hazelcastplatform.fullname" . }}-config
       containers:
-      - name: {{ template "hazelcastimdg.fullname" . }}
-        image: {{ if .Values.platform.cluster.members.edition.enterprise.enable }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
-        imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
-        resources:
-{{ toYaml .Values.platform.cluster.members.containerResources | indent 10 }}
-        ports:
-        - name: hzmember
-          containerPort: {{ .Values.platform.cluster.members.ports.member }}
-        - name: hzmetrics
-          containerPort: {{ .Values.platform.cluster.members.ports.metrics }}
-        livenessProbe:
-          httpGet:
-            port: hzmember
-            path: /hazelcast/health/node-state
-          initialDelaySeconds: {{ .Values.platform.cluster.members.liveness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.platform.cluster.members.liveness.periodSeconds }}
-        readinessProbe:
-          httpGet:
-            port: hzmember
-            path: /hazelcast/health/ready
-          initialDelaySeconds: {{ .Values.platform.cluster.members.readiness.initialDelaySeconds }}
-          periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
-        env:
-        - name: JAVA_OPTS
-          value: "-Xmx{{ .Values.platform.cluster.members.jvmResources.xmx }} \
+        - name: {{ template "hazelcastplatform.fullname" . }}
+          image: {{ if .Values.platform.cluster.members.edition.enterprise.enable }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
+          imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
+          resources:
+{{ toYaml .Values.platform.cluster.members.containerResources | indent 12 }}
+          ports:
+            - name: hzmember
+              containerPort: {{ .Values.platform.cluster.members.ports.member }}
+            - name: hzmetrics
+              containerPort: {{ .Values.platform.cluster.members.ports.metrics }}
+          livenessProbe:
+            httpGet:
+              port: hzmember
+              path: /hazelcast/health/node-state
+            initialDelaySeconds: {{ .Values.platform.cluster.members.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.platform.cluster.members.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              port: hzmember
+              path: /hazelcast/health/ready
+            initialDelaySeconds: {{ .Values.platform.cluster.members.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
+          env:
+            - name: JAVA_OPTS
+              value: "-Xmx{{ .Values.platform.cluster.members.jvmResources.xmx }} \
                   -Xms{{ .Values.platform.cluster.members.jvmResources.xms }} \
                   -Dhazelcast.config=/data/hazelcast/config/hazelcast.yaml \
-                  -DserviceName={{ template "hazelcastimdg.name" . }} \
+                  -DserviceName={{ template "hazelcastplatform.name" . }} \
                   -Dnamespace={{ .Release.Namespace }} \
                   -Dhazelcast.shutdownhook.policy=GRACEFUL \
                   -Dhazelcast.shutdownhook.enabled=true \ 
                   -Dhazelcast.graceful.shutdown.max.wait={{ .Values.platform.cluster.members.gracefulShutDown.maxWaitSeconds }}"
-        - name: LOGGING_LEVEL
-          value: {{ .Values.platform.cluster.logging.level }}
-        {{- if .Values.platform.cluster.features.prometheusExport.enable }}
-        - name: PROMETHEUS_PORT
-          value: "{{ .Values.platform.cluster.members.ports.metrics }}"
-        {{- end }}
-        {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
-        - name: HZ_LICENSEKEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.platform.cluster.members.edition.enterprise.license.secretName }}
-              key: {{ .Values.platform.cluster.members.edition.enterprise.license.keyPath }}
-        {{- end }}
-        volumeMounts:
-        - name: hzconfig
-          mountPath: /data/hazelcast/config
+            - name: LOGGING_LEVEL
+              value: {{ .Values.platform.cluster.logging.level }}
+            {{- if .Values.platform.cluster.features.prometheusExport.enable }}
+            - name: PROMETHEUS_PORT
+              value: "{{ .Values.platform.cluster.members.ports.metrics }}"
+            {{- end }}
+            {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
+            - name: HZ_LICENSEKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.platform.cluster.members.edition.enterprise.license.secretName }}
+                  key: {{ .Values.platform.cluster.members.edition.enterprise.license.keyPath }}
+            {{- end }}
+          volumeMounts:
+            - name: hzconfig
+              mountPath: /data/hazelcast/config
 {{- end -}}

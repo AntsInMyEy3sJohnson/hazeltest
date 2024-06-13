@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "hazelcastimdg.name" -}}
+{{- define "hazelcastplatform.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "hazelcastimdg.fullname" -}}
+{{- define "hazelcastplatform.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "hazelcastimdg.chart" -}}
+{{- define "hazelcastplatform.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "hazelcastimdg.labels" -}}
-helm.sh/chart: {{ include "hazelcastimdg.chart" . }}
-{{ include "hazelcastimdg.selectorLabels" . }}
+{{- define "hazelcastplatform.labels" -}}
+helm.sh/chart: {{ include "hazelcastplatform.chart" . }}
+{{ include "hazelcastplatform.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "hazelcastimdg.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "hazelcastimdg.name" . }}
+{{- define "hazelcastplatform.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hazelcastplatform.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "hazelcastimdg.serviceAccountName" -}}
+{{- define "hazelcastplatform.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "hazelcastimdg.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "hazelcastplatform.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

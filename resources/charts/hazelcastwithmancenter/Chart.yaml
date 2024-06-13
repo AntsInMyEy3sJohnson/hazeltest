@@ -1,5 +1,5 @@
 apiVersion: v2
-name: hazelcastimdg
+name: hazelcastplatform
 description: A Helm chart for deploying a simple Hazelcast cluster on Kubernetes.
 
 type: application
