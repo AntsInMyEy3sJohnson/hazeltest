@@ -160,8 +160,9 @@ mancenter:
   reachability:
     service:
       deploy: true
-      type: ClusterIP
+      type: NodePort
       port: 8080
+      nodePort: 30080
     ingress:
       deploy: true
       port: 8080

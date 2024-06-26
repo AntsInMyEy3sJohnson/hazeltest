@@ -16,4 +16,7 @@ spec:
       protocol: TCP
       port: {{ .Values.mancenter.reachability.service.port }}
       targetPort: {{ .Values.mancenter.instance.ports.web.name }}
+      {{- if eq .Values.mancenter.reachability.service.type "NodePort" }}
+      nodePort: {{ .Values.mancenter.reachability.service.nodePort }}
+      {{- end }}
 {{- end -}}
