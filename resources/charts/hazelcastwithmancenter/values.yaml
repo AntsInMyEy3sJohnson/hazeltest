@@ -6,7 +6,7 @@ platform:
   service:
     type: NodePort
     port: 5701
-    nodePort: 30080
+    nodePort: 30571
   cluster:
     prometheusScrape:
       enable: true
