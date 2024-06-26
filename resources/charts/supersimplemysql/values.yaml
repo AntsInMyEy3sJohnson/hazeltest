@@ -21,7 +21,7 @@ mysql:
     startupDatabaseUser: hazman
     startupDatabasePassword: also-super-secret
   reachability:
-    serviceType: ClusterIP
+    serviceType: NodePort
     port:
       name: mysql
       port: 3306
