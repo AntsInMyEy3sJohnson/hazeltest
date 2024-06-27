@@ -162,9 +162,9 @@ func TestSelectRandomPodFromList(t *testing.T) {
 		t.Log("\twhen multiple pods are provided")
 		{
 			podSelected := map[string]bool{
-				"hazelcastimdg-0": false,
-				"hazelcastimdg-1": false,
-				"hazelcastimdg-2": false,
+				"hazelcastplatform-0": false,
+				"hazelcastplatform-1": false,
+				"hazelcastplatform-2": false,
 			}
 			var pods []v1.Pod
 			for k := range podSelected {
@@ -359,7 +359,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 				msg := "\t\t\terror must be returned"
-				if err != nil && err == configBuildError {
+				if err != nil && errors.Is(err, configBuildError) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -434,7 +434,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				cs, err := provider.getOrInit(dummyAccessConfig)
 
 				msg := "\t\t\terror must be returned"
-				if err != nil && err == configBuildError {
+				if err != nil && errors.Is(err, configBuildError) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -536,7 +536,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			cs, err := provider.getOrInit(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == clientsetInitError {
+			if err != nil && errors.Is(err, clientsetInitError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -654,7 +654,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			member, err := memberChooser.choose(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == podListError {
+			if err != nil && errors.Is(err, podListError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -681,7 +681,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == noMemberFoundError {
+			if err != nil && errors.Is(err, noMemberFoundError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -696,7 +696,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen ready pod is present and target only active is activated")
 		{
-			pod := assemblePod("hazelcastimdg-0", true)
+			pod := assemblePod("hazelcastplatform-0", true)
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
@@ -718,14 +718,14 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen only non-ready pods are active and target only active is activated")
 		{
-			pod := assemblePod("hazelcastimdg-0", false)
+			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
 			member, err := memberChooser.choose(dummyAccessConfig)
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == noMemberFoundError {
+			if err != nil && errors.Is(err, noMemberFoundError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -740,7 +740,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen pods are present and target only active is not activated")
 		{
-			pod := assemblePod("hazelcastimdg-0", false)
+			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
@@ -778,13 +778,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastimdg-0"},
+				hzMember{"hazelcastplatform-0"},
 				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, true, 42),
 			)
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == clientsetInitError {
+			if err != nil && errors.Is(err, clientsetInitError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -829,7 +829,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			memberGraceSeconds := math.MaxInt - 1
 			err := killer.kill(
-				hzMember{"hazelcastimdg-0"},
+				hzMember{"hazelcastplatform-0"},
 				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 			)
@@ -866,7 +866,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			memberGraceSeconds := 42
 			err := killer.kill(
-				hzMember{"hazelcastimdg-0"},
+				hzMember{"hazelcastplatform-0"},
 				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 			)
@@ -895,7 +895,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastimdg-0"},
+				hzMember{"hazelcastplatform-0"},
 				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
@@ -924,13 +924,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastimdg-0"},
+				hzMember{"hazelcastplatform-0"},
 				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == podDeleteError {
+			if err != nil && errors.Is(err, podDeleteError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -983,7 +983,7 @@ func assembleDummyAccessConfig(memberAccessMode, kubeconfig string, targetOnlyAc
 		k8sOutOfCluster: k8sOutOfClusterMemberAccess{
 			kubeconfig:    kubeconfig,
 			namespace:     "hazelcastplatform",
-			labelSelector: "app.kubernetes.io/name=hazelcastimdg",
+			labelSelector: "app.kubernetes.io/name=hazelcastplatform",
 		},
 		k8sInCluster: k8sInClusterMemberAccess{},
 	}

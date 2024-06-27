@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ template "hazelcastimdg.name" . }}-mancenter
+  name: {{ template "hazelcastplatform.name" . }}-mancenter
   labels:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}-mancenter
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   rules:
@@ -15,7 +15,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ template "hazelcastimdg.name" . }}-mancenter
+                name: {{ template "hazelcastplatform.name" . }}-mancenter
                 port:
                   name: {{ .Values.mancenter.instance.ports.web.name }}
 {{- end -}}

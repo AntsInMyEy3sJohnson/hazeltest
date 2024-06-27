@@ -2,20 +2,21 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "hazelcastimdg.name" . }}
+  name: {{ template "hazelcastplatform.name" . }}
   labels:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: {{ .Values.platform.service.type }}
   selector:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
-  - name: hzport
-    protocol: TCP
-    port: {{ .Values.platform.service.port }}
-    targetPort: hzmember
-    {{ if eq .Values.platform.service.type "NodePort" -}}
-    nodePort: {{ .Values.platform.service.nodePort }}
-    {{ end }}
+    - name: hzport
+      protocol: TCP
+      port: {{ .Values.platform.service.port }}
+      targetPort: hzmember
+      {{- if eq .Values.platform.service.type "NodePort" }}
+      nodePort: {{ .Values.platform.service.nodePort }}
+      {{- end }}
 {{- end -}}

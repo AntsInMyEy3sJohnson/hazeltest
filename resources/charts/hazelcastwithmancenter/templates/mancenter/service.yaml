@@ -2,18 +2,21 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "hazelcastimdg.name" . }}-mancenter
+  name: {{ template "hazelcastplatform.name" . }}-mancenter
   labels:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}-mancenter
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: {{ .Values.mancenter.reachability.service.type }}
   selector:
-    app.kubernetes.io/name: {{ template "hazelcastimdg.name" . }}-mancenter
+    app.kubernetes.io/name: {{ template "hazelcastplatform.name" . }}-mancenter
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
-  - name: {{ .Values.mancenter.instance.ports.web.name }}
-    protocol: TCP
-    port: {{ .Values.mancenter.reachability.service.port }}
-    targetPort: {{ .Values.mancenter.instance.ports.web.name }}
+    - name: {{ .Values.mancenter.instance.ports.web.name }}
+      protocol: TCP
+      port: {{ .Values.mancenter.reachability.service.port }}
+      targetPort: {{ .Values.mancenter.instance.ports.web.name }}
+      {{- if eq .Values.mancenter.reachability.service.type "NodePort" }}
+      nodePort: {{ .Values.mancenter.reachability.service.nodePort }}
+      {{- end }}
 {{- end -}}

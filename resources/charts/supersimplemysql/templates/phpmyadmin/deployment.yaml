@@ -1,0 +1,57 @@
+{{- if .Values.phpMyAdmin.deployment.deploy -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+  labels:
+    app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+    app.kubernetes.io/instance: {{ template "supersimplemysql.name" . }}-{{ .Release.Name }}-phpmyadmin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+      app.kubernetes.io/instance: {{ template "supersimplemysql.name" . }}-{{ .Release.Name }}-phpmyadmin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "supersimplemysql.name" . }}-phpmyadmin
+        app.kubernetes.io/instance: {{ template "supersimplemysql.name" . }}-{{ .Release.Name }}-phpmyadmin
+      {{- if .Values.phpMyAdmin.deployment.forceRestartUponHelmUpgrade }}
+      annotations:
+        helmRevision: "{{ .Release.Revision }}"
+      {{- end }}
+    spec:
+      containers:
+        - name: phpmyadmin
+          image: {{ .Values.phpMyAdmin.image }}
+          imagePullPolicy: {{ .Values.phpMyAdmin.imagePullPolicy }}
+          ports:
+            - name: {{ .Values.phpMyAdmin.ports.apache.name }}
+              containerPort: {{ .Values.phpMyAdmin.ports.apache.containerPort }}
+          resources:
+{{ toYaml .Values.phpMyAdmin.resources | indent 12 }}
+          env:
+            - name: PMA_HOST
+              value: "{{ template "supersimplemysql.name" . }}"
+            - name: PMA_PORT
+              value: "{{ .Values.mysql.ports.mysql.containerPort }}"
+            - name: PMA_USER
+              value: "{{ .Values.mysql.database.startupDatabaseUser }}"
+            - name: PMA_PASSWORD
+              value: "{{ .Values.mysql.database.startupDatabasePassword }}"
+          startupProbe:
+            httpGet:
+              port: {{ .Values.phpMyAdmin.ports.apache.containerPort }}
+            initialDelaySeconds: {{ .Values.phpMyAdmin.probes.startup.initialDelaySeconds }}
+            failureThreshold: {{ .Values.phpMyAdmin.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.phpMyAdmin.probes.startup.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              port: {{ .Values.phpMyAdmin.ports.apache.containerPort }}
+          readinessProbe:
+            httpGet:
+              port: {{ .Values.phpMyAdmin.ports.apache.containerPort }}
+{{- end -}}

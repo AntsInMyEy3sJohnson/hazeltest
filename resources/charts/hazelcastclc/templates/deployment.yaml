@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "hazelcastclc.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ template "hazelcastclc.name" . }}
+    app.kubernetes.io/instance: {{ template "hazelcastclc.name" . }}-{{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "hazelcastclc.name" . }}
+      app.kubernetes.io/instance: {{ template "hazelcastclc.name" . }}-{{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ template "hazelcastclc.name" . }}
+        app.kubernetes.io/instance: {{ template "hazelcastclc.name" . }}-{{ .Release.Name }}
+      {{- if .Values.hazelcastclc.deployment.forceRestartUponHelmUpgrade }}
+      annotations:
+        helmRevision: "{{ .Release.Revision }}"
+      {{- end }}
+    spec:
+      containers:
+        - name: hazelcastclc
+          image: {{ .Values.hazelcastclc.image }}
+          imagePullPolicy: {{ .Values.hazelcastclc.imagePullPolicy }}
+          args:
+            - "sleep infinity"
+          resources:
+{{ toYaml .Values.hazelcastclc.resources | indent 12 }}

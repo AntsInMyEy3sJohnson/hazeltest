@@ -25,7 +25,7 @@ env:
   hzCluster: "hazelcastplatform"
   # Can be IP addresses or Kubernetes services names
   # Accepts multiple comma-separated values ("service1,service2,service3")
-  hzMembers: "hazelcastimdg"
+  hzMembers: "hazelcastplatform"
   # Set this to TRACE if you want to make the people running your IT department's logging platform very upset
   logLevel: INFO
 
@@ -59,9 +59,9 @@ config:
           # In non-default cases, the absolute path of the file to be used can be specified.
           kubeconfig: default
           namespace: hazelcastplatform
-          labelSelector: app.kubernetes.io/name=hazelcastimdg
+          labelSelector: app.kubernetes.io/name=hazelcastplatform
         k8sInCluster:
-          labelSelector: app.kubernetes.io/name=hazelcastimdg
+          labelSelector: app.kubernetes.io/name=hazelcastplatform
       sleep:
         enabled: true
         durationSeconds: 600

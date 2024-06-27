@@ -30,7 +30,7 @@ type (
 const (
 	validChaosProbability   = 0.6
 	invalidChaosProbability = -0.1
-	validLabelSelector      = "app.kubernetes.io/name=hazelcastimdg"
+	validLabelSelector      = "app.kubernetes.io/name=hazelcastplatform"
 	invalidLabelSelector    = ""
 )
 
@@ -250,7 +250,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					validLabelSelector,
 					sleepDisabled,
 				)}
-			hzMemberID := "hazelcastimdg-ß"
+			hzMemberID := "hazelcastplatform-ß"
 			chooser := &testHzMemberChooser{memberID: hzMemberID}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}

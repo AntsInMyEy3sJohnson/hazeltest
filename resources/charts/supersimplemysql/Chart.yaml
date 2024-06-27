@@ -1,0 +1,6 @@
+apiVersion: v2
+name: supersimplemysql
+description: A Helm chart for deploying a very simple MySQL setup.
+type: application
+version: 1.0.0-8.4.0
+appVersion: "8.4.0"
