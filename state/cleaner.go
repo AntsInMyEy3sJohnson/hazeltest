@@ -10,12 +10,16 @@ import (
 	"hazeltest/logging"
 	"hazeltest/status"
 	"strings"
+	"time"
 )
 
 type (
 	hzMap interface {
 		EvictAll(ctx context.Context) error
 		Size(ctx context.Context) (int, error)
+		TryLock(ctx context.Context, key any) (bool, error)
+		Unlock(ctx context.Context, key any) error
+		Get(ctx context.Context, key any) (any, error)
 	}
 	hzQueue interface {
 		Clear(ctx context.Context) error
@@ -53,6 +57,13 @@ type (
 	}
 	simpleObjectInfo struct {
 		name, serviceName string
+	}
+	lastCleanedInfo struct {
+		cleanedBy string
+		cleanedAt int64
+	}
+	mapLock struct {
+		mapName, key string
 	}
 )
 
@@ -102,6 +113,7 @@ type (
 		keyPath   string
 		c         *cleanerConfig
 		qs        hzQueueStore
+		ms        hzMapStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
 		t         cleanedTracker
@@ -114,6 +126,7 @@ const (
 	hzInternalDataStructurePrefix = "__"
 	hzMapService                  = "hz:impl:mapService"
 	hzQueueService                = "hz:impl:queueService"
+	cleanersCoordinationMap       = hzInternalDataStructurePrefix + "ht.stateCleaners"
 )
 
 var (
@@ -170,7 +183,6 @@ func (ms *defaultHzMapStore) GetMap(ctx context.Context, name string) (hzMap, er
 	return ms.hzClient.GetMap(ctx, name)
 
 }
-
 func (qs *defaultHzQueueStore) GetQueue(ctx context.Context, name string) (hzQueue, error) {
 
 	return qs.hzClient.GetQueue(ctx, name)
@@ -265,7 +277,64 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 }
 
-func (c *mapCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+func acquireCoordinationLockIfCleanRequired(ms hzMapStore, ctx context.Context, payloadMapName string) (mapLock, bool, error) {
+
+	coordinationMap, err := ms.GetMap(ctx, cleanersCoordinationMap)
+
+	if err != nil {
+		return mapLock{}, false, err
+	}
+
+	lockSucceeded, err := coordinationMap.TryLock(ctx, payloadMapName)
+
+	if err != nil {
+		return mapLock{}, false, err
+	}
+
+	if !lockSucceeded {
+		return mapLock{}, false, fmt.Errorf("unable to acquire lock on '%s' for map %s", cleanersCoordinationMap, payloadMapName)
+	}
+
+	v, err := coordinationMap.Get(ctx, payloadMapName)
+	if err != nil {
+		return mapLock{}, false, err
+	}
+
+	if v == nil {
+		return mapLock{cleanersCoordinationMap, payloadMapName}, true, nil
+	}
+
+	var lastCleanedBy string
+	var lastCleanedAt int64
+	if lc, ok := v.(lastCleanedInfo); !ok {
+		return mapLock{}, false, err
+	} else {
+		lastCleanedBy = lc.cleanedBy
+		lastCleanedAt = lc.cleanedAt
+	}
+
+	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*5000 {
+		lp.LogStateCleanerEvent(lastCleanedBy, hzMapService, log.InfoLevel)
+		return mapLock{}, false, nil
+	}
+
+	return mapLock{cleanersCoordinationMap, payloadMapName}, true, nil
+
+}
+
+func releaseMapLock(ms hzMapStore, ctx context.Context, ml mapLock) error {
+
+	mapHoldingLock, err := ms.GetMap(ctx, ml.mapName)
+
+	if err != nil {
+		return err
+	}
+
+	return mapHoldingLock.Unlock(ctx, ml.key)
+
+}
+
+func (c *mapCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
 	m, err := c.ms.GetMap(ctx, name)
 	if err != nil {
 		return 0, err
@@ -296,6 +365,7 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 	}
 
 	numCleaned, err := runGenericClean(
+		c.ms,
 		c.ois,
 		ctx,
 		hzMapService,
@@ -329,6 +399,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 		keyPath:   b.cfb.keyPath,
 		c:         config,
 		qs:        &defaultHzQueueStore{hzClient: ch.getClient()},
+		ms:        &defaultHzMapStore{hzClient: ch.getClient()},
 		ois:       &defaultHzObjectInfoStore{hzClient: ch.getClient()},
 		ch:        ch,
 		t:         t,
@@ -337,11 +408,12 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 }
 
 func runGenericClean(
+	ms hzMapStore,
 	ois hzObjectInfoStore,
 	ctx context.Context,
 	hzService string,
 	c *cleanerConfig,
-	retrieveAndClean func(name string, ctx context.Context) (int, error),
+	retrieveAndClean func(ctx context.Context, name string) (int, error),
 ) (int, error) {
 
 	candidateDataStructures, err := identifyCandidateDataStructures(ois, ctx, hzService)
@@ -371,7 +443,17 @@ func runGenericClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		if numCleanedElements, err := retrieveAndClean(v.getName(), ctx); err != nil {
+		ml, shouldClean, err := acquireCoordinationLockIfCleanRequired(ms, ctx, v.getName())
+		if err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to acquire lock for cleaning '%s' due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
+			continue
+		}
+		if !shouldClean {
+			lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", v.getName()), hzService, log.InfoLevel)
+			continue
+		}
+		lp.LogStateCleanerEvent(fmt.Sprintf("acquired cleaning lock on '%s' for '%s', commencing...", ml.mapName, ml.key), hzService, log.InfoLevel)
+		if numCleanedElements, err := retrieveAndClean(ctx, v.getName()); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
 			return numCleanedDataStructures, err
 		} else if numCleanedElements > 0 {
@@ -380,13 +462,17 @@ func runGenericClean(
 			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v), hzService, log.InfoLevel)
 		}
 		numCleanedDataStructures++
+
+		if err := releaseMapLock(ms, ctx, ml); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("cannot release cleaning lock on '%s' for '%s' due to error: %v", ml.mapName, ml.key, err), hzService, log.ErrorLevel)
+		}
 	}
 
 	return numCleanedDataStructures, nil
 
 }
 
-func (c *queueCleaner) retrieveAndClean(name string, ctx context.Context) (int, error) {
+func (c *queueCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
 
 	q, err := c.qs.GetQueue(ctx, name)
 	if err != nil {
@@ -419,6 +505,7 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 	}
 
 	numCleaned, err := runGenericClean(
+		c.ms,
 		c.ois,
 		ctx,
 		hzQueueService,
