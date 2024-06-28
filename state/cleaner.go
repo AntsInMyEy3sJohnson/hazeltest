@@ -20,6 +20,8 @@ type (
 		TryLock(ctx context.Context, key any) (bool, error)
 		Unlock(ctx context.Context, key any) error
 		Get(ctx context.Context, key any) (any, error)
+		Set(ctx context.Context, key, value any) error
+		SetWithTTLAndMaxIdle(ctx context.Context, key, value any, ttl time.Duration, maxIdle time.Duration) error
 	}
 	hzQueue interface {
 		Clear(ctx context.Context) error
@@ -57,13 +59,6 @@ type (
 	}
 	simpleObjectInfo struct {
 		name, serviceName string
-	}
-	lastCleanedInfo struct {
-		cleanedBy string
-		cleanedAt int64
-	}
-	mapLock struct {
-		mapName, key string
 	}
 )
 
@@ -126,7 +121,9 @@ const (
 	hzInternalDataStructurePrefix = "__"
 	hzMapService                  = "hz:impl:mapService"
 	hzQueueService                = "hz:impl:queueService"
-	cleanersCoordinationMap       = hzInternalDataStructurePrefix + "ht.stateCleaners"
+	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
+	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
+	cleanAgainThresholdMs         = 600_000
 )
 
 var (
@@ -277,60 +274,75 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 }
 
-func acquireCoordinationLockIfCleanRequired(ms hzMapStore, ctx context.Context, payloadMapName string) (mapLock, bool, error) {
+func checkLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, payloadDataStructureName, hzService string) (bool, error) {
 
-	coordinationMap, err := ms.GetMap(ctx, cleanersCoordinationMap)
+	coordinationMap, err := ms.GetMap(ctx, syncMapName)
 
 	if err != nil {
-		return mapLock{}, false, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve coordination map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
+		return false, err
 	}
 
-	lockSucceeded, err := coordinationMap.TryLock(ctx, payloadMapName)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved coordination map '%s'", syncMapName), hzService, log.DebugLevel)
+	lockSucceeded, err := coordinationMap.TryLock(ctx, payloadDataStructureName)
 
 	if err != nil {
-		return mapLock{}, false, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on coordination map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
+		return false, err
 	}
 
 	if !lockSucceeded {
-		return mapLock{}, false, fmt.Errorf("unable to acquire lock on '%s' for map %s", cleanersCoordinationMap, payloadMapName)
+		return false, fmt.Errorf("unable to acquire lock on '%s' for map %s", mapCleanersSyncMapName, payloadDataStructureName)
 	}
 
-	v, err := coordinationMap.Get(ctx, payloadMapName)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on coordination map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	v, err := coordinationMap.Get(ctx, payloadDataStructureName)
 	if err != nil {
-		return mapLock{}, false, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from coordination map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
+		return false, err
 	}
 
+	// Value will be nil if key (name of payload map) was not present in sync map
 	if v == nil {
-		return mapLock{cleanersCoordinationMap, payloadMapName}, true, nil
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.DebugLevel)
+		return true, nil
 	}
 
-	var lastCleanedBy string
 	var lastCleanedAt int64
-	if lc, ok := v.(lastCleanedInfo); !ok {
-		return mapLock{}, false, err
+	if lc, ok := v.(int64); !ok {
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to treat retrieved value '%v' for payload data structure '%s' as int64-formatted timestamp", v, payloadDataStructureName), hzService, log.ErrorLevel)
+		return false, err
 	} else {
-		lastCleanedBy = lc.cleanedBy
-		lastCleanedAt = lc.cleanedAt
+		lastCleanedAt = lc
 	}
 
-	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*5000 {
-		lp.LogStateCleanerEvent(lastCleanedBy, hzMapService, log.InfoLevel)
-		return mapLock{}, false, nil
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from coordination map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
+	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*cleanAgainThresholdMs {
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+		return false, nil
 	}
 
-	return mapLock{cleanersCoordinationMap, payloadMapName}, true, nil
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' milliseconds for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+	return true, nil
 
 }
 
-func releaseMapLock(ms hzMapStore, ctx context.Context, ml mapLock) error {
+func updateLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, payloadMapName, hzService string) error {
 
-	mapHoldingLock, err := ms.GetMap(ctx, ml.mapName)
+	mapHoldingLock, err := ms.GetMap(ctx, syncMapName)
+	defer func() {
+		if err := mapHoldingLock.Unlock(ctx, payloadMapName); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", mapCleanersSyncMapName, payloadMapName, err), hzService, log.ErrorLevel)
+		}
+	}()
 
 	if err != nil {
 		return err
 	}
 
-	return mapHoldingLock.Unlock(ctx, ml.key)
+	cleanedAt := time.Now().UnixNano()
+	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
+	return mapHoldingLock.SetWithTTLAndMaxIdle(ctx, payloadMapName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
 
 }
 
@@ -369,6 +381,7 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		c.ois,
 		ctx,
 		hzMapService,
+		mapCleanersSyncMapName,
 		c.c,
 		c.retrieveAndClean,
 	)
@@ -411,7 +424,7 @@ func runGenericClean(
 	ms hzMapStore,
 	ois hzObjectInfoStore,
 	ctx context.Context,
-	hzService string,
+	hzService, syncMapName string,
 	c *cleanerConfig,
 	retrieveAndClean func(ctx context.Context, name string) (int, error),
 ) (int, error) {
@@ -443,28 +456,29 @@ func runGenericClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		ml, shouldClean, err := acquireCoordinationLockIfCleanRequired(ms, ctx, v.getName())
+		shouldClean, err := checkLastCleanedInfo(ms, ctx, syncMapName, v.getName(), hzService)
 		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to acquire lock for cleaning '%s' due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
 			continue
 		}
 		if !shouldClean {
 			lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", v.getName()), hzService, log.InfoLevel)
 			continue
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("acquired cleaning lock on '%s' for '%s', commencing...", ml.mapName, ml.key), hzService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", v.getName()), hzService, log.InfoLevel)
 		if numCleanedElements, err := retrieveAndClean(ctx, v.getName()); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
 			return numCleanedDataStructures, err
 		} else if numCleanedElements > 0 {
-			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v.getName()), hzService, log.InfoLevel)
 		} else {
-			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v.getName()), hzService, log.InfoLevel)
 		}
 		numCleanedDataStructures++
-
-		if err := releaseMapLock(ms, ctx, ml); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("cannot release cleaning lock on '%s' for '%s' due to error: %v", ml.mapName, ml.key, err), hzService, log.ErrorLevel)
+		if err := updateLastCleanedInfo(ms, ctx, syncMapName, v.getName(), hzService); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to update last cleaned info for '%s' due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
+		} else {
+			lp.LogStateCleanerEvent(fmt.Sprintf("successfully updated last cleaned info for '%s'", v.getName()), hzService, log.InfoLevel)
 		}
 	}
 
@@ -509,6 +523,7 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		c.ois,
 		ctx,
 		hzQueueService,
+		queueCleanersSyncMapName,
 		c.c,
 		c.retrieveAndClean,
 	)
@@ -546,7 +561,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 				return err
 			} else {
 				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structures", numCleanedDataStructures), hzService, log.InfoLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
 				} else {
 					lp.LogStateCleanerEvent("execution of cleaner was successful; however, zero data structures were cleaned", hzService, log.InfoLevel)
 				}
