@@ -835,7 +835,12 @@ func TestQueueCleanerClean(t *testing.T) {
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
-				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, tracker)
+
+				ms := &testHzMapStore{maps: map[string]*testHzMap{
+					queueCleanersSyncMapName: {data: make(map[string]any)},
+				}}
+
+				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, tracker)
 
 				numCleaned, err := qc.clean(context.TODO())
 
@@ -861,6 +866,20 @@ func TestQueueCleanerClean(t *testing.T) {
 					t.Fatal(msg, ballotX, dummyQueueStore.getQueueInvocations)
 				}
 
+				msg = "\t\t\tnumber of get map invocations on queue cleaners sync map must be twice the number of payload queues whose name matches given prefix"
+				if ms.getMapInvocationsQueueSyncMap == numQueueObjects*2 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.getMapInvocationsQueueSyncMap)
+				}
+
+				msg = "\t\t\tthere must be no get map invocations on map cleaners sync map"
+				if ms.getMapInvocationsMapsSyncMap == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
+				}
+
 				invokedOnceMsg := "\t\t\tclear must have been invoked on all data structures whose prefix matches configuration"
 				notInvokedMsg := "\t\t\tclear must not have been invoked on data structure that is either not a queue or whose name does not correspond to given prefix"
 				for k, v := range dummyQueueStore.queues {
@@ -877,6 +896,36 @@ func TestQueueCleanerClean(t *testing.T) {
 							t.Fatal(notInvokedMsg, ballotX, k, v.clearInvocations)
 						}
 					}
+				}
+
+				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
+
+				msg = "\t\t\tnumber of try lock invocations on queue cleaners sync map must be equal to number of payload queues whose name matches prefix"
+				if queueCleanersSyncMap.tryLockInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, queueCleanersSyncMap.tryLockInvocations)
+				}
+
+				msg = "\t\t\tnumber of unlock invocations on queue cleaners sync map must be equal to number of payload queues whose name matches prefix"
+				if queueCleanersSyncMap.unlockInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, queueCleanersSyncMap.unlockInvocations)
+				}
+
+				msg = "\t\t\tnumber of get invocations on queue cleaners sync map must be equal to number of payload queues whose name matches prefix"
+				if queueCleanersSyncMap.getInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, queueCleanersSyncMap.getInvocations)
+				}
+
+				msg = "\t\t\tnumber of set with ttl and max idle time invocations on queue cleaners sync map must be equal to number of payload queues whose name matches prefix"
+				if queueCleanersSyncMap.setWithTTLAndMaxIdleInvocations == numQueueObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, queueCleanersSyncMap.setWithTTLAndMaxIdleInvocations)
 				}
 
 				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", numQueueObjects)
@@ -920,7 +969,11 @@ func TestQueueCleanerClean(t *testing.T) {
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
-				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, tracker)
+
+				ms := &testHzMapStore{maps: map[string]*testHzMap{
+					queueCleanersSyncMapName: {data: make(map[string]any)},
+				}}
+				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, tracker)
 
 				numCleaned, err := qc.clean(context.TODO())
 
@@ -986,7 +1039,11 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 
 			tracker := &testCleanedTracker{}
-			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, tracker)
+
+			ms := &testHzMapStore{maps: map[string]*testHzMap{
+				queueCleanersSyncMapName: {data: make(map[string]any)},
+			}}
+			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1027,7 +1084,11 @@ func TestQueueCleanerClean(t *testing.T) {
 				returnErrorUponGetObjectInfos: true,
 			}
 			tracker := &testCleanedTracker{}
-			qc := assembleQueueCleaner(c, &testHzQueueStore{}, &testHzMapStore{}, ois, &testHzClientHandler{}, tracker)
+
+			ms := &testHzMapStore{maps: map[string]*testHzMap{
+				queueCleanersSyncMapName: {data: make(map[string]any)},
+			}}
+			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1066,7 +1127,11 @@ func TestQueueCleanerClean(t *testing.T) {
 			ois := populateDummyObjectInfos(numQueueOperations, prefixes, hzQueueService)
 
 			tracker := &testCleanedTracker{}
-			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, tracker)
+
+			ms := &testHzMapStore{maps: map[string]*testHzMap{
+				queueCleanersSyncMapName: {data: make(map[string]any)},
+			}}
+			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1123,7 +1188,11 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 
 			tracker := &testCleanedTracker{}
-			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, tracker)
+
+			ms := &testHzMapStore{maps: map[string]*testHzMap{
+				queueCleanersSyncMapName: {data: make(map[string]any)},
+			}}
+			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1180,7 +1249,9 @@ func TestQueueCleanerClean(t *testing.T) {
 				enabled: false,
 			}
 			qs := &testHzQueueStore{}
-			ms := &testHzMapStore{}
+			ms := &testHzMapStore{maps: map[string]*testHzMap{
+				queueCleanersSyncMapName: {data: make(map[string]any)},
+			}}
 			ois := &testHzObjectInfoStore{}
 			ch := &testHzClientHandler{}
 
