@@ -39,7 +39,7 @@ type (
 	testHzMapStore struct {
 		maps                                                                                     map[string]*testHzMap
 		getMapInvocationsPayloadMap, getMapInvocationsMapsSyncMap, getMapInvocationsQueueSyncMap int
-		returnErrorUponGetMap                                                                    bool
+		returnErrorUponGetPayloadMap, returnErrorUponGetSyncMap                                  bool
 	}
 	testHzQueueStore struct {
 		queues                  map[string]*testHzQueue
@@ -95,7 +95,8 @@ var (
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
 	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
-	getMapError                   = errors.New("something somewhere went terribly wrong when attempting to get a map from the target hazelcast cluster")
+	getPayloadMapError            = errors.New("something somewhere went terribly wrong when attempting to get a payload map from the target hazelcast cluster")
+	getSyncMapError               = errors.New("something somewhere went terribly wrong when attempting to get a sync map from the target hazelcast cluster")
 	mapEvictAllError              = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
 	mapSizeError                  = errors.New("something somewhere went terribly wrong upon attempt to query the map's size")
 	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
@@ -195,8 +196,12 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hzMap, error) 
 		ms.getMapInvocationsPayloadMap++
 	}
 
-	if ms.returnErrorUponGetMap {
-		return nil, getMapError
+	if (name == mapCleanersSyncMapName || name == queueCleanersSyncMapName) && ms.returnErrorUponGetSyncMap {
+		return nil, getSyncMapError
+	}
+
+	if !(name == mapCleanersSyncMapName || name == queueCleanersSyncMapName) && ms.returnErrorUponGetPayloadMap {
+		return nil, getPayloadMapError
 	}
 
 	return ms.maps[name], nil
@@ -499,9 +504,9 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 
 	t.Log("given a map cleaner method for retrieving and cleaning maps")
 	{
-		t.Log("\twhen get map operation yields error")
+		t.Log("\twhen get payload map operation yields error")
 		{
-			dummyMapStore := &testHzMapStore{returnErrorUponGetMap: true}
+			dummyMapStore := &testHzMapStore{returnErrorUponGetPayloadMap: true}
 			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), "blubb")
@@ -514,7 +519,7 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 			}
 
 			msg = "\t\terror must be returned"
-			if errors.Is(err, getMapError) {
+			if errors.Is(err, getPayloadMapError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
@@ -1394,34 +1399,34 @@ func TestMapCleanerClean(t *testing.T) {
 					}
 				}
 
-				syncMap := dummyMapStore.maps[mapCleanersSyncMapName]
+				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
 
 				msg = "\t\t\tnumber of try lock invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
-				if syncMap.tryLockInvocations == numMapObjects {
+				if mapCleanersSyncMap.tryLockInvocations == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, syncMap.tryLockInvocations)
+					t.Fatal(msg, ballotX, mapCleanersSyncMap.tryLockInvocations)
 				}
 
 				msg = "\t\t\tnumber of unlock invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
-				if syncMap.unlockInvocations == numMapObjects {
+				if mapCleanersSyncMap.unlockInvocations == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+					t.Fatal(msg, ballotX, mapCleanersSyncMap.unlockInvocations)
 				}
 
 				msg = "\t\t\tnumber of get invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
-				if syncMap.getInvocations == numMapObjects {
+				if mapCleanersSyncMap.getInvocations == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, syncMap.getInvocations)
+					t.Fatal(msg, ballotX, mapCleanersSyncMap.getInvocations)
 				}
 
 				msg = "\t\t\tnumber of set with ttl and max idle time invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
-				if syncMap.setWithTTLAndMaxIdleInvocations == numMapObjects {
+				if mapCleanersSyncMap.setWithTTLAndMaxIdleInvocations == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, syncMap.setWithTTLAndMaxIdleInvocations)
+					t.Fatal(msg, ballotX, mapCleanersSyncMap.setWithTTLAndMaxIdleInvocations)
 				}
 
 				msg = fmt.Sprintf("\t\t\tcleaner must report %d cleaned data structures", numMapObjects)
@@ -1456,7 +1461,8 @@ func TestMapCleanerClean(t *testing.T) {
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
-				hzInternalMapName := "__sql.catalog"
+
+				hzInternalMapName := hzInternalDataStructurePrefix + "sql.catalog"
 				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
 				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
@@ -1487,7 +1493,7 @@ func TestMapCleanerClean(t *testing.T) {
 				invokedMsg := "\t\t\tevict all must have been invoked on all maps that are not hazelcast-internal maps"
 				notInvokedMsg := "\t\t\tevict all must not have been invoked on hazelcast-internal maps"
 				for k, v := range dummyMapStore.maps {
-					if !strings.HasPrefix(k, hzInternalMapName) {
+					if !strings.HasPrefix(k, hzInternalDataStructurePrefix) {
 						if v.evictAllInvocations == 1 {
 							t.Log(invokedMsg, checkMark, k)
 						} else {
@@ -1608,7 +1614,7 @@ func TestMapCleanerClean(t *testing.T) {
 			prefixes := []string{"ht_"}
 
 			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ms.returnErrorUponGetMap = true
+			ms.returnErrorUponGetPayloadMap = true
 
 			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
@@ -1618,7 +1624,7 @@ func TestMapCleanerClean(t *testing.T) {
 			numCleaned, err := mc.clean(context.TODO())
 
 			msg := "\t\tcorresponding error must be returned"
-			if errors.Is(err, getMapError) {
+			if errors.Is(err, getPayloadMapError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
