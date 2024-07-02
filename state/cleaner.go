@@ -394,7 +394,6 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 	}
 
 	numCleaned, err := runGenericClean(
-		c.ms,
 		c.ois,
 		ctx,
 		c.cih,
@@ -446,7 +445,6 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 }
 
 func runGenericClean(
-	ms hzMapStore,
 	ois hzObjectInfoStore,
 	ctx context.Context,
 	cih lastCleanedInfoHandler,
@@ -545,7 +543,6 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 	}
 
 	numCleaned, err := runGenericClean(
-		c.ms,
 		c.ois,
 		ctx,
 		c.cih,
