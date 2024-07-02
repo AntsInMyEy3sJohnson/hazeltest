@@ -69,6 +69,10 @@ type (
 	cleaner interface {
 		clean(ctx context.Context) (int, error)
 	}
+	lastCleanedInfoHandler interface {
+		check(syncMapName, payloadDataStructureName, hzService string) (bool, error)
+		update(syncMapName, payloadDataStructureName, hzService string) error
+	}
 	cleanedTracker interface {
 		addCleanedDataStructure(name string, cleaned int)
 	}
@@ -84,9 +88,6 @@ type (
 	mapCleanerBuilder struct {
 		cfb cleanerConfigBuilder
 	}
-	cleanedDataStructureTracker struct {
-		g *status.Gatherer
-	}
 	mapCleaner struct {
 		name      string
 		hzCluster string
@@ -96,6 +97,7 @@ type (
 		ms        hzMapStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
+		cih       lastCleanedInfoHandler
 		t         cleanedTracker
 	}
 	queueCleanerBuilder struct {
@@ -111,7 +113,15 @@ type (
 		ms        hzMapStore
 		ois       hzObjectInfoStore
 		ch        hzClientHandler
+		cih       lastCleanedInfoHandler
 		t         cleanedTracker
+	}
+	defaultLastCleanedInfoHandler struct {
+		ms  hzMapStore
+		ctx context.Context
+	}
+	cleanedDataStructureTracker struct {
+		g *status.Gatherer
 	}
 )
 
@@ -238,6 +248,12 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 	clientName := "mapCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
+	ms := &defaultHzMapStore{ch.getClient()}
+	cih := &defaultLastCleanedInfoHandler{
+		ms:  ms,
+		ctx: ctx,
+	}
+
 	t := &cleanedDataStructureTracker{g}
 	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
@@ -247,9 +263,10 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
 		c:         config,
-		ms:        &defaultHzMapStore{ch.getClient()},
+		ms:        ms,
 		ois:       &defaultHzObjectInfoStore{ch.getClient()},
 		ch:        ch,
+		cih:       cih,
 		t:         t,
 	}, hzMapService, nil
 
@@ -274,9 +291,9 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 }
 
-func checkLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, payloadDataStructureName, hzService string) (bool, error) {
+func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructureName, hzService string) (bool, error) {
 
-	coordinationMap, err := ms.GetMap(ctx, syncMapName)
+	coordinationMap, err := cih.ms.GetMap(cih.ctx, syncMapName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve coordination map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
@@ -284,7 +301,7 @@ func checkLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, paylo
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved coordination map '%s'", syncMapName), hzService, log.DebugLevel)
-	lockSucceeded, err := coordinationMap.TryLock(ctx, payloadDataStructureName)
+	lockSucceeded, err := coordinationMap.TryLock(cih.ctx, payloadDataStructureName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on coordination map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
@@ -296,7 +313,7 @@ func checkLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, paylo
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on coordination map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
-	v, err := coordinationMap.Get(ctx, payloadDataStructureName)
+	v, err := coordinationMap.Get(cih.ctx, payloadDataStructureName)
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from coordination map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
 		return false, err
@@ -327,11 +344,11 @@ func checkLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, paylo
 
 }
 
-func updateLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, payloadMapName, hzService string) error {
+func (cih *defaultLastCleanedInfoHandler) update(syncMapName, payloadMapName, hzService string) error {
 
-	mapHoldingLock, err := ms.GetMap(ctx, syncMapName)
+	mapHoldingLock, err := cih.ms.GetMap(cih.ctx, syncMapName)
 	defer func() {
-		if err := mapHoldingLock.Unlock(ctx, payloadMapName); err != nil {
+		if err := mapHoldingLock.Unlock(cih.ctx, payloadMapName); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", mapCleanersSyncMapName, payloadMapName, err), hzService, log.ErrorLevel)
 		}
 	}()
@@ -342,7 +359,7 @@ func updateLastCleanedInfo(ms hzMapStore, ctx context.Context, syncMapName, payl
 
 	cleanedAt := time.Now().UnixNano()
 	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
-	return mapHoldingLock.SetWithTTLAndMaxIdle(ctx, payloadMapName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
+	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.ctx, payloadMapName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
 
 }
 
@@ -380,6 +397,7 @@ func (c *mapCleaner) clean(ctx context.Context) (int, error) {
 		c.ms,
 		c.ois,
 		ctx,
+		c.cih,
 		hzMapService,
 		mapCleanersSyncMapName,
 		c.c,
@@ -402,6 +420,12 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 	clientName := "queueCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
+	ms := &defaultHzMapStore{hzClient: ch.getClient()}
+	cih := &defaultLastCleanedInfoHandler{
+		ms:  ms,
+		ctx: ctx,
+	}
+
 	t := &cleanedDataStructureTracker{g}
 	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
@@ -412,9 +436,10 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 		keyPath:   b.cfb.keyPath,
 		c:         config,
 		qs:        &defaultHzQueueStore{hzClient: ch.getClient()},
-		ms:        &defaultHzMapStore{hzClient: ch.getClient()},
+		ms:        ms,
 		ois:       &defaultHzObjectInfoStore{hzClient: ch.getClient()},
 		ch:        ch,
+		cih:       cih,
 		t:         t,
 	}, hzQueueService, nil
 
@@ -424,6 +449,7 @@ func runGenericClean(
 	ms hzMapStore,
 	ois hzObjectInfoStore,
 	ctx context.Context,
+	cih lastCleanedInfoHandler,
 	hzService, syncMapName string,
 	c *cleanerConfig,
 	retrieveAndClean func(ctx context.Context, name string) (int, error),
@@ -456,7 +482,7 @@ func runGenericClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		shouldClean, err := checkLastCleanedInfo(ms, ctx, syncMapName, v.getName(), hzService)
+		shouldClean, err := cih.check(syncMapName, v.getName(), hzService)
 		if err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
 			continue
@@ -475,7 +501,7 @@ func runGenericClean(
 			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v.getName()), hzService, log.InfoLevel)
 		}
 		numCleanedDataStructures++
-		if err := updateLastCleanedInfo(ms, ctx, syncMapName, v.getName(), hzService); err != nil {
+		if err := cih.update(syncMapName, v.getName(), hzService); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to update last cleaned info for '%s' due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
 		} else {
 			lp.LogStateCleanerEvent(fmt.Sprintf("successfully updated last cleaned info for '%s'", v.getName()), hzService, log.InfoLevel)
@@ -522,6 +548,7 @@ func (c *queueCleaner) clean(ctx context.Context) (int, error) {
 		c.ms,
 		c.ois,
 		ctx,
+		c.cih,
 		hzQueueService,
 		queueCleanersSyncMapName,
 		c.c,
