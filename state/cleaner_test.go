@@ -1382,10 +1382,18 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 				ch := &testHzClientHandler{}
 
-				tracker := &testCleanedTracker{}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, &testLastCleanedInfoHandler{}, tracker)
-
 				ctx := context.TODO()
+				// Default last cleaned info handler used in place of test variant for this "happy-path" test
+				// in order to increase test integration level by verifying number and kind of invocations performed
+				// on the dummy map store.
+				cih := &defaultLastCleanedInfoHandler{
+					ms:  dummyMapStore,
+					ctx: ctx,
+				}
+
+				tracker := &testCleanedTracker{}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
+
 				numCleaned, err := mc.clean(ctx)
 
 				msg := "\t\t\tno error must be returned"
@@ -1514,7 +1522,11 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, &testLastCleanedInfoHandler{}, tracker)
+
+				cih := &testLastCleanedInfoHandler{
+					shouldClean: true,
+				}
+				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
 
 				numCleaned, err := mc.clean(context.TODO())
 
@@ -1581,8 +1593,11 @@ func TestMapCleanerClean(t *testing.T) {
 				objectInfos:                         make([]hzObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
 			tracker := &testCleanedTracker{}
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1661,8 +1676,11 @@ func TestMapCleanerClean(t *testing.T) {
 
 			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
 			tracker := &testCleanedTracker{}
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1718,8 +1736,11 @@ func TestMapCleanerClean(t *testing.T) {
 				enabled: true,
 			}
 
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
 			tracker := &testCleanedTracker{}
-			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
@@ -1779,8 +1800,11 @@ func TestMapCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{}
 			ch := &testHzClientHandler{}
 
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
 			tracker := &testCleanedTracker{}
-			mc := assembleMapCleaner(c, ms, ois, ch, &testLastCleanedInfoHandler{}, tracker)
+			mc := assembleMapCleaner(c, ms, ois, ch, cih, tracker)
 
 			numCleaned, err := mc.clean(context.TODO())
 
