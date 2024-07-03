@@ -875,9 +875,19 @@ func TestQueueCleanerClean(t *testing.T) {
 					queueCleanersSyncMapName: {data: make(map[string]any)},
 				}}
 
-				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, &testLastCleanedInfoHandler{}, tracker)
+				ctx := context.TODO()
 
-				numCleaned, err := qc.clean(context.TODO())
+				// Default last cleaned info handler used in place of test variant for this "happy-path" test
+				// in order to increase test integration level by verifying number and kind of invocations performed
+				// on the dummy map store.
+				cih := &defaultLastCleanedInfoHandler{
+					ms:  ms,
+					ctx: ctx,
+				}
+
+				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, cih, tracker)
+
+				numCleaned, err := qc.clean(ctx)
 
 				msg := "\t\t\tno error must be returned"
 
@@ -1005,10 +1015,10 @@ func TestQueueCleanerClean(t *testing.T) {
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
 
-				ms := &testHzMapStore{maps: map[string]*testHzMap{
-					queueCleanersSyncMapName: {data: make(map[string]any)},
-				}}
-				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, &testLastCleanedInfoHandler{}, tracker)
+				cih := &testLastCleanedInfoHandler{
+					shouldClean: true,
+				}
+				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, cih, tracker)
 
 				numCleaned, err := qc.clean(context.TODO())
 
@@ -1075,10 +1085,10 @@ func TestQueueCleanerClean(t *testing.T) {
 
 			tracker := &testCleanedTracker{}
 
-			ms := &testHzMapStore{maps: map[string]*testHzMap{
-				queueCleanersSyncMapName: {data: make(map[string]any)},
-			}}
-			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
+			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1163,10 +1173,10 @@ func TestQueueCleanerClean(t *testing.T) {
 
 			tracker := &testCleanedTracker{}
 
-			ms := &testHzMapStore{maps: map[string]*testHzMap{
-				queueCleanersSyncMapName: {data: make(map[string]any)},
-			}}
-			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
+			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1224,10 +1234,10 @@ func TestQueueCleanerClean(t *testing.T) {
 
 			tracker := &testCleanedTracker{}
 
-			ms := &testHzMapStore{maps: map[string]*testHzMap{
-				queueCleanersSyncMapName: {data: make(map[string]any)},
-			}}
-			qc := assembleQueueCleaner(c, qs, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
+			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
@@ -1290,8 +1300,11 @@ func TestQueueCleanerClean(t *testing.T) {
 			ois := &testHzObjectInfoStore{}
 			ch := &testHzClientHandler{}
 
+			cih := &testLastCleanedInfoHandler{
+				shouldClean: true,
+			}
 			tracker := &testCleanedTracker{}
-			qc := assembleQueueCleaner(c, qs, ms, ois, ch, &testLastCleanedInfoHandler{}, tracker)
+			qc := assembleQueueCleaner(c, qs, ms, ois, ch, cih, tracker)
 
 			numCleaned, err := qc.clean(context.TODO())
 
