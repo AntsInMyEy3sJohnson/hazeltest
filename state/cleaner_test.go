@@ -1803,13 +1803,6 @@ func TestMapCleanerClean(t *testing.T) {
 			ms := populateDummyMapStore(numMapObjects, prefixes)
 			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
-			shouldCleanIndividualMaps := make(map[string]bool)
-			for i := 0; i < numMapObjects; i++ {
-
-			}
-			for k := range ms.maps {
-				shouldCleanIndividualMaps[k] = true
-			}
 			numMapsToBeCleaned := 3
 			cih := &testLastCleanedInfoHandler{
 				shouldCleanAll:           false,
@@ -1847,6 +1840,11 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 
 		}
+		t.Log("\twhen should clean check fails")
+		{
+
+		}
+		t.Log("\twhen update of last cleaned info fails")
 		t.Log("\twhen cleaner has not been enabled")
 		{
 			c := &cleanerConfig{
