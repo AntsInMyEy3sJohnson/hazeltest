@@ -1842,7 +1842,51 @@ func TestMapCleanerClean(t *testing.T) {
 		}
 		t.Log("\twhen should clean check fails")
 		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			numMapObjects := 9
+			prefixes := []string{"ht_"}
+			ms := populateDummyMapStore(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
+			cih := &testLastCleanedInfoHandler{
+				returnErrorUponCheck: true,
+			}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
+			numCleaned, err := mc.clean(context.TODO())
+
+			// In case of failing should clean check, error is not returned; rather, the loop over filtered
+			// data structures potentially susceptible to cleaning continues with the next data structure. Thus, even
+			// in case should clean check fails for all data structures, we still expect a nil error on the
+			// caller's side.
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tno data structure must have been cleaned"
+			if numCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", numCleaned, 0))
+			}
+
+			msg = "\t\tnumber of should clean invocations must be equal to number of filtered data structures"
+			if cih.checkInvocations == numMapObjects {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", cih.checkInvocations, numMapObjects))
+			}
+
+			msg = "\t\tno updates of last cleaned infos must have been performed"
+			if cih.updateInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", cih.updateInvocations, 0))
+			}
 		}
 		t.Log("\twhen update of last cleaned info fails")
 		t.Log("\twhen cleaner has not been enabled")
