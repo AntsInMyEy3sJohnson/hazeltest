@@ -1889,6 +1889,46 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 		}
 		t.Log("\twhen update of last cleaned info fails")
+		{
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			numMapObjects := 9
+			prefixes := []string{"ht_"}
+			ms := populateDummyMapStore(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+
+			cih := &testLastCleanedInfoHandler{
+				shouldCleanAll:        true,
+				returnErrorUponUpdate: true,
+			}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
+			numCleaned, err := mc.clean(context.TODO())
+
+			// Similar to the behavior in case of failed should clean checks, failure to update last cleaned info
+			// should not propagate as an error to the caller. Instead, the loop should continue with the next
+			// data structure.
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of cleaned data structures must be equal to number of data structures provided in test setup"
+			if numCleaned == numMapObjects {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", numCleaned, numMapObjects))
+			}
+
+			msg = "\t\tnumber of update last cleaned info invocations must be equal to number of data structures provided in test setup"
+			if cih.updateInvocations == numMapObjects {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", cih.updateInvocations, numMapObjects))
+			}
+		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
 			c := &cleanerConfig{
