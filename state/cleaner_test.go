@@ -76,8 +76,9 @@ type (
 		returnErrorUponSize  bool
 	}
 	testLastCleanedInfoHandler struct {
-		checkInvocations, updateInvocations                      int
-		shouldClean, returnErrorUponCheck, returnErrorUponUpdate bool
+		checkInvocations, updateInvocations                         int
+		shouldCleanIndividualMap                                    map[string]bool
+		shouldCleanAll, returnErrorUponCheck, returnErrorUponUpdate bool
 	}
 	testCleanedTracker struct {
 		numInvocations int
@@ -341,7 +342,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
-func (cih *testLastCleanedInfoHandler) check(_, _, _ string) (bool, error) {
+func (cih *testLastCleanedInfoHandler) check(_, payloadDataStructureName, _ string) (bool, error) {
 
 	cih.checkInvocations++
 
@@ -349,7 +350,7 @@ func (cih *testLastCleanedInfoHandler) check(_, _, _ string) (bool, error) {
 		return false, lastCleanedInfoCheckError
 	}
 
-	return cih.shouldClean, nil
+	return cih.shouldCleanAll || cih.shouldCleanIndividualMap[payloadDataStructureName], nil
 
 }
 
@@ -1016,7 +1017,7 @@ func TestQueueCleanerClean(t *testing.T) {
 				tracker := &testCleanedTracker{}
 
 				cih := &testLastCleanedInfoHandler{
-					shouldClean: true,
+					shouldCleanAll: true,
 				}
 				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, cih, tracker)
 
@@ -1086,7 +1087,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
@@ -1174,7 +1175,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
@@ -1235,7 +1236,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
@@ -1301,7 +1302,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			ch := &testHzClientHandler{}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			tracker := &testCleanedTracker{}
 			qc := assembleQueueCleaner(c, qs, ms, ois, ch, cih, tracker)
@@ -1524,7 +1525,7 @@ func TestMapCleanerClean(t *testing.T) {
 				tracker := &testCleanedTracker{}
 
 				cih := &testLastCleanedInfoHandler{
-					shouldClean: true,
+					shouldCleanAll: true,
 				}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
 
@@ -1594,7 +1595,7 @@ func TestMapCleanerClean(t *testing.T) {
 				getDistributedObjectInfoInvocations: 0,
 			}
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
@@ -1677,7 +1678,7 @@ func TestMapCleanerClean(t *testing.T) {
 			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
@@ -1737,7 +1738,7 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
@@ -1801,7 +1802,7 @@ func TestMapCleanerClean(t *testing.T) {
 			ch := &testHzClientHandler{}
 
 			cih := &testLastCleanedInfoHandler{
-				shouldClean: true,
+				shouldCleanAll: true,
 			}
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, ch, cih, tracker)
