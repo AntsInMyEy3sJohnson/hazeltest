@@ -1792,6 +1792,61 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 
 		}
+		t.Log("\twhen should clean check yields true only for subset of data structures")
+		{
+
+			c := &cleanerConfig{
+				enabled: true,
+			}
+			numMapObjects := 9
+			prefixes := []string{"ht_"}
+			ms := populateDummyMapStore(numMapObjects, prefixes)
+			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+
+			shouldCleanIndividualMaps := make(map[string]bool)
+			for i := 0; i < numMapObjects; i++ {
+
+			}
+			for k := range ms.maps {
+				shouldCleanIndividualMaps[k] = true
+			}
+			numMapsToBeCleaned := 3
+			cih := &testLastCleanedInfoHandler{
+				shouldCleanAll:           false,
+				shouldCleanIndividualMap: createShouldCleanIndividualMapSetup(ms, numMapsToBeCleaned),
+			}
+			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
+			numCleaned, err := mc.clean(context.TODO())
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tnumber of cleaned data structures must be equal to number of data structures for which should clean check is set up to yield true"
+			if numCleaned == numMapsToBeCleaned {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", numCleaned, numMapsToBeCleaned))
+			}
+
+			msg = "\t\tnumber of should clean check invocations must still be equal to number of data structures filtered from candidate list"
+			if cih.checkInvocations == numMapObjects {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", cih.checkInvocations, numMapObjects))
+			}
+
+			msg = "\t\tnumber of update invocations must be equal to number of cleaned maps"
+			if cih.updateInvocations == numMapsToBeCleaned {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", cih.updateInvocations, numMapsToBeCleaned))
+			}
+
+		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
 			c := &cleanerConfig{
@@ -2183,6 +2238,28 @@ func TestRunCleaners(t *testing.T) {
 			})
 		}
 	}
+
+}
+
+func createShouldCleanIndividualMapSetup(ms *testHzMapStore, numShouldBeCleaned int) map[string]bool {
+
+	keys := make([]string, 0, len(ms.maps))
+	for k := range ms.maps {
+		keys = append(keys, k)
+	}
+
+	shouldCleanIndividualMap := make(map[string]bool)
+	numTrueEntries := 0
+	for _, key := range keys {
+		if numTrueEntries < numShouldBeCleaned && !strings.HasPrefix(key, hzInternalDataStructurePrefix) {
+			shouldCleanIndividualMap[key] = true
+			numTrueEntries++
+		} else {
+			shouldCleanIndividualMap[key] = false
+		}
+	}
+
+	return shouldCleanIndividualMap
 
 }
 
