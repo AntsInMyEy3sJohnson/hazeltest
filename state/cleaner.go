@@ -293,7 +293,7 @@ func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context,
 
 func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructureName, hzService string) (bool, error) {
 
-	coordinationMap, err := cih.ms.GetMap(cih.ctx, syncMapName)
+	syncMap, err := cih.ms.GetMap(cih.ctx, syncMapName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve coordination map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
@@ -301,7 +301,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved coordination map '%s'", syncMapName), hzService, log.DebugLevel)
-	lockSucceeded, err := coordinationMap.TryLock(cih.ctx, payloadDataStructureName)
+	lockSucceeded, err := syncMap.TryLock(cih.ctx, payloadDataStructureName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on coordination map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
@@ -313,7 +313,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on coordination map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
-	v, err := coordinationMap.Get(cih.ctx, payloadDataStructureName)
+	v, err := syncMap.Get(cih.ctx, payloadDataStructureName)
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from coordination map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
 		return false, err
