@@ -67,6 +67,7 @@ type (
 		returnErrorUponGet                  bool
 		returnErrorUponSet                  bool
 		returnErrorUponSetWithTTLAndMaxIdle bool
+		tryLockReturnValue                  bool
 	}
 	testHzQueue struct {
 		data                 chan string
@@ -146,7 +147,7 @@ func (m *testHzMap) TryLock(_ context.Context, _ any) (bool, error) {
 		return false, tryLockError
 	}
 
-	return true, nil
+	return m.tryLockReturnValue, nil
 
 }
 
@@ -396,7 +397,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				t.Fatal(msg, ballotX, err)
 			}
 
-			msg = "\t\tshould check result should be negative"
+			msg = "\t\tshould check result must be negative"
 
 			if !shouldCheck {
 				t.Log(msg, checkMark)
@@ -425,7 +426,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				t.Fatal(msg, ballotX, err)
 			}
 
-			msg = "\t\tshould check result should be negative"
+			msg = "\t\tshould check result must be negative"
 
 			if !shouldCheck {
 				t.Log(msg, checkMark)
@@ -446,6 +447,51 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
 			}
+		}
+
+		t.Log("\twhen try lock operation yields negative result")
+		{
+
+			ms := populateDummyMapStore(1, []string{"blubbedi_"})
+			testSyncMap := ms.maps[mapCleanersSyncMapName]
+			testSyncMap.tryLockReturnValue = false
+
+			cih := &defaultLastCleanedInfoHandler{
+				ms:  ms,
+				ctx: context.TODO(),
+			}
+
+			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", hzMapService)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tshould check result must be negative"
+
+			if !shouldCheck {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnumber of invocations on get map for map cleaners sync map must be one"
+			if ms.getMapInvocationsMapsSyncMap == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
+			}
+
+			msg = "\t\tnumber of try lock invocations on map cleaners sync map must be one, too"
+			if testSyncMap.tryLockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
+			}
+
 		}
 	}
 
