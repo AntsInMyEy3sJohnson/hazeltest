@@ -372,6 +372,42 @@ func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
 
 }
 
+func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
+
+	t.Log("given a method on the default last cleaned info handler for checking when a data structure was last cleaned")
+	{
+		t.Log("\twhen get map on coordination map yields error")
+		{
+
+			ms := populateDummyMapStore(1, []string{"ht_"})
+			ms.returnErrorUponGetSyncMap = true
+			cih := &defaultLastCleanedInfoHandler{
+				ms:  ms,
+				ctx: context.TODO(),
+			}
+
+			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
+
+			msg := "\t\tcorrect error must be returned"
+			if errors.Is(err, getSyncMapError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tshould check result should be negative"
+
+			if !shouldCheck {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
 func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 
 	t.Log("given a queue cleaner method for retrieving and cleaning queues")
