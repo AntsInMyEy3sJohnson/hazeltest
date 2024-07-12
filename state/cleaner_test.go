@@ -377,7 +377,7 @@ func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
 
 func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
-	t.Log("given a method on the default last cleaned info handler for checking when a data structure was last cleaned")
+	t.Log("given a map store containing sync map for map cleaners that needs to be checked for last cleaned info on payload map")
 	{
 		t.Log("\twhen get map on sync map yields error")
 		{
@@ -410,8 +410,8 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen try lock fails on sync map for key associated with payload data structure name")
 		{
 			ms := populateDummyMapStore(1, []string{"ht_"})
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.returnErrorUponTryLock = true
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.returnErrorUponTryLock = true
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -443,10 +443,10 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of try lock invocations on map cleaners sync map must be one, too"
-			if testSyncMap.tryLockInvocations == 1 {
+			if mapCleanersSyncMap.tryLockInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.tryLockInvocations)
 			}
 		}
 
@@ -454,8 +454,8 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		{
 
 			ms := populateDummyMapStore(1, []string{"blubbedi_"})
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = false
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = false
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -487,10 +487,10 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of try lock invocations on map cleaners sync map must be one, too"
-			if testSyncMap.tryLockInvocations == 1 {
+			if mapCleanersSyncMap.tryLockInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.tryLockInvocations)
 			}
 
 		}
@@ -499,9 +499,9 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			prefix := "waldo_"
 			ms := populateDummyMapStore(1, []string{prefix})
 
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = true
-			testSyncMap.returnErrorUponGet = true
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = true
+			mapCleanersSyncMap.returnErrorUponGet = true
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -532,17 +532,17 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of try lock invocations on map cleaners sync map must be one, too"
-			if testSyncMap.tryLockInvocations == 1 {
+			if mapCleanersSyncMap.tryLockInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.tryLockInvocations)
 			}
 
 			msg = "\t\tnumber of get invocations on sync map must be one, too"
-			if testSyncMap.getInvocations == 1 {
+			if mapCleanersSyncMap.getInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.getInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.getInvocations)
 			}
 
 		}
@@ -550,8 +550,8 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen payload map hasn't been cleaned before")
 		{
 			ms := populateDummyMapStore(1, []string{"ht_"})
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = true
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = true
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -582,17 +582,17 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of try lock invocations on map cleaners sync map must be one, too"
-			if testSyncMap.tryLockInvocations == 1 {
+			if mapCleanersSyncMap.tryLockInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.tryLockInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.tryLockInvocations)
 			}
 
 			msg = "\t\tnumber of get calls on map cleaners sync map must be one, too"
-			if testSyncMap.getInvocations == 1 {
+			if mapCleanersSyncMap.getInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, testSyncMap.getInvocations)
+				t.Fatal(msg, ballotX, mapCleanersSyncMap.getInvocations)
 			}
 		}
 
@@ -602,9 +602,9 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			ms := populateDummyMapStore(1, []string{prefix})
 
 			payloadMapName := prefix + "load-0"
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = true
-			testSyncMap.data[payloadMapName] = "clearly not a valid timestamp"
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = true
+			mapCleanersSyncMap.data[payloadMapName] = "clearly not a valid timestamp"
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -635,9 +635,9 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			ms := populateDummyMapStore(1, []string{prefix})
 
 			payloadMapName := prefix + "load-0"
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = true
-			testSyncMap.data[payloadMapName] = time.Now().UnixNano()
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = true
+			mapCleanersSyncMap.data[payloadMapName] = time.Now().UnixNano()
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -668,9 +668,9 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			ms := populateDummyMapStore(1, []string{prefix})
 
 			payloadMapName := prefix + "load-0"
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
-			testSyncMap.tryLockReturnValue = true
-			testSyncMap.data[payloadMapName] = int64(0)
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap.tryLockReturnValue = true
+			mapCleanersSyncMap.data[payloadMapName] = int64(0)
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -699,7 +699,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
 func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 
-	t.Log("given a map store containing the map cleaners sync map")
+	t.Log("given a map store containing sync map for map cleaners that needs to be updated with new last cleaned info")
 	{
 		t.Log("\twhen get map for map cleaners sync map yields error")
 		{
@@ -761,17 +761,17 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 				t.Fatal(msg, ballotX, err)
 			}
 
-			testSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 
 			msg = "\t\tlast cleaned info must have been updated"
-			if testSyncMap.setWithTTLAndMaxIdleInvocations == 1 {
+			if mapCleanersSyncMap.setWithTTLAndMaxIdleInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tlock on map cleaners sync map for payload map must have been released"
-			if testSyncMap.unlockInvocations == 1 {
+			if mapCleanersSyncMap.unlockInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -784,7 +784,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 
 func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 
-	t.Log("given a queue cleaner method for retrieving and cleaning queues")
+	t.Log("given a queue store containing at least one queue that needs to be retrieved and cleaned")
 	{
 		t.Log("\twhen get queue operation yields error")
 		{
@@ -943,7 +943,7 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 
 func TestMapCleanerRetrieveAndClean(t *testing.T) {
 
-	t.Log("given a map cleaner method for retrieving and cleaning maps")
+	t.Log("given a map store containing at least one map that needs to be retrieved and cleaned")
 	{
 		t.Log("\twhen get payload map operation yields error")
 		{
@@ -1102,7 +1102,7 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 
 func TestAddCleanedDataStructure(t *testing.T) {
 
-	t.Log("given a cleaned data structure tracker with a method to add a cleaned data structure")
+	t.Log("given a status update about a cleaned data structure to be added to the cleaned data structure tracker")
 	{
 		t.Log("\twhen status gatherer has been correctly populated")
 		{
@@ -1134,7 +1134,7 @@ func TestAddCleanedDataStructure(t *testing.T) {
 
 func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 
-	t.Log("given a function to identify possible candidates for state cleaning from an object info list")
+	t.Log("given information about data structures stored in hazelcast that need to be checked for whether they are susceptible to getting cleaned")
 	{
 		valid := &simpleObjectInfo{
 			name:        "ht_load-1",
@@ -1249,7 +1249,7 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 
 func TestQueueCleanerClean(t *testing.T) {
 
-	t.Log("given a queue cleaner build method")
+	t.Log("given a target hazelcast cluster potentially containing queues susceptible to getting cleaned")
 	{
 		t.Log("\twhen target hazeltest cluster contains multiple maps and queues, and all retrieval operations are successful")
 		{
@@ -1295,6 +1295,8 @@ func TestQueueCleanerClean(t *testing.T) {
 					ms:  ms,
 					ctx: ctx,
 				}
+				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
+				queueCleanersSyncMap.tryLockReturnValue = true
 
 				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, cih, tracker)
 
@@ -1353,8 +1355,6 @@ func TestQueueCleanerClean(t *testing.T) {
 						}
 					}
 				}
-
-				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
 
 				msg = "\t\t\tnumber of try lock invocations on queue cleaners sync map must be equal to number of payload queues whose name matches prefix"
 				if queueCleanersSyncMap.tryLockInvocations == numQueueObjects {
@@ -1761,7 +1761,7 @@ func TestQueueCleanerClean(t *testing.T) {
 
 func TestMapCleanerClean(t *testing.T) {
 
-	t.Log("given a map cleaner build method")
+	t.Log("given a target hazelcast cluster potentially containing maps susceptible to getting cleaned")
 	{
 		t.Log("\twhen target hazeltest cluster contains multiple maps and queues, and all retrieval operations are successful")
 		{
@@ -2398,7 +2398,7 @@ func TestMapCleanerClean(t *testing.T) {
 
 func TestQueueCleanerBuilderBuild(t *testing.T) {
 
-	t.Log("given a method to build a queue cleaner builder")
+	t.Log("given the properties necessary to assemble a queue cleaner")
 	{
 		t.Log("\twhen populate config is successful")
 		{
@@ -2515,7 +2515,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 
 func TestMapCleanerBuilderBuild(t *testing.T) {
 
-	t.Log("given a method to build a map cleaner builder")
+	t.Log("given the properties necessary to assemble a map cleaner")
 	{
 		t.Log("\twhen populate config is successful")
 		{
@@ -2633,7 +2633,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 
 func TestRunCleaners(t *testing.T) {
 
-	t.Log("given a function to invoke registered state cleaner builders")
+	t.Log("given at least one registered state cleaner")
 	{
 		t.Log("\twhen one state cleaner builder has registered")
 		{
