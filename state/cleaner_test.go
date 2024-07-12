@@ -595,6 +595,39 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				t.Fatal(msg, ballotX, testSyncMap.getInvocations)
 			}
 		}
+
+		t.Log("\twhen payload map has been cleaned before, but last cleaned state does not represent valid timestamp")
+		{
+			prefix := "ht_"
+			ms := populateDummyMapStore(1, []string{prefix})
+
+			payloadMapName := prefix + "load-0"
+			testSyncMap := ms.maps[mapCleanersSyncMapName]
+			testSyncMap.tryLockReturnValue = true
+			testSyncMap.data[payloadMapName] = "clearly not a valid timestamp"
+
+			cih := &defaultLastCleanedInfoHandler{
+				ms:  ms,
+				ctx: context.TODO(),
+			}
+
+			shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tshould check result must be negative"
+			if !shouldCheck {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
 	}
 
 }

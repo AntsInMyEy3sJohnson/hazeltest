@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
@@ -327,8 +328,9 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 	var lastCleanedAt int64
 	if lc, ok := v.(int64); !ok {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to treat retrieved value '%v' for payload data structure '%s' as int64-formatted timestamp", v, payloadDataStructureName), hzService, log.ErrorLevel)
-		return false, err
+		msg := fmt.Sprintf("unable to treat retrieved value '%v' for payload data structure '%s' as int64 timestamp", v, payloadDataStructureName)
+		lp.LogStateCleanerEvent(msg, hzService, log.ErrorLevel)
+		return false, errors.New(msg)
 	} else {
 		lastCleanedAt = lc
 	}
