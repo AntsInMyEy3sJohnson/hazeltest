@@ -350,6 +350,9 @@ func (cih *defaultLastCleanedInfoHandler) update(syncMapName, payloadMapName, hz
 
 	mapHoldingLock, err := cih.ms.GetMap(cih.ctx, syncMapName)
 	defer func() {
+		if mapHoldingLock == nil {
+			return
+		}
 		if err := mapHoldingLock.Unlock(cih.ctx, payloadMapName); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", mapCleanersSyncMapName, payloadMapName, err), hzService, log.ErrorLevel)
 		}
