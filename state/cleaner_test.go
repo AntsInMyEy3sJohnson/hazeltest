@@ -697,6 +697,91 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
 }
 
+func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
+
+	t.Log("given a map store containing the map cleaners sync map")
+	{
+		t.Log("\twhen get map for map cleaners sync map yields error")
+		{
+			func() {
+
+				defer func() {
+					msg := "\t\tno invocation on nil object representing map holding lock must have been performed"
+					if r := recover(); r == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}()
+
+				ms := populateDummyMapStore(1, []string{})
+				ms.returnErrorUponGetSyncMap = true
+
+				cih := &defaultLastCleanedInfoHandler{
+					ms:  ms,
+					ctx: context.TODO(),
+				}
+
+				err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
+
+				msg := "\t\terror must be returned"
+				if errors.Is(err, getSyncMapError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tnumber of get map invocations on map store for map cleaners sync map must be one"
+				if ms.getMapInvocationsMapsSyncMap == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
+				}
+
+			}()
+
+		}
+
+		t.Log("\twhen get map for map cleaners sync map is successful")
+		{
+			ms := populateDummyMapStore(1, []string{})
+
+			cih := &defaultLastCleanedInfoHandler{
+				ms:  ms,
+				ctx: context.TODO(),
+			}
+
+			err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			testSyncMap := ms.maps[mapCleanersSyncMapName]
+
+			msg = "\t\tlast cleaned info must have been updated"
+			if testSyncMap.setWithTTLAndMaxIdleInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock on map cleaners sync map for payload map must have been released"
+			if testSyncMap.unlockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
 func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 
 	t.Log("given a queue cleaner method for retrieving and cleaning queues")
