@@ -710,7 +710,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 					if r := recover(); r == nil {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, r)
 					}
 				}()
 
@@ -777,6 +777,41 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+		}
+
+		t.Log("\twhen final unlock operation yields error")
+		{
+			func() {
+
+				defer func() {
+					msg := "\t\tno panic must have been caused"
+					if r := recover(); r == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, r)
+					}
+				}()
+
+				ms := populateDummyMapStore(1, []string{})
+				mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
+				mapCleanersSyncMap.returnErrorUponUnlock = true
+
+				cih := &defaultLastCleanedInfoHandler{
+					ms:  ms,
+					ctx: context.TODO(),
+				}
+
+				err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
+
+				msg := "\t\tno error must be returned"
+
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+			}()
 		}
 	}
 
@@ -1805,6 +1840,9 @@ func TestMapCleanerClean(t *testing.T) {
 				tracker := &testCleanedTracker{}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
 
+				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
+				mapCleanersSyncMap.tryLockReturnValue = true
+
 				numCleaned, err := mc.clean(ctx)
 
 				msg := "\t\t\tno error must be returned"
@@ -1860,8 +1898,6 @@ func TestMapCleanerClean(t *testing.T) {
 						}
 					}
 				}
-
-				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
 
 				msg = "\t\t\tnumber of try lock invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
 				if mapCleanersSyncMap.tryLockInvocations == numMapObjects {
