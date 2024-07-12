@@ -11,10 +11,10 @@ image:
 resources:
   requests:
     cpu: "200m"
-    memory: "100Mi"
+    memory: "500M"
   limits:
     cpu: "400m"
-    memory: "200Mi"
+    memory: "1G"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -168,7 +168,6 @@ config:
             enabled: true
             durationMs: 3500
             enableRandomness: true
-
   mapTests:
     pokedex:
       enabled: true
