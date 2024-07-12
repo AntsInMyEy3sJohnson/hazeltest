@@ -653,13 +653,45 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tshould check result should be negative"
+			msg = "\t\tshould check result must be negative"
 			if !shouldCheck {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
+		}
+
+		t.Log("\twhen payload map has been cleaned before and last cleaned timestamp is not within clean interval")
+		{
+			prefix := "ht_"
+			ms := populateDummyMapStore(1, []string{prefix})
+
+			payloadMapName := prefix + "load-0"
+			testSyncMap := ms.maps[mapCleanersSyncMapName]
+			testSyncMap.tryLockReturnValue = true
+			testSyncMap.data[payloadMapName] = int64(0)
+
+			cih := &defaultLastCleanedInfoHandler{
+				ms:  ms,
+				ctx: context.TODO(),
+			}
+
+			shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tshould check result must be positive"
+			if shouldCheck {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 	}
 
