@@ -297,15 +297,15 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	syncMap, err := cih.ms.GetMap(cih.ctx, syncMapName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve coordination map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve sync map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
 		return false, err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved coordination map '%s'", syncMapName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.DebugLevel)
 	lockSucceeded, err := syncMap.TryLock(cih.ctx, payloadDataStructureName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on coordination map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on sync map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return false, err
 	}
 
@@ -313,10 +313,10 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		return false, fmt.Errorf("unable to acquire lock on '%s' for map %s", mapCleanersSyncMapName, payloadDataStructureName)
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on coordination map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
 	v, err := syncMap.Get(cih.ctx, payloadDataStructureName)
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from coordination map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from sync map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
 		return false, err
 	}
 
@@ -335,7 +335,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		lastCleanedAt = lc
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from coordination map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
 	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*cleanAgainThresholdMs {
 		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
 		return false, nil
