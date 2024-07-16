@@ -18,6 +18,7 @@ const TimingEvent = "timing event"
 const IoEvent = "io event"
 const HzEvent = "hazelcast event"
 const ConfigurationEvent = "configuration event"
+const InternalStateEvent = "internal state event"
 
 type LogProvider struct {
 	ClientID uuid.UUID
@@ -73,6 +74,16 @@ func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
 		"kind": ApiEvent,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogInternalStateInfo(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": InternalStateEvent,
 	}
 
 	lp.doLog(msg, fields, level)
