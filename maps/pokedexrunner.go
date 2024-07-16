@@ -16,7 +16,7 @@ import (
 type (
 	pokedexRunner struct {
 		assigner  client.ConfigPropertyAssigner
-		stateList []state
+		stateList []runnerState
 		name      string
 		source    string
 		mapStore  hzMapStore
@@ -58,7 +58,7 @@ var (
 func init() {
 	register(&pokedexRunner{
 		assigner:  &client.DefaultConfigPropertyAssigner{},
-		stateList: []state{},
+		stateList: []runnerState{},
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
 		mapStore:  &defaultHzMapStore{},
@@ -143,7 +143,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 
 }
 
-func (r *pokedexRunner) appendState(s state) {
+func (r *pokedexRunner) appendState(s runnerState) {
 
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}

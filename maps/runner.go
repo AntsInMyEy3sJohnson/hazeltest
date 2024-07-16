@@ -45,8 +45,8 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
-	state     string
-	statusKey string
+	runnerState string
+	statusKey   string
 )
 
 type (
@@ -79,13 +79,13 @@ const (
 )
 
 const (
-	start                  state = "start"
-	populateConfigComplete state = "populateConfigComplete"
-	checkEnabledComplete   state = "checkEnabledComplete"
-	assignTestLoopComplete state = "assignTestLoopComplete"
-	raiseReadyComplete     state = "raiseReadyComplete"
-	testLoopStart          state = "testLoopStart"
-	testLoopComplete       state = "testLoopComplete"
+	start                  runnerState = "start"
+	populateConfigComplete runnerState = "populateConfigComplete"
+	checkEnabledComplete   runnerState = "checkEnabledComplete"
+	assignTestLoopComplete runnerState = "assignTestLoopComplete"
+	raiseReadyComplete     runnerState = "raiseReadyComplete"
+	testLoopStart          runnerState = "testLoopStart"
+	testLoopComplete       runnerState = "testLoopComplete"
 )
 
 const (

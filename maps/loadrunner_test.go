@@ -91,14 +91,14 @@ func TestRunLoadMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 			r.runMapTests(hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -127,7 +127,7 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.enabled": false,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -136,7 +136,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
-			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start, latestState}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -159,7 +159,7 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.testLoop.type": "batch",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -192,14 +192,14 @@ func TestRunLoadMapTests(t *testing.T) {
 					"mapTests.load.testLoop.type": "awesome-non-existing-test-loop-type",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 			r.runMapTests(hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)

@@ -91,7 +91,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
@@ -99,7 +99,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			r.runMapTests(hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -129,7 +129,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -138,7 +138,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
-			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start, latestState}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -161,7 +161,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

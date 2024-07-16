@@ -16,7 +16,7 @@ import (
 type (
 	loadRunner struct {
 		assigner  client.ConfigPropertyAssigner
-		stateList []state
+		stateList []runnerState
 		name      string
 		source    string
 		mapStore  hzMapStore
@@ -37,7 +37,7 @@ var (
 func init() {
 	register(&loadRunner{
 		assigner:  &client.DefaultConfigPropertyAssigner{},
-		stateList: []state{},
+		stateList: []runnerState{},
 		name:      "mapsLoadRunner",
 		source:    "loadRunner",
 		mapStore:  &defaultHzMapStore{},
@@ -118,7 +118,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer 
 
 }
 
-func (r *loadRunner) appendState(s state) {
+func (r *loadRunner) appendState(s runnerState) {
 
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}

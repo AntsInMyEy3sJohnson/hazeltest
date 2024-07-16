@@ -518,8 +518,8 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
-	l.execution = lc
+func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
+	l.execution = tle
 	l.s = s
 	l.gatherer = gatherer
 
@@ -556,6 +556,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			if tle.runnerConfig.evictMapsPriorToRun {
+
 				if err := m.EvictAll(tle.ctx); err != nil {
 					lp.LogHzEvent(fmt.Sprintf("unable to evict map '%s' prior to run due to error (%v) -- commencing execution anyway", mapName, err), log.WarnLevel)
 				}

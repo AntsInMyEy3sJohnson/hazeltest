@@ -173,7 +173,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 func TestChooseRandomElementFromSourceData(t *testing.T) {
 
-	t.Log("given a populated source data as part of the test loop execution's state")
+	t.Log("given a populated source data as part of the test loop execution's runnerState")
 	{
 		t.Log("\twhen caller desires random element from source data")
 		{
@@ -1667,9 +1667,9 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 func TestResetAfterOperationChain(t *testing.T) {
 
-	t.Log("given a method to reset both local and remote state after execution of an operation chain has finished")
+	t.Log("given a method to reset both local and remote runnerState after execution of an operation chain has finished")
 	{
-		t.Log("\twhen state exists both locally and remotely")
+		t.Log("\twhen runnerState exists both locally and remotely")
 		{
 			t.Log("\t\twhen remove all on remote map does not yield error")
 			{
@@ -1992,14 +1992,14 @@ func TestRunOperationChain(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tmode cache must be in initial state"
+			msg = "\t\tmode cache must be in initial runnerState"
 			if mc.current == "" {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tactions cache must be in initial state"
+			msg = "\t\tactions cache must be in initial runnerState"
 			if ac.last == "" && ac.next == "" {
 				t.Log(msg, checkMark)
 			} else {

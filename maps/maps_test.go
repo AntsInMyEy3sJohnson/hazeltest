@@ -60,7 +60,7 @@ const (
 var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
-	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
+	expectedStatesForFullRun = []runnerState{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
 	dummyMapOperationLock    sync.Mutex
 )
 
@@ -74,7 +74,7 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func latestStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+func latestStatePresentInGatherer(g *status.Gatherer, desiredState runnerState) bool {
 
 	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
 		return true
@@ -321,7 +321,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
-func checkRunnerStateTransitions(expected []state, actual []state) (string, bool) {
+func checkRunnerStateTransitions(expected []runnerState, actual []runnerState) (string, bool) {
 
 	if len(expected) != len(actual) {
 		return fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual)), false
