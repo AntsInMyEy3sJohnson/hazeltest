@@ -107,7 +107,7 @@ func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
 	}
 
 	var element *list.Element
-	// A hazelcast.Queue will return nil for both the value and the error in case a poll is executed
+	// A hazelcastwrapper.Queue will return nil for both the value and the error in case a poll is executed
 	// against an empty queue --> Replicate behavior here
 	if d.data.Len() == 0 {
 		// Nothing to poll

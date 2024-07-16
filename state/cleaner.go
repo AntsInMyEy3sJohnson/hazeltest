@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
 	"hazeltest/status"
 	"strings"
@@ -15,51 +16,13 @@ import (
 )
 
 type (
-	hzMap interface {
-		EvictAll(ctx context.Context) error
-		Size(ctx context.Context) (int, error)
-		TryLock(ctx context.Context, key any) (bool, error)
-		Unlock(ctx context.Context, key any) error
-		Get(ctx context.Context, key any) (any, error)
-		Set(ctx context.Context, key, value any) error
-		SetWithTTLAndMaxIdle(ctx context.Context, key, value any, ttl time.Duration, maxIdle time.Duration) error
-	}
-	hzQueue interface {
-		Clear(ctx context.Context) error
-		Size(ctx context.Context) (int, error)
-	}
-	hzMapStore interface {
-		GetMap(ctx context.Context, name string) (hzMap, error)
-	}
-	hzQueueStore interface {
-		GetQueue(ctx context.Context, name string) (hzQueue, error)
-	}
-	hzObjectInfoStore interface {
-		GetDistributedObjectsInfo(ctx context.Context) ([]hzObjectInfo, error)
-	}
 	hzClientHandler interface {
 		getClient() *hazelcast.Client
-		client.HzClientInitializer
-		client.HzClientCloser
-	}
-	hzObjectInfo interface {
-		getName() string
-		getServiceName() string
-	}
-	defaultHzMapStore struct {
-		hzClient *hazelcast.Client
-	}
-	defaultHzQueueStore struct {
-		hzClient *hazelcast.Client
-	}
-	defaultHzObjectInfoStore struct {
-		hzClient *hazelcast.Client
+		hazelcastwrapper.HzClientInitializer
+		hazelcastwrapper.HzClientCloser
 	}
 	defaultHzClientHandler struct {
 		hzClient *hazelcast.Client
-	}
-	simpleObjectInfo struct {
-		name, serviceName string
 	}
 )
 
@@ -95,8 +58,8 @@ type (
 		hzMembers []string
 		keyPath   string
 		c         *cleanerConfig
-		ms        hzMapStore
-		ois       hzObjectInfoStore
+		ms        hazelcastwrapper.MapStore
+		ois       hazelcastwrapper.ObjectInfoStore
 		ch        hzClientHandler
 		cih       lastCleanedInfoHandler
 		t         cleanedTracker
@@ -110,15 +73,15 @@ type (
 		hzMembers []string
 		keyPath   string
 		c         *cleanerConfig
-		qs        hzQueueStore
-		ms        hzMapStore
-		ois       hzObjectInfoStore
+		qs        hazelcastwrapper.QueueStore
+		ms        hazelcastwrapper.MapStore
+		ois       hazelcastwrapper.ObjectInfoStore
 		ch        hzClientHandler
 		cih       lastCleanedInfoHandler
 		t         cleanedTracker
 	}
 	defaultLastCleanedInfoHandler struct {
-		ms  hzMapStore
+		ms  hazelcastwrapper.MapStore
 		ctx context.Context
 	}
 	cleanedDataStructureTracker struct {
@@ -174,53 +137,8 @@ func register(cb cleanerBuilder) {
 	builders = append(builders, cb)
 }
 
-func (i simpleObjectInfo) getName() string {
-
-	return i.name
-
-}
-
-func (i simpleObjectInfo) getServiceName() string {
-
-	return i.serviceName
-
-}
-
-func (ms *defaultHzMapStore) GetMap(ctx context.Context, name string) (hzMap, error) {
-
-	return ms.hzClient.GetMap(ctx, name)
-
-}
-func (qs *defaultHzQueueStore) GetQueue(ctx context.Context, name string) (hzQueue, error) {
-
-	return qs.hzClient.GetQueue(ctx, name)
-
-}
-
-func (ois *defaultHzObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context) ([]hzObjectInfo, error) {
-
-	infos, err := ois.hzClient.GetDistributedObjectsInfo(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var result []hzObjectInfo
-
-	for _, v := range infos {
-		i := &simpleObjectInfo{
-			name:        v.Name,
-			serviceName: v.ServiceName,
-		}
-		result = append(result, i)
-	}
-
-	return result, nil
-
-}
-
 func (ch *defaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
-	ch.hzClient = client.NewHzClientHelper().AssembleHazelcastClient(ctx, clientName, hzCluster, hzMembers)
+	ch.hzClient = hazelcastwrapper.NewHzClientHelper().AssembleHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 }
 
 func (ch *defaultHzClientHandler) Shutdown(ctx context.Context) error {
@@ -249,7 +167,7 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 	clientName := "mapCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
-	ms := &defaultHzMapStore{ch.getClient()}
+	ms := &hazelcastwrapper.DefaultMapStore{Client: ch.getClient()}
 	cih := &defaultLastCleanedInfoHandler{
 		ms:  ms,
 		ctx: ctx,
@@ -265,7 +183,7 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 		keyPath:   b.cfb.keyPath,
 		c:         config,
 		ms:        ms,
-		ois:       &defaultHzObjectInfoStore{ch.getClient()},
+		ois:       &hazelcastwrapper.DefaultObjectInfoStore{Client: ch.getClient()},
 		ch:        ch,
 		cih:       cih,
 		t:         t,
@@ -273,17 +191,17 @@ func (b *mapCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *st
 
 }
 
-func identifyCandidateDataStructures(ois hzObjectInfoStore, ctx context.Context, hzService string) ([]hzObjectInfo, error) {
+func identifyCandidateDataStructures(ois hazelcastwrapper.ObjectInfoStore, ctx context.Context, hzService string) ([]hazelcastwrapper.ObjectInfo, error) {
 
 	infos, err := ois.GetDistributedObjectsInfo(ctx)
 
-	var result []hzObjectInfo
+	var result []hazelcastwrapper.ObjectInfo
 	if err != nil {
 		return result, err
 	}
 
 	for _, v := range infos {
-		if !strings.HasPrefix(v.getName(), hzInternalDataStructurePrefix) && v.getServiceName() == hzService {
+		if !strings.HasPrefix(v.GetName(), hzInternalDataStructurePrefix) && v.GetServiceName() == hzService {
 			result = append(result, v)
 		}
 	}
@@ -424,7 +342,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 	clientName := "queueCleaner"
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
-	ms := &defaultHzMapStore{hzClient: ch.getClient()}
+	ms := &hazelcastwrapper.DefaultMapStore{Client: ch.getClient()}
 	cih := &defaultLastCleanedInfoHandler{
 		ms:  ms,
 		ctx: ctx,
@@ -439,9 +357,9 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
 		c:         config,
-		qs:        &defaultHzQueueStore{hzClient: ch.getClient()},
+		qs:        &hazelcastwrapper.DefaultQueueStore{Client: ch.getClient()},
 		ms:        ms,
-		ois:       &defaultHzObjectInfoStore{hzClient: ch.getClient()},
+		ois:       &hazelcastwrapper.DefaultObjectInfoStore{Client: ch.getClient()},
 		ch:        ch,
 		cih:       cih,
 		t:         t,
@@ -450,7 +368,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 }
 
 func runGenericClean(
-	ois hzObjectInfoStore,
+	ois hazelcastwrapper.ObjectInfoStore,
 	ctx context.Context,
 	cih lastCleanedInfoHandler,
 	hzService, syncMapName string,
@@ -471,11 +389,11 @@ func runGenericClean(
 		return 0, nil
 	}
 
-	var filteredDataStructures []hzObjectInfo
+	var filteredDataStructures []hazelcastwrapper.ObjectInfo
 	if c.usePrefix {
 		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", c.prefix, len(candidateDataStructures)), hzService, log.TraceLevel)
 		for _, v := range candidateDataStructures {
-			if strings.HasPrefix(v.getName(), c.prefix) {
+			if strings.HasPrefix(v.GetName(), c.prefix) {
 				filteredDataStructures = append(filteredDataStructures, v)
 			}
 		}
@@ -485,29 +403,29 @@ func runGenericClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		shouldClean, err := cih.check(syncMapName, v.getName(), hzService)
+		shouldClean, err := cih.check(syncMapName, v.GetName(), hzService)
 		if err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
 			continue
 		}
 		if !shouldClean {
-			lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", v.getName()), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", v.GetName()), hzService, log.InfoLevel)
 			continue
 		}
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", v.getName()), hzService, log.InfoLevel)
-		if numCleanedElements, err := retrieveAndClean(ctx, v.getName()); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", v.GetName()), hzService, log.InfoLevel)
+		if numCleanedElements, err := retrieveAndClean(ctx, v.GetName()); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean data structure '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", v, err), hzService, log.ErrorLevel)
 			return numCleanedDataStructures, err
 		} else if numCleanedElements > 0 {
-			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v.getName()), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("data structure '%s' successfully cleaned", v.GetName()), hzService, log.InfoLevel)
 		} else {
-			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v.getName()), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("no state to clean in data structure '%s'", v.GetName()), hzService, log.InfoLevel)
 		}
 		numCleanedDataStructures++
-		if err := cih.update(syncMapName, v.getName(), hzService); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to update last cleaned info for '%s' due to error: %v", v.getName(), err), hzService, log.ErrorLevel)
+		if err := cih.update(syncMapName, v.GetName(), hzService); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to update last cleaned info for '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
 		} else {
-			lp.LogStateCleanerEvent(fmt.Sprintf("successfully updated last cleaned info for '%s'", v.getName()), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(fmt.Sprintf("successfully updated last cleaned info for '%s'", v.GetName()), hzService, log.InfoLevel)
 		}
 	}
 

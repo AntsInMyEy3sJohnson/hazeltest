@@ -1,13 +1,13 @@
-package client
+package hazelcastwrapper
 
 import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"hazeltest/logging"
-
 	"github.com/hazelcast/hazelcast-go-client"
 	log "github.com/sirupsen/logrus"
+	"hazeltest/client"
+	"hazeltest/logging"
 )
 
 type (
@@ -24,7 +24,7 @@ type (
 )
 
 func NewHzClientHelper() HzClientHelper {
-	return HzClientHelper{clientID, &logging.LogProvider{ClientID: clientID}}
+	return HzClientHelper{client.ID(), &logging.LogProvider{ClientID: client.ID()}}
 }
 
 func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
@@ -33,9 +33,9 @@ func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName 
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, clientName)
 	hzConfig.Cluster.Name = hzCluster
 
-	hzConfig.Cluster.Unisocket = RetrieveArgValue(ArgUseUniSocketClient).(bool)
+	hzConfig.Cluster.Unisocket = client.RetrieveArgValue(client.ArgUseUniSocketClient).(bool)
 
-	logInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig))
+	h.lp.LogInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig), log.InfoLevel)
 
 	hzConfig.Cluster.Network.SetAddresses(hzMembers...)
 
@@ -47,14 +47,5 @@ func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName 
 	}
 
 	return hzClient
-
-}
-
-func logInternalStateInfo(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.RunnerEvent,
-		"client": ID(),
-	}).Info(msg)
 
 }
