@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
 	"strconv"
@@ -19,7 +20,7 @@ type (
 		stateList []runnerState
 		name      string
 		source    string
-		mapStore  hzMapStore
+		mapStore  hazelcastwrapper.MapStore
 		l         looper[loadElement]
 		gatherer  *status.Gatherer
 	}
@@ -40,7 +41,7 @@ func init() {
 		stateList: []runnerState{},
 		name:      "mapsLoadRunner",
 		source:    "loadRunner",
-		mapStore:  &defaultHzMapStore{},
+		mapStore:  &hazelcastwrapper.DefaultMapStore{},
 		l:         &batchTestLoop[loadElement]{},
 	})
 	gob.Register(loadElement{})

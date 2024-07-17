@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"math"
 	"math/rand"
@@ -58,7 +59,7 @@ type (
 	testLoopExecution[t any] struct {
 		id               uuid.UUID
 		source           string
-		mapStore         hzMapStore
+		mapStore         hazelcastwrapper.MapStore
 		runnerConfig     *runnerConfig
 		elements         []t
 		ctx              context.Context
@@ -239,7 +240,7 @@ func assemblePredicate(clientID uuid.UUID, mapNumber uint16) predicate.Predicate
 
 }
 
-func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
+func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, mapNumber uint16) {
 
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
 
@@ -272,7 +273,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint1
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hzMap, mapName string, mapNumber uint16, keysCache *map[string]struct{}, mc *modeCache, ac *actionCache) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, keysCache *map[string]struct{}, mc *modeCache, ac *actionCache) {
 
 	lp.LogRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), log.TraceLevel)
 
@@ -312,7 +313,7 @@ func evaluateMapFillBoundaries(bc *boundaryTestLoopConfig) (float32, float32) {
 
 func (l *boundaryTestLoop[t]) runOperationChain(
 	currentRun uint32,
-	m hzMap,
+	m hazelcastwrapper.Map,
 	modes *modeCache,
 	actions *actionCache,
 	mapName string,
@@ -403,7 +404,7 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hzMap, mapName string, mapNumber uint16, element t, action mapAction) error {
+func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName string, mapNumber uint16, element t, action mapAction) error {
 
 	elementID := l.execution.getElementIdFunc(element)
 
@@ -532,7 +533,7 @@ func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *
 func runWrapper[t any](tle *testLoopExecution[t],
 	gatherer *status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
-	runFunc func(hzMap, string, uint16)) {
+	runFunc func(hazelcastwrapper.Map, string, uint16)) {
 
 	rc := tle.runnerConfig
 	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
@@ -587,7 +588,7 @@ func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns u
 
 }
 
-func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) {
+func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, mapNumber uint16) {
 
 	sleepBetweenActionBatchesConfig := l.execution.runnerConfig.batch.sleepBetweenActionBatches
 	sleepBetweenRunsConfig := l.execution.runnerConfig.sleepBetweenRuns
@@ -621,7 +622,7 @@ func (l *batchTestLoop[t]) runForMap(m hzMap, mapName string, mapNumber uint16) 
 
 }
 
-func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
 	numNewlyIngested := 0
 	for _, v := range l.execution.elements {
@@ -648,7 +649,7 @@ func (l *batchTestLoop[t]) ingestAll(m hzMap, mapName string, mapNumber uint16) 
 
 }
 
-func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
 	for _, v := range l.execution.elements {
 		key := assembleMapKey(mapNumber, l.execution.getElementIdFunc(v))
@@ -670,7 +671,7 @@ func (l *batchTestLoop[t]) readAll(m hzMap, mapName string, mapNumber uint16) er
 
 }
 
-func (l *batchTestLoop[t]) removeSome(m hzMap, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) removeSome(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
 	numElementsToDelete := rand.Intn(len(l.execution.elements)) + 1
 	removed := 0

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"math"
 	"strings"
@@ -522,7 +523,7 @@ func TestRunWrapper(t *testing.T) {
 			go tl.gatherer.Listen()
 			runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
-			}, func(h hzMap, s string, u uint16) {
+			}, func(h hazelcastwrapper.Map, s string, u uint16) {
 				// No-op
 			})
 			tl.gatherer.StopListen()
@@ -581,7 +582,7 @@ func TestRunWrapper(t *testing.T) {
 				go tl.gatherer.Listen()
 				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
-				}, func(h hzMap, s string, u uint16) {
+				}, func(h hazelcastwrapper.Map, s string, u uint16) {
 					// No-op
 				})
 				tl.gatherer.StopListen()
@@ -630,7 +631,7 @@ func TestRunWrapper(t *testing.T) {
 				runFuncCalled := false
 				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
-				}, func(h hzMap, s string, u uint16) {
+				}, func(h hazelcastwrapper.Map, s string, u uint16) {
 					runFuncCalled = true
 				})
 				tl.gatherer.StopListen()
@@ -3184,7 +3185,7 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
-func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) boundaryTestLoop[string] {
+func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hazelcastwrapper.MapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
 	tle := assembleTestLoopExecution(id, source, rc, ms)
 	tl := boundaryTestLoop[string]{}
@@ -3193,7 +3194,7 @@ func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *ru
 	return tl
 }
 
-func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runnerConfig) batchTestLoop[string] {
+func assembleBatchTestLoop(id uuid.UUID, source string, ms hazelcastwrapper.MapStore, rc *runnerConfig) batchTestLoop[string] {
 
 	tle := assembleTestLoopExecution(id, source, rc, ms)
 	tl := batchTestLoop[string]{}
@@ -3203,7 +3204,7 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ms hzMapStore, rc *runne
 
 }
 
-func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hzMapStore) testLoopExecution[string] {
+func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
 		id:               id,

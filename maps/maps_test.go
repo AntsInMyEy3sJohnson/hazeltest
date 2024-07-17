@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"strings"
 	"sync"
+	"time"
 )
 
 type (
@@ -48,6 +50,18 @@ type (
 		bm                         *boundaryMonitoring
 	}
 )
+
+func (m *dummyHzMap) SetWithTTLAndMaxIdle(_ context.Context, _, _ any, _ time.Duration, _ time.Duration) error {
+	return nil
+}
+
+func (m *dummyHzMap) TryLock(_ context.Context, _ any) (bool, error) {
+	return false, nil
+}
+
+func (m *dummyHzMap) Unlock(_ context.Context, _ any) error {
+	return nil
+}
 
 const (
 	checkMark     = "\u2713"
@@ -92,7 +106,7 @@ func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ stri
 	// No-op
 }
 
-func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hzMap, error) {
+func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hazelcastwrapper.Map, error) {
 	if d.returnErrorUponGetMap {
 		return nil, errors.New("i was told to throw an error")
 	}

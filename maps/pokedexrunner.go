@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 )
 
@@ -19,7 +20,7 @@ type (
 		stateList []runnerState
 		name      string
 		source    string
-		mapStore  hzMapStore
+		mapStore  hazelcastwrapper.MapStore
 		l         looper[pokemon]
 		gatherer  *status.Gatherer
 	}
@@ -61,7 +62,7 @@ func init() {
 		stateList: []runnerState{},
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
-		mapStore:  &defaultHzMapStore{},
+		mapStore:  &hazelcastwrapper.DefaultMapStore{},
 	})
 	gob.Register(pokemon{})
 }
