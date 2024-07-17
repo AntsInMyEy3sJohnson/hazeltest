@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/google/uuid"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"sync"
 	"testing"
@@ -709,7 +710,7 @@ func operationConfigStatusContainsExpectedValues(status map[string]any, expected
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerConfig, g *status.Gatherer) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig, g *status.Gatherer) testLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}
@@ -719,7 +720,7 @@ func assembleTestLoop(id uuid.UUID, source string, qs hzQueueStore, rc *runnerCo
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, qs hzQueueStore, rc *runnerConfig) testLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig) testLoopConfig[string] {
 
 	return testLoopConfig[string]{
 		id:           id,

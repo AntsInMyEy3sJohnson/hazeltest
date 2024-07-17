@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
 )
@@ -18,7 +19,7 @@ type (
 		stateList  []state
 		name       string
 		source     string
-		queueStore hzQueueStore
+		queueStore hazelcastwrapper.QueueStore
 		l          looper[loadElement]
 		gatherer   *status.Gatherer
 	}
@@ -38,7 +39,7 @@ func init() {
 		stateList:  []state{},
 		name:       "queuesLoadRunner",
 		source:     "loadRunner",
-		queueStore: &defaultHzQueueStore{},
+		queueStore: &hazelcastwrapper.DefaultQueueStore{},
 		l:          &testLoop[loadElement]{},
 	})
 	gob.Register(loadElement{})

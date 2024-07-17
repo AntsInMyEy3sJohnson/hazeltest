@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"math/rand"
 	"sync"
@@ -34,7 +35,7 @@ type (
 	testLoopConfig[t any] struct {
 		id           uuid.UUID
 		source       string
-		hzQueueStore hzQueueStore
+		hzQueueStore hazelcastwrapper.QueueStore
 		runnerConfig *runnerConfig
 		elements     []t
 		ctx          context.Context
@@ -194,10 +195,10 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hazelcastwrapper.Queue, o operation, queueName string, queueNumber int) {
 
 	var config *operationConfig
-	var queueFunction func(queue hzQueue, queueName string)
+	var queueFunction func(queue hazelcastwrapper.Queue, queueName string)
 	if o == put {
 		config = l.config.runnerConfig.putConfig
 		queueFunction = l.putElements
@@ -222,7 +223,7 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queue
 
 }
 
-func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) putElements(q hazelcastwrapper.Queue, queueName string) {
 
 	elements := l.config.elements
 	putConfig := l.config.runnerConfig.putConfig
@@ -251,7 +252,7 @@ func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
 
 }
 
-func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 
 	pollConfig := l.config.runnerConfig.pollConfig
 

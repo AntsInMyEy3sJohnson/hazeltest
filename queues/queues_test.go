@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hazeltest/hazelcastwrapper"
 	"sync"
 )
 
@@ -27,6 +28,14 @@ type (
 		behavior                     *dummyQueueStoreBehavior
 	}
 )
+
+func (d *dummyHzQueue) Clear(_ context.Context) error {
+	return nil
+}
+
+func (d *dummyHzQueue) Size(_ context.Context) (int, error) {
+	return 0, nil
+}
 
 const (
 	checkMark     = "\u2713"
@@ -55,7 +64,7 @@ func (d dummyHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ st
 	// No-op
 }
 
-func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (hzQueue, error) {
+func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (hazelcastwrapper.Queue, error) {
 	if d.behavior.returnErrorUponGetQueue {
 		return nil, errors.New("it is but a scratch")
 	}

@@ -35,6 +35,7 @@ type (
 	QueueStore interface {
 		HzClientInitializer
 		GetQueue(ctx context.Context, name string) (Queue, error)
+		HzClientCloser
 	}
 	Queue interface {
 		Clear(ctx context.Context) error

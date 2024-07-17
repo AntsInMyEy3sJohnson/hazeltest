@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"io/fs"
 )
@@ -20,7 +21,7 @@ type (
 		stateList  []state
 		name       string
 		source     string
-		queueStore hzQueueStore
+		queueStore hazelcastwrapper.QueueStore
 		l          looper[tweet]
 		gatherer   *status.Gatherer
 	}
@@ -45,7 +46,7 @@ func init() {
 		stateList:  []state{},
 		name:       "queuesTweetRunner",
 		source:     "tweetRunner",
-		queueStore: &defaultHzQueueStore{},
+		queueStore: &hazelcastwrapper.DefaultQueueStore{},
 		l:          &testLoop[tweet]{},
 	})
 	gob.Register(tweet{})
