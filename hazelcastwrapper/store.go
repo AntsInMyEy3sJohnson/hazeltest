@@ -62,7 +62,7 @@ type (
 		Client *hazelcast.Client
 	}
 	SimpleObjectInfo struct {
-		name, serviceName string
+		Name, ServiceName string
 	}
 )
 
@@ -102,8 +102,8 @@ func (ois *DefaultObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context
 
 	for _, v := range infos {
 		i := &SimpleObjectInfo{
-			name:        v.Name,
-			serviceName: v.ServiceName,
+			Name:        v.Name,
+			ServiceName: v.ServiceName,
 		}
 		result = append(result, i)
 	}
@@ -114,12 +114,12 @@ func (ois *DefaultObjectInfoStore) GetDistributedObjectsInfo(ctx context.Context
 
 func (i SimpleObjectInfo) GetName() string {
 
-	return i.name
+	return i.Name
 
 }
 
 func (i SimpleObjectInfo) GetServiceName() string {
 
-	return i.serviceName
+	return i.ServiceName
 
 }

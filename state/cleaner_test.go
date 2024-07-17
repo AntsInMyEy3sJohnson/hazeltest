@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"strings"
 	"sync"
@@ -47,7 +49,7 @@ type (
 		returnErrorUponGetQueue bool
 	}
 	testHzObjectInfoStore struct {
-		objectInfos                         []hzObjectInfo
+		objectInfos                         []hazelcastwrapper.ObjectInfo
 		getDistributedObjectInfoInvocations int
 		returnErrorUponGetObjectInfos       bool
 	}
@@ -85,6 +87,54 @@ type (
 		numInvocations int
 	}
 )
+
+func (qs *testHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	// No-op
+}
+
+func (qs *testHzQueueStore) Shutdown(_ context.Context) error {
+	return nil
+}
+
+func (ms *testHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	// No-op
+}
+
+func (ms *testHzMapStore) Shutdown(_ context.Context) error {
+	return nil
+}
+
+func (q *testHzQueue) Put(_ context.Context, _ any) error {
+	return nil
+}
+
+func (q *testHzQueue) Poll(_ context.Context) (any, error) {
+	return nil, nil
+}
+
+func (q *testHzQueue) RemainingCapacity(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (q *testHzQueue) Destroy(_ context.Context) error {
+	return nil
+}
+
+func (m *testHzMap) ContainsKey(_ context.Context, _ any) (bool, error) {
+	return false, nil
+}
+
+func (m *testHzMap) Remove(_ context.Context, _ any) (any, error) {
+	return false, nil
+}
+
+func (m *testHzMap) Destroy(_ context.Context) error {
+	return nil
+}
+
+func (m *testHzMap) RemoveAll(_ context.Context, _ predicate.Predicate) error {
+	return nil
+}
 
 const (
 	checkMark        = "\u2713"
@@ -196,7 +246,7 @@ func (m *testHzMap) SetWithTTLAndMaxIdle(_ context.Context, _, _ any, _ time.Dur
 
 }
 
-func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hzMap, error) {
+func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hazelcastwrapper.Map, error) {
 
 	if name == mapCleanersSyncMapName {
 		ms.getMapInvocationsMapsSyncMap++
@@ -250,7 +300,7 @@ func (q *testHzQueue) Size(_ context.Context) (int, error) {
 
 }
 
-func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hzQueue, error) {
+func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hazelcastwrapper.Queue, error) {
 
 	qs.getQueueInvocations++
 
@@ -262,7 +312,7 @@ func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hzQueue, 
 
 }
 
-func (ois *testHzObjectInfoStore) GetDistributedObjectsInfo(_ context.Context) ([]hzObjectInfo, error) {
+func (ois *testHzObjectInfoStore) GetDistributedObjectsInfo(_ context.Context) ([]hazelcastwrapper.ObjectInfo, error) {
 
 	ois.getDistributedObjectInfoInvocations++
 
@@ -270,7 +320,7 @@ func (ois *testHzObjectInfoStore) GetDistributedObjectsInfo(_ context.Context) (
 		return nil, getDistributedObjectInfoError
 	}
 
-	var hzObjectInfos []hzObjectInfo
+	var hzObjectInfos []hazelcastwrapper.ObjectInfo
 	for _, v := range ois.objectInfos {
 		hzObjectInfos = append(hzObjectInfos, v)
 	}
@@ -1171,24 +1221,24 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 
 	t.Log("given information about data structures stored in hazelcast that need to be checked for whether they are susceptible to getting cleaned")
 	{
-		valid := &simpleObjectInfo{
-			name:        "ht_load-1",
-			serviceName: hzMapService,
+		valid := &hazelcastwrapper.SimpleObjectInfo{
+			Name:        "ht_load-1",
+			ServiceName: hzMapService,
 		}
-		invalidBecauseSystemInternal := &simpleObjectInfo{
-			name:        "__sql.catalog",
-			serviceName: hzMapService,
+		invalidBecauseSystemInternal := &hazelcastwrapper.SimpleObjectInfo{
+			Name:        "__sql.catalog",
+			ServiceName: hzMapService,
 		}
-		invalidBecauseRepresentsQueue := &simpleObjectInfo{
-			name:        "ht_load-2",
-			serviceName: hzQueueService,
+		invalidBecauseRepresentsQueue := &hazelcastwrapper.SimpleObjectInfo{
+			Name:        "ht_load-2",
+			ServiceName: hzQueueService,
 		}
 
 		t.Log("\twhen object info retrieval does not yield error")
 		{
 			t.Log("\t\twhen object info list contains information on both valid candidates and elements not viable as candidates")
 			{
-				objectInfos := []hzObjectInfo{valid, invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
+				objectInfos := []hazelcastwrapper.ObjectInfo{valid, invalidBecauseSystemInternal, invalidBecauseRepresentsQueue}
 				ois := &testHzObjectInfoStore{
 					objectInfos: objectInfos,
 				}
@@ -1213,7 +1263,7 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 			t.Log("\t\twhen object info list only contains information on elements that are not viable candidates")
 			{
 				ois := &testHzObjectInfoStore{
-					objectInfos: []hzObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue},
+					objectInfos: []hazelcastwrapper.ObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue},
 				}
 				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
 
@@ -1235,7 +1285,7 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 			t.Log("\t\twhen object info list is empty")
 			{
 				ois := &testHzObjectInfoStore{
-					objectInfos: make([]hzObjectInfo, 0),
+					objectInfos: make([]hazelcastwrapper.ObjectInfo, 0),
 				}
 				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
 
@@ -1525,7 +1575,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qs := &testHzQueueStore{queues: make(map[string]*testHzQueue)}
 			ois := &testHzObjectInfoStore{
-				objectInfos:                         make([]hzObjectInfo, 0),
+				objectInfos:                         make([]hazelcastwrapper.ObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
 
@@ -2037,7 +2087,7 @@ func TestMapCleanerClean(t *testing.T) {
 				getMapInvocationsPayloadMap: 0,
 			}
 			ois := &testHzObjectInfoStore{
-				objectInfos:                         make([]hzObjectInfo, 0),
+				objectInfos:                         make([]hazelcastwrapper.ObjectInfo, 0),
 				getDistributedObjectInfoInvocations: 0,
 			}
 			cih := &testLastCleanedInfoHandler{
@@ -2818,17 +2868,17 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func newMapObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
-	return &simpleObjectInfo{
-		name:        objectInfoName,
-		serviceName: hzMapService,
+func newMapObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleObjectInfo {
+	return &hazelcastwrapper.SimpleObjectInfo{
+		Name:        objectInfoName,
+		ServiceName: hzMapService,
 	}
 }
 
-func newQueueObjectInfoFromName(objectInfoName string) *simpleObjectInfo {
-	return &simpleObjectInfo{
-		name:        objectInfoName,
-		serviceName: hzQueueService,
+func newQueueObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleObjectInfo {
+	return &hazelcastwrapper.SimpleObjectInfo{
+		Name:        objectInfoName,
+		ServiceName: hzQueueService,
 	}
 }
 
@@ -2873,10 +2923,10 @@ func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *test
 
 func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
 
-	var objectInfos []hzObjectInfo
+	var objectInfos []hazelcastwrapper.ObjectInfo
 	for i := 0; i < numObjects; i++ {
 		for _, v := range objectNamePrefixes {
-			objectInfos = append(objectInfos, *&simpleObjectInfo{name: fmt.Sprintf("%sload-%d", v, i), serviceName: hzServiceName})
+			objectInfos = append(objectInfos, hazelcastwrapper.SimpleObjectInfo{Name: fmt.Sprintf("%sload-%d", v, i), ServiceName: hzServiceName})
 		}
 	}
 
@@ -2884,11 +2934,11 @@ func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzSer
 
 }
 
-func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hzObjectInfo) string {
+func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hazelcastwrapper.ObjectInfo) string {
 
 	for _, v := range objectInfos {
-		if v.getName() == name {
-			return v.getServiceName()
+		if v.GetName() == name {
+			return v.GetServiceName()
 		}
 	}
 
