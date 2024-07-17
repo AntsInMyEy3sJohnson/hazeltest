@@ -31,7 +31,7 @@ type (
 		build(ch hzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (cleaner, string, error)
 	}
 	cleaner interface {
-		clean(ctx context.Context) (int, error)
+		cleanAll(ctx context.Context) (int, error)
 	}
 	lastCleanedInfoHandler interface {
 		check(syncMapName, payloadDataStructureName, hzService string) (bool, error)
@@ -305,7 +305,7 @@ func (c *mapCleaner) retrieveAndClean(ctx context.Context, name string) (int, er
 	return size, nil
 }
 
-func (c *mapCleaner) clean(ctx context.Context) (int, error) {
+func (c *mapCleaner) cleanAll(ctx context.Context) (int, error) {
 
 	defer func() {
 		_ = c.ch.Shutdown(ctx)
@@ -454,7 +454,7 @@ func (c *queueCleaner) retrieveAndClean(ctx context.Context, name string) (int, 
 
 }
 
-func (c *queueCleaner) clean(ctx context.Context) (int, error) {
+func (c *queueCleaner) cleanAll(ctx context.Context) (int, error) {
 
 	defer func() {
 		_ = c.ch.Shutdown(ctx)
@@ -499,7 +499,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 				return err
 			}
 
-			if numCleanedDataStructures, err := c.clean(ctx); err != nil {
+			if numCleanedDataStructures, err := c.cleanAll(ctx); err != nil {
 				if numCleanedDataStructures > 0 {
 					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
 				} else {
