@@ -25,14 +25,15 @@ type (
 		buildInvocations int
 	}
 	testCleanerBehavior struct {
-		throwErrorUponBuild, throwErrorUponClean bool
+		returnErrorUponBuild, returnErrorUponCleanAll, returnErrorUponCleanSingle bool
 	}
 	testCleaner struct {
 		behavior *testCleanerBehavior
 	}
 	cleanerWatcher struct {
-		m                sync.Mutex
-		cleanInvocations int
+		m                      sync.Mutex
+		cleanAllInvocations    int
+		cleanSingleInvocations int
 	}
 	testHzClientHandler struct {
 		hzClient            *hazelcast.Client
@@ -149,7 +150,8 @@ var (
 	cw                            = cleanerWatcher{}
 	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
-	cleanerCleanError             = errors.New("something went terribly wrong when attempting to clean state")
+	cleanerCleanAllError          = errors.New("something went terribly wrong when attempting to clean state in all data structures")
+	cleanerCleanSingleError       = errors.New("something somewhere went terribly wrong when attempting to clean state in single data structure")
 	getDistributedObjectInfoError = errors.New("something somewhere went terribly wrong upon retrieval of distributed object info")
 	getPayloadMapError            = errors.New("something somewhere went terribly wrong when attempting to get a payload map from the target hazelcast cluster")
 	getSyncMapError               = errors.New("something somewhere went terribly wrong when attempting to get a sync map from the target hazelcast cluster")
@@ -345,21 +347,36 @@ func (ch *testHzClientHandler) getClient() *hazelcast.Client {
 func (cw *cleanerWatcher) reset() {
 	cw.m = sync.Mutex{}
 
-	cw.cleanInvocations = 0
+	cw.cleanAllInvocations = 0
 }
 
-func (c *testCleaner) cleanAll(_ context.Context) (int, error) {
+func (c *testCleaner) cleanAll() (int, error) {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
 
-	cw.cleanInvocations++
+	cw.cleanAllInvocations++
 
-	if c.behavior.throwErrorUponClean {
-		return 0, cleanerCleanError
+	if c.behavior.returnErrorUponCleanAll {
+		return 0, cleanerCleanAllError
 	}
 
-	return cw.cleanInvocations, nil
+	return cw.cleanAllInvocations, nil
+
+}
+
+func (c *testCleaner) cleanSingle(_ string) error {
+
+	cw.m.Lock()
+	defer cw.m.Unlock()
+
+	cw.cleanSingleInvocations++
+
+	if c.behavior.returnErrorUponCleanSingle {
+		return cleanerCleanSingleError
+	}
+
+	return nil
 
 }
 
@@ -368,7 +385,7 @@ func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, g *stat
 	b.buildInvocations++
 	b.gathererPassedIn = g
 
-	if b.behavior.throwErrorUponBuild {
+	if b.behavior.returnErrorUponBuild {
 		return nil, hzMapService, cleanerBuildError
 	}
 
@@ -395,15 +412,15 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
-func (cih *testLastCleanedInfoHandler) check(_, payloadDataStructureName, _ string) (bool, error) {
+func (cih *testLastCleanedInfoHandler) check(syncMapName, payloadDataStructureName, _ string) (mapLockInfo, bool, error) {
 
 	cih.checkInvocations++
 
 	if cih.returnErrorUponCheck {
-		return false, lastCleanedInfoCheckError
+		return emptyMapLockInfo, false, lastCleanedInfoCheckError
 	}
 
-	return cih.shouldCleanAll || cih.shouldCleanIndividualMap[payloadDataStructureName], nil
+	return mapLockInfo{syncMapName, payloadDataStructureName}, cih.shouldCleanAll || cih.shouldCleanIndividualMap[payloadDataStructureName], nil
 
 }
 
@@ -439,13 +456,20 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, getSyncMapError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tlock info must be empty"
+			if lockInfo == emptyMapLockInfo {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tshould check result must be negative"
@@ -468,13 +492,20 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_gimli-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_gimli-0", hzMapService)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, tryLockError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tlock info must be empty"
+			if lockInfo == emptyMapLockInfo {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tshould check result must be negative"
@@ -512,7 +543,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", hzMapService)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -521,8 +552,14 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tshould check result must be negative"
+			msg = "\t\tlock info must be empty"
+			if lockInfo == emptyMapLockInfo {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
+			msg = "\t\tshould check result must be negative"
 			if !shouldCheck {
 				t.Log(msg, checkMark)
 			} else {
@@ -558,13 +595,21 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, prefix+"load-0", hzMapService)
+			payloadMapName := prefix + "load-0"
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getOnMapError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo)
 			}
 
 			msg = "\t\tshould check result must be negative"
@@ -608,13 +653,21 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
+			payloadMapName := "ht_aragorn-0"
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo)
 			}
 
 			msg = "\t\tshould check result must be positive"
@@ -651,9 +704,9 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 			prefix := "ht_"
 			ms := populateDummyMapStore(1, []string{prefix})
 
-			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
+			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap.data[payloadMapName] = "clearly not a valid timestamp"
 
 			cih := &defaultLastCleanedInfoHandler{
@@ -661,13 +714,20 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo)
 			}
 
 			msg = "\t\tshould check result must be negative"
@@ -694,13 +754,20 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo)
 			}
 
 			msg = "\t\tshould check result must be negative"
@@ -727,13 +794,20 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 				ctx: context.TODO(),
 			}
 
-			shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo)
 			}
 
 			msg = "\t\tshould check result must be positive"
@@ -1385,7 +1459,7 @@ func TestQueueCleanerClean(t *testing.T) {
 
 				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := qc.cleanAll(ctx)
+				numCleaned, err := qc.cleanAll()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -1516,7 +1590,7 @@ func TestQueueCleanerClean(t *testing.T) {
 				}
 				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := qc.cleanAll(context.TODO())
+				numCleaned, err := qc.cleanAll()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1586,7 +1660,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll(context.TODO())
+			numCleaned, err := qc.cleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1631,7 +1705,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}}
 			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
 
-			numCleaned, err := qc.cleanAll(context.TODO())
+			numCleaned, err := qc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
@@ -1674,7 +1748,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll(context.TODO())
+			numCleaned, err := qc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getQueueError) {
@@ -1735,7 +1809,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll(context.TODO())
+			numCleaned, err := qc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, queueClearError) {
@@ -1802,7 +1876,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			qc := assembleQueueCleaner(c, qs, ms, ois, ch, cih, tracker)
 
-			numCleaned, err := qc.cleanAll(context.TODO())
+			numCleaned, err := qc.cleanAll()
 
 			msg := "\t\tno error must be returned"
 
@@ -1893,7 +1967,7 @@ func TestMapCleanerClean(t *testing.T) {
 				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.tryLockReturnValue = true
 
-				numCleaned, err := mc.cleanAll(ctx)
+				numCleaned, err := mc.cleanAll()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -2025,7 +2099,7 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := mc.cleanAll(context.TODO())
+				numCleaned, err := mc.cleanAll()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2096,7 +2170,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2137,7 +2211,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
 
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
@@ -2179,7 +2253,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -2239,7 +2313,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -2305,7 +2379,7 @@ func TestMapCleanerClean(t *testing.T) {
 				shouldCleanIndividualMap: createShouldCleanIndividualMapSetup(ms, numMapsToBeCleaned),
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2350,7 +2424,7 @@ func TestMapCleanerClean(t *testing.T) {
 				returnErrorUponCheck: true,
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			// In case of failing should clean check, error is not returned; rather, the loop over filtered
 			// data structures potentially susceptible to cleaning continues with the next data structure. Thus, even
@@ -2399,7 +2473,7 @@ func TestMapCleanerClean(t *testing.T) {
 				returnErrorUponUpdate: true,
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			// Similar to the behavior in case of failed should clean checks, failure to update last cleaned info
 			// should not propagate as an error to the caller. Instead, the loop should continue with the next
@@ -2440,7 +2514,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, ch, cih, tracker)
 
-			numCleaned, err := mc.cleanAll(context.TODO())
+			numCleaned, err := mc.cleanAll()
 
 			msg := "\t\tno error must be returned"
 
@@ -2509,8 +2583,15 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			msg = "\t\tqueue cleaner built must carry queue state cleaner key path"
 			qc := c.(*queueCleaner)
+			msg = "\t\tqueue cleaner built must carry context"
+			if qc.ctx != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tqueue cleaner built must carry queue state cleaner key path"
 
 			if qc.keyPath == queueCleanerBasePath {
 				t.Log(msg, checkMark)
@@ -2626,8 +2707,15 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			msg = "\t\tmap cleaner built must carry map state cleaner key path"
 			mc := c.(*mapCleaner)
+			msg = "\t\tmap cleaner built must carry context"
+			if mc.ctx != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tmap cleaner built must carry map state cleaner key path"
 
 			if mc.keyPath == mapCleanerBasePath {
 				t.Log(msg, checkMark)
@@ -2746,10 +2834,10 @@ func TestRunCleaners(t *testing.T) {
 					}
 
 					msg = "\t\t\tcleanAll method must have been invoked once"
-					if cw.cleanInvocations == 1 {
+					if cw.cleanAllInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX, cw.cleanInvocations)
+						t.Fatal(msg, ballotX, cw.cleanAllInvocations)
 					}
 				})
 			}
@@ -2757,7 +2845,7 @@ func TestRunCleaners(t *testing.T) {
 			{
 				runTestCaseAndResetState(func() {
 					b := &testCleanerBuilder{behavior: &testCleanerBehavior{
-						throwErrorUponBuild: true,
+						returnErrorUponBuild: true,
 					}}
 					builders = []cleanerBuilder{b}
 
@@ -2775,14 +2863,14 @@ func TestRunCleaners(t *testing.T) {
 			{
 				runTestCaseAndResetState(func() {
 					b := &testCleanerBuilder{behavior: &testCleanerBehavior{
-						throwErrorUponClean: true,
+						returnErrorUponCleanAll: true,
 					}}
 					builders = []cleanerBuilder{b}
 
 					err := RunCleaners(hzCluster, hzMembers)
 
 					msg := "\t\t\terror during cleanAll must be returned"
-					if errors.Is(err, cleanerCleanError) {
+					if errors.Is(err, cleanerCleanAllError) {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, err)
