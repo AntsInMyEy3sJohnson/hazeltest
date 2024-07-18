@@ -31,7 +31,8 @@ type (
 		build(ch hzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (cleaner, string, error)
 	}
 	cleaner interface {
-		cleanAll(ctx context.Context) (int, error)
+		cleanAll() (int, error)
+		cleanSingle(name string) error
 	}
 	lastCleanedInfoHandler interface {
 		// check asserts whether the given payload data structure in the target Hazelcast cluster is susceptible
@@ -87,6 +88,7 @@ type (
 		cfb cleanerConfigBuilder
 	}
 	queueCleaner struct {
+		ctx       context.Context
 		name      string
 		hzCluster string
 		hzMembers []string
@@ -337,10 +339,10 @@ func (c *mapCleaner) retrieveAndClean(ctx context.Context, name string) (int, er
 	return size, nil
 }
 
-func (c *mapCleaner) cleanAll(ctx context.Context) (int, error) {
+func (c *mapCleaner) cleanAll() (int, error) {
 
 	defer func() {
-		_ = c.ch.Shutdown(ctx)
+		_ = c.ch.Shutdown(c.ctx)
 	}()
 
 	if !c.c.enabled {
@@ -353,7 +355,7 @@ func (c *mapCleaner) cleanAll(ctx context.Context) (int, error) {
 		c.ois,
 		hzMapService,
 		c.c,
-		c.clean,
+		c.cleanSingle,
 	)
 
 	return numCleaned, err
@@ -382,6 +384,7 @@ func (b *queueCleanerBuilder) build(ch hzClientHandler, ctx context.Context, g *
 	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
 	return &queueCleaner{
+		ctx:       ctx,
 		name:      clientName,
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
@@ -415,9 +418,9 @@ func releaseLock(ctx context.Context, ms hazelcastwrapper.MapStore, lockInfo map
 
 }
 
-func (c *mapCleaner) clean(payloadMapName string) error {
+func (c *mapCleaner) cleanSingle(name string) error {
 
-	lockInfo, shouldClean, err := c.cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+	lockInfo, shouldClean, err := c.cih.check(mapCleanersSyncMapName, name, hzMapService)
 
 	// This defer ensures that the lock on the sync map for the given payload map is always released
 	// no matter the susceptibility of the payload map for cleaning.
@@ -428,36 +431,36 @@ func (c *mapCleaner) clean(payloadMapName string) error {
 	}()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", name, err), hzMapService, log.ErrorLevel)
 		return err
 	}
 
 	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadMapName), hzMapService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", name), hzMapService, log.InfoLevel)
 		return nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadMapName), hzMapService, log.InfoLevel)
-	mapToClean, err := c.ms.GetMap(c.ctx, payloadMapName)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", name), hzMapService, log.InfoLevel)
+	mapToClean, err := c.ms.GetMap(c.ctx, name)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", name, err), hzMapService, log.ErrorLevel)
 		return err
 	}
 
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", name, err), hzMapService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", payloadMapName), hzMapService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", name), hzMapService, log.InfoLevel)
 
-	if err := c.cih.update(mapCleanersSyncMapName, payloadMapName, hzMapService); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+	if err := c.cih.update(mapCleanersSyncMapName, name, hzMapService); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", name, err), hzMapService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadMapName), hzMapService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", name), hzMapService, log.InfoLevel)
 	return nil
 
 }
@@ -531,10 +534,16 @@ func (c *queueCleaner) retrieveAndClean(ctx context.Context, name string) (int, 
 
 }
 
-func (c *queueCleaner) cleanAll(ctx context.Context) (int, error) {
+func (c *queueCleaner) cleanSingle(name string) error {
+
+	return nil
+
+}
+
+func (c *queueCleaner) cleanAll() (int, error) {
 
 	defer func() {
-		_ = c.ch.Shutdown(ctx)
+		_ = c.ch.Shutdown(c.ctx)
 	}()
 
 	if !c.c.enabled {
@@ -543,13 +552,11 @@ func (c *queueCleaner) cleanAll(ctx context.Context) (int, error) {
 	}
 
 	numCleaned, err := runGenericClean(
+		c.ctx,
 		c.ois,
-		ctx,
-		c.cih,
 		hzQueueService,
-		queueCleanersSyncMapName,
 		c.c,
-		c.retrieveAndClean,
+		c.cleanSingle,
 	)
 
 	return numCleaned, err
@@ -576,7 +583,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 				return err
 			}
 
-			if numCleanedDataStructures, err := c.cleanAll(ctx); err != nil {
+			if numCleanedDataStructures, err := c.cleanAll(); err != nil {
 				if numCleanedDataStructures > 0 {
 					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
 				} else {
