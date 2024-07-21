@@ -71,7 +71,7 @@ func (d *DefaultMapStore) Shutdown(ctx context.Context) error {
 }
 
 func (d *DefaultMapStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.Client = NewHzClientHelper().AssembleHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+	d.Client = NewHzClientHelper().Assemble(ctx, runnerName, hzCluster, hzMembers)
 }
 
 func (d *DefaultMapStore) GetMap(ctx context.Context, name string) (Map, error) {
@@ -83,7 +83,7 @@ func (d *DefaultQueueStore) Shutdown(ctx context.Context) error {
 }
 
 func (d *DefaultQueueStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.Client = NewHzClientHelper().AssembleHazelcastClient(ctx, runnerName, hzCluster, hzMembers)
+	d.Client = NewHzClientHelper().Assemble(ctx, runnerName, hzCluster, hzMembers)
 }
 
 func (d *DefaultQueueStore) GetQueue(ctx context.Context, name string) (Queue, error) {

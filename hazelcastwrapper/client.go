@@ -11,23 +11,43 @@ import (
 )
 
 type (
-	HzClientHelper struct {
-		clientID uuid.UUID
-		lp       *logging.LogProvider
-	}
 	HzClientInitializer interface {
 		InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string)
 	}
 	HzClientCloser interface {
 		Shutdown(ctx context.Context) error
 	}
+	HzClientHandler interface {
+		GetClient() *hazelcast.Client
+		HzClientInitializer
+		HzClientCloser
+	}
+	DefaultHzClientHandler struct {
+		hzClient *hazelcast.Client
+	}
+	HzClientAssembler struct {
+		clientID uuid.UUID
+		lp       *logging.LogProvider
+	}
 )
 
-func NewHzClientHelper() HzClientHelper {
-	return HzClientHelper{client.ID(), &logging.LogProvider{ClientID: client.ID()}}
+func (ch *DefaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
+	ch.hzClient = NewHzClientHelper().Assemble(ctx, clientName, hzCluster, hzMembers)
 }
 
-func (h HzClientHelper) AssembleHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
+func (ch *DefaultHzClientHandler) Shutdown(ctx context.Context) error {
+	return ch.hzClient.Shutdown(ctx)
+}
+
+func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
+	return ch.hzClient
+}
+
+func NewHzClientHelper() HzClientAssembler {
+	return HzClientAssembler{client.ID(), &logging.LogProvider{ClientID: client.ID()}}
+}
+
+func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
 
 	hzConfig := &hazelcast.Config{}
 	hzConfig.ClientName = fmt.Sprintf("%s-%s", h.clientID, clientName)

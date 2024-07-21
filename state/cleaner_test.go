@@ -340,7 +340,7 @@ func (ch *testHzClientHandler) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (ch *testHzClientHandler) getClient() *hazelcast.Client {
+func (ch *testHzClientHandler) GetClient() *hazelcast.Client {
 	return nil
 }
 
@@ -350,7 +350,7 @@ func (cw *cleanerWatcher) reset() {
 	cw.cleanAllInvocations = 0
 }
 
-func (c *testCleaner) cleanAll() (int, error) {
+func (c *testCleaner) CleanAll() (int, error) {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -365,7 +365,7 @@ func (c *testCleaner) cleanAll() (int, error) {
 
 }
 
-func (c *testCleaner) cleanSingle(_ string) error {
+func (c *testCleaner) CleanSingle(_ string) error {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -380,7 +380,7 @@ func (c *testCleaner) cleanSingle(_ string) error {
 
 }
 
-func (b *testCleanerBuilder) build(_ hzClientHandler, _ context.Context, g *status.Gatherer, _ string, _ []string) (cleaner, string, error) {
+func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context.Context, g *status.Gatherer, _ string, _ []string) (Cleaner, string, error) {
 
 	b.buildInvocations++
 	b.gathererPassedIn = g
@@ -1459,7 +1459,7 @@ func TestQueueCleanerClean(t *testing.T) {
 
 				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := qc.cleanAll()
+				numCleaned, err := qc.CleanAll()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -1590,7 +1590,7 @@ func TestQueueCleanerClean(t *testing.T) {
 				}
 				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := qc.cleanAll()
+				numCleaned, err := qc.CleanAll()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1660,7 +1660,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll()
+			numCleaned, err := qc.CleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1705,7 +1705,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}}
 			qc := assembleQueueCleaner(c, &testHzQueueStore{}, ms, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
 
-			numCleaned, err := qc.cleanAll()
+			numCleaned, err := qc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
@@ -1748,7 +1748,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll()
+			numCleaned, err := qc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getQueueError) {
@@ -1809,7 +1809,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			}
 			qc := assembleQueueCleaner(c, qs, &testHzMapStore{}, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := qc.cleanAll()
+			numCleaned, err := qc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, queueClearError) {
@@ -1876,7 +1876,7 @@ func TestQueueCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			qc := assembleQueueCleaner(c, qs, ms, ois, ch, cih, tracker)
 
-			numCleaned, err := qc.cleanAll()
+			numCleaned, err := qc.CleanAll()
 
 			msg := "\t\tno error must be returned"
 
@@ -1967,7 +1967,7 @@ func TestMapCleanerClean(t *testing.T) {
 				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.tryLockReturnValue = true
 
-				numCleaned, err := mc.cleanAll()
+				numCleaned, err := mc.CleanAll()
 
 				msg := "\t\t\tno error must be returned"
 
@@ -2099,7 +2099,7 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
 
-				numCleaned, err := mc.cleanAll()
+				numCleaned, err := mc.CleanAll()
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2170,7 +2170,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2211,7 +2211,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, &testHzMapStore{}, ois, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, tracker)
 
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
@@ -2253,7 +2253,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -2313,7 +2313,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, tracker)
 
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tcorresponding error must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -2379,7 +2379,7 @@ func TestMapCleanerClean(t *testing.T) {
 				shouldCleanIndividualMap: createShouldCleanIndividualMapSetup(ms, numMapsToBeCleaned),
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2424,7 +2424,7 @@ func TestMapCleanerClean(t *testing.T) {
 				returnErrorUponCheck: true,
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			// In case of failing should clean check, error is not returned; rather, the loop over filtered
 			// data structures potentially susceptible to cleaning continues with the next data structure. Thus, even
@@ -2473,7 +2473,7 @@ func TestMapCleanerClean(t *testing.T) {
 				returnErrorUponUpdate: true,
 			}
 			mc := assembleMapCleaner(c, ms, ois, &testHzClientHandler{}, cih, &testCleanedTracker{})
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			// Similar to the behavior in case of failed should clean checks, failure to update last cleaned info
 			// should not propagate as an error to the caller. Instead, the loop should continue with the next
@@ -2514,7 +2514,7 @@ func TestMapCleanerClean(t *testing.T) {
 			tracker := &testCleanedTracker{}
 			mc := assembleMapCleaner(c, ms, ois, ch, cih, tracker)
 
-			numCleaned, err := mc.cleanAll()
+			numCleaned, err := mc.CleanAll()
 
 			msg := "\t\tno error must be returned"
 
@@ -2567,7 +2567,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 
 			tch := &testHzClientHandler{}
 			g := status.NewGatherer()
-			c, hzService, err := b.build(tch, context.TODO(), g, hzCluster, hzMembers)
+			c, hzService, err := b.Build(tch, context.TODO(), g, hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2583,7 +2583,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			qc := c.(*queueCleaner)
+			qc := c.(*QueueCleaner)
 			msg = "\t\tqueue cleaner built must carry context"
 			if qc.ctx != nil {
 				t.Log(msg, checkMark)
@@ -2646,7 +2646,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 			b := newQueueCleanerBuilder()
 			b.cfb.a = &testConfigPropertyAssigner{returnErrorUponAssignConfigValue: true}
 
-			c, service, err := b.build(
+			c, service, err := b.Build(
 				&testHzClientHandler{},
 				context.TODO(),
 				status.NewGatherer(),
@@ -2691,7 +2691,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 
 			tch := &testHzClientHandler{}
 			g := status.NewGatherer()
-			c, hzService, err := b.build(tch, context.TODO(), g, hzCluster, hzMembers)
+			c, hzService, err := b.Build(tch, context.TODO(), g, hzCluster, hzMembers)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2707,7 +2707,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			mc := c.(*mapCleaner)
+			mc := c.(*MapCleaner)
 			msg = "\t\tmap cleaner built must carry context"
 			if mc.ctx != nil {
 				t.Log(msg, checkMark)
@@ -2771,7 +2771,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 			b := newMapCleanerBuilder()
 			b.cfb.a = &testConfigPropertyAssigner{returnErrorUponAssignConfigValue: true}
 
-			c, service, err := b.build(
+			c, service, err := b.Build(
 				&testHzClientHandler{},
 				context.TODO(),
 				status.NewGatherer(),
@@ -2811,7 +2811,7 @@ func TestRunCleaners(t *testing.T) {
 	{
 		t.Log("\twhen one state cleaner builder has registered")
 		{
-			t.Log("\t\twhen both build and cleanAll invocations are successful")
+			t.Log("\t\twhen both build and CleanAll invocations are successful")
 			{
 				runTestCaseAndResetState(func() {
 					b := &testCleanerBuilder{behavior: emptyTestCleanerBehavior}
@@ -2833,7 +2833,7 @@ func TestRunCleaners(t *testing.T) {
 						t.Fatal(msg, ballotX, b.buildInvocations)
 					}
 
-					msg = "\t\t\tcleanAll method must have been invoked once"
+					msg = "\t\t\tCleanAll method must have been invoked once"
 					if cw.cleanAllInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
@@ -2859,7 +2859,7 @@ func TestRunCleaners(t *testing.T) {
 					}
 				})
 			}
-			t.Log("\t\twhen cleanAll invocation yields error")
+			t.Log("\t\twhen CleanAll invocation yields error")
 			{
 				runTestCaseAndResetState(func() {
 					b := &testCleanerBuilder{behavior: &testCleanerBehavior{
@@ -2869,7 +2869,7 @@ func TestRunCleaners(t *testing.T) {
 
 					err := RunCleaners(hzCluster, hzMembers)
 
-					msg := "\t\t\terror during cleanAll must be returned"
+					msg := "\t\t\terror during CleanAll must be returned"
 					if errors.Is(err, cleanerCleanAllError) {
 						t.Log(msg, checkMark)
 					} else {
@@ -3034,9 +3034,9 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hazel
 
 }
 
-func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *queueCleaner {
+func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *QueueCleaner {
 
-	return &queueCleaner{
+	return &QueueCleaner{
 		name:      queueCleanerName,
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
@@ -3052,9 +3052,9 @@ func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapS
 
 }
 
-func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *mapCleaner {
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *MapCleaner {
 
-	return &mapCleaner{
+	return &MapCleaner{
 		name:      mapCleanerName,
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
