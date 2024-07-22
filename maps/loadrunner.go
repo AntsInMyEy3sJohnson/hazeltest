@@ -16,13 +16,14 @@ import (
 
 type (
 	loadRunner struct {
-		assigner  client.ConfigPropertyAssigner
-		stateList []runnerState
-		name      string
-		source    string
-		mapStore  hazelcastwrapper.MapStore
-		l         looper[loadElement]
-		gatherer  *status.Gatherer
+		assigner        client.ConfigPropertyAssigner
+		stateList       []runnerState
+		name            string
+		source          string
+		hzClientHandler hazelcastwrapper.HzClientHandler
+		hzMapStore      hazelcastwrapper.MapStore
+		l               looper[loadElement]
+		gatherer        *status.Gatherer
 	}
 	loadElement struct {
 		Key     string
@@ -41,8 +42,6 @@ func init() {
 		stateList: []runnerState{},
 		name:      "mapsLoadRunner",
 		source:    "loadRunner",
-		mapStore:  &hazelcastwrapper.DefaultMapStore{},
-		l:         &batchTestLoop[loadElement]{},
 	})
 	gob.Register(loadElement{})
 }
@@ -64,7 +63,16 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *loadRunner) initHazelcastAccess(ctx context.Context, hzCluster string, hzMembers []string) {
+
+	r.hzClientHandler = &hazelcastwrapper.DefaultHzClientHandler{}
+	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
+
+	r.hzMapStore = &hazelcastwrapper.DefaultMapStore{Client: r.hzClientHandler.GetClient()}
+
+}
+
+func (r *loadRunner) runMapTests(ctx context.Context, gatherer *status.Gatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -94,11 +102,8 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer 
 
 	r.appendState(assignTestLoopComplete)
 
-	ctx := context.TODO()
-
-	r.mapStore.InitHazelcastClient(ctx, "mapsLoadRunner", hzCluster, hzMembers)
 	defer func() {
-		_ = r.mapStore.Shutdown(ctx)
+		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
 
 	api.RaiseReady()
@@ -107,7 +112,7 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer 
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID}
+	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.hzMapStore, config, populateLoadElements(), ctx, getLoadElementID}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 

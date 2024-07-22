@@ -16,13 +16,14 @@ import (
 
 type (
 	pokedexRunner struct {
-		assigner  client.ConfigPropertyAssigner
-		stateList []runnerState
-		name      string
-		source    string
-		mapStore  hazelcastwrapper.MapStore
-		l         looper[pokemon]
-		gatherer  *status.Gatherer
+		assigner        client.ConfigPropertyAssigner
+		stateList       []runnerState
+		name            string
+		source          string
+		hzMapStore      hazelcastwrapper.MapStore
+		hzClientHandler hazelcastwrapper.HzClientHandler
+		l               looper[pokemon]
+		gatherer        *status.Gatherer
 	}
 	pokedex struct {
 		Pokemon []pokemon `json:"pokemon"`
@@ -62,7 +63,6 @@ func init() {
 		stateList: []runnerState{},
 		name:      "mapsPokedexRunner",
 		source:    "pokedexRunner",
-		mapStore:  &hazelcastwrapper.DefaultMapStore{},
 	})
 	gob.Register(pokemon{})
 }
@@ -84,7 +84,16 @@ func (r *pokedexRunner) getSourceName() string {
 	return "pokedexRunner"
 }
 
-func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *pokedexRunner) initHazelcastAccess(ctx context.Context, hzCluster string, hzMembers []string) {
+
+	r.hzClientHandler = &hazelcastwrapper.DefaultHzClientHandler{}
+	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
+
+	r.hzMapStore = &hazelcastwrapper.DefaultMapStore{Client: r.hzClientHandler.GetClient()}
+
+}
+
+func (r *pokedexRunner) runMapTests(ctx context.Context, gatherer *status.Gatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -119,12 +128,10 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 
 	r.appendState(assignTestLoopComplete)
 
-	ctx := context.TODO()
-
-	r.mapStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
 	defer func() {
-		_ = r.mapStore.Shutdown(ctx)
+		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
+	r.hzMapStore = &hazelcastwrapper.DefaultMapStore{Client: r.hzClientHandler.GetClient()}
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
@@ -132,7 +139,7 @@ func (r *pokedexRunner) runMapTests(hzCluster string, hzMembers []string, gather
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting pokedex test loop for maps", log.InfoLevel)
 
-	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.mapStore, config, p.Pokemon, ctx, getPokemonID}
+	lc := &testLoopExecution[pokemon]{uuid.New(), r.source, r.hzMapStore, config, p.Pokemon, ctx, getPokemonID}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 

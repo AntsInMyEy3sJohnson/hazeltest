@@ -15,13 +15,14 @@ import (
 
 type (
 	loadRunner struct {
-		assigner   client.ConfigPropertyAssigner
-		stateList  []state
-		name       string
-		source     string
-		queueStore hazelcastwrapper.QueueStore
-		l          looper[loadElement]
-		gatherer   *status.Gatherer
+		assigner        client.ConfigPropertyAssigner
+		stateList       []state
+		name            string
+		source          string
+		hzClientHandler hazelcastwrapper.HzClientHandler
+		hzQueueStore    hazelcastwrapper.QueueStore
+		l               looper[loadElement]
+		gatherer        *status.Gatherer
 	}
 	loadElement struct {
 		Payload string
@@ -35,12 +36,13 @@ var (
 
 func init() {
 	register(&loadRunner{
-		assigner:   &client.DefaultConfigPropertyAssigner{},
-		stateList:  []state{},
-		name:       "queuesLoadRunner",
-		source:     "loadRunner",
-		queueStore: &hazelcastwrapper.DefaultQueueStore{},
-		l:          &testLoop[loadElement]{},
+		assigner:        &client.DefaultConfigPropertyAssigner{},
+		stateList:       []state{},
+		name:            "queuesLoadRunner",
+		source:          "loadRunner",
+		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
+		hzQueueStore:    &hazelcastwrapper.DefaultQueueStore{},
+		l:               &testLoop[loadElement]{},
 	})
 	gob.Register(loadElement{})
 }
@@ -72,9 +74,9 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 
 	ctx := context.TODO()
 
-	r.queueStore.InitHazelcastClient(ctx, "queuesLoadRunner", hzCluster, hzMembers)
+	r.hzClientHandler.InitHazelcastClient(ctx, "queuesLoadRunner", hzCluster, hzMembers)
 	defer func() {
-		_ = r.queueStore.Shutdown(ctx)
+		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
 
 	api.RaiseReady()
@@ -83,7 +85,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("starting load test loop for queues", log.InfoLevel)
 
-	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
+	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 

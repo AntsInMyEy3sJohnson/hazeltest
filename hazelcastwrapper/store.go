@@ -9,9 +9,7 @@ import (
 
 type (
 	MapStore interface {
-		HzClientInitializer
 		GetMap(ctx context.Context, name string) (Map, error)
-		HzClientCloser
 	}
 	Map interface {
 		ContainsKey(ctx context.Context, key any) (bool, error)
@@ -33,9 +31,7 @@ type (
 
 type (
 	QueueStore interface {
-		HzClientInitializer
 		GetQueue(ctx context.Context, name string) (Queue, error)
-		HzClientCloser
 	}
 	Queue interface {
 		Clear(ctx context.Context) error
@@ -66,24 +62,8 @@ type (
 	}
 )
 
-func (d *DefaultMapStore) Shutdown(ctx context.Context) error {
-	return d.Client.Shutdown(ctx)
-}
-
-func (d *DefaultMapStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.Client = NewHzClientHelper().Assemble(ctx, runnerName, hzCluster, hzMembers)
-}
-
 func (d *DefaultMapStore) GetMap(ctx context.Context, name string) (Map, error) {
 	return d.Client.GetMap(ctx, name)
-}
-
-func (d *DefaultQueueStore) Shutdown(ctx context.Context) error {
-	return d.Client.Shutdown(ctx)
-}
-
-func (d *DefaultQueueStore) InitHazelcastClient(ctx context.Context, runnerName string, hzCluster string, hzMembers []string) {
-	d.Client = NewHzClientHelper().Assemble(ctx, runnerName, hzCluster, hzMembers)
 }
 
 func (d *DefaultQueueStore) GetQueue(ctx context.Context, name string) (Queue, error) {

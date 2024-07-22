@@ -1,6 +1,7 @@
 package maps
 
 import (
+	"context"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
@@ -14,7 +15,8 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer)
+		initHazelcastAccess(ctx context.Context, hzCluster string, hzMembers []string)
+		runMapTests(ctx context.Context, gatherer *status.Gatherer)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -511,11 +513,19 @@ func (t *MapTester) TestMaps() {
 			go gatherer.Listen()
 			defer gatherer.StopListen()
 
-			runner := runners[i]
+			rn := runners[i]
 
-			api.RegisterStatefulActor(api.MapRunners, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			api.RegisterStatefulActor(api.MapRunners, rn.getSourceName(), gatherer.AssembleStatusCopy)
 
-			runner.runMapTests(t.HzCluster, t.HzMembers, gatherer)
+			ctx := context.TODO()
+
+			// FIXME This is too early for initialization of Hazelcast access!
+			// At this point, the runner's config hasn't been parsed yet, so we don't know whether it's
+			// enabled to begin with -- in case not, we'd have to shutdown the client right after
+			// noticing the runner wasn't enabled... not a big deal, but definitely not elegant.
+			// Let's do better than that
+			rn.initHazelcastAccess(ctx, t.HzCluster, t.HzMembers)
+			rn.runMapTests(ctx, gatherer)
 		}(i)
 	}
 

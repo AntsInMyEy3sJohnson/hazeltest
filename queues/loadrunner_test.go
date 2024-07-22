@@ -27,7 +27,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -65,7 +65,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 					"queueTests.load.enabled": false,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -96,7 +96,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 					"queueTests.load.enabled": true,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyLoadRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 

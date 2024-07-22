@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
@@ -16,6 +17,9 @@ type (
 	testConfigPropertyAssigner struct {
 		returnError bool
 		dummyConfig map[string]any
+	}
+	dummyHzClientHandler struct {
+		getClientInvocations, initClientInvocations, shutdownInvocations int
 	}
 	dummyHzMapStore struct {
 		m                     *dummyHzMap
@@ -50,6 +54,20 @@ type (
 		bm                         *boundaryMonitoring
 	}
 )
+
+func (d dummyHzClientHandler) GetClient() *hazelcast.Client {
+	d.getClientInvocations++
+	return nil
+}
+
+func (d dummyHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	d.initClientInvocations++
+}
+
+func (d dummyHzClientHandler) Shutdown(_ context.Context) error {
+	d.shutdownInvocations++
+	return nil
+}
 
 func (m *dummyHzMap) SetWithTTLAndMaxIdle(_ context.Context, _, _ any, _ time.Duration, _ time.Duration) error {
 	return nil

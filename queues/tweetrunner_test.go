@@ -27,7 +27,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
@@ -63,7 +63,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 					"queueTests.tweets.enabled": false,
 				},
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
@@ -94,7 +94,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 					"queueTests.tweets.enabled": true,
 				},
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, queueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

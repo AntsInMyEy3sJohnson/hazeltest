@@ -91,7 +91,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
@@ -129,7 +129,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -161,7 +161,13 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: &dummyHzClientHandler{},
+				hzMapStore:      dummyHzMapStore{},
+				l:               dummyPokedexTestLoop{},
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

@@ -17,13 +17,14 @@ import (
 
 type (
 	tweetRunner struct {
-		assigner   client.ConfigPropertyAssigner
-		stateList  []state
-		name       string
-		source     string
-		queueStore hazelcastwrapper.QueueStore
-		l          looper[tweet]
-		gatherer   *status.Gatherer
+		assigner        client.ConfigPropertyAssigner
+		stateList       []state
+		name            string
+		source          string
+		hzClientHandler hazelcastwrapper.HzClientHandler
+		hzQueueStore    hazelcastwrapper.QueueStore
+		l               looper[tweet]
+		gatherer        *status.Gatherer
 	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
@@ -42,12 +43,12 @@ var tweetsFile embed.FS
 
 func init() {
 	register(&tweetRunner{
-		assigner:   &client.DefaultConfigPropertyAssigner{},
-		stateList:  []state{},
-		name:       "queuesTweetRunner",
-		source:     "tweetRunner",
-		queueStore: &hazelcastwrapper.DefaultQueueStore{},
-		l:          &testLoop[tweet]{},
+		assigner:     &client.DefaultConfigPropertyAssigner{},
+		stateList:    []state{},
+		name:         "queuesTweetRunner",
+		source:       "tweetRunner",
+		hzQueueStore: &hazelcastwrapper.DefaultQueueStore{},
+		l:            &testLoop[tweet]{},
 	})
 	gob.Register(tweet{})
 }
@@ -83,9 +84,9 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 	ctx := context.TODO()
 
-	r.queueStore.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
+	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
 	defer func() {
-		_ = r.queueStore.Shutdown(ctx)
+		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
 
 	api.RaiseReady()
@@ -94,7 +95,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
 	lp.LogRunnerEvent("started tweets queue loop", log.InfoLevel)
 
-	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.queueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
+	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
