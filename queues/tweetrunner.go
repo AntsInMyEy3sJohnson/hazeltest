@@ -64,13 +64,13 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
 	if err != nil {
-		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of queue tweet runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
+		lp.LogQueueRunnerEvent(fmt.Sprintf("aborting launch of queue tweet runner: unable to populate config due to error: %s", err.Error()), r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogRunnerEvent("tweet runner not enabled -- won't run", log.InfoLevel)
+		lp.LogQueueRunnerEvent("tweet runner not enabled -- won't run", r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -92,17 +92,17 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogRunnerEvent("started tweets queue loop", log.InfoLevel)
+	lp.LogQueueRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent("started tweets queue loop", r.name, log.InfoLevel)
 
-	lc := &testLoopConfig[tweet]{id: uuid.New(), source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
+	lc := &testLoopExecution[tweet]{id: uuid.New(), runnerName: r.name, source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogRunnerEvent("finished tweet test loop", log.InfoLevel)
+	lp.LogQueueRunnerEvent("finished tweet test loop", r.name, log.InfoLevel)
 
 }
 

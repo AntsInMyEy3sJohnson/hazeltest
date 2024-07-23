@@ -58,14 +58,14 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 
 	c, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
+		lp.LogQueueRunnerEvent(fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error()), r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !c.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogRunnerEvent("load runner not enabled -- won't run", log.InfoLevel)
+		lp.LogQueueRunnerEvent("load runner not enabled -- won't run", r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -82,10 +82,10 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogRunnerEvent("starting load test loop for queues", log.InfoLevel)
+	lp.LogQueueRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent("starting load test loop for queues", r.name, log.InfoLevel)
 
-	lc := &testLoopConfig[loadElement]{id: uuid.New(), source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
+	lc := &testLoopExecution[loadElement]{id: uuid.New(), runnerName: r.name, source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
@@ -93,7 +93,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogRunnerEvent("finished queue load test loop", log.InfoLevel)
+	lp.LogQueueRunnerEvent("finished queue load test loop", r.name, log.InfoLevel)
 
 }
 

@@ -122,10 +122,24 @@ func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level log.Lev
 	lp.doLog(msg, fields, level)
 }
 
-func (lp *LogProvider) LogRunnerEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": RunnerEvent,
+		"kind":       RunnerEvent,
+		"runnerName": runnerName,
+		"runnerKind": "map",
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level log.Level) {
+
+	fields := log.Fields{
+		"kind":       RunnerEvent,
+		"runnerName": runnerName,
+		"runnerKind": "queue",
 	}
 
 	lp.doLog(msg, fields, level)
