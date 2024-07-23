@@ -19,11 +19,15 @@ type (
 	}
 	HzClientHandler interface {
 		GetClient() *hazelcast.Client
+		GetClusterName() string
+		GetClusterMembers() []string
 		HzClientInitializer
 		HzClientCloser
 	}
 	DefaultHzClientHandler struct {
-		hzClient *hazelcast.Client
+		HzCluster string
+		HzMembers []string
+		hzClient  *hazelcast.Client
 	}
 	HzClientAssembler struct {
 		clientID uuid.UUID
@@ -37,6 +41,14 @@ func (ch *DefaultHzClientHandler) InitHazelcastClient(ctx context.Context, clien
 
 func (ch *DefaultHzClientHandler) Shutdown(ctx context.Context) error {
 	return ch.hzClient.Shutdown(ctx)
+}
+
+func (ch *DefaultHzClientHandler) GetClusterName() string {
+	return ch.HzCluster
+}
+
+func (ch *DefaultHzClientHandler) GetClusterMembers() []string {
+	return ch.HzMembers
 }
 
 func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
