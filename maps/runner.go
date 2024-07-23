@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
 	"hazeltest/status"
 	"sync"
@@ -15,8 +16,7 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		initHazelcastAccess(ctx context.Context, hzCluster string, hzMembers []string)
-		runMapTests(ctx context.Context, gatherer *status.Gatherer)
+		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -47,8 +47,9 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
-	runnerState string
-	statusKey   string
+	runnerState      string
+	statusKey        string
+	initMapStoreFunc func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore
 )
 
 type (
@@ -95,8 +96,11 @@ const (
 )
 
 var (
-	runners []runner
-	lp      *logging.LogProvider
+	runners             []runner
+	lp                  *logging.LogProvider
+	initDefaultMapStore initMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+		return &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
+	}
 )
 
 func register(r runner) {
@@ -501,7 +505,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ID()
-	lp.LogRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
+	lp.LogMapRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), "mapTester", log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
@@ -517,15 +521,7 @@ func (t *MapTester) TestMaps() {
 
 			api.RegisterStatefulActor(api.MapRunners, rn.getSourceName(), gatherer.AssembleStatusCopy)
 
-			ctx := context.TODO()
-
-			// FIXME This is too early for initialization of Hazelcast access!
-			// At this point, the runner's config hasn't been parsed yet, so we don't know whether it's
-			// enabled to begin with -- in case not, we'd have to shutdown the client right after
-			// noticing the runner wasn't enabled... not a big deal, but definitely not elegant.
-			// Let's do better than that
-			rn.initHazelcastAccess(ctx, t.HzCluster, t.HzMembers)
-			rn.runMapTests(ctx, gatherer)
+			rn.runMapTests(context.TODO(), t.HzCluster, t.HzMembers, gatherer, initDefaultMapStore)
 		}(i)
 	}
 
