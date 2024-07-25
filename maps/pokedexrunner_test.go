@@ -92,7 +92,8 @@ func TestRunPokedexMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
@@ -121,6 +122,20 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
 		}
 		t.Log("\twhen runner has been disabled")
 		{
@@ -130,7 +145,8 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -152,6 +168,20 @@ func TestRunPokedexMapTests(t *testing.T) {
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
+
+			msg := "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
 		}
 		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
 		{
@@ -162,10 +192,11 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
+			ch := &testHzClientHandler{}
 			r := pokedexRunner{
 				assigner:        assigner,
 				stateList:       []runnerState{},
-				hzClientHandler: &dummyHzClientHandler{},
+				hzClientHandler: ch,
 				hzMapStore:      testHzMapStore{},
 				l:               dummyPokedexTestLoop{},
 			}
@@ -189,6 +220,20 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
+			}
+
+			msg := "\t\thazelcast client handler must have initialized hazelcast client once"
+			if ch.initClientInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\thazelcast client handler must have performed shutdown on hazelcast client once"
+			if ch.shutdownInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
 		}
 	}

@@ -18,7 +18,7 @@ type (
 		returnError bool
 		dummyConfig map[string]any
 	}
-	dummyHzClientHandler struct {
+	testHzClientHandler struct {
 		getClientInvocations, initClientInvocations, shutdownInvocations int
 		hzClusterName                                                    string
 		hzClusterMembers                                                 []string
@@ -57,24 +57,24 @@ type (
 	}
 )
 
-func (d dummyHzClientHandler) GetClusterName() string {
+func (d *testHzClientHandler) GetClusterName() string {
 	return d.hzClusterName
 }
 
-func (d dummyHzClientHandler) GetClusterMembers() []string {
+func (d *testHzClientHandler) GetClusterMembers() []string {
 	return d.hzClusterMembers
 }
 
-func (d dummyHzClientHandler) GetClient() *hazelcast.Client {
+func (d *testHzClientHandler) GetClient() *hazelcast.Client {
 	d.getClientInvocations++
 	return nil
 }
 
-func (d dummyHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+func (d *testHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	d.initClientInvocations++
 }
 
-func (d dummyHzClientHandler) Shutdown(_ context.Context) error {
+func (d *testHzClientHandler) Shutdown(_ context.Context) error {
 	d.shutdownInvocations++
 	return nil
 }
