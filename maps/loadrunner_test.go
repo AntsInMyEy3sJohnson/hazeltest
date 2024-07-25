@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-type dummyLoadTestLoop struct{}
+type testLoadTestLoop struct{}
 
-func (d dummyLoadTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
+func (d testLoadTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 
-func (d dummyLoadTestLoop) run() {
+func (d testLoadTestLoop) run() {
 	// No-op
 }
 
@@ -90,9 +90,9 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
-				dummyConfig: nil,
+				testConfig:  nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -124,12 +124,12 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled": false,
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -170,13 +170,13 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled":       true,
 					"mapTests.load.testLoop.type": "batch",
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -218,13 +218,13 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled":       true,
 					"mapTests.load.testLoop.type": "awesome-non-existing-test-loop-type",
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}, gatherer: status.NewGatherer()}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

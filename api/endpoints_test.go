@@ -91,15 +91,15 @@ func TestStatusHandler(t *testing.T) {
 			tracker = newStatefulActorTracker()
 
 			RegisterStatefulActor(MapRunners, sourceMapPokedexRunner, func() map[string]any {
-				return dummyStatusMapPokedexTestLoop
+				return testStatusMapPokedexTestLoop
 			})
 
 			RegisterStatefulActor(MapRunners, sourceMapLoadRunner, func() map[string]any {
-				return dummyStatusMapLoadTestLoop
+				return testStatusMapLoadTestLoop
 			})
 
 			RegisterStatefulActor(ChaosMonkeys, sourceChaosMonkeyMemberKiller, func() map[string]any {
-				return dummyStatusMemberKillerMonkey
+				return testStatusMemberKillerMonkey
 			})
 
 			request := httptest.NewRequest(http.MethodGet, "localhost:8080/status", nil)
@@ -153,14 +153,14 @@ func TestStatusHandler(t *testing.T) {
 
 			msg = "\t\tnested maps must contain expected values"
 			parseRunnerNumberValuesBackToInt(decodedTestLoopsData[sourceMapPokedexRunner].(map[string]any))
-			if ok, detail := mapsEqualInContent(dummyStatusMapPokedexTestLoop, decodedTestLoopsData[sourceMapPokedexRunner].(map[string]any)); ok {
+			if ok, detail := mapsEqualInContent(testStatusMapPokedexTestLoop, decodedTestLoopsData[sourceMapPokedexRunner].(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
 			parseRunnerNumberValuesBackToInt(decodedTestLoopsData[sourceMapLoadRunner].(map[string]any))
-			if ok, detail := mapsEqualInContent(dummyStatusMapLoadTestLoop, decodedTestLoopsData[sourceMapLoadRunner].(map[string]any)); ok {
+			if ok, detail := mapsEqualInContent(testStatusMapLoadTestLoop, decodedTestLoopsData[sourceMapLoadRunner].(map[string]any)); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -177,7 +177,7 @@ func TestStatusHandler(t *testing.T) {
 			msg = "\t\tchaos monkey map must contain member killer status equal to given test status"
 			memberKillerStatus := chaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
 			parseChaosMonkeyNumberValuesBackToInt(memberKillerStatus)
-			if ok, detail := mapsEqualInContent(dummyStatusMemberKillerMonkey, memberKillerStatus); ok {
+			if ok, detail := mapsEqualInContent(testStatusMemberKillerMonkey, memberKillerStatus); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -188,7 +188,7 @@ func TestStatusHandler(t *testing.T) {
 			tracker = newStatefulActorTracker()
 
 			RegisterStatefulActor(ChaosMonkeys, sourceChaosMonkeyMemberKiller, func() map[string]any {
-				return dummyStatusMemberKillerMonkey
+				return testStatusMemberKillerMonkey
 			})
 
 			request := httptest.NewRequest(http.MethodGet, "localhost:8080/status", nil)
@@ -244,7 +244,7 @@ func TestStatusHandler(t *testing.T) {
 			msg = "\t\tchaos monkey map must contain member killer status equal to given test status"
 			memberKillerStatus := chaosMonkeyStatus[sourceChaosMonkeyMemberKiller].(map[string]any)
 			parseChaosMonkeyNumberValuesBackToInt(memberKillerStatus)
-			if ok, detail := mapsEqualInContent(dummyStatusMemberKillerMonkey, memberKillerStatus); ok {
+			if ok, detail := mapsEqualInContent(testStatusMemberKillerMonkey, memberKillerStatus); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)

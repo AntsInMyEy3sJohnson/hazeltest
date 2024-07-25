@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-type dummyPokedexTestLoop struct{}
+type testPokedexTestLoop struct{}
 
-func (d dummyPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ *status.Gatherer) {
+func (d testPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 
-func (d dummyPokedexTestLoop) run() {
+func (d testPokedexTestLoop) run() {
 	// No-op
 }
 
@@ -90,10 +90,10 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
-				dummyConfig: nil,
+				testConfig:  nil,
 			}
 			ch := &testHzClientHandler{}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
@@ -141,12 +141,12 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.pokedex.enabled": false,
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
@@ -187,7 +187,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.pokedex.enabled":       true,
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
@@ -198,7 +198,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				hzMapStore:      testHzMapStore{},
-				l:               dummyPokedexTestLoop{},
+				l:               testPokedexTestLoop{},
 			}
 
 			gatherer := status.NewGatherer()

@@ -134,8 +134,8 @@ func TestPopulateConfig(t *testing.T) {
 		{
 			for _, lt := range []runnerLoopType{batch, boundary} {
 				t.Log(fmt.Sprintf("\t\ttest loop type: %s", lt))
-				dummyConfig := assembleTestConfigForTestLoopType(lt)
-				assigner := testConfigPropertyAssigner{false, dummyConfig}
+				testConfig := assembleTestConfigForTestLoopType(lt)
+				assigner := testConfigPropertyAssigner{false, testConfig}
 				b.assigner = assigner
 				rc, err := b.populateConfig()
 
@@ -154,7 +154,7 @@ func TestPopulateConfig(t *testing.T) {
 				}
 
 				msg = "\t\t\tconfig should contain expected values"
-				if valid, detail := configValuesAsExpected(rc, dummyConfig); valid {
+				if valid, detail := configValuesAsExpected(rc, testConfig); valid {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -191,10 +191,10 @@ func TestPopulateConfig(t *testing.T) {
 					lower = 0.7
 				}
 
-				dummyConfig := assembleTestConfigForTestLoopType(boundary)
-				dummyConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"] = upper
-				dummyConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"] = lower
-				assigner := testConfigPropertyAssigner{false, dummyConfig}
+				testConfig := assembleTestConfigForTestLoopType(boundary)
+				testConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"] = upper
+				testConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"] = lower
+				assigner := testConfigPropertyAssigner{false, testConfig}
 
 				b.assigner = assigner
 				rc, err := b.populateConfig()

@@ -23,19 +23,19 @@ const (
 )
 
 var (
-	dummyStatusMapPokedexTestLoop = map[string]any{
+	testStatusMapPokedexTestLoop = map[string]any{
 		statusKeyNumMaps:        10,
 		statusKeyNumRuns:        1000,
 		statusKeyTotalRuns:      10 * 1000,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusMapLoadTestLoop = map[string]any{
+	testStatusMapLoadTestLoop = map[string]any{
 		statusKeyNumMaps:        5,
 		statusKeyNumRuns:        100,
 		statusKeyTotalRuns:      5 * 100,
 		statusKeyRunnerFinished: false,
 	}
-	dummyStatusMemberKillerMonkey = map[string]any{
+	testStatusMemberKillerMonkey = map[string]any{
 		statusKeyNumRuns:          100,
 		statusKeyNumMembersKilled: 15,
 		statusKeyMonkeyFinished:   false,

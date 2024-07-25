@@ -58,7 +58,7 @@ func (o testConfigOpener) open(_ string) (io.ReadCloser, error) {
 
 func (o erroneousTestConfigOpener) open(_ string) (io.ReadCloser, error) {
 
-	return nil, errors.New("lo and behold, here i am, a dummy error")
+	return nil, errors.New("lo and behold, here i am, a test error")
 
 }
 

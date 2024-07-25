@@ -64,7 +64,7 @@ var (
 	defaultKubeconfig          = "default"
 	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
 	hazelcastNamespace         = "hazelcastplatform"
-	dummyAccessConfig          = assembleDummyAccessConfig(k8sInClusterAccessMode, "", true)
+	testAccessConfig           = assembleTestAccessConfig(k8sInClusterAccessMode, "", true)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -198,7 +198,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 		t.Log("\twhen namespace discovery is successful")
 		{
 			discoverer := &defaultK8sNamespaceDiscoverer{}
-			namespace, err := discoverer.getOrDiscover(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, "default", false))
+			namespace, err := discoverer.getOrDiscover(assembleTestAccessConfig(k8sOutOfClusterAccessMode, "default", false))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -222,7 +222,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 			}
 
 			msg = "\t\twhen queried again, discoverer must return previously discovered namespace"
-			ac := assembleDummyAccessConfig(k8sOutOfClusterAccessMode, "default", false)
+			ac := assembleTestAccessConfig(k8sOutOfClusterAccessMode, "default", false)
 			ac.k8sOutOfCluster.namespace = "another-namespace"
 
 			namespace, err = discoverer.getOrDiscover(ac)
@@ -236,7 +236,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 		t.Log("\twhen namespace discovery is not successful")
 		{
 			discoverer := &defaultK8sNamespaceDiscoverer{}
-			namespace, err := discoverer.getOrDiscover(assembleDummyAccessConfig("some-non-existing-access-mode", "default", false))
+			namespace, err := discoverer.getOrDiscover(assembleTestAccessConfig("some-non-existing-access-mode", "default", false))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -278,7 +278,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
+				cs, err := provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -338,7 +338,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				_, _ = provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig, true))
+				_, _ = provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig, true))
 
 				msg := "\t\t\tmaster url and kubeconfig must have been passed correctly"
 				if builder.masterUrl == "" && builder.kubeconfig == nonDefaultKubeconfig {
@@ -356,7 +356,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
+				cs, err := provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 				msg := "\t\t\terror must be returned"
 				if err != nil && errors.Is(err, configBuildError) {
@@ -388,7 +388,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
-				cs, err := provider.getOrInit(dummyAccessConfig)
+				cs, err := provider.getOrInit(testAccessConfig)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -431,7 +431,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 				initializer := &testK8sClientsetInitializer{}
 				provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 
-				cs, err := provider.getOrInit(dummyAccessConfig)
+				cs, err := provider.getOrInit(testAccessConfig)
 
 				msg := "\t\t\terror must be returned"
 				if err != nil && errors.Is(err, configBuildError) {
@@ -460,7 +460,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			provider := &defaultK8sClientsetProvider{}
 
 			unknownAccessMode := "someUnknownMemberAccessMode"
-			cs, err := provider.getOrInit(assembleDummyAccessConfig(unknownAccessMode, "default", true))
+			cs, err := provider.getOrInit(assembleTestAccessConfig(unknownAccessMode, "default", true))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -497,7 +497,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 			provider.cs = emptyClientset
 
-			cs, err := provider.getOrInit(assembleDummyAccessConfig("something", "default", true))
+			cs, err := provider.getOrInit(assembleTestAccessConfig("something", "default", true))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -533,7 +533,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			initializer := &testK8sClientsetInitializer{returnError: true}
 			provider := &defaultK8sClientsetProvider{configBuilder: &testK8sConfigBuilder{}, clientsetInitializer: initializer}
 
-			cs, err := provider.getOrInit(dummyAccessConfig)
+			cs, err := provider.getOrInit(testAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, clientsetInitError) {
@@ -568,7 +568,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && err == clientsetInitError {
@@ -595,7 +595,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, errTestNamespaceDiscoverer, nil}
-			member, err := memberChooser.choose(dummyAccessConfig)
+			member, err := memberChooser.choose(testAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -620,7 +620,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen label selector cannot be determined")
 		{
-			ac := dummyAccessConfig
+			ac := testAccessConfig
 			ac.memberAccessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
@@ -651,7 +651,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(dummyAccessConfig)
+			member, err := memberChooser.choose(testAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, podListError) {
@@ -678,7 +678,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
+			member, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig, true))
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMemberFoundError) {
@@ -700,7 +700,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(dummyAccessConfig)
+			member, err := memberChooser.choose(testAccessConfig)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -722,7 +722,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(dummyAccessConfig)
+			member, err := memberChooser.choose(testAccessConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMemberFoundError) {
@@ -744,7 +744,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleDummyAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, false))
+			member, err := memberChooser.choose(assembleTestAccessConfig(k8sInClusterAccessMode, defaultKubeconfig, false))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -779,7 +779,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			err := killer.kill(
 				hzMember{"hazelcastplatform-0"},
-				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleTestAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, true, 42),
 			)
 
@@ -802,7 +802,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			podDeleter := &testK8sPodDeleter{false, 0, 42}
 			killer := k8sHzMemberKiller{csProvider, errTestNamespaceDiscoverer, podDeleter}
 
-			err := killer.kill(hzMember{}, dummyAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
+			err := killer.kill(hzMember{}, testAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -830,7 +830,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			memberGraceSeconds := math.MaxInt - 1
 			err := killer.kill(
 				hzMember{"hazelcastplatform-0"},
-				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleTestAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 			)
 
@@ -867,7 +867,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			memberGraceSeconds := 42
 			err := killer.kill(
 				hzMember{"hazelcastplatform-0"},
-				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleTestAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 			)
 
@@ -896,7 +896,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			err := killer.kill(
 				hzMember{"hazelcastplatform-0"},
-				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleTestAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
 
@@ -925,7 +925,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			err := killer.kill(
 				hzMember{"hazelcastplatform-0"},
-				assembleDummyAccessConfig(k8sInClusterAccessMode, "default", true),
+				assembleTestAccessConfig(k8sInClusterAccessMode, "default", true),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
 
@@ -975,7 +975,7 @@ func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeco
 
 }
 
-func assembleDummyAccessConfig(memberAccessMode, kubeconfig string, targetOnlyActive bool) memberAccessConfig {
+func assembleTestAccessConfig(memberAccessMode, kubeconfig string, targetOnlyActive bool) memberAccessConfig {
 
 	return memberAccessConfig{
 		memberAccessMode: memberAccessMode,

@@ -149,7 +149,7 @@ func TestPutElements(t *testing.T) {
 	{
 		t.Log("\twhen check for remaining capacity yields error")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{
 				returnErrorUponGetQueue:          false,
 				returnErrorUponRemainingCapacity: true,
 			}, 9)
@@ -189,7 +189,7 @@ func TestPutElements(t *testing.T) {
 
 		t.Log("\twhen queue has no remaining capacity")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 0)
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 0)
 			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
@@ -225,7 +225,7 @@ func TestPutElements(t *testing.T) {
 
 		t.Log("\twhen queue has remaining capacity and puts fail")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{
 				returnErrorUponPut: true,
 			}, 42)
 			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
@@ -258,7 +258,7 @@ func TestPutElements(t *testing.T) {
 
 		t.Log("\twhen queue has remaining capacity and puts succeed")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 42)
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 42)
 			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, status.NewGatherer())
 
@@ -292,7 +292,7 @@ func TestPollElements(t *testing.T) {
 	{
 		t.Log("\twhen poll operations yield error")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{
 				returnErrorUponPoll: true,
 			}, 9)
 			rc := assembleRunnerConfig(false, 0, true, 1, sleepConfigDisabled, sleepConfigDisabled)
@@ -326,7 +326,7 @@ func TestPollElements(t *testing.T) {
 
 		t.Log("\twhen poll operations succeed and polled value is always nil")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 9)
 			rc := assembleRunnerConfig(false, 0, true, 1, sleepConfigDisabled, sleepConfigDisabled)
 
 			gatherer := status.NewGatherer()
@@ -357,7 +357,7 @@ func TestPollElements(t *testing.T) {
 
 		t.Log("\twhen poll operations succeed and retrieved value is not nil")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 9)
 			for _, v := range aNewHope {
 				qs.q.data.PushFront(v)
 			}
@@ -397,7 +397,7 @@ func TestRun(t *testing.T) {
 	{
 		t.Log("\twhen only put config is provided")
 		{
-			qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9)
+			qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 9)
 			rc := assembleRunnerConfig(true, 1, false, 0, sleepConfigDisabled, sleepConfigDisabled)
 
 			gatherer := status.NewGatherer()
@@ -442,7 +442,7 @@ func TestRun(t *testing.T) {
 
 	t.Log("\twhen both put and poll config are provided, and put runs twice as many times as poll")
 	{
-		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 18)
+		qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 18)
 		rc := assembleRunnerConfig(true, 2, true, 1, sleepConfigDisabled, sleepConfigDisabled)
 
 		gatherer := status.NewGatherer()
@@ -478,7 +478,7 @@ func TestRun(t *testing.T) {
 
 	t.Log("\twhen poll is configured but put is not")
 	{
-		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 1)
+		qs := assembleTestQueueStore(&testQueueStoreBehavior{}, 1)
 		rc := assembleRunnerConfig(false, 0, true, 5, sleepConfigDisabled, sleepConfigDisabled)
 
 		gatherer := status.NewGatherer()
@@ -508,7 +508,7 @@ func TestRun(t *testing.T) {
 	t.Log("\twhen queue reaches its capacity")
 	{
 		queueCapacity := 9
-		qs := assembleDummyQueueStore(&dummyQueueStoreBehavior{}, queueCapacity)
+		qs := assembleTestQueueStore(&testQueueStoreBehavior{}, queueCapacity)
 		rc := assembleRunnerConfig(true, 2, false, 0, sleepConfigDisabled, sleepConfigDisabled)
 
 		gatherer := status.NewGatherer()
@@ -542,7 +542,7 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPoll := &sleepConfig{}
 		rc := assembleRunnerConfig(true, 20, true, 20, scBetweenRunsPut, scBetweenRunsPoll)
 		gatherer := status.NewGatherer()
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleTestQueueStore(&testQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -583,7 +583,7 @@ func TestRun(t *testing.T) {
 		scBetweenRunsPoll := &sleepConfig{enabled: true}
 		rc := assembleRunnerConfig(true, numRunsPut, true, numRunsPoll, scBetweenRunsPut, scBetweenRunsPoll)
 		gatherer := status.NewGatherer()
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleTestQueueStore(&testQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsSleepBetweenRunsPut := 0
 		numInvocationsSleepBetweenRunsPoll := 0
@@ -623,7 +623,7 @@ func TestRun(t *testing.T) {
 		rc.putConfig.initialDelay = scInitialDelayPut
 		rc.pollConfig.initialDelay = scInitialDelayPoll
 		gatherer := status.NewGatherer()
-		tl := assembleTestLoop(uuid.New(), testSource, assembleDummyQueueStore(&dummyQueueStoreBehavior{}, 9), &rc, gatherer)
+		tl := assembleTestLoop(uuid.New(), testSource, assembleTestQueueStore(&testQueueStoreBehavior{}, 9), &rc, gatherer)
 
 		numInvocationsInitialDelayPut := 0
 		numInvocationsInitialDelayPoll := 0
@@ -765,12 +765,12 @@ func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRu
 
 }
 
-func assembleDummyQueueStore(b *dummyQueueStoreBehavior, queueCapacity int) dummyHzQueueStore {
+func assembleTestQueueStore(b *testQueueStoreBehavior, queueCapacity int) testHzQueueStore {
 
-	dummyBackend := &list.List{}
+	testBackend := &list.List{}
 
-	return dummyHzQueueStore{
-		q:        &dummyHzQueue{data: dummyBackend, queueCapacity: queueCapacity, behavior: b},
+	return testHzQueueStore{
+		q:        &testHzQueue{data: testBackend, queueCapacity: queueCapacity, behavior: b},
 		behavior: b,
 	}
 

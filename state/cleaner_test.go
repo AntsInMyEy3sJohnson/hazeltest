@@ -16,7 +16,7 @@ import (
 
 type (
 	testConfigPropertyAssigner struct {
-		dummyConfig                      map[string]any
+		testConfig                       map[string]any
 		returnErrorUponAssignConfigValue bool
 	}
 	testCleanerBuilder struct {
@@ -208,7 +208,7 @@ func (m *testHzMap) Unlock(_ context.Context, _ any) error {
 
 	m.unlockInvocations++
 	if m.returnErrorUponUnlock {
-		return errors.New("dummy error upon Unlock")
+		return errors.New("test error upon Unlock")
 	}
 
 	return nil
@@ -230,7 +230,7 @@ func (m *testHzMap) Set(_ context.Context, _, _ any) error {
 
 	m.setInvocations++
 	if m.returnErrorUponSet {
-		return errors.New("dummy error upon Set")
+		return errors.New("test error upon Set")
 	}
 
 	return nil
@@ -241,7 +241,7 @@ func (m *testHzMap) SetWithTTLAndMaxIdle(_ context.Context, _, _ any, _ time.Dur
 
 	m.setWithTTLAndMaxIdleInvocations++
 	if m.returnErrorUponSetWithTTLAndMaxIdle {
-		return errors.New("dummy error upon SetWithTTLAndMaxIdle")
+		return errors.New("test error upon SetWithTTLAndMaxIdle")
 	}
 
 	return nil
@@ -399,13 +399,13 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 		return assignConfigPropertyError
 	}
 
-	if value, ok := a.dummyConfig[keyPath]; ok {
+	if value, ok := a.testConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
 			return err
 		}
 		assign(value)
 	} else {
-		return fmt.Errorf("test error: unable to find value in dummy config for given key path '%s'", keyPath)
+		return fmt.Errorf("test error: unable to find value in test config for given key path '%s'", keyPath)
 	}
 
 	return nil
@@ -449,7 +449,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen get map on sync map yields error")
 		{
 
-			ms := populateDummyMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"})
 			ms.returnErrorUponGetSyncMap = true
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -483,7 +483,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
 		t.Log("\twhen try lock fails on sync map for key associated with payload data structure name")
 		{
-			ms := populateDummyMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"})
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.returnErrorUponTryLock = true
 
@@ -534,7 +534,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen try lock operation yields negative result")
 		{
 
-			ms := populateDummyMapStore(1, []string{"blubbedi_"})
+			ms := populateTestMapStore(1, []string{"blubbedi_"})
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = false
 
@@ -584,7 +584,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen get on sync map for key-value pair related to payload data structure yields error")
 		{
 			prefix := "waldo_"
-			ms := populateDummyMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix})
 
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
@@ -644,7 +644,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
 		t.Log("\twhen payload map hasn't been cleaned before")
 		{
-			ms := populateDummyMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"})
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
 
@@ -702,7 +702,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before, but last cleaned state does not represent valid timestamp")
 		{
 			prefix := "ht_"
-			ms := populateDummyMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix})
 
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
@@ -742,7 +742,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before and last cleaned timestamp is within clean interval")
 		{
 			prefix := "ht_"
-			ms := populateDummyMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix})
 
 			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
@@ -782,7 +782,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before and last cleaned timestamp is not within clean interval")
 		{
 			prefix := "ht_"
-			ms := populateDummyMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix})
 
 			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
@@ -838,7 +838,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 					}
 				}()
 
-				ms := populateDummyMapStore(1, []string{})
+				ms := populateTestMapStore(1, []string{})
 				ms.returnErrorUponGetSyncMap = true
 
 				cih := &defaultLastCleanedInfoHandler{
@@ -868,7 +868,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 
 		t.Log("\twhen get map for map cleaners sync map is successful")
 		{
-			ms := populateDummyMapStore(1, []string{})
+			ms := populateTestMapStore(1, []string{})
 
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -916,7 +916,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 					}
 				}()
 
-				ms := populateDummyMapStore(1, []string{})
+				ms := populateTestMapStore(1, []string{})
 				mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.returnErrorUponUnlock = true
 
@@ -947,8 +947,8 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 	{
 		t.Log("\twhen get queue operation yields error")
 		{
-			dummyQueueStore := &testHzQueueStore{returnErrorUponGetQueue: true}
-			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			testQueueStore := &testHzQueueStore{returnErrorUponGetQueue: true}
+			qc := assembleQueueCleaner(&cleanerConfig{}, testQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := qc.retrieveAndClean(context.TODO(), "some-name")
 
@@ -972,9 +972,9 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 			testQueues := map[string]*testHzQueue{
 				queueName: {returnErrorUponSize: true},
 			}
-			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+			testQueueStore := &testHzQueueStore{queues: testQueues}
 
-			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			qc := assembleQueueCleaner(&cleanerConfig{}, testQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := qc.retrieveAndClean(context.TODO(), queueName)
 
@@ -996,18 +996,18 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 		t.Log("\twhen target queue contains zero entries")
 		{
 			queueName := "awesome-queue"
-			dummyData := make(chan string)
+			testData := make(chan string)
 			testQueues := map[string]*testHzQueue{
-				queueName: {data: dummyData},
+				queueName: {data: testData},
 			}
-			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+			testQueueStore := &testHzQueueStore{queues: testQueues}
 
-			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			qc := assembleQueueCleaner(&cleanerConfig{}, testQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := qc.retrieveAndClean(context.TODO(), queueName)
 
 			msg := "\t\tnumber of cleaned elements must be reported to be zero"
-			if numCleaned == len(dummyData) {
+			if numCleaned == len(testData) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
@@ -1030,16 +1030,16 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 		}
 		t.Log("\twhen clear on target queue yields error")
 		{
-			dummyQueue := make(chan string, 1)
-			dummyQueue <- "my-value"
+			testQueue := make(chan string, 1)
+			testQueue <- "my-value"
 
 			queueName := "awesome-queue"
 			testQueues := map[string]*testHzQueue{
-				queueName: {data: dummyQueue, returnErrorUponClear: true},
+				queueName: {data: testQueue, returnErrorUponClear: true},
 			}
-			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+			testQueueStore := &testHzQueueStore{queues: testQueues}
 
-			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			qc := assembleQueueCleaner(&cleanerConfig{}, testQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := qc.retrieveAndClean(context.TODO(), queueName)
 
@@ -1059,24 +1059,24 @@ func TestQueueCleanerRetrieveAndClean(t *testing.T) {
 		}
 		t.Log("\twhen clear is successful on target queue that previously contained at least one element")
 		{
-			dummyQueue := make(chan string, 2)
-			dummyQueue <- "my-value"
-			dummyQueue <- "my-other-value"
+			testQueue := make(chan string, 2)
+			testQueue <- "my-value"
+			testQueue <- "my-other-value"
 
 			queueName := "awesome-queue"
 			testQueues := map[string]*testHzQueue{
-				queueName: {data: dummyQueue},
+				queueName: {data: testQueue},
 			}
-			dummyQueueStore := &testHzQueueStore{queues: testQueues}
+			testQueueStore := &testHzQueueStore{queues: testQueues}
 
 			ct := &testCleanedTracker{}
-			qc := assembleQueueCleaner(&cleanerConfig{}, dummyQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, ct)
+			qc := assembleQueueCleaner(&cleanerConfig{}, testQueueStore, &testHzMapStore{}, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, ct)
 
-			sizeDummyQueueBeforeClear := len(dummyQueue)
+			sizeTestQueueBeforeClear := len(testQueue)
 			numCleaned, err := qc.retrieveAndClean(context.TODO(), queueName)
 
 			msg := "\t\treported number of cleaned elements in data structure must be equal to size of target queue before eviction"
-			if numCleaned == sizeDummyQueueBeforeClear {
+			if numCleaned == sizeTestQueueBeforeClear {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
@@ -1106,8 +1106,8 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 	{
 		t.Log("\twhen get payload map operation yields error")
 		{
-			dummyMapStore := &testHzMapStore{returnErrorUponGetPayloadMap: true}
-			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			testMapStore := &testHzMapStore{returnErrorUponGetPayloadMap: true}
+			mc := assembleMapCleaner(&cleanerConfig{}, testMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), "blubb")
 
@@ -1131,9 +1131,9 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 			testMaps := map[string]*testHzMap{
 				mapName: {returnErrorUponSize: true},
 			}
-			dummyMapStore := &testHzMapStore{maps: testMaps}
+			testMapStore := &testHzMapStore{maps: testMaps}
 
-			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			mc := assembleMapCleaner(&cleanerConfig{}, testMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), mapName)
 
@@ -1155,18 +1155,18 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 		t.Log("\twhen target map contains zero entries")
 		{
 			mapName := "another-awesome-map"
-			dummyData := map[string]any{}
+			testData := map[string]any{}
 			testMaps := map[string]*testHzMap{
-				mapName: {data: dummyData},
+				mapName: {data: testData},
 			}
-			dummyMapStore := &testHzMapStore{maps: testMaps}
+			testMapStore := &testHzMapStore{maps: testMaps}
 
-			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			mc := assembleMapCleaner(&cleanerConfig{}, testMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), mapName)
 
 			msg := "\t\tnumber of cleaned elements must be reported to be zero"
-			if numCleaned == len(dummyData) {
+			if numCleaned == len(testData) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
@@ -1189,16 +1189,16 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 		}
 		t.Log("\twhen evict all on target map yields error")
 		{
-			dummyMap := map[string]any{
+			testMap := map[string]any{
 				"blubb": "blubbi",
 			}
 			mapName := "yet-another-awesome-map"
 			testMaps := map[string]*testHzMap{
-				mapName: {data: dummyMap, returnErrorUponEvictAll: true},
+				mapName: {data: testMap, returnErrorUponEvictAll: true},
 			}
-			dummyMapStore := &testHzMapStore{maps: testMaps}
+			testMapStore := &testHzMapStore{maps: testMaps}
 
-			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
+			mc := assembleMapCleaner(&cleanerConfig{}, testMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, &testCleanedTracker{})
 
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), mapName)
 
@@ -1218,24 +1218,24 @@ func TestMapCleanerRetrieveAndClean(t *testing.T) {
 		}
 		t.Log("\twhen evict all is successful on target map that previously contained at least one element")
 		{
-			dummyMap := map[string]any{
+			testMap := map[string]any{
 				"blubba": "blubbo",
 				"blubbi": "blubbe",
 			}
 			mapName := "super-cool-awesome-map"
 			testMaps := map[string]*testHzMap{
-				mapName: {data: dummyMap},
+				mapName: {data: testMap},
 			}
-			dummyMapStore := &testHzMapStore{maps: testMaps}
+			testMapStore := &testHzMapStore{maps: testMaps}
 
 			ct := &testCleanedTracker{}
-			mc := assembleMapCleaner(&cleanerConfig{}, dummyMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, ct)
+			mc := assembleMapCleaner(&cleanerConfig{}, testMapStore, &testHzObjectInfoStore{}, &testHzClientHandler{}, &testLastCleanedInfoHandler{}, ct)
 
-			lenDummyMapBeforeEviction := len(dummyMap)
+			lenTestMapBeforeEviction := len(testMap)
 			numCleaned, err := mc.retrieveAndClean(context.TODO(), mapName)
 
 			msg := "\t\treported number of cleaned elements in data structure must be equal to size of target map before eviction"
-			if numCleaned == lenDummyMapBeforeEviction {
+			if numCleaned == lenTestMapBeforeEviction {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleaned)
@@ -1418,20 +1418,20 @@ func TestQueueCleanerClean(t *testing.T) {
 				prefixToConsider := "ht_"
 				prefixes := []string{prefixToConsider, "aragorn_"}
 
-				dummyQueueStore := populateDummyQueueStore(numQueueObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+				testQueueStore := populateTestQueueStore(numQueueObjects, prefixes)
+				testObjectInfoStore := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
 
 				// Add object representing map, so we can verify that no attempt was made to retrieve it
 				// The name of this object matches the given predicate, so method under test must use service name to establish
 				// object in question represents map
 				mapObjectName := fmt.Sprintf("%sload-42", prefixToConsider)
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(mapObjectName))
-				dummyQueueStore.queues[mapObjectName] = &testHzQueue{}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newMapObjectInfoFromName(mapObjectName))
+				testQueueStore.queues[mapObjectName] = &testHzQueue{}
 
 				// Add Hazelcast-internal map
 				hzInternalQueueName := "__awesome.internal.queue"
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
-				dummyQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
+				testQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
 					enabled:   true,
@@ -1449,7 +1449,7 @@ func TestQueueCleanerClean(t *testing.T) {
 
 				// Default last cleaned info handler used in place of test variant for this "happy-path" test
 				// in order to increase test integration level by verifying number and kind of invocations performed
-				// on the dummy map store.
+				// on the test map store.
 				cih := &defaultLastCleanedInfoHandler{
 					ms:  ms,
 					ctx: ctx,
@@ -1457,7 +1457,7 @@ func TestQueueCleanerClean(t *testing.T) {
 				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
 				queueCleanersSyncMap.tryLockReturnValue = true
 
-				qc := assembleQueueCleaner(c, dummyQueueStore, ms, dummyObjectInfoStore, ch, cih, tracker)
+				qc := assembleQueueCleaner(c, testQueueStore, ms, testObjectInfoStore, ch, cih, tracker)
 
 				numCleaned, err := qc.CleanAll()
 
@@ -1470,17 +1470,17 @@ func TestQueueCleanerClean(t *testing.T) {
 				}
 
 				msg = "\t\t\tdistributed objects info must have been queried once"
-				if dummyObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
+				if testObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tget queue must have been invoked only on queues whose prefix matches configuration"
-				if dummyQueueStore.getQueueInvocations == numQueueObjects {
+				if testQueueStore.getQueueInvocations == numQueueObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyQueueStore.getQueueInvocations)
+					t.Fatal(msg, ballotX, testQueueStore.getQueueInvocations)
 				}
 
 				msg = "\t\t\tnumber of get map invocations on queue cleaners sync map must be twice the number of payload queues whose name matches given prefix"
@@ -1499,8 +1499,8 @@ func TestQueueCleanerClean(t *testing.T) {
 
 				invokedOnceMsg := "\t\t\tclear must have been invoked on all data structures whose prefix matches configuration"
 				notInvokedMsg := "\t\t\tclear must not have been invoked on data structure that is either not a queue or whose name does not correspond to given prefix"
-				for k, v := range dummyQueueStore.queues {
-					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, dummyObjectInfoStore.objectInfos) == hzQueueService {
+				for k, v := range testQueueStore.queues {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == hzQueueService {
 						if v.clearInvocations == 1 {
 							t.Log(invokedOnceMsg, checkMark, k)
 						} else {
@@ -1570,14 +1570,14 @@ func TestQueueCleanerClean(t *testing.T) {
 				numQueueObjects := 9
 				prefixes := []string{"ht_", "gimli_"}
 
-				dummyQueueStore := populateDummyQueueStore(numQueueObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+				testQueueStore := populateTestQueueStore(numQueueObjects, prefixes)
+				testObjectInfoStore := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
 				hzInternalQueueName := "__awesome.internal.queue"
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
-				dummyQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
+				testQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
 					enabled: true,
@@ -1588,7 +1588,7 @@ func TestQueueCleanerClean(t *testing.T) {
 				cih := &testLastCleanedInfoHandler{
 					shouldCleanAll: true,
 				}
-				qc := assembleQueueCleaner(c, dummyQueueStore, &testHzMapStore{}, dummyObjectInfoStore, ch, cih, tracker)
+				qc := assembleQueueCleaner(c, testQueueStore, &testHzMapStore{}, testObjectInfoStore, ch, cih, tracker)
 
 				numCleaned, err := qc.CleanAll()
 
@@ -1601,15 +1601,15 @@ func TestQueueCleanerClean(t *testing.T) {
 
 				msg = "\t\t\tget all must have been invoked on all maps that are not hazelcast-internal maps"
 				expectedCleaned := numQueueObjects * len(prefixes)
-				if dummyQueueStore.getQueueInvocations == expectedCleaned {
+				if testQueueStore.getQueueInvocations == expectedCleaned {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyQueueStore.getQueueInvocations)
+					t.Fatal(msg, ballotX, testQueueStore.getQueueInvocations)
 				}
 
 				invokedMsg := "\t\t\tclear must have been invoked on all queues that are not hazelcast-internal queues"
 				notInvokedMsg := "\t\t\tclear must not have been invoked on hazelcast-internal queues"
-				for k, v := range dummyQueueStore.queues {
+				for k, v := range testQueueStore.queues {
 					if !strings.HasPrefix(k, hzInternalQueueName) {
 						if v.clearInvocations == 1 {
 							t.Log(invokedMsg, checkMark, k)
@@ -1736,10 +1736,10 @@ func TestQueueCleanerClean(t *testing.T) {
 			numQueueOperations := 9
 			prefixes := []string{"ht_"}
 
-			qs := populateDummyQueueStore(numQueueOperations, prefixes)
+			qs := populateTestQueueStore(numQueueOperations, prefixes)
 			qs.returnErrorUponGetQueue = true
 
-			ois := populateDummyObjectInfos(numQueueOperations, prefixes, hzQueueService)
+			ois := populateTestObjectInfos(numQueueOperations, prefixes, hzQueueService)
 
 			tracker := &testCleanedTracker{}
 
@@ -1792,8 +1792,8 @@ func TestQueueCleanerClean(t *testing.T) {
 			numQueueObjects := 9
 			prefixes := []string{"ht_"}
 
-			qs := populateDummyQueueStore(numQueueObjects, prefixes)
-			ois := populateDummyObjectInfos(numQueueObjects, prefixes, hzQueueService)
+			qs := populateTestQueueStore(numQueueObjects, prefixes)
+			ois := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
 
 			erroneousClearMapName := "ht_load-0"
 			qs.queues[erroneousClearMapName].returnErrorUponClear = true
@@ -1930,20 +1930,20 @@ func TestMapCleanerClean(t *testing.T) {
 				prefixToConsider := "ht_"
 				prefixes := []string{prefixToConsider, "gimli_"}
 
-				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+				testMapStore := populateTestMapStore(numMapObjects, prefixes)
+				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add object representing queue, so we can verify that no attempt was made to retrieve it
 				// The name of this object matches the given predicate, so method under test must use service name to establish
 				// object in question represents queue
 				queueObjectName := fmt.Sprintf("%sload-42", prefixToConsider)
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(queueObjectName))
-				dummyMapStore.maps[queueObjectName] = &testHzMap{data: make(map[string]any)}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(queueObjectName))
+				testMapStore.maps[queueObjectName] = &testHzMap{data: make(map[string]any)}
 
 				// Add Hazelcast-internal map
 				hzInternalMapName := "__sql.catalog"
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
-				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
+				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
 					enabled:   true,
@@ -1955,16 +1955,16 @@ func TestMapCleanerClean(t *testing.T) {
 				ctx := context.TODO()
 				// Default last cleaned info handler used in place of test variant for this "happy-path" test
 				// in order to increase test integration level by verifying number and kind of invocations performed
-				// on the dummy map store.
+				// on the test map store.
 				cih := &defaultLastCleanedInfoHandler{
-					ms:  dummyMapStore,
+					ms:  testMapStore,
 					ctx: ctx,
 				}
 
 				tracker := &testCleanedTracker{}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
+				mc := assembleMapCleaner(c, testMapStore, testObjectInfoStore, ch, cih, tracker)
 
-				mapCleanersSyncMap := dummyMapStore.maps[mapCleanersSyncMapName]
+				mapCleanersSyncMap := testMapStore.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.tryLockReturnValue = true
 
 				numCleaned, err := mc.CleanAll()
@@ -1978,37 +1978,37 @@ func TestMapCleanerClean(t *testing.T) {
 				}
 
 				msg = "\t\t\tdistributed objects info must have been queried once"
-				if dummyObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
+				if testObjectInfoStore.getDistributedObjectInfoInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tget map must have been invoked only on payload maps whose prefix matches configuration"
-				if dummyMapStore.getMapInvocationsPayloadMap == numMapObjects {
+				if testMapStore.getMapInvocationsPayloadMap == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocationsPayloadMap)
+					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsPayloadMap)
 				}
 
 				msg = "\t\t\tnumber of get map invocations on map cleaners sync map must be twice the number of payload maps whose name matches prefix"
-				if dummyMapStore.getMapInvocationsMapsSyncMap == numMapObjects*2 {
+				if testMapStore.getMapInvocationsMapsSyncMap == numMapObjects*2 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocationsMapsSyncMap)
+					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsMapsSyncMap)
 				}
 
 				msg = "\t\t\tthere must be no get map invocations on queue cleaners sync map"
-				if dummyMapStore.getMapInvocationsQueueSyncMap == 0 {
+				if testMapStore.getMapInvocationsQueueSyncMap == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocationsQueueSyncMap)
+					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsQueueSyncMap)
 				}
 
 				invokedOnceMsg := "\t\t\tevict all must have been invoked on all maps whose prefix matches configuration"
 				notInvokedMsg := "\t\t\tevict all must not have been invoked on data structure that is either not a map or whose name does not correspond to given prefix"
-				for k, v := range dummyMapStore.maps {
-					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, dummyObjectInfoStore.objectInfos) == hzMapService {
+				for k, v := range testMapStore.maps {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == hzMapService {
 						if v.evictAllInvocations == 1 {
 							t.Log(invokedOnceMsg, checkMark, k)
 						} else {
@@ -2078,15 +2078,15 @@ func TestMapCleanerClean(t *testing.T) {
 				numMapObjects := 9
 				prefixes := []string{"ht_", "gimli_"}
 
-				dummyMapStore := populateDummyMapStore(numMapObjects, prefixes)
-				dummyObjectInfoStore := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+				testMapStore := populateTestMapStore(numMapObjects, prefixes)
+				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
 
 				hzInternalMapName := hzInternalDataStructurePrefix + "sql.catalog"
-				dummyObjectInfoStore.objectInfos = append(dummyObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
-				dummyMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
+				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
+				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
 					enabled: true,
@@ -2097,7 +2097,7 @@ func TestMapCleanerClean(t *testing.T) {
 				cih := &testLastCleanedInfoHandler{
 					shouldCleanAll: true,
 				}
-				mc := assembleMapCleaner(c, dummyMapStore, dummyObjectInfoStore, ch, cih, tracker)
+				mc := assembleMapCleaner(c, testMapStore, testObjectInfoStore, ch, cih, tracker)
 
 				numCleaned, err := mc.CleanAll()
 
@@ -2110,15 +2110,15 @@ func TestMapCleanerClean(t *testing.T) {
 
 				msg = "\t\t\tget all must have been invoked on all maps that are not hazelcast-internal maps"
 				expectedCleaned := numMapObjects * len(prefixes)
-				if dummyMapStore.getMapInvocationsPayloadMap == expectedCleaned {
+				if testMapStore.getMapInvocationsPayloadMap == expectedCleaned {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, dummyMapStore.getMapInvocationsPayloadMap)
+					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsPayloadMap)
 				}
 
 				invokedMsg := "\t\t\tevict all must have been invoked on all maps that are not hazelcast-internal maps"
 				notInvokedMsg := "\t\t\tevict all must not have been invoked on hazelcast-internal maps"
-				for k, v := range dummyMapStore.maps {
+				for k, v := range testMapStore.maps {
 					if !strings.HasPrefix(k, hzInternalDataStructurePrefix) {
 						if v.evictAllInvocations == 1 {
 							t.Log(invokedMsg, checkMark, k)
@@ -2242,10 +2242,10 @@ func TestMapCleanerClean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 
-			ms := populateDummyMapStore(numMapObjects, prefixes)
+			ms := populateTestMapStore(numMapObjects, prefixes)
 			ms.returnErrorUponGetPayloadMap = true
 
-			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				shouldCleanAll: true,
@@ -2297,8 +2297,8 @@ func TestMapCleanerClean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 
-			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+			ms := populateTestMapStore(numMapObjects, prefixes)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			erroneousEvictAllMapName := "ht_load-0"
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
@@ -2370,8 +2370,8 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
-			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+			ms := populateTestMapStore(numMapObjects, prefixes)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			numMapsToBeCleaned := 3
 			cih := &testLastCleanedInfoHandler{
@@ -2417,8 +2417,8 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
-			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+			ms := populateTestMapStore(numMapObjects, prefixes)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				returnErrorUponCheck: true,
@@ -2465,8 +2465,8 @@ func TestMapCleanerClean(t *testing.T) {
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
-			ms := populateDummyMapStore(numMapObjects, prefixes)
-			ois := populateDummyObjectInfos(numMapObjects, prefixes, hzMapService)
+			ms := populateTestMapStore(numMapObjects, prefixes)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				shouldCleanAll:        true,
@@ -2563,7 +2563,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 		t.Log("\twhen populate config is successful")
 		{
 			b := newQueueCleanerBuilder()
-			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(queueCleanerBasePath)}
+			b.cfb.a = &testConfigPropertyAssigner{testConfig: assembleTestConfig(queueCleanerBasePath)}
 
 			tch := &testHzClientHandler{}
 			g := status.NewGatherer()
@@ -2687,7 +2687,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 		t.Log("\twhen populate config is successful")
 		{
 			b := newMapCleanerBuilder()
-			b.cfb.a = &testConfigPropertyAssigner{dummyConfig: assembleTestConfig(mapCleanerBasePath)}
+			b.cfb.a = &testConfigPropertyAssigner{testConfig: assembleTestConfig(mapCleanerBasePath)}
 
 			tch := &testHzClientHandler{}
 			g := status.NewGatherer()
@@ -2970,14 +2970,14 @@ func newQueueObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleO
 	}
 }
 
-func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *testHzQueueStore {
+func populateTestQueueStore(numQueueObjects int, objectNamePrefixes []string) *testHzQueueStore {
 
 	testQueues := make(map[string]*testHzQueue)
 
 	for i := 0; i < numQueueObjects; i++ {
 		for _, v := range objectNamePrefixes {
 			ch := make(chan string, 9)
-			ch <- "awesome-dummy-value"
+			ch <- "awesome-test-value"
 			testQueues[fmt.Sprintf("%sload-%d", v, i)] = &testHzQueue{
 				data: ch,
 			}
@@ -2990,14 +2990,14 @@ func populateDummyQueueStore(numQueueObjects int, objectNamePrefixes []string) *
 
 }
 
-func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
+func populateTestMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
 
 	testMaps := make(map[string]*testHzMap)
 
 	for i := 0; i < numMapObjects; i++ {
 		for _, v := range objectNamePrefixes {
 			m := map[string]any{
-				"awesome-dummy-key": "awesome-dummy-value",
+				"awesome-test-key": "awesome-test-value",
 			}
 			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: m}
 		}
@@ -3009,7 +3009,7 @@ func populateDummyMapStore(numMapObjects int, objectNamePrefixes []string) *test
 
 }
 
-func populateDummyObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
+func populateTestObjectInfos(numObjects int, objectNamePrefixes []string, hzServiceName string) *testHzObjectInfoStore {
 
 	var objectInfos []hazelcastwrapper.ObjectInfo
 	for i := 0; i < numObjects; i++ {

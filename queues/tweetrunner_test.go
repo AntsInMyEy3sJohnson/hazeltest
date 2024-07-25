@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-type dummyTweetRunnerTestLoop struct{}
+type testTweetRunnerTestLoop struct{}
 
-func (d dummyTweetRunnerTestLoop) init(_ *testLoopExecution[tweet], _ sleeper, _ *status.Gatherer) {
+func (d testTweetRunnerTestLoop) init(_ *testLoopExecution[tweet], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 
-func (d dummyTweetRunnerTestLoop) run() {
+func (d testTweetRunnerTestLoop) run() {
 	// No-op
 }
 
@@ -25,9 +25,9 @@ func TestRunTweetQueueTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
-				dummyConfig: nil,
+				testConfig:  nil,
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
@@ -59,11 +59,11 @@ func TestRunTweetQueueTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"queueTests.tweets.enabled": false,
 				},
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
@@ -90,11 +90,11 @@ func TestRunTweetQueueTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"queueTests.tweets.enabled": true,
 				},
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: dummyHzQueueStore{}, l: dummyTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

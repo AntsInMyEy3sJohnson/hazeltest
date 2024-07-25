@@ -12,28 +12,28 @@ import (
 type (
 	testConfigPropertyAssigner struct {
 		returnError bool
-		dummyConfig map[string]any
+		testConfig  map[string]any
 	}
-	dummyHzQueueStore struct {
-		q        *dummyHzQueue
-		behavior *dummyQueueStoreBehavior
+	testHzQueueStore struct {
+		q        *testHzQueue
+		behavior *testQueueStoreBehavior
 	}
-	dummyHzQueue struct {
+	testHzQueue struct {
 		queueCapacity                int
 		data                         *list.List
 		putInvocations               int
 		pollInvocations              int
 		destroyInvocations           int
 		remainingCapacityInvocations int
-		behavior                     *dummyQueueStoreBehavior
+		behavior                     *testQueueStoreBehavior
 	}
 )
 
-func (d *dummyHzQueue) Clear(_ context.Context) error {
+func (d *testHzQueue) Clear(_ context.Context) error {
 	return nil
 }
 
-func (d *dummyHzQueue) Size(_ context.Context) (int, error) {
+func (d *testHzQueue) Size(_ context.Context) (int, error) {
 	return 0, nil
 }
 
@@ -49,22 +49,22 @@ var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
 	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
-	dummyQueueOperationLock  sync.Mutex
+	testQueueOperationLock   sync.Mutex
 )
 
-type dummyQueueStoreBehavior struct {
+type testQueueStoreBehavior struct {
 	returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut, returnErrorUponPoll bool
 }
 
-func (d dummyHzQueueStore) Shutdown(_ context.Context) error {
+func (d testHzQueueStore) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d dummyHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+func (d testHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	// No-op
 }
 
-func (d dummyHzQueueStore) GetQueue(_ context.Context, _ string) (hazelcastwrapper.Queue, error) {
+func (d testHzQueueStore) GetQueue(_ context.Context, _ string) (hazelcastwrapper.Queue, error) {
 	if d.behavior.returnErrorUponGetQueue {
 		return nil, errors.New("it is but a scratch")
 	}
@@ -77,7 +77,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 		return errors.New("lo and behold, here is a deliberately thrown error")
 	}
 
-	if value, ok := a.dummyConfig[keyPath]; ok {
+	if value, ok := a.testConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
 			return err
 		}
@@ -87,10 +87,10 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 	return nil
 }
 
-func (d *dummyHzQueue) Put(_ context.Context, element any) error {
+func (d *testHzQueue) Put(_ context.Context, element any) error {
 
-	dummyQueueOperationLock.Lock()
-	defer dummyQueueOperationLock.Unlock()
+	testQueueOperationLock.Lock()
+	defer testQueueOperationLock.Unlock()
 
 	d.putInvocations++
 
@@ -104,10 +104,10 @@ func (d *dummyHzQueue) Put(_ context.Context, element any) error {
 
 }
 
-func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
+func (d *testHzQueue) Poll(_ context.Context) (any, error) {
 
-	dummyQueueOperationLock.Lock()
-	defer dummyQueueOperationLock.Unlock()
+	testQueueOperationLock.Lock()
+	defer testQueueOperationLock.Unlock()
 
 	d.pollInvocations++
 
@@ -129,10 +129,10 @@ func (d *dummyHzQueue) Poll(_ context.Context) (any, error) {
 
 }
 
-func (d *dummyHzQueue) RemainingCapacity(_ context.Context) (int, error) {
+func (d *testHzQueue) RemainingCapacity(_ context.Context) (int, error) {
 
-	dummyQueueOperationLock.Lock()
-	defer dummyQueueOperationLock.Unlock()
+	testQueueOperationLock.Lock()
+	defer testQueueOperationLock.Unlock()
 
 	d.remainingCapacityInvocations++
 
@@ -153,13 +153,13 @@ func (d *dummyHzQueue) RemainingCapacity(_ context.Context) (int, error) {
 
 }
 
-func (d *dummyHzQueue) Destroy(_ context.Context) error {
+func (d *testHzQueue) Destroy(_ context.Context) error {
 
-	dummyQueueOperationLock.Lock()
+	testQueueOperationLock.Lock()
 	{
 		d.destroyInvocations++
 	}
-	dummyQueueOperationLock.Unlock()
+	testQueueOperationLock.Unlock()
 
 	return nil
 
