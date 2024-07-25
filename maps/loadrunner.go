@@ -64,7 +64,7 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(ctx context.Context, hzMember string, hzCluster []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
+func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -94,7 +94,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzMember string, hzCluster
 
 	r.appendState(assignTestLoopComplete)
 
-	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzMember, hzCluster)
+	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
