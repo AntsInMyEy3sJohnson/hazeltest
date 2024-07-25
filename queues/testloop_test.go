@@ -720,9 +720,9 @@ func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStor
 
 }
 
-func assembleTestLoopConfig(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig) testLoopConfig[string] {
+func assembleTestLoopConfig(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig) testLoopExecution[string] {
 
-	return testLoopConfig[string]{
+	return testLoopExecution[string]{
 		id:           id,
 		source:       source,
 		hzQueueStore: qs,
