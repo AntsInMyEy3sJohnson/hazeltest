@@ -38,6 +38,8 @@ type (
 	testHzClientHandler struct {
 		hzClient            *hazelcast.Client
 		shutdownInvocations int
+		hzClusterName       string
+		hzClusterMembers    []string
 	}
 	testHzMapStore struct {
 		maps                                                                                     map[string]*testHzMap
@@ -88,6 +90,14 @@ type (
 		numInvocations int
 	}
 )
+
+func (ch *testHzClientHandler) GetClusterName() string {
+	return ch.hzClusterName
+}
+
+func (ch *testHzClientHandler) GetClusterMembers() []string {
+	return ch.hzClusterMembers
+}
 
 func (qs *testHzQueueStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	// No-op
