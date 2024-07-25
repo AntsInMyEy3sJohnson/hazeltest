@@ -2,6 +2,7 @@ package maps
 
 import (
 	"fmt"
+	"hazeltest/hazelcastwrapper"
 	"strings"
 	"testing"
 )
@@ -47,6 +48,9 @@ var (
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
+	}
+	initTestMapStore initMapStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+		return &testHzMapStore{}
 	}
 )
 

@@ -20,8 +20,10 @@ type (
 	}
 	dummyHzClientHandler struct {
 		getClientInvocations, initClientInvocations, shutdownInvocations int
+		hzClusterName                                                    string
+		hzClusterMembers                                                 []string
 	}
-	dummyHzMapStore struct {
+	testHzMapStore struct {
 		m                     *dummyHzMap
 		returnErrorUponGetMap bool
 	}
@@ -54,6 +56,14 @@ type (
 		bm                         *boundaryMonitoring
 	}
 )
+
+func (d dummyHzClientHandler) GetClusterName() string {
+	return d.hzClusterName
+}
+
+func (d dummyHzClientHandler) GetClusterMembers() []string {
+	return d.hzClusterMembers
+}
 
 func (d dummyHzClientHandler) GetClient() *hazelcast.Client {
 	d.getClientInvocations++
@@ -116,15 +126,15 @@ func latestStatePresentInGatherer(g *status.Gatherer, desiredState runnerState) 
 
 }
 
-func (d dummyHzMapStore) Shutdown(_ context.Context) error {
+func (d testHzMapStore) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+func (d testHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	// No-op
 }
 
-func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hazelcastwrapper.Map, error) {
+func (d testHzMapStore) GetMap(_ context.Context, _ string) (hazelcastwrapper.Map, error) {
 	if d.returnErrorUponGetMap {
 		return nil, errors.New("i was told to throw an error")
 	}

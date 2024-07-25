@@ -1,6 +1,7 @@
 package maps
 
 import (
+	"context"
 	"hazeltest/status"
 	"testing"
 )
@@ -91,12 +92,12 @@ func TestRunPokedexMapTests(t *testing.T) {
 				returnError: true,
 				dummyConfig: nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
 			go gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
@@ -129,12 +130,12 @@ func TestRunPokedexMapTests(t *testing.T) {
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: dummyPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
@@ -165,14 +166,14 @@ func TestRunPokedexMapTests(t *testing.T) {
 				assigner:        assigner,
 				stateList:       []runnerState{},
 				hzClientHandler: &dummyHzClientHandler{},
-				hzMapStore:      dummyHzMapStore{},
+				hzMapStore:      testHzMapStore{},
 				l:               dummyPokedexTestLoop{},
 			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {

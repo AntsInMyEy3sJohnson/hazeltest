@@ -46,7 +46,7 @@ func fellowshipMemberName(element any) string {
 
 }
 
-func populateDummyHzMapStore(ms *dummyHzMapStore) {
+func populateDummyHzMapStore(ms *testHzMapStore) {
 
 	mapNumber := uint16(0)
 	// Store all elements from dummy data source in map
@@ -184,7 +184,7 @@ func TestChooseRandomElementFromSourceData(t *testing.T) {
 				},
 			}
 			tl := boundaryTestLoop[pokemon]{
-				execution: &tle,
+				tle: &tle,
 			}
 			selectedElement := tl.chooseRandomElementFromSourceData()
 
@@ -208,7 +208,7 @@ func TestChooseNextMapElement(t *testing.T) {
 			t.Log("\t\twhen source data contains elements, but not all of them have been stored in the cache yet")
 			{
 				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
+					tle: &testLoopExecution[string]{
 						elements: theFellowship,
 						getElementIdFunc: func(element any) string {
 							return element.(string)
@@ -243,7 +243,7 @@ func TestChooseNextMapElement(t *testing.T) {
 			t.Log("\t\twhen all elements of source data have been stored in cache")
 			{
 				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
+					tle: &testLoopExecution[string]{
 						elements: []string{
 							theFellowship[0],
 						},
@@ -286,7 +286,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				{
 					elementInSourceData := theFellowship[0]
 					tl := boundaryTestLoop[string]{
-						execution: &testLoopExecution[string]{
+						tle: &testLoopExecution[string]{
 							elements: []string{
 								elementInSourceData,
 							},
@@ -315,7 +315,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				{
 					elementInSourceData := theFellowship[0]
 					tl := boundaryTestLoop[string]{
-						execution: &testLoopExecution[string]{
+						tle: &testLoopExecution[string]{
 							elements: []string{
 								elementInSourceData,
 							},
@@ -351,7 +351,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				t.Log("\t\twhen mismatch between source data and state in cache has occurred")
 				{
 					tl := boundaryTestLoop[string]{
-						execution: &testLoopExecution[string]{
+						tle: &testLoopExecution[string]{
 							elements: theFellowship,
 							getElementIdFunc: func(element any) string {
 								return "So you have chosen... death."
@@ -386,7 +386,7 @@ func TestChooseNextMapElement(t *testing.T) {
 		t.Log("\twhen unknown map action is provided")
 		{
 			tl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -521,7 +521,7 @@ func TestRunWrapper(t *testing.T) {
 			ms := assembleDummyMapStore(&dummyMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
 			go tl.gatherer.Listen()
-			runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+			runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
 			}, func(h hazelcastwrapper.Map, s string, u uint16) {
 				// No-op
@@ -580,7 +580,7 @@ func TestRunWrapper(t *testing.T) {
 				populateDummyHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
-				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
 				}, func(h hazelcastwrapper.Map, s string, u uint16) {
 					// No-op
@@ -629,7 +629,7 @@ func TestRunWrapper(t *testing.T) {
 
 				go tl.gatherer.Listen()
 				runFuncCalled := false
-				runWrapper(tl.execution, tl.gatherer, func(config *runnerConfig, u uint16) string {
+				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
 				}, func(h hazelcastwrapper.Map, s string, u uint16) {
 					runFuncCalled = true
@@ -1310,7 +1310,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen currently stored number of elements is less than lower boundary")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1337,7 +1337,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen currently stored number of elements matches lower boundary")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1365,7 +1365,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen the currently stored number of elements is in between the lower and the upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1393,7 +1393,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen the currently stored number of elements is equal to the upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1421,7 +1421,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen the currently stored number of elements is greater than the upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1446,7 +1446,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen the currently stored number of elements is zero and the current mode is unset")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1472,7 +1472,7 @@ func TestCheckForModeChange(t *testing.T) {
 		t.Log("\twhen currently stored number of elements is greater than zero and current mode is unset")
 		{
 			btl := boundaryTestLoop[string]{
-				execution: &testLoopExecution[string]{
+				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
@@ -1676,7 +1676,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 			{
 				mapNumber := uint16(0)
 				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
+					tle: &testLoopExecution[string]{
 						ctx: context.TODO(),
 					},
 				}
@@ -1735,7 +1735,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 			{
 				mapNumber := uint16(0)
 				tl := boundaryTestLoop[string]{
-					execution: &testLoopExecution[string]{
+					tle: &testLoopExecution[string]{
 						ctx: context.TODO(),
 					},
 				}
@@ -2226,7 +2226,7 @@ type testSleeper struct {
 	sleepInvoked bool
 }
 
-func (s *testSleeper) sleep(_ *sleepConfig, _ evaluateTimeToSleep) {
+func (s *testSleeper) sleep(_ *sleepConfig, _ evaluateTimeToSleep, _ string) {
 
 	s.sleepInvoked = true
 
@@ -2591,7 +2591,7 @@ func TestIngestAll(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of contains key invocations must be equal to number of elements in source data"
-			expected := len(tl.execution.elements)
+			expected := len(tl.tle.elements)
 			actual := ms.m.containsKeyInvocations
 			if expected == actual {
 				t.Log(msg, checkMark)
@@ -3209,7 +3209,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms
 	return testLoopExecution[string]{
 		id:               id,
 		source:           source,
-		mapStore:         ms,
+		hzMapStore:       ms,
 		runnerConfig:     rc,
 		elements:         theFellowship,
 		ctx:              nil,
@@ -3229,7 +3229,7 @@ type runnerProperties struct {
 	sleepBetweenRuns    *sleepConfig
 }
 
-func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *boundaryMonitoring) dummyHzMapStore {
+func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
 
 	ms := assembleDummyMapStore(b)
 	ms.m.bm = bm
@@ -3238,11 +3238,11 @@ func assembleDummyMapStoreWithBoundaryMonitoring(b *dummyMapStoreBehavior, bm *b
 
 }
 
-func assembleDummyMapStore(b *dummyMapStoreBehavior) dummyHzMapStore {
+func assembleDummyMapStore(b *dummyMapStoreBehavior) testHzMapStore {
 
 	dummyBackend := &sync.Map{}
 
-	return dummyHzMapStore{
+	return testHzMapStore{
 		m: &dummyHzMap{
 			data:                       dummyBackend,
 			returnErrorUponGet:         b.returnErrorUponGet,
