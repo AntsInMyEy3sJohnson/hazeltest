@@ -519,7 +519,7 @@ func TestRunWrapper(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			go tl.gatherer.Listen()
 			runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
@@ -576,7 +576,7 @@ func TestRunWrapper(t *testing.T) {
 					sleepConfigDisabled,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 				populateTestHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
@@ -624,7 +624,7 @@ func TestRunWrapper(t *testing.T) {
 					sleepConfigDisabled,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponEvictAll: true})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 				populateTestHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
@@ -676,7 +676,7 @@ func TestExecuteMapAction(t *testing.T) {
 					42,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 				action := insert
 
 				mapNumber := 0
@@ -741,7 +741,7 @@ func TestExecuteMapAction(t *testing.T) {
 					42,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
@@ -779,7 +779,7 @@ func TestExecuteMapAction(t *testing.T) {
 					42,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 				action := insert
 
 				mapNumber := uint16(0)
@@ -819,7 +819,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
@@ -869,7 +869,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponRemove: true})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				populateTestHzMapStore(&ms)
 
@@ -924,7 +924,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				populateTestHzMapStore(&ms)
 
@@ -968,7 +968,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
@@ -1019,7 +1019,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGet: true})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				populateTestHzMapStore(&ms)
 
@@ -1073,7 +1073,7 @@ func TestExecuteMapAction(t *testing.T) {
 					true,
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				populateTestHzMapStore(&ms)
 
@@ -1115,7 +1115,7 @@ func TestExecuteMapAction(t *testing.T) {
 				true,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			var unknownAction mapAction = "yeeeehaw"
 
 			err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], unknownAction)
@@ -1528,7 +1528,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						true,
 					)
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
-					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
+					tl := assembleBoundaryTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
 					tl.run()
 
@@ -1567,7 +1567,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						true,
 					)
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
-					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
+					tl := assembleBoundaryTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
 					tl.run()
 
@@ -1622,7 +1622,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						true,
 					)
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
-					tl := assembleBoundaryTestLoop(id, testSource, ms, rc)
+					tl := assembleBoundaryTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
 					tl.run()
 
@@ -1647,7 +1647,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						false,
 					)
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
-					tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+					tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 					tl.run()
 
@@ -1978,7 +1978,7 @@ func TestRunOperationChain(t *testing.T) {
 				0,
 				true,
 			)
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			mc := &modeCache{}
 			ac := &actionCache{}
@@ -2052,7 +2052,7 @@ func TestRunOperationChain(t *testing.T) {
 					chainLength,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				mc := &modeCache{}
 				ac := &actionCache{}
@@ -2130,7 +2130,7 @@ func TestRunOperationChain(t *testing.T) {
 					chainLength,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 				mc := &modeCache{}
 				ac := &actionCache{}
@@ -2174,7 +2174,7 @@ func TestRunOperationChain(t *testing.T) {
 				true,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			ts := &testSleeper{}
 			tl.s = ts
@@ -2203,7 +2203,7 @@ func TestRunOperationChain(t *testing.T) {
 				true,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
-			tl := assembleBoundaryTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			ts := &testSleeper{}
 			tl.s = ts
@@ -2251,7 +2251,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(id, testSource, ms, rc)
+			tl := assembleBatchTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			tl.run()
@@ -2305,7 +2305,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			tl.run()
@@ -2359,7 +2359,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGetMap: true})
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			tl.run()
@@ -2402,7 +2402,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGet: true})
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			tl.run()
@@ -2451,7 +2451,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(id, testSource, ms, rc)
+			tl := assembleBatchTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			tl.run()
@@ -2481,7 +2481,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 				scBetweenActionBatches,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleTestMapStore(&testMapStoreBehavior{}), rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, assembleTestMapStore(&testMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := 0
 			numInvocationsBetweenActionBatches := 0
@@ -2526,7 +2526,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				sleepConfigDisabled,
 				scBetweenActionsBatches,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, assembleTestMapStore(&testMapStoreBehavior{}), rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, assembleTestMapStore(&testMapStoreBehavior{}), rc)
 
 			numInvocationsBetweenRuns := uint32(0)
 			numInvocationsBetweenActionBatches := uint32(0)
@@ -2576,7 +2576,7 @@ func TestIngestAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedInserts: 0,
@@ -2630,7 +2630,7 @@ func TestIngestAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			populateTestHzMapStore(&ms)
 
 			statusRecord := map[statusKey]any{
@@ -2687,7 +2687,7 @@ func TestIngestAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
@@ -2743,7 +2743,7 @@ func TestIngestAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
@@ -2780,7 +2780,7 @@ func TestIngestAll(t *testing.T) {
 				},
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			s := &testSleeper{}
 			tl.s = s
 
@@ -2823,7 +2823,7 @@ func TestReadAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			populateTestHzMapStore(&ms)
 
 			go tl.gatherer.Listen()
@@ -2872,7 +2872,7 @@ func TestReadAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, mapBaseName, 0)
@@ -2909,7 +2909,7 @@ func TestReadAll(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
 
@@ -2958,7 +2958,7 @@ func TestReadAll(t *testing.T) {
 				},
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			populateTestHzMapStore(&ms)
 
 			s := &testSleeper{}
@@ -3002,7 +3002,7 @@ func TestRemoveSome(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			populateTestHzMapStore(&ms)
 
@@ -3042,7 +3042,7 @@ func TestRemoveSome(t *testing.T) {
 				sleepConfigDisabled,
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			populateTestHzMapStore(&ms)
 
@@ -3081,7 +3081,7 @@ func TestRemoveSome(t *testing.T) {
 				},
 				sleepConfigDisabled,
 			)
-			tl := assembleBatchTestLoop(uuid.New(), testSource, ms, rc)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			populateTestHzMapStore(&ms)
 
 			s := &testSleeper{}
@@ -3185,18 +3185,18 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
-func assembleBoundaryTestLoop(id uuid.UUID, source string, ms hazelcastwrapper.MapStore, rc *runnerConfig) boundaryTestLoop[string] {
+func assembleBoundaryTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
-	tle := assembleTestLoopExecution(id, source, rc, ms)
+	tle := assembleTestLoopExecution(id, source, rc, ch, ms)
 	tl := boundaryTestLoop[string]{}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
 	return tl
 }
 
-func assembleBatchTestLoop(id uuid.UUID, source string, ms hazelcastwrapper.MapStore, rc *runnerConfig) batchTestLoop[string] {
+func assembleBatchTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore, rc *runnerConfig) batchTestLoop[string] {
 
-	tle := assembleTestLoopExecution(id, source, rc, ms)
+	tle := assembleTestLoopExecution(id, source, rc, ch, ms)
 	tl := batchTestLoop[string]{}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
@@ -3204,11 +3204,12 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ms hazelcastwrapper.MapS
 
 }
 
-func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
+func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
 		id:               id,
 		source:           source,
+		hzClientHandler:  ch,
 		hzMapStore:       ms,
 		runnerConfig:     rc,
 		elements:         theFellowship,
