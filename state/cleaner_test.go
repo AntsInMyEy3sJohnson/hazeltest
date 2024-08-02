@@ -279,7 +279,11 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hazelcastwrapp
 		return nil, getPayloadMapError
 	}
 
-	return ms.maps[name], nil
+	if v, exists := ms.maps[name]; exists {
+		return v, nil
+	} else {
+		return nil, nil
+	}
 
 }
 
@@ -1926,6 +1930,128 @@ func TestRunGenericSingleClean(t *testing.T) {
 		}
 	}
 
+}
+
+func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
+
+	t.Log("given a target map in a target Hazelcast cluster to be retrieved and cleaned")
+	{
+		t.Log("\twhen get payload map is unsuccessful")
+		{
+			prefix := "ht_"
+			ms := populateTestMapStore(1, []string{prefix})
+			ms.returnErrorUponGetPayloadMap = true
+
+			mc := &DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: nil,
+			}
+
+			err := mc.retrieveAndClean(prefix + "load-0")
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, getPayloadMapError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tget map must have been invoked once"
+			if ms.getMapInvocationsPayloadMap == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocationsPayloadMap)
+			}
+		}
+
+		t.Log("\twhen get payload map itself is successful, but map is nil")
+		{
+			ms := populateTestMapStore(0, []string{})
+
+			mc := &DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: nil,
+			}
+
+			err := mc.retrieveAndClean("blubbi")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen get payload map is successful and retrieved map is non-nil, but evict yields error")
+		{
+
+			prefix := "ht_"
+			ms := populateTestMapStore(1, []string{prefix})
+
+			payloadMapName := prefix + "load-0"
+			payloadMap := ms.maps[payloadMapName]
+			payloadMap.returnErrorUponEvictAll = true
+
+			mc := &DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: nil,
+			}
+
+			err := mc.retrieveAndClean(payloadMapName)
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, mapEvictAllError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tevict all on payload map must have been attempted once"
+			if payloadMap.evictAllInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen get payload map is successful, retrieved map is non-nil, and evict does not yield error")
+		{
+
+			prefix := "ht_"
+			ms := populateTestMapStore(1, []string{prefix})
+
+			mc := &DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: nil,
+			}
+
+			payloadMapName := prefix + "load-0"
+			err := mc.retrieveAndClean(payloadMapName)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			payloadMap := ms.maps[payloadMapName]
+
+			msg = "\t\tevict all on payload map must have been attempted once"
+			if payloadMap.evictAllInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+	}
 }
 
 func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
