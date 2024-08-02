@@ -160,7 +160,8 @@ const (
 	hzQueueService                = "hz:impl:queueService"
 	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
 	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
-	cleanAgainThresholdMs         = 600_000
+	// TODO Read this value from config
+	cleanAgainThresholdMs = 600_000
 )
 
 var (
@@ -356,7 +357,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 
 	b := DefaultSingleMapCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.ms)
-	numCleaned, err := runGenericClean(
+	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
 		hzMapService,
@@ -489,6 +490,23 @@ func runGenericSingleClean(
 
 }
 
+func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) error {
+
+	mapToClean, err := c.ms.GetMap(c.ctx, payloadMapName)
+
+	if err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		return err
+	}
+
+	if err := mapToClean.EvictAll(c.ctx); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		return err
+	}
+	return nil
+
+}
+
 func (c *DefaultSingleMapCleaner) Clean(name string) error {
 
 	return runGenericSingleClean(
@@ -498,26 +516,13 @@ func (c *DefaultSingleMapCleaner) Clean(name string) error {
 		mapCleanersSyncMapName,
 		name,
 		hzMapService,
-		func(payloadDataStructureName string) error {
-			mapToClean, err := c.ms.GetMap(c.ctx, name)
-
-			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", name, err), hzMapService, log.ErrorLevel)
-				return err
-			}
-
-			if err := mapToClean.EvictAll(c.ctx); err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", name, err), hzMapService, log.ErrorLevel)
-				return err
-			}
-			return nil
-		},
+		c.retrieveAndClean,
 	)
 
 }
 
 // TODO Implement tests for this function
-func runGenericClean(
+func runGenericBatchClean(
 	ctx context.Context,
 	ois hazelcastwrapper.ObjectInfoStore,
 	hzService string,
@@ -638,7 +643,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 	b := DefaultSingleQueueCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.qs, c.ms)
-	numCleaned, err := runGenericClean(
+	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
 		hzQueueService,
