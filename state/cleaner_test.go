@@ -449,13 +449,13 @@ func (cih *testLastCleanedInfoHandler) update(_, _, _ string) error {
 
 }
 
-func (t *testCleanedTracker) addCleanedDataStructure(_ string, _ int) {
+func (t *testCleanedTracker) add(_ string, _ int) {
 
 	t.numInvocations++
 
 }
 
-func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
+func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 
 	t.Log("given a map store containing sync map for map cleaners that needs to be checked for last cleaned info on payload map")
 	{
@@ -834,7 +834,7 @@ func TestDefaultLastCleanedInfoHandlerCheck(t *testing.T) {
 
 }
 
-func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
+func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 
 	t.Log("given a map store containing sync map for map cleaners that needs to be updated with new last cleaned info")
 	{
@@ -954,7 +954,7 @@ func TestDefaultLastCleanedInfoHandlerUpdate(t *testing.T) {
 
 }
 
-func TestAddCleanedDataStructure(t *testing.T) {
+func TestCleanedDataStructureTracker_add(t *testing.T) {
 
 	t.Log("given a status update about a cleaned data structure to be added to the cleaned data structure tracker")
 	{
@@ -967,7 +967,7 @@ func TestAddCleanedDataStructure(t *testing.T) {
 
 			name := "awesome-map"
 			size := 9
-			tracker.addCleanedDataStructure(name, size)
+			tracker.add(name, size)
 
 			g.StopListen()
 
@@ -986,7 +986,7 @@ func TestAddCleanedDataStructure(t *testing.T) {
 
 }
 
-func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
+func TestIdentifyCandidateDataStructures(t *testing.T) {
 
 	t.Log("given information about data structures stored in hazelcast that need to be checked for whether they are susceptible to getting cleaned")
 	{
@@ -1101,7 +1101,11 @@ func TestIdentifyCandidateDataStructuresFromObjectInfo(t *testing.T) {
 
 }
 
-func TestDefaultBatchQueueCleanerClean(t *testing.T) {
+func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
+
+}
+
+func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 
 	t.Log("given a target hazelcast cluster potentially containing queues susceptible to getting cleaned")
 	{
@@ -1613,7 +1617,7 @@ func TestDefaultBatchQueueCleanerClean(t *testing.T) {
 
 }
 
-func TestDefaultBatchMapCleanerClean(t *testing.T) {
+func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 
 	t.Log("given a target hazelcast cluster potentially containing maps susceptible to getting cleaned")
 	{
