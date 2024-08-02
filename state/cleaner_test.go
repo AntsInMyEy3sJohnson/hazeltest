@@ -2251,9 +2251,71 @@ func TestDefaultBatchMapCleanerClean(t *testing.T) {
 
 }
 
-func TestDefaultBatchQueueCleanerBuilderBuild(t *testing.T) {
+func TestDefaultSingleQueueCleanerBuilder_Build(t *testing.T) {
 
-	t.Log("given the properties necessary to assemble a queue cleaner")
+	t.Log("given the capability to build a single queue cleaner")
+	{
+		t.Log("\twhen properties required for build are provided")
+		{
+			ctx := context.TODO()
+			ms := populateTestMapStore(1, []string{})
+			qs := populateTestQueueStore(1, []string{})
+
+			builder := DefaultSingleQueueCleanerBuilder{}
+			cleaner, hzService := builder.Build(ctx, qs, ms)
+
+			msg := "\t\tcleaner must be built"
+			if cleaner != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstring indicating correct Hazelcast service type cleaner refers to must be returned along with cleaner"
+			if hzService == hzQueueService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must have correct type"
+			qc, ok := cleaner.(*DefaultSingleQueueCleaner)
+
+			if ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner must carry correct context"
+			if qc.ctx == ctx {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must carry correct queue store"
+			if qc.qs == qs {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must carry correct map store"
+			if qc.ms == ms {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
+func TestDefaultBatchQueueCleanerBuilder_Build(t *testing.T) {
+
+	t.Log("given the properties necessary to assemble a batch queue cleaner")
 	{
 		t.Log("\twhen populate config is successful")
 		{
@@ -2375,9 +2437,63 @@ func TestDefaultBatchQueueCleanerBuilderBuild(t *testing.T) {
 
 }
 
-func TestDefaultBatchMapCleanerBuilderBuild(t *testing.T) {
+func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 
-	t.Log("given the properties necessary to assemble a map cleaner")
+	t.Log("given the capability to build a single map cleaner")
+	{
+		t.Log("\twhen properties required for build are provided")
+		{
+			ctx := context.TODO()
+			ms := populateTestMapStore(1, []string{})
+
+			builder := DefaultSingleMapCleanerBuilder{}
+			cleaner, hzService := builder.Build(ctx, ms)
+
+			msg := "\t\tcleaner must be built"
+			if cleaner != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstring indicating correct Hazelcast service type cleaner refers to must be returned along with cleaner"
+			if hzService == hzMapService {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must have correct type"
+			mc, ok := cleaner.(*DefaultSingleMapCleaner)
+
+			if ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner must carry correct context"
+			if mc.ctx == ctx {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must carry correct map store"
+			if mc.ms == ms {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
+
+func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
+
+	t.Log("given the properties necessary to assemble a batch map cleaner")
 	{
 		t.Log("\twhen populate config is successful")
 		{
