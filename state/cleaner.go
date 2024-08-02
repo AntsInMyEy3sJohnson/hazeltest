@@ -60,9 +60,29 @@ type (
 	SingleCleaner interface {
 		Clean(name string) error
 	}
+	// SingleMapCleanerBuilder is an interface for encapsulating the capability of assembling map cleaners
+	// implementing the SingleCleaner interface. An interesting detail is perhaps that the Build methods for
+	// single-data-structure cleaners ask for very few values encapsulating knowledge about the target Hazelcast cluster
+	// as well as capability to access it when compared to the batch cleaner's Build methods.
+	// That is because a batch cleaner is much more standalone in terms of its functionality -- basically, a batch
+	// cleaner registers and initializes itself (including a Hazelcast client), and then investigates the
+	// target Hazelcast cluster for data structures to be cleaned all on its own. This requires the batch cleaner
+	// assembled by the builder to have more knowledge about the target Hazelcast cluster (in order to successfully
+	// initialize a working Hazelcast client) as well as substantially more capabilities to assert the current state
+	// of the cluster in terms of the data structures it holds. Cleaners for single-data-structure cleaning, on the
+	// other hand, are told which data structure to clean. Hence, all the work in connecting to the target Hazelcast
+	// cluster and figuring out which data structures there are has already been performed by the caller. Therefore, the
+	// caller must have the knowledge and capability for doing so, and might as well pass both into the single-cleaner
+	// build method. (Aligning the signature of the single-cleaner's Build methods more to those of the batch cleaners
+	// would be possible, but would lead to inefficiency. For example, why would a single cleaner initialize a
+	// new Hazelcast client if the caller already has one?)
 	SingleMapCleanerBuilder interface {
 		Build(ctx context.Context, ms hazelcastwrapper.MapStore) (SingleCleaner, string)
 	}
+	// SingleQueueCleanerBuilder is an interface for encapsulating the capability of assembling queue cleaners
+	// implementing the SingleCleaner interface. Concerning why the Build method asks for so little knowledge about
+	// the target Hazelcast cluster and capabilities for accessing it, the same thoughts as on the
+	// SingleMapCleanerBuilder interface apply.
 	SingleQueueCleanerBuilder interface {
 		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore) SingleCleaner
 	}
@@ -105,7 +125,7 @@ type (
 		update(syncMapName, payloadDataStructureName, hzService string) error
 	}
 	cleanedTracker interface {
-		addCleanedDataStructure(name string, cleaned int)
+		add(name string, cleaned int)
 	}
 	cleanerConfig struct {
 		enabled   bool
@@ -181,7 +201,7 @@ func register(cb BatchCleanerBuilder) {
 	builders = append(builders, cb)
 }
 
-func (t *cleanedDataStructureTracker) addCleanedDataStructure(name string, cleaned int) {
+func (t *cleanedDataStructureTracker) add(name string, cleaned int) {
 
 	t.g.Updates <- status.Update{Key: name, Value: cleaned}
 
