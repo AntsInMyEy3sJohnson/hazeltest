@@ -2596,7 +2596,7 @@ func TestQueueCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			qc := c.(*BatchQueueCleaner)
+			qc := c.(*DefaultBatchQueueCleaner)
 			msg = "\t\tqueue cleaner built must carry context"
 			if qc.ctx != nil {
 				t.Log(msg, checkMark)
@@ -2720,7 +2720,7 @@ func TestMapCleanerBuilderBuild(t *testing.T) {
 				t.Fatal(msg, ballotX, hzService)
 			}
 
-			mc := c.(*BatchMapCleaner)
+			mc := c.(*DefaultBatchMapCleaner)
 			msg = "\t\tmap cleaner built must carry context"
 			if mc.ctx != nil {
 				t.Log(msg, checkMark)
@@ -3047,9 +3047,9 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hazel
 
 }
 
-func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *BatchQueueCleaner {
+func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *DefaultBatchQueueCleaner {
 
-	return &BatchQueueCleaner{
+	return &DefaultBatchQueueCleaner{
 		name:      queueCleanerName,
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
@@ -3065,9 +3065,9 @@ func assembleQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapS
 
 }
 
-func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *BatchMapCleaner {
+func assembleMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *DefaultBatchMapCleaner {
 
-	return &BatchMapCleaner{
+	return &DefaultBatchMapCleaner{
 		name:      mapCleanerName,
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,

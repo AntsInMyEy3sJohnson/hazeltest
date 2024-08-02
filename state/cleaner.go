@@ -21,10 +21,10 @@ type (
 	BatchCleanerBuilder interface {
 		Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error)
 	}
-	BatchMapCleanerBuilder struct {
+	DefaultBatchMapCleanerBuilder struct {
 		cfb cleanerConfigBuilder
 	}
-	BatchMapCleaner struct {
+	DefaultBatchMapCleaner struct {
 		ctx       context.Context
 		name      string
 		hzCluster string
@@ -37,10 +37,10 @@ type (
 		cih       lastCleanedInfoHandler
 		t         cleanedTracker
 	}
-	BatchQueueCleanerBuilder struct {
+	DefaultBatchQueueCleanerBuilder struct {
 		cfb cleanerConfigBuilder
 	}
-	BatchQueueCleaner struct {
+	DefaultBatchQueueCleaner struct {
 		ctx       context.Context
 		name      string
 		hzCluster string
@@ -154,9 +154,9 @@ func init() {
 	lp = &logging.LogProvider{ClientID: client.ID()}
 }
 
-func newMapCleanerBuilder() *BatchMapCleanerBuilder {
+func newMapCleanerBuilder() *DefaultBatchMapCleanerBuilder {
 
-	return &BatchMapCleanerBuilder{
+	return &DefaultBatchMapCleanerBuilder{
 		cfb: cleanerConfigBuilder{
 			keyPath: mapCleanerBasePath,
 			a:       client.DefaultConfigPropertyAssigner{},
@@ -165,9 +165,9 @@ func newMapCleanerBuilder() *BatchMapCleanerBuilder {
 
 }
 
-func newQueueCleanerBuilder() *BatchQueueCleanerBuilder {
+func newQueueCleanerBuilder() *DefaultBatchQueueCleanerBuilder {
 
-	return &BatchQueueCleanerBuilder{
+	return &DefaultBatchQueueCleanerBuilder{
 		cfb: cleanerConfigBuilder{
 			keyPath: queueCleanerBasePath,
 			a:       client.DefaultConfigPropertyAssigner{},
@@ -186,7 +186,7 @@ func (t *cleanedDataStructureTracker) addCleanedDataStructure(name string, clean
 
 }
 
-func (b *BatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -207,7 +207,7 @@ func (b *BatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx 
 	t := &cleanedDataStructureTracker{g}
 	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
-	return &BatchMapCleaner{
+	return &DefaultBatchMapCleaner{
 		ctx:       ctx,
 		name:      clientName,
 		hzCluster: hzCluster,
@@ -322,7 +322,7 @@ func (cih *defaultLastCleanedInfoHandler) update(syncMapName, payloadMapName, hz
 
 }
 
-func (c *BatchMapCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
+func (c *DefaultBatchMapCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
 	m, err := c.ms.GetMap(ctx, name)
 	if err != nil {
 		return 0, err
@@ -341,7 +341,7 @@ func (c *BatchMapCleaner) retrieveAndClean(ctx context.Context, name string) (in
 	return size, nil
 }
 
-func (c *BatchMapCleaner) Clean() (int, error) {
+func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 
 	defer func() {
 		_ = c.ch.Shutdown(c.ctx)
@@ -367,7 +367,7 @@ func (c *BatchMapCleaner) Clean() (int, error) {
 
 }
 
-func (b *BatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -388,7 +388,7 @@ func (b *BatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ct
 	t := &cleanedDataStructureTracker{g}
 	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
 
-	return &BatchQueueCleaner{
+	return &DefaultBatchQueueCleaner{
 		ctx:       ctx,
 		name:      clientName,
 		hzCluster: hzCluster,
@@ -533,7 +533,7 @@ func runGenericClean(
 
 }
 
-func (c *BatchQueueCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
+func (c *DefaultBatchQueueCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
 
 	q, err := c.qs.GetQueue(ctx, name)
 	if err != nil {
@@ -573,7 +573,7 @@ func (c *DefaultSingleQueueCleaner) Clean(_ string) error {
 
 }
 
-func (c *BatchQueueCleaner) Clean() (int, error) {
+func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 	defer func() {
 		_ = c.ch.Shutdown(c.ctx)
