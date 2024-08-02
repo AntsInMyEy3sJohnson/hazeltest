@@ -323,25 +323,6 @@ func (cih *defaultLastCleanedInfoHandler) update(syncMapName, payloadMapName, hz
 
 }
 
-func (c *DefaultBatchMapCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
-	m, err := c.ms.GetMap(ctx, name)
-	if err != nil {
-		return 0, err
-	}
-	size, err := m.Size(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if size == 0 {
-		return 0, nil
-	}
-	if err := m.EvictAll(ctx); err != nil {
-		return 0, err
-	}
-	c.t.addCleanedDataStructure(name, size)
-	return size, nil
-}
-
 func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 
 	defer func() {
@@ -531,27 +512,6 @@ func runGenericClean(
 	}
 
 	return numCleanedDataStructures, nil
-
-}
-
-func (c *DefaultBatchQueueCleaner) retrieveAndClean(ctx context.Context, name string) (int, error) {
-
-	q, err := c.qs.GetQueue(ctx, name)
-	if err != nil {
-		return 0, err
-	}
-	size, err := q.Size(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if size == 0 {
-		return 0, nil
-	}
-	if err := q.Clear(ctx); err != nil {
-		return 0, err
-	}
-	c.t.addCleanedDataStructure(name, size)
-	return size, nil
 
 }
 
