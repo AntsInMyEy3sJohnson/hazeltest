@@ -499,6 +499,12 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) error 
 		return err
 	}
 
+	if mapToClean == nil {
+		msg := fmt.Sprintf("cannot clean '%s' because map retrieved from target Hazelcast cluster was nil", payloadMapName)
+		lp.LogStateCleanerEvent(msg, hzMapService, log.ErrorLevel)
+		return errors.New(msg)
+	}
+
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
 		return err
