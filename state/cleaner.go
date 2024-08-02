@@ -407,7 +407,7 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 
 }
 
-func releaseLock(ctx context.Context, ms hazelcastwrapper.MapStore, lockInfo mapLockInfo) error {
+func releaseLock(ctx context.Context, ms hazelcastwrapper.MapStore, lockInfo mapLockInfo, hzService string) error {
 
 	if lockInfo == emptyMapLockInfo {
 		return nil
@@ -415,12 +415,15 @@ func releaseLock(ctx context.Context, ms hazelcastwrapper.MapStore, lockInfo map
 
 	mapHoldingLock, err := ms.GetMap(ctx, lockInfo.mapName)
 	if err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to retrieve sync map '%s' holding lock for key '%s' due to error: %v", lockInfo.mapName, lockInfo.keyName, err), hzService, log.ErrorLevel)
 		return err
 	}
 	if err := mapHoldingLock.Unlock(ctx, lockInfo.keyName); err != nil {
-		// Logging.
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on sync map '%s' for key '%s' due to error: %v", lockInfo.mapName, lockInfo.keyName, err), hzService, log.ErrorLevel)
+		return err
 	}
 
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.keyName), hzService, log.InfoLevel)
 	return nil
 
 }
@@ -438,50 +441,78 @@ func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcast
 
 }
 
-func (c *DefaultSingleMapCleaner) Clean(name string) error {
+func runGenericSingleClean(
+	ctx context.Context,
+	ms hazelcastwrapper.MapStore,
+	cih lastCleanedInfoHandler,
+	syncMapName, payloadDataStructureName, hzService string,
+	retrieveAndCleanFunc func(payloadDataStructureName string) error,
+) error {
 
-	lockInfo, shouldClean, err := c.cih.check(mapCleanersSyncMapName, name, hzMapService)
+	lockInfo, shouldClean, err := cih.check(syncMapName, payloadDataStructureName, hzService)
 
 	// This defer ensures that the lock on the sync map for the given payload map is always released
 	// no matter the susceptibility of the payload map for cleaning.
 	defer func() {
-		if err := releaseLock(c.ctx, c.ms, lockInfo); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", mapCleanersSyncMapName, name, err), hzMapService, log.ErrorLevel)
+		if err := releaseLock(ctx, ms, lockInfo, hzService); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
 		}
 	}()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", name, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
 
 	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", name), hzMapService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
 		return nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", name), hzMapService, log.InfoLevel)
-	mapToClean, err := c.ms.GetMap(c.ctx, name)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
+	err = retrieveAndCleanFunc(payloadDataStructureName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", name, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
 
-	if err := mapToClean.EvictAll(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", name, err), hzMapService, log.ErrorLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", payloadDataStructureName), hzService, log.InfoLevel)
+
+	if err := cih.update(syncMapName, payloadDataStructureName, hzService); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", name), hzMapService, log.InfoLevel)
-
-	if err := c.cih.update(mapCleanersSyncMapName, name, hzMapService); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", name, err), hzMapService, log.ErrorLevel)
-		return err
-	}
-
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", name), hzMapService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
 	return nil
+
+}
+
+func (c *DefaultSingleMapCleaner) Clean(name string) error {
+
+	return runGenericSingleClean(
+		c.ctx,
+		c.ms,
+		c.cih,
+		mapCleanersSyncMapName,
+		name,
+		hzMapService,
+		func(payloadDataStructureName string) error {
+			mapToClean, err := c.ms.GetMap(c.ctx, name)
+
+			if err != nil {
+				lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", name, err), hzMapService, log.ErrorLevel)
+				return err
+			}
+
+			if err := mapToClean.EvictAll(c.ctx); err != nil {
+				lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", name, err), hzMapService, log.ErrorLevel)
+				return err
+			}
+			return nil
+		},
+	)
 
 }
 
@@ -554,7 +585,7 @@ func (c *DefaultSingleQueueCleaner) Clean(name string) error {
 	lockInfo, shouldClean, err := c.cih.check(queueCleanersSyncMapName, name, hzQueueService)
 
 	defer func() {
-		if err := releaseLock(c.ctx, c.ms, lockInfo); err != nil {
+		if err := releaseLock(c.ctx, c.ms, lockInfo, hzQueueService); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", queueCleanersSyncMapName, name, err), hzQueueService, log.ErrorLevel)
 		}
 	}()
