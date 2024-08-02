@@ -1103,6 +1103,8 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 
 func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 
+	panic("implement me")
+
 }
 
 func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
@@ -1612,6 +1614,279 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, tracker.numInvocations)
 			}
+		}
+	}
+
+}
+
+func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
+
+	t.Log("given a specific map to clean in a target Hazelcast cluster")
+	{
+		t.Log("\twhen should clean check yields error")
+		{
+			ms := populateTestMapStore(1, []string{})
+			cih := &testLastCleanedInfoHandler{
+				returnErrorUponCheck: true,
+			}
+			mc := DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: cih,
+			}
+
+			payloadMapName := "ht_darthvader"
+			err := mc.Clean(payloadMapName)
+
+			msg := "\t\tcorrect error must be returned"
+			if errors.Is(err, lastCleanedInfoCheckError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tlast cleaned info check must have been invoked once"
+			if cih.checkInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cih.checkInvocations)
+			}
+
+			msg = "\t\tlast cleaned info update must not have been invoked"
+			if cih.updateInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cih.updateInvocations)
+			}
+		}
+
+		t.Log("\twhen should clean check is successful and returns negative result")
+		{
+			mapPrefix := "ht_"
+			ms := populateTestMapStore(1, []string{mapPrefix})
+
+			payloadMapName := mapPrefix + "load-0"
+
+			b := DefaultSingleMapCleanerBuilder{}
+			syncMap := ms.maps[mapCleanersSyncMapName]
+			syncMap.data[payloadMapName] = time.Now().UnixNano()
+			syncMap.tryLockReturnValue = true
+
+			// Use builder this time to check proper lock and unlock behavior on sync map based
+			// on defaultLastCleanedInfoHandler embedded in built map cleaner
+			mc, _ := b.Build(context.TODO(), ms)
+
+			err := mc.Clean(payloadMapName)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\ttry lock must have been invoked once on map cleaners sync map"
+
+			if syncMap.tryLockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, syncMap.tryLockInvocations)
+			}
+
+			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+			if syncMap.unlockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+			}
+
+		}
+
+		t.Log("\twhen should clean check is successful and returns positive result, but get map on payload map yields error")
+		{
+
+			mapPrefix := "ht_"
+			ms := populateTestMapStore(1, []string{mapPrefix})
+			ms.returnErrorUponGetPayloadMap = true
+
+			payloadMapName := mapPrefix + "load-0"
+			cih := &testLastCleanedInfoHandler{
+				shouldCleanIndividualMap: map[string]bool{
+					payloadMapName: true,
+				},
+			}
+			mc := DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: cih,
+			}
+
+			err := mc.Clean(payloadMapName)
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, getPayloadMapError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+			syncMap := ms.maps[mapCleanersSyncMapName]
+
+			if syncMap.unlockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+			}
+
+			msg = "\t\tno last cleaned info update must have been performed"
+			if cih.updateInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cih.updateInvocations)
+			}
+
+		}
+
+		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map is successful, too, but evict all on payload map yields error")
+		{
+			mapPrefix := "ht_"
+			ms := populateTestMapStore(1, []string{mapPrefix})
+
+			payloadMapName := mapPrefix + "load-0"
+			payloadMap := ms.maps[payloadMapName]
+			payloadMap.returnErrorUponEvictAll = true
+
+			cih := &testLastCleanedInfoHandler{
+				shouldCleanIndividualMap: map[string]bool{
+					payloadMapName: true,
+				},
+			}
+			mc := DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: cih,
+			}
+
+			err := mc.Clean(payloadMapName)
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, mapEvictAllError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tevict all must have been invoked once on payload map"
+			if payloadMap.evictAllInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
+			}
+
+			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+			syncMap := ms.maps[mapCleanersSyncMapName]
+
+			if syncMap.unlockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+			}
+
+			msg = "\t\tno last cleaned info update must have been performed"
+			if cih.updateInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cih.updateInvocations)
+			}
+
+		}
+	}
+
+	t.Log("\twhen should clean is successful and returns positive result, and get map for payload map and evict all on payload map are successful, but last cleaned info update fails")
+	{
+		mapPrefix := "ht_"
+		ms := populateTestMapStore(1, []string{mapPrefix})
+
+		payloadMapName := mapPrefix + "load-0"
+		cih := &testLastCleanedInfoHandler{
+			shouldCleanIndividualMap: map[string]bool{
+				payloadMapName: true,
+			},
+			returnErrorUponUpdate: true,
+		}
+		mc := DefaultSingleMapCleaner{
+			ctx: context.TODO(),
+			ms:  ms,
+			cih: cih,
+		}
+
+		err := mc.Clean(payloadMapName)
+
+		msg := "\t\terror must be returned"
+		if errors.Is(err, lastCleanedInfoUpdateError) {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+		syncMap := ms.maps[mapCleanersSyncMapName]
+
+		if syncMap.unlockInvocations == 1 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+		}
+
+		msg = "\t\tlast cleaned info update must have been invoked once"
+		if cih.updateInvocations == 1 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, cih.updateInvocations)
+		}
+	}
+
+	t.Log("\twhen should clean is successful and returns positive result, and get map for payload map and evict all on payload map are successful, and last cleaned info update is successful, too")
+	{
+		mapPrefix := "ht_"
+		ms := populateTestMapStore(1, []string{mapPrefix})
+
+		payloadMapName := mapPrefix + "load-0"
+		cih := &testLastCleanedInfoHandler{
+			shouldCleanIndividualMap: map[string]bool{
+				payloadMapName: true,
+			},
+		}
+		mc := DefaultSingleMapCleaner{
+			ctx: context.TODO(),
+			ms:  ms,
+			cih: cih,
+		}
+
+		err := mc.Clean(payloadMapName)
+
+		msg := "\t\tno error must be returned"
+		if err == nil {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX)
+		}
+
+		msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+		syncMap := ms.maps[mapCleanersSyncMapName]
+
+		if syncMap.unlockInvocations == 1 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+		}
+
+		msg = "\t\tlast cleaned info update must have been invoked once"
+		if cih.updateInvocations == 1 {
+			t.Log(msg, checkMark)
+		} else {
+			t.Fatal(msg, ballotX, cih.updateInvocations)
 		}
 	}
 
