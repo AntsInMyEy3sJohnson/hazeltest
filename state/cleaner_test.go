@@ -1619,9 +1619,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 
 }
 
-func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
+func TestRunGenericSingleClean(t *testing.T) {
 
-	t.Log("given a specific map to clean in a target Hazelcast cluster")
+	t.Log("given a specific payload data structure in a target Hazelcast cluster")
 	{
 		t.Log("\twhen should clean check yields error")
 		{
@@ -1636,7 +1636,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 			}
 
 			payloadMapName := "ht_darthvader"
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, lastCleanedInfoCheckError) {
@@ -1675,8 +1675,9 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 			// Use builder this time to check proper lock and unlock behavior on sync map based
 			// on defaultLastCleanedInfoHandler embedded in built map cleaner
 			mc, _ := b.Build(context.TODO(), ms)
+			dmc := mc.(*DefaultSingleMapCleaner)
 
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(dmc.ctx, dmc.ms, dmc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1721,7 +1722,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -1768,7 +1769,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -1820,7 +1821,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, lastCleanedInfoUpdateError) {
@@ -1863,7 +1864,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := mc.Clean(payloadMapName)
+			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1886,6 +1887,99 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
+			}
+		}
+
+		t.Log("\twhen attempt to release lock yields error")
+		{
+			func() {
+				defer func() {
+					msg := "\t\tno panic must have occurred"
+					if r := recover(); r == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, r)
+					}
+				}()
+
+				mapPrefix := "ht_"
+				ms := populateTestMapStore(1, []string{mapPrefix})
+				syncMap := ms.maps[mapCleanersSyncMapName]
+				syncMap.tryLockReturnValue = true
+				syncMap.returnErrorUponUnlock = true
+
+				builder := DefaultSingleMapCleanerBuilder{}
+				mc, _ := builder.Build(context.TODO(), ms)
+
+				dmc := mc.(*DefaultSingleMapCleaner)
+
+				err := runGenericSingleClean(dmc.ctx, dmc.ms, dmc.cih, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}()
+
+		}
+	}
+
+}
+
+func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
+
+	t.Log("given a specific map to clean in a target Hazelcast cluster")
+	{
+		t.Log("\twhen single map cleaner was properly initialized")
+		{
+			t.Log("\t\twhen operation performed in scope of cleaning yields error")
+			{
+				builder := DefaultSingleMapCleanerBuilder{}
+
+				prefix := "ht_"
+				ms := populateTestMapStore(1, []string{prefix})
+				syncMap := ms.maps[mapCleanersSyncMapName]
+
+				// This is the default empty value for a bool anyway, but it's specified here explicitly
+				// to let the reader know what the error in question is.
+				// (The last cleaned info handler will return an error in case acquiring a lock on the sync map
+				// was unsuccessful.)
+				syncMap.tryLockReturnValue = false
+
+				mc, _ := builder.Build(context.TODO(), ms)
+
+				err := mc.Clean(prefix + "load-0")
+
+				msg := "\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+
+			t.Log("\t\twhen all operations performed in scope of cleaning are successful")
+			{
+				builder := DefaultSingleMapCleanerBuilder{}
+
+				prefix := "ht_"
+				ms := populateTestMapStore(1, []string{prefix})
+				syncMap := ms.maps[mapCleanersSyncMapName]
+				syncMap.tryLockReturnValue = true
+
+				mc, _ := builder.Build(context.TODO(), ms)
+
+				err := mc.Clean(prefix + "load-0")
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
 			}
 		}
 	}
