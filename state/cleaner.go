@@ -591,48 +591,40 @@ func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelca
 
 }
 
-func (c *DefaultSingleQueueCleaner) Clean(name string) error {
+func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) error {
 
-	lockInfo, shouldClean, err := c.cih.check(queueCleanersSyncMapName, name, hzQueueService)
-
-	defer func() {
-		if err := releaseLock(c.ctx, c.ms, lockInfo, hzQueueService); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", queueCleanersSyncMapName, name, err), hzQueueService, log.ErrorLevel)
-		}
-	}()
+	queueToClean, err := c.qs.GetQueue(c.ctx, payloadQueueName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", name, err), hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
 		return err
 	}
 
-	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", name), hzQueueService, log.InfoLevel)
-		return nil
-	}
-
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", name), hzQueueService, log.InfoLevel)
-	queueToClean, err := c.qs.GetQueue(c.ctx, name)
-
-	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", name, err), hzQueueService, log.ErrorLevel)
-		return err
+	if queueToClean == nil {
+		msg := fmt.Sprintf("cannot clean '%s' because queue retrieved from target Hazelcast cluster was nil", payloadQueueName)
+		lp.LogStateCleanerEvent(msg, hzQueueService, log.ErrorLevel)
+		return errors.New(msg)
 	}
 
 	if err := queueToClean.Clear(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", name, err), hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
 		return err
 	}
-
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", name), hzQueueService, log.InfoLevel)
-
-	if err := c.cih.update(queueCleanersSyncMapName, name, hzQueueService); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", name, err), hzQueueService, log.ErrorLevel)
-		return err
-	}
-
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", name), hzQueueService, log.InfoLevel)
 	return nil
+
+}
+
+func (c *DefaultSingleQueueCleaner) Clean(name string) error {
+
+	return runGenericSingleClean(
+		c.ctx,
+		c.ms,
+		c.cih,
+		queueCleanersSyncMapName,
+		name,
+		hzQueueService,
+		c.retrieveAndClean,
+	)
 
 }
 
