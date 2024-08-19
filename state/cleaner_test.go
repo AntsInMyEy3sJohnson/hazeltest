@@ -281,9 +281,9 @@ func (ms *testHzMapStore) GetMap(_ context.Context, name string) (hazelcastwrapp
 
 	if v, exists := ms.maps[name]; exists {
 		return v, nil
-	} else {
-		return nil, nil
 	}
+
+	return nil, nil
 
 }
 
@@ -319,7 +319,7 @@ func (q *testHzQueue) Size(_ context.Context) (int, error) {
 
 }
 
-func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hazelcastwrapper.Queue, error) {
+func (qs *testHzQueueStore) GetQueue(_ context.Context, name string) (hazelcastwrapper.Queue, error) {
 
 	qs.getQueueInvocations++
 
@@ -327,7 +327,11 @@ func (qs *testHzQueueStore) GetQueue(_ context.Context, names string) (hazelcast
 		return nil, getQueueError
 	}
 
-	return qs.queues[names], nil
+	if v, exists := qs.queues[name]; exists {
+		return v, nil
+	}
+
+	return nil, nil
 
 }
 
@@ -1100,6 +1104,128 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 				t.Fatal(msg, ballotX, len(candidates))
 			}
 
+		}
+	}
+
+}
+
+func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
+
+	t.Log("given a queue in a target hazelcast cluster to be retrieved and cleaned")
+	{
+		t.Log("\twhen retrieval of queue yields error")
+		{
+			prefix := "ht_"
+			qs := populateTestQueueStore(1, []string{prefix})
+			qs.returnErrorUponGetQueue = true
+
+			qc := &DefaultSingleQueueCleaner{
+				ctx: context.TODO(),
+				ms:  nil,
+				qs:  qs,
+				cih: nil,
+			}
+
+			err := qc.retrieveAndClean("ht_tweets-0")
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, getQueueError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tget queue must have been invoked once"
+			if qs.getQueueInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.getQueueInvocations)
+			}
+
+		}
+		t.Log("\twhen retrieval of queue is successful, but queue is nil")
+		{
+			prefix := "ht_"
+			qs := populateTestQueueStore(1, []string{prefix})
+
+			qc := &DefaultSingleQueueCleaner{
+				ctx: context.TODO(),
+				ms:  nil,
+				qs:  qs,
+				cih: nil,
+			}
+
+			err := qc.retrieveAndClean("blubbo")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen retrieval of non-nil queue is successful, but queue clear operation yields error")
+		{
+			prefix := "ht_"
+			qs := populateTestQueueStore(1, []string{prefix})
+
+			payloadQueueName := prefix + "load-0"
+			payloadQueue := qs.queues[payloadQueueName]
+			payloadQueue.returnErrorUponClear = true
+
+			qc := &DefaultSingleQueueCleaner{
+				ctx: context.TODO(),
+				ms:  nil,
+				qs:  qs,
+				cih: nil,
+			}
+
+			err := qc.retrieveAndClean(payloadQueueName)
+
+			msg := "\t\terror must be returned"
+
+			if errors.Is(err, queueClearError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclear on payload queue must have been attempted once"
+			if payloadQueue.clearInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+			}
+		}
+		t.Log("\twhen retrieval of non-nil queue is successful and queue clear operation does not yield error")
+		{
+			prefix := "ht_"
+			qs := populateTestQueueStore(1, []string{prefix})
+
+			qc := &DefaultSingleQueueCleaner{
+				ctx: context.TODO(),
+				ms:  nil,
+				qs:  qs,
+				cih: nil,
+			}
+
+			payloadQueueName := prefix + "load-0"
+			err := qc.retrieveAndClean(payloadQueueName)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclear on payload queue must have been performed once"
+			payloadQueue := qs.queues[payloadQueueName]
+			if payloadQueue.clearInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+			}
 		}
 	}
 
@@ -1934,7 +2060,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 
-	t.Log("given a target map in a target Hazelcast cluster to be retrieved and cleaned")
+	t.Log("given a map in a target Hazelcast cluster to be retrieved and cleaned")
 	{
 		t.Log("\twhen get payload map is unsuccessful")
 		{
