@@ -122,7 +122,7 @@ type (
 		// update, hence the caller will not invoke update, but the lock must be released nonetheless. Hence, acquiring
 		// and releasing the lock is split between invoker and invoked method.)
 		check(syncMapName, payloadDataStructureName, hzService string) (mapLockInfo, bool, error)
-		update(syncMapName, payloadDataStructureName, hzService string) error
+		update(hzService string, lockInfo mapLockInfo) error
 	}
 	cleanedTracker interface {
 		add(name string, cleaned int)
@@ -137,11 +137,12 @@ type (
 		a       client.ConfigPropertyAssigner
 	}
 	// mapLockInfo exists to signal to the caller of the check method on an implementation of
-	// lastCleanedInfoHandler that the method acquired a lock on a specific map for a specific key
-	// (mapLockInfo.mapName and mapLockInfo.keyName, respectively), so the caller knows it should
-	// try to release the lock.
+	// lastCleanedInfoHandler that the method acquired a lock on the map represented by the map
+	// proxy object contained in the return value (mapLockInfo.m) for a specific key (mapLockInfo.keyName),
+	// so the caller knows it should try to release the lock on the map for the key.
 	mapLockInfo struct {
-		mapName, keyName string
+		m            hazelcastwrapper.Map
+		mapName, key string
 	}
 	defaultLastCleanedInfoHandler struct {
 		ctx context.Context
@@ -286,8 +287,9 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	lockInfo := mapLockInfo{
+		m:       syncMap,
 		mapName: syncMapName,
-		keyName: payloadDataStructureName,
+		key:     payloadDataStructureName,
 	}
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
 	v, err := syncMap.Get(cih.ctx, payloadDataStructureName)
@@ -322,25 +324,22 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 }
 
-func (cih *defaultLastCleanedInfoHandler) update(syncMapName, payloadMapName, hzService string) error {
+func (cih *defaultLastCleanedInfoHandler) update(hzService string, lockInfo mapLockInfo) error {
 
-	mapHoldingLock, err := cih.ms.GetMap(cih.ctx, syncMapName)
+	mapHoldingLock := lockInfo.m
+	payloadDataStructureName := lockInfo.key
 	defer func() {
 		if mapHoldingLock == nil {
 			return
 		}
-		if err := mapHoldingLock.Unlock(cih.ctx, payloadMapName); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", mapCleanersSyncMapName, payloadMapName, err), hzService, log.ErrorLevel)
+		if err := mapHoldingLock.Unlock(cih.ctx, payloadDataStructureName); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", lockInfo.mapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
 		}
 	}()
 
-	if err != nil {
-		return err
-	}
-
 	cleanedAt := time.Now().UnixNano()
 	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
-	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.ctx, payloadMapName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
+	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.ctx, payloadDataStructureName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
 
 }
 
@@ -408,23 +407,19 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 
 }
 
-func releaseLock(ctx context.Context, ms hazelcastwrapper.MapStore, lockInfo mapLockInfo, hzService string) error {
+// TODO Implement test
+func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) error {
 
 	if lockInfo == emptyMapLockInfo {
 		return nil
 	}
 
-	mapHoldingLock, err := ms.GetMap(ctx, lockInfo.mapName)
-	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to retrieve sync map '%s' holding lock for key '%s' due to error: %v", lockInfo.mapName, lockInfo.keyName, err), hzService, log.ErrorLevel)
-		return err
-	}
-	if err := mapHoldingLock.Unlock(ctx, lockInfo.keyName); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on sync map '%s' for key '%s' due to error: %v", lockInfo.mapName, lockInfo.keyName, err), hzService, log.ErrorLevel)
+	if err := lockInfo.m.Unlock(ctx, lockInfo.key); err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on sync map '%s' for key '%s' due to error: %v", lockInfo.mapName, lockInfo.key, err), hzService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.keyName), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.InfoLevel)
 	return nil
 
 }
@@ -444,7 +439,6 @@ func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcast
 
 func runGenericSingleClean(
 	ctx context.Context,
-	ms hazelcastwrapper.MapStore,
 	cih lastCleanedInfoHandler,
 	syncMapName, payloadDataStructureName, hzService string,
 	retrieveAndCleanFunc func(payloadDataStructureName string) error,
@@ -455,7 +449,7 @@ func runGenericSingleClean(
 	// This defer ensures that the lock on the sync map for the given payload map is always released
 	// no matter the susceptibility of the payload map for cleaning.
 	defer func() {
-		if err := releaseLock(ctx, ms, lockInfo, hzService); err != nil {
+		if err := releaseLock(ctx, lockInfo, hzService); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
 		}
 	}()
@@ -480,7 +474,7 @@ func runGenericSingleClean(
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", payloadDataStructureName), hzService, log.InfoLevel)
 
-	if err := cih.update(syncMapName, payloadDataStructureName, hzService); err != nil {
+	if err := cih.update(hzService, lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
@@ -517,7 +511,6 @@ func (c *DefaultSingleMapCleaner) Clean(name string) error {
 
 	return runGenericSingleClean(
 		c.ctx,
-		c.ms,
 		c.cih,
 		mapCleanersSyncMapName,
 		name,
@@ -618,7 +611,6 @@ func (c *DefaultSingleQueueCleaner) Clean(name string) error {
 
 	return runGenericSingleClean(
 		c.ctx,
-		c.ms,
 		c.cih,
 		queueCleanersSyncMapName,
 		name,
