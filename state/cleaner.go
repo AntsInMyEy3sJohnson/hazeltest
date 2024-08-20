@@ -282,7 +282,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	if !lockSucceeded {
-		return emptyMapLockInfo, false, fmt.Errorf("unable to acquire lock on '%s' for map %s", syncMapName, payloadDataStructureName)
+		return emptyMapLockInfo, false, fmt.Errorf("unable to acquire lock on sync map '%s' for payload data structure key '%s'", syncMapName, payloadDataStructureName)
 	}
 
 	lockInfo := mapLockInfo{
