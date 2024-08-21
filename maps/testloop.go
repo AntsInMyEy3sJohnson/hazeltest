@@ -545,7 +545,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 
 	if tle.runnerConfig.evictMapsPriorToRun {
 		builder := &state.DefaultSingleMapCleanerBuilder{}
-		tle.stateCleaner, tle.hzService = builder.Build(tle.ctx, tle.hzMapStore)
+		// TODO Add information collected by tracker to test loop status
+		tle.stateCleaner, tle.hzService = builder.Build(tle.ctx, tle.hzMapStore, &state.CleanedDataStructureTracker{G: gatherer})
 	}
 
 	var wg sync.WaitGroup
