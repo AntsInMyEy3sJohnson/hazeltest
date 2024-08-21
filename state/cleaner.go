@@ -84,7 +84,7 @@ type (
 	// the target Hazelcast cluster and capabilities for accessing it, the same thoughts as on the
 	// SingleMapCleanerBuilder interface apply.
 	SingleQueueCleanerBuilder interface {
-		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore) SingleCleaner
+		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker) SingleCleaner
 	}
 	DefaultSingleMapCleanerBuilder struct{}
 	DefaultSingleMapCleaner        struct {
@@ -150,8 +150,8 @@ type (
 		ctx context.Context
 		ms  hazelcastwrapper.MapStore
 	}
-	cleanedDataStructureTracker struct {
-		g *status.Gatherer
+	CleanedDataStructureTracker struct {
+		G *status.Gatherer
 	}
 )
 
@@ -205,9 +205,9 @@ func register(cb BatchCleanerBuilder) {
 	builders = append(builders, cb)
 }
 
-func (t *cleanedDataStructureTracker) add(name string, cleaned int) {
+func (t *CleanedDataStructureTracker) add(name string, cleaned int) {
 
-	t.g.Updates <- status.Update{Key: name, Value: cleaned}
+	t.G.Updates <- status.Update{Key: name, Value: cleaned}
 
 }
 
@@ -229,8 +229,8 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 		ms:  ms,
 	}
 
-	t := &cleanedDataStructureTracker{g}
-	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
+	t := &CleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.G.AssembleStatusCopy)
 
 	return &DefaultBatchMapCleaner{
 		ctx:       ctx,
@@ -381,8 +381,8 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 		ctx: ctx,
 	}
 
-	t := &cleanedDataStructureTracker{g}
-	api.RegisterStatefulActor(api.StateCleaners, clientName, t.g.AssembleStatusCopy)
+	t := &CleanedDataStructureTracker{g}
+	api.RegisterStatefulActor(api.StateCleaners, clientName, t.G.AssembleStatusCopy)
 
 	return &DefaultBatchQueueCleaner{
 		ctx:       ctx,
@@ -571,7 +571,7 @@ func runGenericBatchClean(
 	for _, v := range filteredDataStructures {
 		if err := sc.Clean(v.GetName()); err != nil {
 			lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
-			continue
+			return numCleanedDataStructures, err
 		} else {
 			numCleanedDataStructures++
 			lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'; cleaned %d data structure/-s so far", v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
@@ -582,7 +582,7 @@ func runGenericBatchClean(
 
 }
 
-func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore) (SingleCleaner, string) {
+func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string) {
 
 	return &DefaultSingleQueueCleaner{
 		ctx: ctx,
@@ -592,6 +592,7 @@ func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelca
 			ctx: ctx,
 			ms:  ms,
 		},
+		t: t,
 	}, hzQueueService
 
 }
@@ -660,7 +661,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 	}
 
 	b := DefaultSingleQueueCleanerBuilder{}
-	sc, _ := b.Build(c.ctx, c.qs, c.ms)
+	sc, _ := b.Build(c.ctx, c.qs, c.ms, c.t)
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
