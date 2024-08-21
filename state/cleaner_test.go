@@ -91,7 +91,7 @@ type (
 		shouldCleanAll, returnErrorUponCheck, returnErrorUponUpdate bool
 	}
 	testCleanedTracker struct {
-		numInvocations int
+		numAddInvocations int
 	}
 )
 
@@ -450,7 +450,7 @@ func (cih *testLastCleanedInfoHandler) check(syncMapName, payloadDataStructureNa
 
 }
 
-func (cih *testLastCleanedInfoHandler) update(_ string, _ mapLockInfo) error {
+func (cih *testLastCleanedInfoHandler) update(_ mapLockInfo) error {
 
 	cih.updateInvocations++
 
@@ -464,7 +464,7 @@ func (cih *testLastCleanedInfoHandler) update(_ string, _ mapLockInfo) error {
 
 func (t *testCleanedTracker) add(_ string, _ int) {
 
-	t.numInvocations++
+	t.numAddInvocations++
 
 }
 
@@ -878,7 +878,7 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 					mapName: mapCleanersSyncMapName,
 					key:     "ht_load-0",
 				}
-				err := cih.update(hzMapService, lockInfo)
+				err := cih.update(lockInfo)
 
 				msg := "\t\tno error must be returned"
 
@@ -1059,13 +1059,20 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := qc.retrieveAndClean(prefix + baseName + "-0")
+			numCleanedItems, err := qc.retrieveAndClean(prefix + baseName + "-0")
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getQueueError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 
 			msg = "\t\tget queue must have been invoked once"
@@ -1088,7 +1095,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := qc.retrieveAndClean("blubbo")
+			numCleanedItems, err := qc.retrieveAndClean("blubbo")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1096,6 +1103,17 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
+			}
+		}
+		t.Log("\twhen retrieval of non-nil queue is successful, but size check fails")
+		{
+			// TODO Implement me
 		}
 		t.Log("\twhen retrieval of non-nil queue is successful, but queue clear operation yields error")
 		{
@@ -1114,7 +1132,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := qc.retrieveAndClean(payloadQueueName)
+			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
 
 			msg := "\t\terror must be returned"
 
@@ -1122,6 +1140,13 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 
 			msg = "\t\tclear on payload queue must have been attempted once"
@@ -1145,13 +1170,21 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			}
 
 			payloadQueueName := prefix + baseName + "-0"
-			err := qc.retrieveAndClean(payloadQueueName)
+			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be equal to number of items previously in queue"
+			// TODO Insert dummy items in queue
+			if numCleanedItems == 42 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 
 			msg = "\t\tclear on payload queue must have been performed once"
@@ -1369,10 +1402,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				}
 
 				msg = fmt.Sprintf("\t\t\tcleaned data structure tracker must have been invoked %d times", numQueueObjects)
-				if tracker.numInvocations == numQueueObjects {
+				if tracker.numAddInvocations == numQueueObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, tracker.numInvocations)
+					t.Fatal(msg, ballotX, tracker.numAddInvocations)
 				}
 
 				msg = "\t\t\thazelcast client must have been closed"
@@ -1451,10 +1484,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				}
 
 				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", expectedCleaned)
-				if tracker.numInvocations == expectedCleaned {
+				if tracker.numAddInvocations == expectedCleaned {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, tracker.numInvocations)
+					t.Fatal(msg, ballotX, tracker.numAddInvocations)
 				}
 
 			}
@@ -1502,10 +1535,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen retrieval of object info fails")
@@ -1540,10 +1573,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
@@ -1599,10 +1632,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen info retrieval and get queue operations succeed, but clear operation fails")
@@ -1670,10 +1703,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\tcleaned tracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 
 		}
@@ -1727,10 +1760,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 	}
@@ -1747,14 +1780,16 @@ func TestRunGenericSingleClean(t *testing.T) {
 			cih := &testLastCleanedInfoHandler{
 				returnErrorUponCheck: true,
 			}
+			tr := &testCleanedTracker{}
 			mc := DefaultSingleMapCleaner{
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: cih,
+				t:   tr,
 			}
 
 			payloadMapName := "ht_darthvader"
-			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, lastCleanedInfoCheckError) {
@@ -1776,6 +1811,13 @@ func TestRunGenericSingleClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
 			}
+
+			msg = "\t\treported number of cleaned data structures must be zero"
+			if tr.numAddInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
 		}
 
 		t.Log("\twhen should clean check is successful and returns negative result")
@@ -1792,10 +1834,11 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 			// Use builder this time to check proper lock and unlock behavior on sync map based
 			// on defaultLastCleanedInfoHandler embedded in built map cleaner
-			mc, _ := b.Build(context.TODO(), ms)
+			tr := &testCleanedTracker{}
+			mc, _ := b.Build(context.TODO(), ms, tr)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
-			err := runGenericSingleClean(dmc.ctx, dmc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
+			err := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1819,6 +1862,13 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t.Fatal(msg, ballotX, syncMap.unlockInvocations)
 			}
 
+			msg = "\t\treported number of cleaned data structures must be zero"
+			if tr.numAddInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
+
 		}
 
 		t.Log("\twhen should clean check is successful and returns positive result, but get map on payload map yields error")
@@ -1835,13 +1885,15 @@ func TestRunGenericSingleClean(t *testing.T) {
 					payloadMapName: true,
 				},
 			}
+			tr := &testCleanedTracker{}
 			mc := DefaultSingleMapCleaner{
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: cih,
+				t:   tr,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -1866,6 +1918,18 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
 			}
 
+			msg = "\t\treported number of cleaned data structures must be zero"
+			if tr.numAddInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
+
+		}
+
+		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map is successful, but size check returns error")
+		{
+			// TODO Implement me
 		}
 
 		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map is successful, too, but evict all on payload map yields error")
@@ -1883,13 +1947,15 @@ func TestRunGenericSingleClean(t *testing.T) {
 					payloadMapName: true,
 				},
 			}
+			tr := &testCleanedTracker{}
 			mc := DefaultSingleMapCleaner{
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: cih,
+				t:   tr,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -1921,9 +1987,16 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
 			}
 
+			msg = "\t\treported number of cleaned data structures must be zero"
+			if tr.numAddInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
+
 		}
 
-		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map and evict all on payload map are successful, but last cleaned info update fails")
+		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map, size check, and evict all on payload map are successful, but last cleaned info update fails")
 		{
 			mapPrefix := "ht_"
 			ms := populateTestMapStore(1, []string{mapPrefix})
@@ -1936,13 +2009,15 @@ func TestRunGenericSingleClean(t *testing.T) {
 				},
 				returnErrorUponUpdate: true,
 			}
+			tr := &testCleanedTracker{}
 			mc := DefaultSingleMapCleaner{
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: cih,
+				t:   tr,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, lastCleanedInfoUpdateError) {
@@ -1966,9 +2041,16 @@ func TestRunGenericSingleClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
 			}
+
+			msg = "\t\treported number of cleaned data structures must be one"
+			if tr.numAddInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
 		}
 
-		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map and evict all on payload map are successful, and last cleaned info update is successful, too")
+		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map, size check, and evict all on payload map are successful, and last cleaned info update is successful, too")
 		{
 			mapPrefix := "ht_"
 			ms := populateTestMapStore(1, []string{mapPrefix})
@@ -1980,13 +2062,15 @@ func TestRunGenericSingleClean(t *testing.T) {
 					payloadMapName: true,
 				},
 			}
+			tr := &testCleanedTracker{}
 			mc := DefaultSingleMapCleaner{
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: cih,
+				t:   tr,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2010,6 +2094,13 @@ func TestRunGenericSingleClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, cih.updateInvocations)
 			}
+
+			msg = "\t\treported number of cleaned data structures must be one"
+			if tr.numAddInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
 		}
 
 		t.Log("\twhen attempt to release lock yields error")
@@ -2031,11 +2122,11 @@ func TestRunGenericSingleClean(t *testing.T) {
 				syncMap.returnErrorUponUnlock = true
 
 				builder := DefaultSingleMapCleanerBuilder{}
-				mc, _ := builder.Build(context.TODO(), ms)
+				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{})
 
 				dmc := mc.(*DefaultSingleMapCleaner)
 
-				err := runGenericSingleClean(dmc.ctx, dmc.cih, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
+				err := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2066,7 +2157,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := mc.retrieveAndClean(prefix + "load-0")
+			numCleanedItems, err := mc.retrieveAndClean(prefix + "load-0")
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -2081,6 +2172,13 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, ms.getMapInvocationsPayloadMap)
 			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
+			}
 		}
 
 		t.Log("\twhen get payload map itself is successful, but map is nil")
@@ -2093,13 +2191,20 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := mc.retrieveAndClean("blubbi")
+			numCleanedItems, err := mc.retrieveAndClean("blubbi")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 		}
 
@@ -2119,7 +2224,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				cih: nil,
 			}
 
-			err := mc.retrieveAndClean(payloadMapName)
+			numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -2133,6 +2238,13 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 		}
 
@@ -2149,7 +2261,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			}
 
 			payloadMapName := prefix + "load-0"
-			err := mc.retrieveAndClean(payloadMapName)
+			numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2165,6 +2277,14 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be equal to number of items map previously held"
+			// TODO Insert dummy elements into map
+			if numCleanedItems == 42 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 
 		}
@@ -2192,7 +2312,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				// was unsuccessful.)
 				syncMap.tryLockReturnValue = false
 
-				mc, _ := builder.Build(context.TODO(), ms)
+				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{})
 
 				err := mc.Clean(prefix + "load-0")
 
@@ -2210,11 +2330,13 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				builder := DefaultSingleMapCleanerBuilder{}
 
 				prefix := "ht_"
-				ms := populateTestMapStore(1, []string{prefix})
+				numMapObjects := 9
+				ms := populateTestMapStore(numMapObjects, []string{prefix})
 				syncMap := ms.maps[mapCleanersSyncMapName]
 				syncMap.tryLockReturnValue = true
 
-				mc, _ := builder.Build(context.TODO(), ms)
+				tr := &testCleanedTracker{}
+				mc, _ := builder.Build(context.TODO(), ms, tr)
 
 				err := mc.Clean(prefix + "load-0")
 
@@ -2224,6 +2346,14 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, err)
 				}
+
+				msg = "\t\t\tnumber of invocations of cleaned tracker must be equal to number of data structures successfully cleaned"
+				if tr.numAddInvocations == numMapObjects {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, tr.numAddInvocations)
+				}
+
 			}
 		}
 	}
@@ -2303,8 +2433,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsPayloadMap)
 				}
 
-				msg = "\t\t\tnumber of get map invocations on map cleaners sync map must be twice the number of payload maps whose name matches prefix"
-				if testMapStore.getMapInvocationsMapsSyncMap == numMapObjects*2 {
+				// Sync map proxy value now passed along with map lock info value, hence has to be queried only once
+				// per payload map
+				msg = "\t\t\tnumber of get map invocations on map cleaners sync map must be equal to number of payload maps whose name matches prefix"
+				if testMapStore.getMapInvocationsMapsSyncMap == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, testMapStore.getMapInvocationsMapsSyncMap)
@@ -2371,10 +2503,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				}
 
 				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", numMapObjects)
-				if tracker.numInvocations == numMapObjects {
+				if tracker.numAddInvocations == numMapObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, tracker.numInvocations)
+					t.Fatal(msg, ballotX, tracker.numAddInvocations)
 				}
 
 				msg = "\t\t\thazelcast client must have been closed"
@@ -2454,10 +2586,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				}
 
 				msg = fmt.Sprintf("\t\t\ttracker must have been invoked %d times", expectedCleaned)
-				if tracker.numInvocations == expectedCleaned {
+				if tracker.numAddInvocations == expectedCleaned {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, tracker.numInvocations)
+					t.Fatal(msg, ballotX, tracker.numAddInvocations)
 				}
 
 			}
@@ -2506,10 +2638,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen retrieval of object info fails")
@@ -2540,10 +2672,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
@@ -2598,10 +2730,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 		t.Log("\twhen info retrieval and get map operations succeed, but evict all fails")
@@ -2667,10 +2799,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 
 		}
@@ -2858,10 +2990,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 
 			msg = "\t\ttracker must have been invoked zero times"
-			if tracker.numInvocations == 0 {
+			if tracker.numAddInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, tracker.numInvocations)
+				t.Fatal(msg, ballotX, tracker.numAddInvocations)
 			}
 		}
 	}
@@ -3064,7 +3196,8 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 			ms := populateTestMapStore(1, []string{})
 
 			builder := DefaultSingleMapCleanerBuilder{}
-			cleaner, hzService := builder.Build(ctx, ms)
+			tr := &testCleanedTracker{}
+			cleaner, hzService := builder.Build(ctx, ms, tr)
 
 			msg := "\t\tcleaner must be built"
 			if cleaner != nil {
@@ -3098,6 +3231,13 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 
 			msg = "\t\tcleaner built must carry correct map store"
 			if mc.ms == ms {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcleaner built must carry correct cleaned info tracker"
+			if mc.t == tr {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
