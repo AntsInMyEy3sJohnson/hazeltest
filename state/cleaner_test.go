@@ -85,6 +85,7 @@ type (
 		returnErrorUponSize  bool
 	}
 	testLastCleanedInfoHandler struct {
+		syncMap                                                     hazelcastwrapper.Map
 		checkInvocations, updateInvocations                         int
 		shouldCleanIndividualMap                                    map[string]bool
 		shouldCleanAll, returnErrorUponCheck, returnErrorUponUpdate bool
@@ -441,11 +442,15 @@ func (cih *testLastCleanedInfoHandler) check(syncMapName, payloadDataStructureNa
 		return emptyMapLockInfo, false, lastCleanedInfoCheckError
 	}
 
-	return mapLockInfo{syncMapName, payloadDataStructureName}, cih.shouldCleanAll || cih.shouldCleanIndividualMap[payloadDataStructureName], nil
+	return mapLockInfo{
+		m:       cih.syncMap,
+		mapName: syncMapName,
+		key:     payloadDataStructureName,
+	}, cih.shouldCleanAll || cih.shouldCleanIndividualMap[payloadDataStructureName], nil
 
 }
 
-func (cih *testLastCleanedInfoHandler) update(_, _, _ string) error {
+func (cih *testLastCleanedInfoHandler) update(_ string, _ mapLockInfo) error {
 
 	cih.updateInvocations++
 
@@ -627,7 +632,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
-			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.key == payloadMapName {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, lockInfo)
@@ -685,7 +690,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
-			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.key == payloadMapName {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, lockInfo)
@@ -745,7 +750,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
-			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.key == payloadMapName {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, lockInfo)
@@ -785,7 +790,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
-			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.key == payloadMapName {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, lockInfo)
@@ -825,7 +830,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			msg = "\t\tlock info must be populated with name of sync map and name of payload map"
-			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.keyName == payloadMapName {
+			if lockInfo.mapName == mapCleanersSyncMapName && lockInfo.key == payloadMapName {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, lockInfo)
@@ -846,85 +851,7 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 
 	t.Log("given a map store containing sync map for map cleaners that needs to be updated with new last cleaned info")
 	{
-		t.Log("\twhen get map for map cleaners sync map yields error")
-		{
-			func() {
-
-				defer func() {
-					msg := "\t\tno invocation on nil object representing map holding lock must have been performed"
-					if r := recover(); r == nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, r)
-					}
-				}()
-
-				ms := populateTestMapStore(1, []string{})
-				ms.returnErrorUponGetSyncMap = true
-
-				cih := &defaultLastCleanedInfoHandler{
-					ms:  ms,
-					ctx: context.TODO(),
-				}
-
-				err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
-
-				msg := "\t\terror must be returned"
-				if errors.Is(err, getSyncMapError) {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\tnumber of get map invocations on map store for map cleaners sync map must be one"
-				if ms.getMapInvocationsMapsSyncMap == 1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
-				}
-
-			}()
-
-		}
-
-		t.Log("\twhen get map for map cleaners sync map is successful")
-		{
-			ms := populateTestMapStore(1, []string{})
-
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
-			}
-
-			err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
-
-			msg := "\t\tno error must be returned"
-
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
-
-			msg = "\t\tlast cleaned info must have been updated"
-			if mapCleanersSyncMap.setWithTTLAndMaxIdleInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tlock on map cleaners sync map for payload map must have been released"
-			if mapCleanersSyncMap.unlockInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-		}
-
-		t.Log("\twhen final unlock operation yields error")
+		t.Log("\twhen unlock operation yields error")
 		{
 			func() {
 
@@ -946,7 +873,12 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 					ctx: context.TODO(),
 				}
 
-				err := cih.update(mapCleanersSyncMapName, "ht_load-0", hzMapService)
+				lockInfo := mapLockInfo{
+					m:       mapCleanersSyncMap,
+					mapName: mapCleanersSyncMapName,
+					key:     "ht_load-0",
+				}
+				err := cih.update(hzMapService, lockInfo)
 
 				msg := "\t\tno error must be returned"
 
@@ -1822,7 +1754,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 			}
 
 			payloadMapName := "ht_darthvader"
-			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, lastCleanedInfoCheckError) {
@@ -1863,7 +1795,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 			mc, _ := b.Build(context.TODO(), ms)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
-			err := runGenericSingleClean(dmc.ctx, dmc.ms, dmc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
+			err := runGenericSingleClean(dmc.ctx, dmc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1898,6 +1830,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 			payloadMapName := mapPrefix + "load-0"
 			cih := &testLastCleanedInfoHandler{
+				syncMap: ms.maps[mapCleanersSyncMapName],
 				shouldCleanIndividualMap: map[string]bool{
 					payloadMapName: true,
 				},
@@ -1908,7 +1841,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -1945,6 +1878,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 			payloadMap.returnErrorUponEvictAll = true
 
 			cih := &testLastCleanedInfoHandler{
+				syncMap: ms.maps[mapCleanersSyncMapName],
 				shouldCleanIndividualMap: map[string]bool{
 					payloadMapName: true,
 				},
@@ -1955,7 +1889,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -1996,6 +1930,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 			payloadMapName := mapPrefix + "load-0"
 			cih := &testLastCleanedInfoHandler{
+				syncMap: ms.maps[mapCleanersSyncMapName],
 				shouldCleanIndividualMap: map[string]bool{
 					payloadMapName: true,
 				},
@@ -2007,7 +1942,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, lastCleanedInfoUpdateError) {
@@ -2040,6 +1975,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 			payloadMapName := mapPrefix + "load-0"
 			cih := &testLastCleanedInfoHandler{
+				syncMap: ms.maps[mapCleanersSyncMapName],
 				shouldCleanIndividualMap: map[string]bool{
 					payloadMapName: true,
 				},
@@ -2050,7 +1986,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				cih: cih,
 			}
 
-			err := runGenericSingleClean(mc.ctx, mc.ms, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			err := runGenericSingleClean(mc.ctx, mc.cih, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2099,7 +2035,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 				dmc := mc.(*DefaultSingleMapCleaner)
 
-				err := runGenericSingleClean(dmc.ctx, dmc.ms, dmc.cih, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
+				err := runGenericSingleClean(dmc.ctx, dmc.cih, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
