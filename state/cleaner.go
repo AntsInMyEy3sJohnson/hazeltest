@@ -77,7 +77,7 @@ type (
 	// would be possible, but would lead to inefficiency. For example, why would a single cleaner initialize a
 	// new Hazelcast client if the caller already has one?)
 	SingleMapCleanerBuilder interface {
-		Build(ctx context.Context, ms hazelcastwrapper.MapStore) (SingleCleaner, string)
+		Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string)
 	}
 	// SingleQueueCleanerBuilder is an interface for encapsulating the capability of assembling queue cleaners
 	// implementing the SingleCleaner interface. Concerning why the Build method asks for so little knowledge about
@@ -91,6 +91,7 @@ type (
 		ctx context.Context
 		ms  hazelcastwrapper.MapStore
 		cih lastCleanedInfoHandler
+		t   cleanedTracker
 	}
 	DefaultSingleQueueCleanerBuilder struct{}
 	DefaultSingleQueueCleaner        struct {
@@ -98,6 +99,7 @@ type (
 		ms  hazelcastwrapper.MapStore
 		qs  hazelcastwrapper.QueueStore
 		cih lastCleanedInfoHandler
+		t   cleanedTracker
 	}
 )
 
@@ -122,7 +124,7 @@ type (
 		// update, hence the caller will not invoke update, but the lock must be released nonetheless. Hence, acquiring
 		// and releasing the lock is split between invoker and invoked method.)
 		check(syncMapName, payloadDataStructureName, hzService string) (mapLockInfo, bool, error)
-		update(hzService string, lockInfo mapLockInfo) error
+		update(lockInfo mapLockInfo) error
 	}
 	cleanedTracker interface {
 		add(name string, cleaned int)
@@ -324,18 +326,10 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 }
 
-func (cih *defaultLastCleanedInfoHandler) update(hzService string, lockInfo mapLockInfo) error {
+func (cih *defaultLastCleanedInfoHandler) update(lockInfo mapLockInfo) error {
 
 	mapHoldingLock := lockInfo.m
 	payloadDataStructureName := lockInfo.key
-	defer func() {
-		if mapHoldingLock == nil {
-			return
-		}
-		if err := mapHoldingLock.Unlock(cih.ctx, payloadDataStructureName); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", lockInfo.mapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
-		}
-	}()
 
 	cleanedAt := time.Now().UnixNano()
 	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
@@ -355,7 +349,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	}
 
 	b := DefaultSingleMapCleanerBuilder{}
-	sc, _ := b.Build(c.ctx, c.ms)
+	sc, _ := b.Build(c.ctx, c.ms, c.t)
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
@@ -424,7 +418,7 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 
 }
 
-func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore) (SingleCleaner, string) {
+func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string) {
 
 	return &DefaultSingleMapCleaner{
 		ctx: ctx,
@@ -433,6 +427,7 @@ func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcast
 			ctx: ctx,
 			ms:  ms,
 		},
+		t: t,
 	}, hzMapService
 
 }
@@ -440,8 +435,9 @@ func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcast
 func runGenericSingleClean(
 	ctx context.Context,
 	cih lastCleanedInfoHandler,
+	t cleanedTracker,
 	syncMapName, payloadDataStructureName, hzService string,
-	retrieveAndCleanFunc func(payloadDataStructureName string) error,
+	retrieveAndCleanFunc func(payloadDataStructureName string) (int, error),
 ) error {
 
 	lockInfo, shouldClean, err := cih.check(syncMapName, payloadDataStructureName, hzService)
@@ -465,16 +461,17 @@ func runGenericSingleClean(
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
-	err = retrieveAndCleanFunc(payloadDataStructureName)
+	numItemsCleaned, err := retrieveAndCleanFunc(payloadDataStructureName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'", payloadDataStructureName), hzService, log.InfoLevel)
+	t.add(payloadDataStructureName, numItemsCleaned)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d items", payloadDataStructureName, numItemsCleaned), hzService, log.InfoLevel)
 
-	if err := cih.update(hzService, lockInfo); err != nil {
+	if err := cih.update(lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return err
 	}
@@ -484,26 +481,40 @@ func runGenericSingleClean(
 
 }
 
-func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) error {
+func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, error) {
 
 	mapToClean, err := c.ms.GetMap(c.ctx, payloadMapName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), hzMapService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
 	if mapToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because map retrieved from target Hazelcast cluster was nil", payloadMapName)
 		lp.LogStateCleanerEvent(msg, hzMapService, log.ErrorLevel)
-		return errors.New(msg)
+		return 0, errors.New(msg)
 	}
+
+	size, err := mapToClean.Size(c.ctx)
+	if err != nil {
+		msg := fmt.Sprintf("unable to clean '%s' because retrieval of current size returned with error: %v", payloadMapName, err)
+		lp.LogStateCleanerEvent(msg, hzMapService, log.ErrorLevel)
+		return 0, err
+	}
+
+	if size == 0 {
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), hzMapService, log.DebugLevel)
+		return 0, nil
+	}
+
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), hzMapService, log.DebugLevel)
 
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
-	return nil
+	return size, nil
 
 }
 
@@ -512,6 +523,7 @@ func (c *DefaultSingleMapCleaner) Clean(name string) error {
 	return runGenericSingleClean(
 		c.ctx,
 		c.cih,
+		c.t,
 		mapCleanersSyncMapName,
 		name,
 		hzMapService,
@@ -584,26 +596,41 @@ func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelca
 
 }
 
-func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) error {
+func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (int, error) {
 
 	queueToClean, err := c.qs.GetQueue(c.ctx, payloadQueueName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
 	if queueToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because queue retrieved from target Hazelcast cluster was nil", payloadQueueName)
 		lp.LogStateCleanerEvent(msg, hzQueueService, log.ErrorLevel)
-		return errors.New(msg)
+		return 0, errors.New(msg)
 	}
+
+	size, err := queueToClean.Size(c.ctx)
+	if err != nil {
+		msg := fmt.Sprintf("unable to clean '%s' because size check failed with error: %v", payloadQueueName, err)
+		lp.LogStateCleanerEvent(msg, hzQueueService, log.ErrorLevel)
+		return 0, err
+	}
+
+	if size == 0 {
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), hzQueueService, log.DebugLevel)
+		return 0, nil
+	}
+
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), hzQueueService, log.DebugLevel)
 
 	if err := queueToClean.Clear(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
-	return nil
+
+	return size, nil
 
 }
 
@@ -612,6 +639,7 @@ func (c *DefaultSingleQueueCleaner) Clean(name string) error {
 	return runGenericSingleClean(
 		c.ctx,
 		c.cih,
+		c.t,
 		queueCleanersSyncMapName,
 		name,
 		hzQueueService,
