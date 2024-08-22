@@ -1113,7 +1113,35 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		}
 		t.Log("\twhen retrieval of non-nil queue is successful, but size check fails")
 		{
-			// TODO Implement me
+			prefix := "ht_"
+			baseName := "load"
+			qs := populateTestQueueStore(1, []string{prefix}, baseName, 0)
+
+			payloadQueueName := prefix + baseName + "-0"
+			payloadQueue := qs.queues[payloadQueueName]
+			payloadQueue.returnErrorUponSize = true
+
+			qc := &DefaultSingleQueueCleaner{
+				ctx: context.TODO(),
+				qs:  qs,
+			}
+
+			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, queueSizeError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numCleanedItems == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanedItems)
+			}
+
 		}
 		t.Log("\twhen retrieval of non-nil queue is successful, but queue clear operation yields error")
 		{
