@@ -77,14 +77,14 @@ type (
 	// would be possible, but would lead to inefficiency. For example, why would a single cleaner initialize a
 	// new Hazelcast client if the caller already has one?)
 	SingleMapCleanerBuilder interface {
-		Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string)
+		Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string)
 	}
 	// SingleQueueCleanerBuilder is an interface for encapsulating the capability of assembling queue cleaners
 	// implementing the SingleCleaner interface. Concerning why the Build method asks for so little knowledge about
 	// the target Hazelcast cluster and capabilities for accessing it, the same thoughts as on the
 	// SingleMapCleanerBuilder interface apply.
 	SingleQueueCleanerBuilder interface {
-		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker) SingleCleaner
+		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) SingleCleaner
 	}
 	DefaultSingleMapCleanerBuilder struct{}
 	DefaultSingleMapCleaner        struct {
@@ -418,16 +418,13 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 
 }
 
-func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string) {
+func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string) {
 
 	return &DefaultSingleMapCleaner{
 		ctx: ctx,
 		ms:  ms,
-		cih: &defaultLastCleanedInfoHandler{
-			ctx: ctx,
-			ms:  ms,
-		},
-		t: t,
+		cih: cih,
+		t:   t,
 	}, hzMapService
 
 }
@@ -582,17 +579,14 @@ func runGenericBatchClean(
 
 }
 
-func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker) (SingleCleaner, string) {
+func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string) {
 
 	return &DefaultSingleQueueCleaner{
 		ctx: ctx,
 		qs:  qs,
 		ms:  ms,
-		cih: &defaultLastCleanedInfoHandler{
-			ctx: ctx,
-			ms:  ms,
-		},
-		t: t,
+		cih: cih,
+		t:   t,
 	}, hzQueueService
 
 }
