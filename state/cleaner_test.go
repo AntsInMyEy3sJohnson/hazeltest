@@ -477,9 +477,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 
 			ms := populateTestMapStore(1, []string{"ht_"}, 1)
 			ms.returnErrorUponGetSyncMap = true
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
@@ -513,9 +513,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.returnErrorUponTryLock = true
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_gimli-0", hzMapService)
@@ -564,9 +564,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = false
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", hzMapService)
@@ -616,9 +616,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap.tryLockReturnValue = true
 			mapCleanersSyncMap.returnErrorUponGet = true
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			payloadMapName := prefix + "load-0"
@@ -674,9 +674,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			payloadMapName := "ht_aragorn-0"
@@ -735,9 +735,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap.data[payloadMapName] = "clearly not a valid timestamp"
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
@@ -775,9 +775,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap.tryLockReturnValue = true
 			mapCleanersSyncMap.data[payloadMapName] = time.Now().UnixNano()
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
@@ -815,9 +815,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			mapCleanersSyncMap.tryLockReturnValue = true
 			mapCleanersSyncMap.data[payloadMapName] = int64(0)
 
-			cih := &defaultLastCleanedInfoHandler{
-				ms:  ms,
-				ctx: context.TODO(),
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms:  ms,
+				Ctx: context.TODO(),
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
@@ -868,9 +868,9 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 				mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.returnErrorUponUnlock = true
 
-				cih := &defaultLastCleanedInfoHandler{
-					ms:  ms,
-					ctx: context.TODO(),
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms:  ms,
+					Ctx: context.TODO(),
 				}
 
 				lockInfo := mapLockInfo{
@@ -1245,8 +1245,8 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				// was unsuccessful.)
 				syncMap.tryLockReturnValue = false
 
-				cih := &defaultLastCleanedInfoHandler{
-					ms: ms,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms: ms,
 				}
 				qc, _ := b.Build(context.TODO(), populateTestQueueStore(0, []string{}, "", 0), ms, &testCleanedTracker{}, cih)
 
@@ -1279,8 +1279,8 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				baseName := "tweets"
 				numQueueObjects := 1
 				tr := &testCleanedTracker{}
-				cih := &defaultLastCleanedInfoHandler{
-					ms: ms,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms: ms,
 				}
 				numItemsInQueues := 9
 				qc, _ := b.Build(context.TODO(), populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues), ms, tr, cih)
@@ -1359,9 +1359,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				// Default last cleaned info handler used in place of test variant for this "happy-path" test
 				// in order to increase test integration level by verifying number and kind of invocations performed
 				// on the test map store.
-				cih := &defaultLastCleanedInfoHandler{
-					ms:  ms,
-					ctx: ctx,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms:  ms,
+					Ctx: ctx,
 				}
 				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
 				queueCleanersSyncMap.tryLockReturnValue = true
@@ -1930,10 +1930,10 @@ func TestRunGenericSingleClean(t *testing.T) {
 			syncMap.tryLockReturnValue = true
 
 			// Use builder this time to check proper lock and unlock behavior on sync map based
-			// on defaultLastCleanedInfoHandler embedded in built map cleaner
+			// on DefaultLastCleanedInfoHandler embedded in built map cleaner
 			tr := &testCleanedTracker{}
-			cih := &defaultLastCleanedInfoHandler{
-				ms: ms,
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms: ms,
 			}
 			mc, _ := b.Build(context.TODO(), ms, tr, cih)
 			dmc := mc.(*DefaultSingleMapCleaner)
@@ -2260,8 +2260,8 @@ func TestRunGenericSingleClean(t *testing.T) {
 				syncMap.returnErrorUponUnlock = true
 
 				builder := DefaultSingleMapCleanerBuilder{}
-				cih := &defaultLastCleanedInfoHandler{
-					ms: ms,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms: ms,
 				}
 				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
 
@@ -2460,8 +2460,8 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				// was unsuccessful.)
 				syncMap.tryLockReturnValue = false
 
-				cih := &defaultLastCleanedInfoHandler{
-					ms: ms,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms: ms,
 				}
 				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
 
@@ -2494,8 +2494,8 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				syncMap.tryLockReturnValue = true
 
 				tr := &testCleanedTracker{}
-				cih := &defaultLastCleanedInfoHandler{
-					ms: ms,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms: ms,
 				}
 				mc, _ := builder.Build(context.TODO(), ms, tr, cih)
 
@@ -2566,9 +2566,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				// Default last cleaned info handler used in place of test variant for this "happy-path" test
 				// in order to increase test integration level by verifying number and kind of invocations performed
 				// on the test map store.
-				cih := &defaultLastCleanedInfoHandler{
-					ms:  testMapStore,
-					ctx: ctx,
+				cih := &DefaultLastCleanedInfoHandler{
+					Ms:  testMapStore,
+					Ctx: ctx,
 				}
 
 				tracker := &testCleanedTracker{}
@@ -3189,8 +3189,8 @@ func TestDefaultSingleQueueCleanerBuilder_Build(t *testing.T) {
 
 			builder := DefaultSingleQueueCleanerBuilder{}
 			tr := &testCleanedTracker{}
-			cih := &defaultLastCleanedInfoHandler{
-				ms: ms,
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms: ms,
 			}
 			cleaner, hzService := builder.Build(ctx, qs, ms, tr, cih)
 
@@ -3385,8 +3385,8 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 
 			builder := DefaultSingleMapCleanerBuilder{}
 			tr := &testCleanedTracker{}
-			cih := &defaultLastCleanedInfoHandler{
-				ms: ms,
+			cih := &DefaultLastCleanedInfoHandler{
+				Ms: ms,
 			}
 			cleaner, hzService := builder.Build(ctx, ms, tr, cih)
 

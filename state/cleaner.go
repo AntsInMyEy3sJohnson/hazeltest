@@ -146,9 +146,9 @@ type (
 		m            hazelcastwrapper.Map
 		mapName, key string
 	}
-	defaultLastCleanedInfoHandler struct {
-		ctx context.Context
-		ms  hazelcastwrapper.MapStore
+	DefaultLastCleanedInfoHandler struct {
+		Ctx context.Context
+		Ms  hazelcastwrapper.MapStore
 	}
 	CleanedDataStructureTracker struct {
 		G *status.Gatherer
@@ -224,9 +224,9 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
 	ms := &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
-	cih := &defaultLastCleanedInfoHandler{
-		ctx: ctx,
-		ms:  ms,
+	cih := &DefaultLastCleanedInfoHandler{
+		Ctx: ctx,
+		Ms:  ms,
 	}
 
 	t := &CleanedDataStructureTracker{g}
@@ -267,9 +267,9 @@ func identifyCandidateDataStructures(ois hazelcastwrapper.ObjectInfoStore, ctx c
 
 }
 
-func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructureName, hzService string) (mapLockInfo, bool, error) {
+func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructureName, hzService string) (mapLockInfo, bool, error) {
 
-	syncMap, err := cih.ms.GetMap(cih.ctx, syncMapName)
+	syncMap, err := cih.Ms.GetMap(cih.Ctx, syncMapName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve sync map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
@@ -277,7 +277,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.DebugLevel)
-	lockSucceeded, err := syncMap.TryLock(cih.ctx, payloadDataStructureName)
+	lockSucceeded, err := syncMap.TryLock(cih.Ctx, payloadDataStructureName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on sync map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
@@ -294,7 +294,7 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		key:     payloadDataStructureName,
 	}
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
-	v, err := syncMap.Get(cih.ctx, payloadDataStructureName)
+	v, err := syncMap.Get(cih.Ctx, payloadDataStructureName)
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from sync map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
 		return lockInfo, false, err
@@ -326,14 +326,14 @@ func (cih *defaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 }
 
-func (cih *defaultLastCleanedInfoHandler) update(lockInfo mapLockInfo) error {
+func (cih *DefaultLastCleanedInfoHandler) update(lockInfo mapLockInfo) error {
 
 	mapHoldingLock := lockInfo.m
 	payloadDataStructureName := lockInfo.key
 
 	cleanedAt := time.Now().UnixNano()
 	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
-	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.ctx, payloadDataStructureName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
+	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.Ctx, payloadDataStructureName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
 
 }
 
@@ -375,9 +375,9 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 	ch.InitHazelcastClient(ctx, clientName, hzCluster, hzMembers)
 
 	ms := &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
-	cih := &defaultLastCleanedInfoHandler{
-		ms:  ms,
-		ctx: ctx,
+	cih := &DefaultLastCleanedInfoHandler{
+		Ms:  ms,
+		Ctx: ctx,
 	}
 
 	t := &CleanedDataStructureTracker{g}
