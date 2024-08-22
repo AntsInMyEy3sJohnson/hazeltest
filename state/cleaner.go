@@ -164,7 +164,7 @@ const (
 	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
 	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
 	// TODO Read this value from config
-	cleanAgainThresholdMs = 600_000
+	cleanAgainThresholdMs = 30_000
 )
 
 var (
@@ -470,7 +470,7 @@ func runGenericSingleClean(
 	}
 
 	if err := cih.update(lockInfo); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
 		return numItemsCleaned, err
 	}
 
@@ -710,7 +710,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 				if numCleanedDataStructures > 0 {
 					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
 				} else {
-					lp.LogStateCleanerEvent("execution of cleaner was successful; however, zero data structures were cleaned", hzService, log.InfoLevel)
+					lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
 				}
 			}
 
