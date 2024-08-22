@@ -583,8 +583,10 @@ func runWrapper[t any](tle *testLoopExecution[t],
 				if numCleanedItems, err := tle.stateCleaner.Clean(mapName); err != nil {
 					lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction -- won't start test run for this map: %v", mapName, err), tle.runnerName, log.ErrorLevel)
 					return
-				} else {
+				} else if numCleanedItems > 0 {
 					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", numCleanedItems, mapName), tle.runnerName, log.InfoLevel)
+				} else {
+					lp.LogMapRunnerEvent(fmt.Sprintf("payload map '%s' either didn't contain elements to be cleaned, or wasn't susceptible to cleaning yet", mapName), tle.runnerName, log.InfoLevel)
 				}
 			}
 			runFunc(m, mapName, i)
