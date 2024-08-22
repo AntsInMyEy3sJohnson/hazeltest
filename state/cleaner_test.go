@@ -475,7 +475,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen get map on sync map yields error")
 		{
 
-			ms := populateTestMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"}, 1)
 			ms.returnErrorUponGetSyncMap = true
 			cih := &defaultLastCleanedInfoHandler{
 				ms:  ms,
@@ -509,7 +509,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 
 		t.Log("\twhen try lock fails on sync map for key associated with payload data structure name")
 		{
-			ms := populateTestMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"}, 1)
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.returnErrorUponTryLock = true
 
@@ -560,7 +560,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen try lock operation yields negative result")
 		{
 
-			ms := populateTestMapStore(1, []string{"blubbedi_"})
+			ms := populateTestMapStore(1, []string{"blubbedi_"}, 1)
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = false
 
@@ -610,7 +610,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen get on sync map for key-value pair related to payload data structure yields error")
 		{
 			prefix := "waldo_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
@@ -670,7 +670,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 
 		t.Log("\twhen payload map hasn't been cleaned before")
 		{
-			ms := populateTestMapStore(1, []string{"ht_"})
+			ms := populateTestMapStore(1, []string{"ht_"}, 1)
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
 
@@ -728,7 +728,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before, but last cleaned state does not represent valid timestamp")
 		{
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapCleanersSyncMap.tryLockReturnValue = true
@@ -768,7 +768,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before and last cleaned timestamp is within clean interval")
 		{
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 
 			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
@@ -808,7 +808,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 		t.Log("\twhen payload map has been cleaned before and last cleaned timestamp is not within clean interval")
 		{
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 
 			payloadMapName := prefix + "load-0"
 			mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
@@ -864,7 +864,7 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 					}
 				}()
 
-				ms := populateTestMapStore(1, []string{})
+				ms := populateTestMapStore(1, []string{}, 1)
 				mapCleanersSyncMap := ms.maps[mapCleanersSyncMapName]
 				mapCleanersSyncMap.returnErrorUponUnlock = true
 
@@ -1049,7 +1049,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		{
 			prefix := "ht_"
 			baseName := "tweets"
-			qs := populateTestQueueStore(1, []string{prefix}, baseName)
+			qs := populateTestQueueStore(1, []string{prefix}, baseName, 0)
 			qs.returnErrorUponGetQueue = true
 
 			qc := &DefaultSingleQueueCleaner{
@@ -1086,7 +1086,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		t.Log("\twhen retrieval of queue is successful, but queue is nil")
 		{
 			prefix := "ht_"
-			qs := populateTestQueueStore(1, []string{prefix}, "load")
+			qs := populateTestQueueStore(1, []string{prefix}, "load", 0)
 
 			qc := &DefaultSingleQueueCleaner{
 				ctx: context.TODO(),
@@ -1119,7 +1119,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		{
 			prefix := "ht_"
 			baseName := "load"
-			qs := populateTestQueueStore(1, []string{prefix}, baseName)
+			qs := populateTestQueueStore(1, []string{prefix}, baseName, 1)
 
 			payloadQueueName := prefix + baseName + "-0"
 			payloadQueue := qs.queues[payloadQueueName]
@@ -1127,9 +1127,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 
 			qc := &DefaultSingleQueueCleaner{
 				ctx: context.TODO(),
-				ms:  nil,
 				qs:  qs,
-				cih: nil,
 			}
 
 			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
@@ -1160,7 +1158,8 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		{
 			prefix := "ht_"
 			baseName := "load"
-			qs := populateTestQueueStore(1, []string{prefix}, baseName)
+			numItemsInQueues := 9
+			qs := populateTestQueueStore(1, []string{prefix}, baseName, numItemsInQueues)
 
 			qc := &DefaultSingleQueueCleaner{
 				ctx: context.TODO(),
@@ -1172,6 +1171,8 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			payloadQueueName := prefix + baseName + "-0"
 			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
 
+			payloadQueue := qs.queues[payloadQueueName]
+
 			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
@@ -1180,15 +1181,13 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items previously in queue"
-			// TODO Insert dummy items in queue
-			if numCleanedItems == 42 {
+			if numCleanedItems == numItemsInQueues {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleanedItems)
 			}
 
 			msg = "\t\tclear on payload queue must have been performed once"
-			payloadQueue := qs.queues[payloadQueueName]
 			if payloadQueue.clearInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
@@ -1209,7 +1208,7 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 			{
 				b := DefaultSingleQueueCleanerBuilder{}
 
-				ms := populateTestMapStore(0, []string{})
+				ms := populateTestMapStore(0, []string{}, 0)
 				syncMap := ms.maps[queueCleanersSyncMapName]
 
 				// This is the default empty value for a bool, but it's specified here explicitly
@@ -1234,7 +1233,7 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 			{
 				b := DefaultSingleQueueCleanerBuilder{}
 
-				ms := populateTestMapStore(0, []string{})
+				ms := populateTestMapStore(0, []string{}, 0)
 				syncMap := ms.maps[queueCleanersSyncMapName]
 				syncMap.tryLockReturnValue = true
 
@@ -1269,7 +1268,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				prefixes := []string{prefixToConsider, "aragorn_"}
 
 				baseName := "load"
-				testQueueStore := populateTestQueueStore(numQueueObjects, prefixes, baseName)
+				testQueueStore := populateTestQueueStore(numQueueObjects, prefixes, baseName, 1)
 				testObjectInfoStore := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
 
 				// Add object representing map, so we can verify that no attempt was made to retrieve it
@@ -1584,13 +1583,13 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			c := &cleanerConfig{
 				enabled: true,
 			}
-			numQueueOperations := 9
+			numPayloadQueueObjects := 9
 			prefixes := []string{"ht_"}
 
-			qs := populateTestQueueStore(numQueueOperations, prefixes, "load")
+			qs := populateTestQueueStore(numPayloadQueueObjects, prefixes, "load", 1)
 			qs.returnErrorUponGetQueue = true
 
-			ois := populateTestObjectInfos(numQueueOperations, prefixes, hzQueueService)
+			ois := populateTestObjectInfos(numPayloadQueueObjects, prefixes, hzQueueService)
 
 			tracker := &testCleanedTracker{}
 
@@ -1644,7 +1643,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			prefixes := []string{"ht_"}
 
 			baseName := "load"
-			qs := populateTestQueueStore(numQueueObjects, prefixes, baseName)
+			qs := populateTestQueueStore(numQueueObjects, prefixes, baseName, 1)
 			ois := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
 
 			erroneousClearMapName := prefixes[0] + baseName + "-0"
@@ -1776,7 +1775,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 	{
 		t.Log("\twhen should clean check yields error")
 		{
-			ms := populateTestMapStore(1, []string{})
+			ms := populateTestMapStore(1, []string{}, 1)
 			cih := &testLastCleanedInfoHandler{
 				returnErrorUponCheck: true,
 			}
@@ -1823,7 +1822,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 		t.Log("\twhen should clean check is successful and returns negative result")
 		{
 			mapPrefix := "ht_"
-			ms := populateTestMapStore(1, []string{mapPrefix})
+			ms := populateTestMapStore(1, []string{mapPrefix}, 1)
 
 			payloadMapName := mapPrefix + "load-0"
 
@@ -1875,7 +1874,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 		{
 
 			mapPrefix := "ht_"
-			ms := populateTestMapStore(1, []string{mapPrefix})
+			ms := populateTestMapStore(1, []string{mapPrefix}, 1)
 			ms.returnErrorUponGetPayloadMap = true
 
 			payloadMapName := mapPrefix + "load-0"
@@ -1935,7 +1934,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map is successful, too, but evict all on payload map yields error")
 		{
 			mapPrefix := "ht_"
-			ms := populateTestMapStore(1, []string{mapPrefix})
+			ms := populateTestMapStore(1, []string{mapPrefix}, 1)
 
 			payloadMapName := mapPrefix + "load-0"
 			payloadMap := ms.maps[payloadMapName]
@@ -1999,7 +1998,8 @@ func TestRunGenericSingleClean(t *testing.T) {
 		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map, size check, and evict all on payload map are successful, but last cleaned info update fails")
 		{
 			mapPrefix := "ht_"
-			ms := populateTestMapStore(1, []string{mapPrefix})
+			numItemsInPayloadMaps := 6
+			ms := populateTestMapStore(1, []string{mapPrefix}, numItemsInPayloadMaps)
 
 			payloadMapName := mapPrefix + "load-0"
 			cih := &testLastCleanedInfoHandler{
@@ -2053,7 +2053,8 @@ func TestRunGenericSingleClean(t *testing.T) {
 		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map, size check, and evict all on payload map are successful, and last cleaned info update is successful, too")
 		{
 			mapPrefix := "ht_"
-			ms := populateTestMapStore(1, []string{mapPrefix})
+			numItemsInPayloadMaps := 6
+			ms := populateTestMapStore(1, []string{mapPrefix}, numItemsInPayloadMaps)
 
 			payloadMapName := mapPrefix + "load-0"
 			cih := &testLastCleanedInfoHandler{
@@ -2116,7 +2117,8 @@ func TestRunGenericSingleClean(t *testing.T) {
 				}()
 
 				mapPrefix := "ht_"
-				ms := populateTestMapStore(1, []string{mapPrefix})
+				numItemsInPayloadMaps := 3
+				ms := populateTestMapStore(1, []string{mapPrefix}, numItemsInPayloadMaps)
 				syncMap := ms.maps[mapCleanersSyncMapName]
 				syncMap.tryLockReturnValue = true
 				syncMap.returnErrorUponUnlock = true
@@ -2148,7 +2150,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 		t.Log("\twhen get payload map is unsuccessful")
 		{
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 			ms.returnErrorUponGetPayloadMap = true
 
 			mc := &DefaultSingleMapCleaner{
@@ -2183,7 +2185,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 
 		t.Log("\twhen get payload map itself is successful, but map is nil")
 		{
-			ms := populateTestMapStore(0, []string{})
+			ms := populateTestMapStore(0, []string{}, 0)
 
 			mc := &DefaultSingleMapCleaner{
 				ctx: context.TODO(),
@@ -2212,7 +2214,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 		{
 
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			ms := populateTestMapStore(1, []string{prefix}, 1)
 
 			payloadMapName := prefix + "load-0"
 			payloadMap := ms.maps[payloadMapName]
@@ -2252,7 +2254,8 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 		{
 
 			prefix := "ht_"
-			ms := populateTestMapStore(1, []string{prefix})
+			numItemsInPayloadMaps := 9
+			ms := populateTestMapStore(1, []string{prefix}, numItemsInPayloadMaps)
 
 			mc := &DefaultSingleMapCleaner{
 				ctx: context.TODO(),
@@ -2280,8 +2283,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items map previously held"
-			// TODO Insert dummy elements into map
-			if numCleanedItems == 42 {
+			if numCleanedItems == numItemsInPayloadMaps {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleanedItems)
@@ -2303,7 +2305,7 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				builder := DefaultSingleMapCleanerBuilder{}
 
 				prefix := "ht_"
-				ms := populateTestMapStore(1, []string{prefix})
+				ms := populateTestMapStore(1, []string{prefix}, 1)
 				syncMap := ms.maps[mapCleanersSyncMapName]
 
 				// This is the default empty value for a bool anyway, but it's specified here explicitly
@@ -2330,8 +2332,8 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				builder := DefaultSingleMapCleanerBuilder{}
 
 				prefix := "ht_"
-				numMapObjects := 9
-				ms := populateTestMapStore(numMapObjects, []string{prefix})
+				numItemsInPayloadMaps := 9
+				ms := populateTestMapStore(1, []string{prefix}, numItemsInPayloadMaps)
 				syncMap := ms.maps[mapCleanersSyncMapName]
 				syncMap.tryLockReturnValue = true
 
@@ -2372,7 +2374,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				prefixToConsider := "ht_"
 				prefixes := []string{prefixToConsider, "gimli_"}
 
-				testMapStore := populateTestMapStore(numMapObjects, prefixes)
+				testMapStore := populateTestMapStore(numMapObjects, prefixes, 1)
 				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add object representing queue, so we can verify that no attempt was made to retrieve it
@@ -2522,15 +2524,17 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				numMapObjects := 9
 				prefixes := []string{"ht_", "gimli_"}
 
-				testMapStore := populateTestMapStore(numMapObjects, prefixes)
-				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+				ms := populateTestMapStore(numMapObjects, prefixes, 1)
+				mapsSyncMap := ms.maps[mapCleanersSyncMapName]
+				mapsSyncMap.tryLockReturnValue = true
+
+				ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
-
 				hzInternalMapName := hzInternalDataStructurePrefix + "sql.catalog"
-				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
-				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
+				ois.objectInfos = append(ois.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
+				ms.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
 					enabled: true,
@@ -2686,7 +2690,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 
-			ms := populateTestMapStore(numMapObjects, prefixes)
+			ms := populateTestMapStore(numMapObjects, prefixes, 1)
 			ms.returnErrorUponGetPayloadMap = true
 
 			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
@@ -2741,7 +2745,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 
-			ms := populateTestMapStore(numMapObjects, prefixes)
+			ms := populateTestMapStore(numMapObjects, prefixes, 1)
+			mapsSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapsSyncMap.tryLockReturnValue = true
+
 			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			erroneousEvictAllMapName := "ht_load-0"
@@ -2814,7 +2821,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
-			ms := populateTestMapStore(numMapObjects, prefixes)
+			ms := populateTestMapStore(numMapObjects, prefixes, 1)
+			mapsSyncMap := ms.maps[mapCleanersSyncMapName]
+			mapsSyncMap.tryLockReturnValue = true
+
 			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			numMapsToBeCleaned := 3
@@ -2861,7 +2871,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
-			ms := populateTestMapStore(numMapObjects, prefixes)
+			ms := populateTestMapStore(numMapObjects, prefixes, 1)
 			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
 
 			cih := &testLastCleanedInfoHandler{
@@ -3007,8 +3017,8 @@ func TestDefaultSingleQueueCleanerBuilder_Build(t *testing.T) {
 		t.Log("\twhen properties required for build are provided")
 		{
 			ctx := context.TODO()
-			ms := populateTestMapStore(1, []string{})
-			qs := populateTestQueueStore(1, []string{}, "")
+			ms := populateTestMapStore(1, []string{}, 1)
+			qs := populateTestQueueStore(1, []string{}, "", 0)
 
 			builder := DefaultSingleQueueCleanerBuilder{}
 			cleaner, hzService := builder.Build(ctx, qs, ms)
@@ -3193,7 +3203,7 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 		t.Log("\twhen properties required for build are provided")
 		{
 			ctx := context.TODO()
-			ms := populateTestMapStore(1, []string{})
+			ms := populateTestMapStore(1, []string{}, 1)
 
 			builder := DefaultSingleMapCleanerBuilder{}
 			tr := &testCleanedTracker{}
@@ -3538,14 +3548,16 @@ func newQueueObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleO
 	}
 }
 
-func populateTestQueueStore(numQueueObjects int, objectNamePrefixes []string, baseName string) *testHzQueueStore {
+func populateTestQueueStore(numPayloadQueueObjects int, objectNamePrefixes []string, baseName string, numItemsInQueues int) *testHzQueueStore {
 
 	testQueues := make(map[string]*testHzQueue)
 
-	for i := 0; i < numQueueObjects; i++ {
+	for i := 0; i < numPayloadQueueObjects; i++ {
 		for _, v := range objectNamePrefixes {
-			ch := make(chan string, 9)
-			ch <- "awesome-test-value"
+			ch := make(chan string, numItemsInQueues)
+			for j := 0; j < numItemsInQueues; j++ {
+				ch <- fmt.Sprintf("awesome-test-value-%d", j)
+			}
 			testQueues[fmt.Sprintf("%s%s-%d", v, baseName, i)] = &testHzQueue{
 				data: ch,
 			}
@@ -3558,14 +3570,16 @@ func populateTestQueueStore(numQueueObjects int, objectNamePrefixes []string, ba
 
 }
 
-func populateTestMapStore(numMapObjects int, objectNamePrefixes []string) *testHzMapStore {
+func populateTestMapStore(numPayloadMapObjects int, objectNamePrefixes []string, numItemsInPayloadMaps int) *testHzMapStore {
 
 	testMaps := make(map[string]*testHzMap)
 
-	for i := 0; i < numMapObjects; i++ {
+	for i := 0; i < numPayloadMapObjects; i++ {
 		for _, v := range objectNamePrefixes {
-			m := map[string]any{
-				"awesome-test-key": "awesome-test-value",
+			m := make(map[string]any)
+			for j := 0; j < numItemsInPayloadMaps; j++ {
+				dummyKey, dummyValue := fmt.Sprintf("awesome-test-key-%d", j), fmt.Sprintf("awesome-test-value-%d", j)
+				m[dummyKey] = dummyValue
 			}
 			testMaps[fmt.Sprintf("%sload-%d", v, i)] = &testHzMap{data: m}
 		}
