@@ -58,7 +58,7 @@ type (
 
 type (
 	SingleCleaner interface {
-		Clean(name string) error
+		Clean(name string) (int, error)
 	}
 	// SingleMapCleanerBuilder is an interface for encapsulating the capability of assembling map cleaners
 	// implementing the SingleCleaner interface. An interesting detail is perhaps that the Build methods for
@@ -349,8 +349,9 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	}
 
 	b := DefaultSingleMapCleanerBuilder{}
-	sc, _ := b.Build(c.ctx, c.ms, c.t)
-	numCleaned, err := runGenericBatchClean(
+	sc, _ := b.Build(c.ctx, c.ms, c.t, c.cih)
+
+	return runGenericBatchClean(
 		c.ctx,
 		c.ois,
 		hzMapService,
@@ -358,8 +359,6 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 		c.c.prefix,
 		sc,
 	)
-
-	return numCleaned, err
 
 }
 
@@ -435,7 +434,7 @@ func runGenericSingleClean(
 	t cleanedTracker,
 	syncMapName, payloadDataStructureName, hzService string,
 	retrieveAndCleanFunc func(payloadDataStructureName string) (int, error),
-) error {
+) (int, error) {
 
 	lockInfo, shouldClean, err := cih.check(syncMapName, payloadDataStructureName, hzService)
 
@@ -449,12 +448,12 @@ func runGenericSingleClean(
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
 	if !shouldClean {
 		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-		return nil
+		return 0, nil
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
@@ -462,7 +461,7 @@ func runGenericSingleClean(
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
 	t.add(payloadDataStructureName, numItemsCleaned)
@@ -470,11 +469,11 @@ func runGenericSingleClean(
 
 	if err := cih.update(lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return err
+		return numItemsCleaned, err
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-	return nil
+	return numItemsCleaned, nil
 
 }
 
@@ -515,7 +514,7 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 
 }
 
-func (c *DefaultSingleMapCleaner) Clean(name string) error {
+func (c *DefaultSingleMapCleaner) Clean(name string) (int, error) {
 
 	return runGenericSingleClean(
 		c.ctx,
@@ -566,12 +565,21 @@ func runGenericBatchClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		if err := sc.Clean(v.GetName()); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
-			return numCleanedDataStructures, err
-		} else {
+		if numItemsCleaned, err := sc.Clean(v.GetName()); numItemsCleaned > 0 {
 			numCleanedDataStructures++
-			lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s'; cleaned %d data structure/-s so far", v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
+			if err != nil {
+				lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
+				return numCleanedDataStructures, err
+			} else {
+				lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d elements from payload data structure '%s'; cleaned %d data structure/-s so far", numItemsCleaned, v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
+			}
+		} else {
+			if err != nil {
+				lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
+				return numCleanedDataStructures, err
+			} else {
+				lp.LogStateCleanerEvent(fmt.Sprintf("invocation of clean was successful on payload data structure '%s'; however, zero items were cleaned", v.GetName()), hzService, log.InfoLevel)
+			}
 		}
 	}
 
@@ -629,7 +637,7 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 
 }
 
-func (c *DefaultSingleQueueCleaner) Clean(name string) error {
+func (c *DefaultSingleQueueCleaner) Clean(name string) (int, error) {
 
 	return runGenericSingleClean(
 		c.ctx,
@@ -655,7 +663,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 	}
 
 	b := DefaultSingleQueueCleanerBuilder{}
-	sc, _ := b.Build(c.ctx, c.qs, c.ms, c.t)
+	sc, _ := b.Build(c.ctx, c.qs, c.ms, c.t, c.cih)
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
