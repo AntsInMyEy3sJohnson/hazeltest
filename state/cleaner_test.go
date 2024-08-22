@@ -2117,6 +2117,63 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 		}
 
+		t.Log("\twhen should clean is successful and returns positive result, and both get map and query size operation on payload map are successful, but map contains zero items")
+		{
+			mapPrefix := "ht_"
+			ms := populateTestMapStore(1, []string{mapPrefix}, 0)
+
+			syncMap := ms.maps[mapCleanersSyncMapName]
+			cih := &testLastCleanedInfoHandler{
+				syncMap:        syncMap,
+				shouldCleanAll: true,
+			}
+			tr := &testCleanedTracker{}
+			mc := DefaultSingleMapCleaner{
+				ctx: context.TODO(),
+				ms:  ms,
+				cih: cih,
+				t:   tr,
+			}
+
+			numItemsCleaned, err := mc.Clean(mapPrefix + "load-0")
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of cleaned items must be zero"
+			if numItemsCleaned == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numItemsCleaned)
+			}
+
+			msg = "\t\tdata structure must not have been added to cleaned data structure tracker"
+			if tr.numAddInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, tr.numAddInvocations)
+			}
+
+			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
+			if syncMap.unlockInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, syncMap.unlockInvocations)
+			}
+
+			msg = "\t\tlast cleaned info must have been updated anyway"
+			if cih.updateInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cih.updateInvocations)
+			}
+
+		}
+
 		t.Log("\twhen should clean is successful and returns positive result, and get map for payload map, size check, and evict all on payload map are successful, but last cleaned info update fails")
 		{
 			mapPrefix := "ht_"

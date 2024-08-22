@@ -464,8 +464,10 @@ func runGenericSingleClean(
 		return 0, err
 	}
 
-	t.add(payloadDataStructureName, numItemsCleaned)
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d items", payloadDataStructureName, numItemsCleaned), hzService, log.InfoLevel)
+	if numItemsCleaned > 0 {
+		t.add(payloadDataStructureName, numItemsCleaned)
+		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), hzService, log.InfoLevel)
+	}
 
 	if err := cih.update(lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attemot to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
