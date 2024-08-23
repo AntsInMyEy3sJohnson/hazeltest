@@ -122,6 +122,22 @@ func ValidateInt(path string, a any) error {
 
 }
 
+func ValidateInt64(path string, a any) error {
+
+	// FIXME These are two different checks -- one validates merely the data type, the other puts the value into a semantic context
+	// --> Split into two functions? Would have the added benefit of providing the caller with more control over how
+	// a value is validated -- for one caller, an int64 of zero might be acceptable, while for another, the value
+	// must be at least one.
+	if i, ok := a.(int64); !ok {
+		return FailedParse{"int64", path}
+	} else if i <= 0 {
+		return FailedValueCheck{"expected this number to be at least 1", path}
+	}
+
+	return nil
+
+}
+
 func ValidateString(path string, a any) error {
 
 	if s, ok := a.(string); !ok {
