@@ -610,6 +610,76 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 		}
+
+		t.Log("\twhen usage of cleaning threshold has been disabled")
+		{
+			ms := populateTestMapStore(0, []string{}, 0)
+			syncMap := ms.maps[mapCleanersSyncMapName]
+			syncMap.tryLockReturnValue = true
+
+			cih := &DefaultLastCleanedInfoHandler{
+				Ctx: context.TODO(),
+				Ms:  ms,
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: false,
+					CleanAgainThresholdMs:  60_000,
+				},
+			}
+
+			payloadDataStructureName := "awesome-map-name"
+			lockInfo, shouldClean, err := cih.check(mapCleanersSyncMapName, payloadDataStructureName, hzMapService)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tshould clean result must indicate data structure is susceptible to cleaning"
+			if shouldClean {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must contain sync map value"
+			if lockInfo.m == syncMap {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tlock info must contain correct sync map name"
+			if lockInfo.mapName == mapCleanersSyncMapName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, lockInfo.mapName)
+			}
+
+			msg = "\t\tkey contained in lock info must be equal to payload data structure name"
+			if lockInfo.key == payloadDataStructureName {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnumber of get map invocations on map store for map cleaners sync map must be one"
+			if ms.getMapInvocationsMapsSyncMap == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
+			}
+
+			msg = "\t\tthere must have been no invocation on sync map for key corresponding to payload data structure"
+			if ms.getMapInvocationsPayloadMap == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.getMapInvocationsMapsSyncMap)
+			}
+
+		}
+
 		t.Log("\twhen get on sync map for key-value pair related to payload data structure yields error")
 		{
 			prefix := "waldo_"
@@ -622,6 +692,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms:  ms,
 				Ctx: context.TODO(),
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+				},
 			}
 
 			payloadMapName := prefix + "load-0"
@@ -680,6 +753,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms:  ms,
 				Ctx: context.TODO(),
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+				},
 			}
 
 			payloadMapName := "ht_aragorn-0"
@@ -741,6 +817,9 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms:  ms,
 				Ctx: context.TODO(),
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+				},
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
@@ -781,6 +860,10 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms:  ms,
 				Ctx: context.TODO(),
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+					CleanAgainThresholdMs:  30_000,
+				},
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
@@ -821,6 +904,10 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms:  ms,
 				Ctx: context.TODO(),
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+					CleanAgainThresholdMs:  1,
+				},
 			}
 
 			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
