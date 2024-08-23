@@ -25,12 +25,14 @@ type (
 		buildInvocations int
 	}
 	testCleanerBehavior struct {
+		numItemsCleanedReturnValue                 int
+		returnCleanErrorAfterNoInvocations         int
 		returnErrorUponBuild, returnErrorUponClean bool
 	}
-	batchTestCleaner struct {
+	testBatchCleaner struct {
 		behavior *testCleanerBehavior
 	}
-	singleTestCleaner struct {
+	testSingleCleaner struct {
 		behavior *testCleanerBehavior
 	}
 	cleanerWatcher struct {
@@ -369,10 +371,11 @@ func (ch *testHzClientHandler) GetClient() *hazelcast.Client {
 func (cw *cleanerWatcher) reset() {
 	cw.m = sync.Mutex{}
 
+	cw.cleanSingleInvocations = 0
 	cw.cleanAllInvocations = 0
 }
 
-func (c *batchTestCleaner) Clean() (int, error) {
+func (c *testBatchCleaner) Clean() (int, error) {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -387,18 +390,18 @@ func (c *batchTestCleaner) Clean() (int, error) {
 
 }
 
-func (c *singleTestCleaner) Clean(_ string) error {
+func (c *testSingleCleaner) Clean(_ string) (int, error) {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
 
 	cw.cleanSingleInvocations++
 
-	if c.behavior.returnErrorUponClean {
-		return singleCleanerCleanError
+	if c.behavior.returnErrorUponClean && (c.behavior.returnCleanErrorAfterNoInvocations == 0 || cw.cleanSingleInvocations == c.behavior.returnCleanErrorAfterNoInvocations+1) {
+		return 0, singleCleanerCleanError
 	}
 
-	return nil
+	return c.behavior.numItemsCleanedReturnValue, nil
 
 }
 
@@ -411,7 +414,7 @@ func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context
 		return nil, hzMapService, cleanerBuildError
 	}
 
-	return &batchTestCleaner{behavior: b.behavior}, hzMapService, nil
+	return &testBatchCleaner{behavior: b.behavior}, hzMapService, nil
 
 }
 
@@ -2400,6 +2403,260 @@ func TestRunGenericSingleClean(t *testing.T) {
 			}()
 
 		}
+	}
+
+}
+
+func TestRunGenericBatchClean(t *testing.T) {
+
+	t.Log("given at least one payload data structure to be cleaned in a target Hazelcast cluster")
+	{
+		t.Log("\twhen identifying target data structures yields error")
+		{
+			runTestCaseAndResetState(func() {
+				ois := populateTestObjectInfos(0, []string{}, hzMapService)
+				ois.returnErrorUponGetObjectInfos = true
+
+				sc := &testSingleCleaner{}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\terror must be returned"
+				if errors.Is(err, getDistributedObjectInfoError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\treported number of cleaned data structures must be zero"
+				if numMapsCleaned == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+
+				msg = "\t\tsingle data structure cleaner must not have been invoked"
+				if cw.cleanSingleInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+				}
+			})
+		}
+
+		t.Log("\twhen zero target data structures were identified")
+		{
+			runTestCaseAndResetState(func() {
+				ois := populateTestObjectInfos(0, []string{}, hzMapService)
+
+				sc := &testSingleCleaner{}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\treported number of cleaned data structures must be zero"
+				if numMapsCleaned == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+
+				msg = "\t\tsingle data structure cleaner must not have been invoked"
+				if cw.cleanSingleInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+				}
+			})
+		}
+
+		t.Log("\twhen prefix usage was disabled")
+		{
+			runTestCaseAndResetState(func() {
+				numObjectsPerPrefix := 9
+				prefixes := []string{"ht_", "somethingcompletelydifferent_"}
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+
+				sc := &testSingleCleaner{
+					behavior: &testCleanerBehavior{
+						numItemsCleanedReturnValue: 1,
+					},
+				}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\treported number of maps cleaned must be equal to number of objects in object info store"
+				if numMapsCleaned == numObjectsPerPrefix*len(prefixes) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+			})
+		}
+
+		t.Log("\twhen prefix usage was enabled")
+		{
+			runTestCaseAndResetState(func() {
+				numObjectsPerPrefix := 21
+				prefixToConsider := "ht_"
+
+				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{prefixToConsider, "somethingcompletelydifferent_"}, hzMapService)
+
+				sc := &testSingleCleaner{
+					behavior: &testCleanerBehavior{
+						numItemsCleanedReturnValue: 1,
+					},
+				}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, true, prefixToConsider, sc)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\treported number of maps cleaned must be equal to number of maps having the given prefix"
+				if numMapsCleaned == numObjectsPerPrefix {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+			})
+		}
+
+		t.Log("\twhen invocation of clean for individual data structure yields error")
+		{
+			runTestCaseAndResetState(func() {
+				numObjectsPerPrefix := 9
+				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{"ht_"}, hzMapService)
+
+				cleanErrorAfterNoInvocations := 3
+				sc := &testSingleCleaner{
+					behavior: &testCleanerBehavior{
+						numItemsCleanedReturnValue:         1,
+						returnCleanErrorAfterNoInvocations: 3,
+						returnErrorUponClean:               true,
+					},
+				}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\terror must be returned"
+				if errors.Is(err, singleCleanerCleanError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\treported number of maps cleaned must be equal to single clean operations successful prior to error"
+				if numMapsCleaned == cleanErrorAfterNoInvocations {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+
+				msg = "\t\tsingle cleaner clean must have been invoked one time more often than number of successful clean operations"
+				if cw.cleanSingleInvocations == cleanErrorAfterNoInvocations+1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+				}
+			})
+
+		}
+		t.Log("\twhen invocation of clean for individual data structure succeeds, but data data structure held no items")
+		{
+			runTestCaseAndResetState(func() {
+				numObjectsPerPrefix := 99
+				prefixes := []string{"ht_"}
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+
+				sc := &testSingleCleaner{
+					behavior: &testCleanerBehavior{
+						// This is the empty value found on emptyTestCleanerBehavior -- explicitly provided here
+						// anyway to convey why we expect zero maps reported to be cleaned
+						numItemsCleanedReturnValue: 0,
+					},
+				}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\treported number of maps cleaned must be zero"
+				if numMapsCleaned == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+
+				msg = "\t\tsingle cleaner clean must have been invoked for all data structures anyway"
+				if cw.cleanSingleInvocations == numObjectsPerPrefix*len(prefixes) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+				}
+			})
+		}
+
+		t.Log("\twhen invocation of clean for individual data structure succeeds and data structure held at least one item")
+		{
+			runTestCaseAndResetState(func() {
+				numObjectsPerPrefix := 12
+				prefixes := []string{"ht_"}
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+
+				sc := &testSingleCleaner{
+					behavior: &testCleanerBehavior{
+						numItemsCleanedReturnValue: 1,
+					},
+				}
+
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\treported number of maps cleaned must be equal to number of map entries contained in object info store"
+				if numMapsCleaned == numObjectsPerPrefix*len(prefixes) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numMapsCleaned)
+				}
+
+				msg = "\t\tsingle cleaner clean must have been invoked for all data structures"
+				if cw.cleanSingleInvocations == numObjectsPerPrefix*len(prefixes) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+				}
+			})
+		}
+
 	}
 
 }
