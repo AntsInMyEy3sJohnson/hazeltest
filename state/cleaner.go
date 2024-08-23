@@ -130,9 +130,11 @@ type (
 		add(name string, cleaned int)
 	}
 	cleanerConfig struct {
-		enabled   bool
-		usePrefix bool
-		prefix    string
+		enabled                bool
+		usePrefix              bool
+		prefix                 string
+		useCleanAgainThreshold bool
+		cleanAgainThresholdMs  int64
 	}
 	cleanerConfigBuilder struct {
 		keyPath string
@@ -146,9 +148,14 @@ type (
 		m            hazelcastwrapper.Map
 		mapName, key string
 	}
+	LastCleanedInfoHandlerConfig struct {
+		UseCleanAgainThreshold bool
+		CleanAgainThresholdMs  int64
+	}
 	DefaultLastCleanedInfoHandler struct {
 		Ctx context.Context
 		Ms  hazelcastwrapper.MapStore
+		Cfg *LastCleanedInfoHandlerConfig
 	}
 	CleanedDataStructureTracker struct {
 		G *status.Gatherer
@@ -163,8 +170,6 @@ const (
 	hzQueueService                = "hz:impl:queueService"
 	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
 	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
-	// TODO Read this value from config
-	cleanAgainThresholdMs = 30_000
 )
 
 var (
@@ -227,6 +232,10 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 	cih := &DefaultLastCleanedInfoHandler{
 		Ctx: ctx,
 		Ms:  ms,
+		Cfg: &LastCleanedInfoHandlerConfig{
+			UseCleanAgainThreshold: config.useCleanAgainThreshold,
+			CleanAgainThresholdMs:  config.cleanAgainThresholdMs,
+		},
 	}
 
 	t := &CleanedDataStructureTracker{g}
@@ -293,7 +302,21 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		mapName: syncMapName,
 		key:     payloadDataStructureName,
 	}
+
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	if !cih.Cfg.UseCleanAgainThreshold {
+		// No need to check for the last cleaned timestamp if the cleaner was advised not to apply a clean again threshold
+		// (Caution: One might be tempted to check whether to apply a threshold right at the beginning of this method,
+		// and, if not, right away return a value indicating the payload data structure must be cleaned, without acquiring a lock
+		// for the key in question, and without updating the timestamp. This would imply the assumption, however,
+		// that all cleaners of all Hazeltest instances currently working on that Hazelcast cluster were advised not
+		// to apply their threshold. This assumption might be incorrect, so even if the current cleaner won't apply
+		// a threshold and clean the payload data structure regardless of when it was last cleaned, it's important to
+		// update the corresponding time stamp in the sync map nonetheless, which requires locking,
+		// updating, and unlocking the entry in question.)
+		return lockInfo, true, nil
+	}
+
 	v, err := syncMap.Get(cih.Ctx, payloadDataStructureName)
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from sync map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
@@ -315,8 +338,9 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		lastCleanedAt = lc
 	}
 
+	cleanAgainThresholdMs := cih.Cfg.CleanAgainThresholdMs
 	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
-	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*cleanAgainThresholdMs {
+	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*time.Duration(cleanAgainThresholdMs) {
 		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
 		return lockInfo, false, nil
 	}
@@ -332,7 +356,7 @@ func (cih *DefaultLastCleanedInfoHandler) update(lockInfo mapLockInfo) error {
 	payloadDataStructureName := lockInfo.key
 
 	cleanedAt := time.Now().UnixNano()
-	ttlAndMaxIdle := time.Millisecond * cleanAgainThresholdMs
+	ttlAndMaxIdle := time.Millisecond * time.Duration(cih.Cfg.CleanAgainThresholdMs)
 	return mapHoldingLock.SetWithTTLAndMaxIdle(cih.Ctx, payloadDataStructureName, cleanedAt, ttlAndMaxIdle, ttlAndMaxIdle)
 
 }
@@ -378,6 +402,10 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 	cih := &DefaultLastCleanedInfoHandler{
 		Ms:  ms,
 		Ctx: ctx,
+		Cfg: &LastCleanedInfoHandlerConfig{
+			UseCleanAgainThreshold: config.useCleanAgainThreshold,
+			CleanAgainThresholdMs:  config.cleanAgainThresholdMs,
+		},
 	}
 
 	t := &CleanedDataStructureTracker{g}
@@ -754,6 +782,20 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
+	var useCleanAgainThreshold bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".cleanAgainThreshold.enabled", client.ValidateBool, func(a any) {
+			useCleanAgainThreshold = a.(bool)
+		})
+	})
+
+	var cleanAgainThresholdMs int64
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".cleanAgainThreshold.thresholdMs", client.ValidateInt64, func(a any) {
+			cleanAgainThresholdMs = a.(int64)
+		})
+	})
+
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
 			return nil, err
@@ -761,9 +803,11 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 	}
 
 	return &cleanerConfig{
-		enabled:   enabled,
-		usePrefix: usePrefix,
-		prefix:    prefix,
+		enabled:                enabled,
+		usePrefix:              usePrefix,
+		prefix:                 prefix,
+		useCleanAgainThreshold: useCleanAgainThreshold,
+		cleanAgainThresholdMs:  cleanAgainThresholdMs,
 	}, nil
 
 }
