@@ -543,6 +543,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	rc := tle.runnerConfig
 	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
+	// TODO Read from config
+	cleanAgainThreshold := 30_000
 	if tle.runnerConfig.evictMapsPriorToRun {
 		builder := &state.DefaultSingleMapCleanerBuilder{}
 		// TODO Add information collected by tracker to test loop status
@@ -553,6 +555,9 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			&state.DefaultLastCleanedInfoHandler{
 				Ctx: tle.ctx,
 				Ms:  tle.hzMapStore,
+				Cfg: &state.LastCleanedInfoHandlerConfig{
+					CleanAgainThresholdMs: int64(cleanAgainThreshold),
+				},
 			},
 		)
 	}

@@ -757,6 +757,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 }
 
+// TODO Implement test for this function
 func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 
 	var assignmentOps []func() error
