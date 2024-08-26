@@ -1134,6 +1134,9 @@ func TestDefaultLastCleanedInfoHandler_Update(t *testing.T) {
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms:  ms,
 					Ctx: context.TODO(),
+					Cfg: &LastCleanedInfoHandlerConfig{
+						CleanAgainThresholdMs: 30_000,
+					},
 				}
 
 				lockInfo := mapLockInfo{
@@ -1544,6 +1547,10 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				tr := &testCleanedTracker{}
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms: ms,
+					Cfg: &LastCleanedInfoHandlerConfig{
+						UseCleanAgainThreshold: true,
+						CleanAgainThresholdMs:  30_000,
+					},
 				}
 				numItemsInQueues := 9
 				qc, _ := b.Build(context.TODO(), populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues), ms, tr, cih)
@@ -1625,6 +1632,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms:  ms,
 					Ctx: ctx,
+					Cfg: &LastCleanedInfoHandlerConfig{
+						UseCleanAgainThreshold: true,
+						CleanAgainThresholdMs:  30_000,
+					},
 				}
 				queueCleanersSyncMap := ms.maps[queueCleanersSyncMapName]
 				queueCleanersSyncMap.tryLockReturnValue = true
@@ -2197,6 +2208,10 @@ func TestRunGenericSingleClean(t *testing.T) {
 			tr := &testCleanedTracker{}
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms: ms,
+				Cfg: &LastCleanedInfoHandlerConfig{
+					UseCleanAgainThreshold: true,
+					CleanAgainThresholdMs:  30_000,
+				},
 			}
 			mc, _ := b.Build(context.TODO(), ms, tr, cih)
 			dmc := mc.(*DefaultSingleMapCleaner)
@@ -2639,7 +2654,8 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 				builder := DefaultSingleMapCleanerBuilder{}
 				cih := &DefaultLastCleanedInfoHandler{
-					Ms: ms,
+					Ms:  ms,
+					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
 				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
 
