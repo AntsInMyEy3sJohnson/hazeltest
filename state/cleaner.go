@@ -428,7 +428,6 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 
 }
 
-// TODO Implement test
 func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) error {
 
 	if lockInfo == emptyMapLockInfo {
@@ -558,7 +557,6 @@ func (c *DefaultSingleMapCleaner) Clean(name string) (int, error) {
 
 }
 
-// TODO Implement tests for this function
 func runGenericBatchClean(
 	ctx context.Context,
 	ois hazelcastwrapper.ObjectInfoStore,
