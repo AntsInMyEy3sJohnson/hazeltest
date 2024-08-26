@@ -3313,11 +3313,13 @@ func assembleBaseRunnerConfig(rp *runnerProperties) *runnerConfig {
 		mapPrefix:               "ht_",
 		appendMapIndexToMapName: false,
 		appendClientIdToMapName: false,
-		evictMapsPriorToRun:     rp.evictMapsPriorToRun,
-		sleepBetweenRuns:        rp.sleepBetweenRuns,
-		loopType:                boundary,
-		batch:                   nil,
-		boundary:                nil,
+		preRunClean: &preRunCleanConfig{
+			enabled: rp.evictMapsPriorToRun,
+		},
+		sleepBetweenRuns: rp.sleepBetweenRuns,
+		loopType:         boundary,
+		batch:            nil,
+		boundary:         nil,
 	}
 
 }

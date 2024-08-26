@@ -543,9 +543,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	rc := tle.runnerConfig
 	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
-	// TODO Read from config
-	cleanAgainThreshold := 30_000
-	if tle.runnerConfig.evictMapsPriorToRun {
+	if tle.runnerConfig.preRunClean.enabled {
 		builder := &state.DefaultSingleMapCleanerBuilder{}
 		// TODO Add information collected by tracker to test loop status
 		tle.stateCleaner, tle.hzService = builder.Build(
@@ -556,7 +554,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 				Ctx: tle.ctx,
 				Ms:  tle.hzMapStore,
 				Cfg: &state.LastCleanedInfoHandlerConfig{
-					CleanAgainThresholdMs: uint64(cleanAgainThreshold),
+					UseCleanAgainThreshold: tle.runnerConfig.preRunClean.applyCleanAgainThreshold,
+					CleanAgainThresholdMs:  tle.runnerConfig.preRunClean.cleanAgainThresholdMs,
 				},
 			},
 		)
@@ -580,7 +579,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
-			if tle.runnerConfig.evictMapsPriorToRun {
+			if tle.runnerConfig.preRunClean.enabled {
 				if tle.stateCleaner == nil || tle.hzService == "" {
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
 					return
