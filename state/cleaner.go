@@ -134,7 +134,7 @@ type (
 		usePrefix              bool
 		prefix                 string
 		useCleanAgainThreshold bool
-		cleanAgainThresholdMs  int64
+		cleanAgainThresholdMs  uint64
 	}
 	cleanerConfigBuilder struct {
 		keyPath string
@@ -150,7 +150,7 @@ type (
 	}
 	LastCleanedInfoHandlerConfig struct {
 		UseCleanAgainThreshold bool
-		CleanAgainThresholdMs  int64
+		CleanAgainThresholdMs  uint64
 	}
 	DefaultLastCleanedInfoHandler struct {
 		Ctx context.Context
@@ -790,10 +790,10 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
-	var cleanAgainThresholdMs int64
+	var cleanAgainThresholdMs uint64
 	assignmentOps = append(assignmentOps, func() error {
-		return b.a.Assign(b.keyPath+".cleanAgainThreshold.thresholdMs", client.ValidateInt64, func(a any) {
-			cleanAgainThresholdMs = a.(int64)
+		return b.a.Assign(b.keyPath+".cleanAgainThreshold.thresholdMs", client.ValidateInt, func(a any) {
+			cleanAgainThresholdMs = uint64(a.(int))
 		})
 	})
 

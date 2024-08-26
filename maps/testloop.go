@@ -556,7 +556,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 				Ctx: tle.ctx,
 				Ms:  tle.hzMapStore,
 				Cfg: &state.LastCleanedInfoHandlerConfig{
-					CleanAgainThresholdMs: int64(cleanAgainThreshold),
+					CleanAgainThresholdMs: uint64(cleanAgainThreshold),
 				},
 			},
 		)
