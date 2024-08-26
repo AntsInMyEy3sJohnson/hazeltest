@@ -171,6 +171,7 @@ var (
 		cleanerKeyPath + ".prefix.prefix":                   "awesome_prefix_",
 		cleanerKeyPath + ".cleanAgainThreshold.enabled":     true,
 		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs": 30_000,
+		cleanerKeyPath + ".errorBehavior":                   "ignore",
 	}
 	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
@@ -476,6 +477,55 @@ func (cih *testLastCleanedInfoHandler) update(_ mapLockInfo) error {
 func (t *testCleanedTracker) add(_ string, _ int) {
 
 	t.numAddInvocations++
+
+}
+
+func TestValidateErrorDuringCleanBehavior(t *testing.T) {
+
+	t.Log("given a value to configure pre-run clean error behavior")
+	{
+		keyPath := "super.awesome.key.path"
+		t.Log("\twhen value is empty string")
+		{
+			err := ValidateErrorDuringCleanBehavior(keyPath, "")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen value is string representing unknown behavior")
+		{
+			err := ValidateErrorDuringCleanBehavior(keyPath, "do a backflip")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen string representing valid error behavior is provided")
+		{
+			for _, v := range []string{string(ignore), string(fail)} {
+
+				err := ValidateErrorDuringCleanBehavior(keyPath, v)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+
+			}
+		}
+	}
 
 }
 

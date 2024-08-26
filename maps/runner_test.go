@@ -83,55 +83,6 @@ func combineMapsInNewMap(newContentMaps []map[string]any) map[string]any {
 
 }
 
-func TestValidatePreRunCleanErrorBehavior(t *testing.T) {
-
-	t.Log("given a value to configure pre-run clean error behavior")
-	{
-		keyPath := "super.awesome.key.path"
-		t.Log("\twhen value is empty string")
-		{
-			err := validatePreRunCleanErrorBehavior(keyPath, "")
-
-			msg := "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-		}
-
-		t.Log("\twhen value is string representing unknown behavior")
-		{
-			err := validatePreRunCleanErrorBehavior(keyPath, "do a backflip")
-
-			msg := "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-
-		t.Log("\twhen string representing valid error behavior is provided")
-		{
-			for _, v := range []string{string(ignore), string(fail)} {
-
-				err := validatePreRunCleanErrorBehavior(keyPath, v)
-
-				msg := "\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark, v)
-				} else {
-					t.Fatal(msg, ballotX, v)
-				}
-
-			}
-		}
-	}
-
-}
-
 func TestValidateTestLoopType(t *testing.T) {
 
 	t.Log("given a method to validate a string against the two available map test loop types")

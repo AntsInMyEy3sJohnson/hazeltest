@@ -82,6 +82,7 @@ chaosMonkeys:
 stateCleaners:
   maps:
     enabled: true
+    errorBehavior: ignore
     prefix:
       enabled: true
       prefix: "ht_"
@@ -90,6 +91,7 @@ stateCleaners:
       thresholdMs: 30000
   queues:
     enabled: false
+    errorBehavior: ignore
     prefix:
       enabled: true
       prefix: "ht_"

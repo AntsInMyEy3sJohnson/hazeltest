@@ -8,14 +8,14 @@ import (
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
+	"hazeltest/state"
 	"hazeltest/status"
 	"sync"
 )
 
 type (
-	runnerLoopType           string
-	preRunCleanErrorBehavior string
-	runner                   interface {
+	runnerLoopType string
+	runner         interface {
 		getSourceName() string
 		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc)
 	}
@@ -36,7 +36,7 @@ type (
 	}
 	preRunCleanConfig struct {
 		enabled                  bool
-		errorBehavior            preRunCleanErrorBehavior
+		errorBehavior            state.ErrorDuringCleanBehavior
 		applyCleanAgainThreshold bool
 		cleanAgainThresholdMs    uint64
 	}
@@ -86,11 +86,6 @@ type (
 const (
 	batch    runnerLoopType = "batch"
 	boundary runnerLoopType = "boundary"
-)
-
-const (
-	ignore preRunCleanErrorBehavior = "ignore"
-	fail   preRunCleanErrorBehavior = "fail"
 )
 
 const (
@@ -363,20 +358,6 @@ func populateBoundaryTestLoopConfig(b runnerConfigBuilder) (*boundaryTestLoopCon
 
 }
 
-func validatePreRunCleanErrorBehavior(keyPath string, a any) error {
-	if err := client.ValidateString(keyPath, a); err != nil {
-		return err
-	}
-
-	switch a {
-	case string(ignore), string(fail):
-		return nil
-	default:
-		return fmt.Errorf("pre-run error behavior to be either '%s' or '%s', got %v", ignore, fail, a)
-	}
-
-}
-
 func validateTestLoopType(keyPath string, a any) error {
 	if err := client.ValidateString(keyPath, a); err != nil {
 		return err
@@ -435,10 +416,10 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
-	var errorDuringPreRunCleanBehavior preRunCleanErrorBehavior
+	var errorDuringPreRunCleanBehavior state.ErrorDuringCleanBehavior
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.errorBehavior", validatePreRunCleanErrorBehavior, func(a any) {
-			errorDuringPreRunCleanBehavior = preRunCleanErrorBehavior(a.(string))
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.errorBehavior", state.ValidateErrorDuringCleanBehavior, func(a any) {
+			errorDuringPreRunCleanBehavior = state.ErrorDuringCleanBehavior(a.(string))
 		})
 	})
 

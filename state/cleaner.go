@@ -129,12 +129,14 @@ type (
 	cleanedTracker interface {
 		add(name string, cleaned int)
 	}
-	cleanerConfig struct {
+	ErrorDuringCleanBehavior string
+	cleanerConfig            struct {
 		enabled                bool
 		usePrefix              bool
 		prefix                 string
 		useCleanAgainThreshold bool
 		cleanAgainThresholdMs  uint64
+		errorBehavior          ErrorDuringCleanBehavior
 	}
 	cleanerConfigBuilder struct {
 		keyPath string
@@ -170,6 +172,11 @@ const (
 	hzQueueService                = "hz:impl:queueService"
 	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
 	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
+)
+
+const (
+	ignore ErrorDuringCleanBehavior = "ignore"
+	fail   ErrorDuringCleanBehavior = "fail"
 )
 
 var (
@@ -794,6 +801,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
+	var cleanErrorBehavior ErrorDuringCleanBehavior
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".errorBehavior", ValidateErrorDuringCleanBehavior, func(a any) {
+			cleanErrorBehavior = ErrorDuringCleanBehavior(a.(string))
+		})
+	})
+
 	for _, f := range assignmentOps {
 		if err := f(); err != nil {
 			return nil, err
@@ -806,6 +820,21 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		prefix:                 prefix,
 		useCleanAgainThreshold: useCleanAgainThreshold,
 		cleanAgainThresholdMs:  cleanAgainThresholdMs,
+		errorBehavior:          cleanErrorBehavior,
 	}, nil
+
+}
+
+func ValidateErrorDuringCleanBehavior(keyPath string, a any) error {
+	if err := client.ValidateString(keyPath, a); err != nil {
+		return err
+	}
+
+	switch a {
+	case string(ignore), string(fail):
+		return nil
+	default:
+		return fmt.Errorf("pre-run error behavior to be either '%s' or '%s', got %v", ignore, fail, a)
+	}
 
 }
