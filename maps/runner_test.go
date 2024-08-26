@@ -9,16 +9,20 @@ import (
 
 var (
 	baseTestConfig = map[string]any{
-		runnerKeyPath + ".enabled":                             true,
-		runnerKeyPath + ".numMaps":                             10,
-		runnerKeyPath + ".appendMapIndexToMapName":             true,
-		runnerKeyPath + ".appendClientIdToMapName":             false,
-		runnerKeyPath + ".numRuns":                             1_000,
-		runnerKeyPath + ".mapPrefix.enabled":                   true,
-		runnerKeyPath + ".mapPrefix.prefix":                    mapPrefix,
-		runnerKeyPath + ".sleeps.betweenRuns.enabled":          true,
-		runnerKeyPath + ".sleeps.betweenRuns.durationMs":       2_500,
-		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness": true,
+		runnerKeyPath + ".enabled":                                            true,
+		runnerKeyPath + ".numMaps":                                            10,
+		runnerKeyPath + ".appendMapIndexToMapName":                            true,
+		runnerKeyPath + ".appendClientIdToMapName":                            false,
+		runnerKeyPath + ".numRuns":                                            1_000,
+		runnerKeyPath + ".performPreRunClean.enabled":                         true,
+		runnerKeyPath + ".performPreRunClean.errorBehavior":                   "ignore",
+		runnerKeyPath + ".performPreRunClean.cleanAgainThreshold.enabled":     true,
+		runnerKeyPath + ".performPreRunClean.cleanAgainThreshold.thresholdMs": 30000,
+		runnerKeyPath + ".mapPrefix.enabled":                                  true,
+		runnerKeyPath + ".mapPrefix.prefix":                                   mapPrefix,
+		runnerKeyPath + ".sleeps.betweenRuns.enabled":                         true,
+		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                      2_500,
+		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                true,
 	}
 	batchTestConfig = map[string]any{
 		runnerKeyPath + ".testLoop.type":                                               "batch",
@@ -79,6 +83,55 @@ func combineMapsInNewMap(newContentMaps []map[string]any) map[string]any {
 
 }
 
+func TestValidatePreRunCleanErrorBehavior(t *testing.T) {
+
+	t.Log("given a value to configure pre-run clean error behavior")
+	{
+		keyPath := "super.awesome.key.path"
+		t.Log("\twhen value is empty string")
+		{
+			err := validatePreRunCleanErrorBehavior(keyPath, "")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen value is string representing unknown behavior")
+		{
+			err := validatePreRunCleanErrorBehavior(keyPath, "do a backflip")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen string representing valid error behavior is provided")
+		{
+			for _, v := range []string{string(ignore), string(fail)} {
+
+				err := validatePreRunCleanErrorBehavior(keyPath, v)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+
+			}
+		}
+	}
+
+}
+
 func TestValidateTestLoopType(t *testing.T) {
 
 	t.Log("given a method to validate a string against the two available map test loop types")
@@ -115,6 +168,7 @@ func TestValidateTestLoopType(t *testing.T) {
 		{
 			err := validateTestLoopType(keyPath, "")
 
+			msg = "\t\terror must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
