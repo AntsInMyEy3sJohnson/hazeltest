@@ -163,8 +163,8 @@ type (
 )
 
 const (
-	mapCleanerBasePath            = "stateCleaner.maps"
-	queueCleanerBasePath          = "stateCleaner.queues"
+	mapCleanerBasePath            = "stateCleaners.maps"
+	queueCleanerBasePath          = "stateCleaners.queues"
 	hzInternalDataStructurePrefix = "__"
 	hzMapService                  = "hz:impl:mapService"
 	hzQueueService                = "hz:impl:queueService"

@@ -70,7 +70,7 @@ config:
         enabled: true
         durationSeconds: 30
         enableRandomness: true
-  stateCleaner:
+  stateCleaners:
     maps:
       enabled: false
       prefix:
