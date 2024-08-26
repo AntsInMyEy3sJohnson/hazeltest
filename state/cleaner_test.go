@@ -479,6 +479,62 @@ func (t *testCleanedTracker) add(_ string, _ int) {
 
 }
 
+func TestReleaseLock(t *testing.T) {
+
+	t.Log("given a lock info value representing a key in a sync map to release lock for")
+	{
+		t.Log("\twhen given lock info is empty lock info value")
+		{
+			err := releaseLock(context.TODO(), emptyMapLockInfo, hzMapService)
+
+			msg := "\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+		}
+		t.Log("\twhen unlock yields error")
+		{
+			li := mapLockInfo{
+				m: &testHzMap{
+					returnErrorUponUnlock: true,
+				},
+				mapName: "awesome-map",
+				key:     "awesome-key",
+			}
+			err := releaseLock(context.TODO(), li, hzMapService)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen unlock is successful")
+		{
+			li := mapLockInfo{
+				m:       &testHzMap{},
+				mapName: "awesome-map",
+				key:     "awesome-key",
+			}
+
+			err := releaseLock(context.TODO(), li, hzMapService)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+		}
+	}
+
+}
+
 func TestPopulateConfig(t *testing.T) {
 
 	t.Log("given configuration to populate state cleaners from")
