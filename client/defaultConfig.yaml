@@ -260,11 +260,24 @@ mapTests:
     appendClientIdToMapName: false
     # The number of test loops (e.g., ingest-read-delete) to execute in each map goroutine
     numRuns: 10000
-    # Whether to evict all maps for this runner prior to the runner's test loop launching. For example, if 'numMaps' is
-    # 10, this property will ensure the maps the runner's test loop will act upon are evicted of all entries before
-    # the test loop starts. If the eviction invocation returns an error, a warning will be logged, but execution
-    # will commence anyway.
-    evictMapsPriorToRun: true
+    performPreRunClean:
+      # Whether to clean all maps for this runner prior to the runner's test loop launching. For example, if 'numMaps' is
+      # 10, this property will ensure the maps the runner's test loop will act upon are cleaned of all entries before
+      # the test loop starts.
+      enabled: true
+      # What to do when cleaning a target map fails. Can be either 'ignore' or 'fail'. Default is 'ignore'.
+      # 'ignore': Treats the error as a warning. The warning will be logged, but the map runner will
+      # nonetheless start with its test loop.
+      # 'fail': The error will be treated as irrecoverable failure, meaning the runner won't start its test loop, and
+      # instead terminate immediately.
+      errorBehavior: ignore
+      cleanAgainThreshold:
+        # Whether to apply the threshold given below to determine whether a target map is already susceptible to
+        # getting cleaned.
+        enabled: true
+        # If threshold usage is enabled, pre-run cleaning will only clean a target map if the given duration of
+        # milliseconds has elapsed since the last time a cleaning operation was performed on this map.
+        thresholdMs: 30000
     mapPrefix:
       enabled: true
       # The prefix will be put in front of the map name as-is, so no additional underscores or other 
@@ -429,7 +442,12 @@ mapTests:
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
-    evictMapsPriorToRun: true
+    performPreRunClean:
+      enabled: true
+      errorBehavior: ignore
+      cleanAgainThreshold:
+        enabled: true
+        thresholdMs: 30000
     mapPrefix:
       enabled: true
       prefix: "ht_"
