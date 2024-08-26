@@ -162,8 +162,16 @@ const (
 )
 
 var (
-	hzMembers                     = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
-	cw                            = cleanerWatcher{}
+	hzMembers      = []string{"awesome-hz-member:5701", "another-awesome-hz-member:5701"}
+	cw             = cleanerWatcher{}
+	cleanerKeyPath = "stateCleaners.test"
+	testConfig     = map[string]any{
+		cleanerKeyPath + ".enabled":                         true,
+		cleanerKeyPath + ".prefix.enabled":                  true,
+		cleanerKeyPath + ".prefix.prefix":                   "awesome_prefix_",
+		cleanerKeyPath + ".cleanAgainThreshold.enabled":     true,
+		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs": 30_000,
+	}
 	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
 	batchCleanerCleanError        = errors.New("something went terribly wrong when attempting to clean state in all data structures")
@@ -468,6 +476,65 @@ func (cih *testLastCleanedInfoHandler) update(_ mapLockInfo) error {
 func (t *testCleanedTracker) add(_ string, _ int) {
 
 	t.numAddInvocations++
+
+}
+
+func TestPopulateConfig(t *testing.T) {
+
+	t.Log("given configuration to populate state cleaners from")
+	{
+		t.Log("\twhen assignment operation yields error due to invalid configuration property")
+		{
+			b := &cleanerConfigBuilder{
+				keyPath: cleanerKeyPath,
+				a: &testConfigPropertyAssigner{
+					returnErrorUponAssignConfigValue: true,
+				},
+			}
+
+			cfg, err := b.populateConfig()
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, assignConfigPropertyError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tconfig must be nil"
+			if cfg == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cfg)
+			}
+		}
+
+		t.Log("\twhen all assignment operations are successful")
+		{
+			b := &cleanerConfigBuilder{
+				keyPath: cleanerKeyPath,
+				a: &testConfigPropertyAssigner{
+					testConfig: testConfig,
+				},
+			}
+
+			cfg, err := b.populateConfig()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			if ok, detail := configValuesAsExpected(cfg, testConfig); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+		}
+	}
 
 }
 
@@ -4020,6 +4087,37 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 
 		}
 	}
+
+}
+
+func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+
+	keyPath := cleanerKeyPath + ".enabled"
+	if cfg.enabled != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.enabled"
+	if cfg.usePrefix != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.prefix"
+	if cfg.prefix != expectedValues[keyPath].(string) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.enabled"
+	if cfg.useCleanAgainThreshold != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.thresholdMs"
+	if cfg.cleanAgainThresholdMs != uint64(expectedValues[keyPath].(int)) {
+		return false, keyPath
+	}
+
+	return true, ""
 
 }
 
