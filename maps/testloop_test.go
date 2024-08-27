@@ -14,6 +14,33 @@ import (
 	"testing"
 )
 
+type (
+	testMapStoreBehavior struct {
+		returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll, returnErrorUponEvictAll bool
+	}
+	runnerProperties struct {
+		numMaps               uint16
+		numRuns               uint32
+		cleanMapsPriorToRun   bool
+		mapCleanErrorBehavior state.ErrorDuringCleanBehavior
+		sleepBetweenRuns      *sleepConfig
+	}
+	testSingleMapCleanerBuilder struct {
+		mapCleanerToReturn state.SingleCleaner
+	}
+	testSingleMapCleanerBehavior struct {
+		numElementsCleanedReturnValue int
+		returnErrorUponClean          bool
+	}
+	testSingleMapCleanerObservations struct {
+		cleanInvocations int
+	}
+	testSingleMapCleaner struct {
+		behavior     *testSingleMapCleanerBehavior
+		observations *testSingleMapCleanerObservations
+	}
+)
+
 const testSource = "theFellowship"
 
 var (
@@ -41,21 +68,21 @@ var (
 	}
 )
 
-func fellowshipMemberName(element any) string {
+func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
 
-	return element.(string)
+	return b.mapCleanerToReturn, "hz:impl:mapService"
 
 }
 
-func populateTestHzMapStore(ms *testHzMapStore) {
+func (c *testSingleMapCleaner) Clean(_ string) (int, error) {
 
-	mapNumber := uint16(0)
-	// Store all elements from test data source in map
-	for _, value := range theFellowship {
-		key := assembleMapKey(mapNumber, value)
+	c.observations.cleanInvocations++
 
-		ms.m.data.Store(key, value)
+	if c.behavior.returnErrorUponClean {
+		return 0, fmt.Errorf("something somewhere went terribly wrong")
 	}
+
+	return c.behavior.numElementsCleanedReturnValue, nil
 
 }
 
@@ -3326,51 +3353,6 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch
 
 }
 
-type (
-	testMapStoreBehavior struct {
-		returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll, returnErrorUponEvictAll bool
-	}
-	runnerProperties struct {
-		numMaps               uint16
-		numRuns               uint32
-		cleanMapsPriorToRun   bool
-		mapCleanErrorBehavior state.ErrorDuringCleanBehavior
-		sleepBetweenRuns      *sleepConfig
-	}
-	testSingleMapCleanerBuilder struct {
-		mapCleanerToReturn state.SingleCleaner
-	}
-	testSingleMapCleanerBehavior struct {
-		numElementsCleanedReturnValue int
-		returnErrorUponClean          bool
-	}
-	testSingleMapCleanerObservations struct {
-		cleanInvocations int
-	}
-	testSingleMapCleaner struct {
-		behavior     *testSingleMapCleanerBehavior
-		observations *testSingleMapCleanerObservations
-	}
-)
-
-func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
-
-	return b.mapCleanerToReturn, "hz:impl:mapService"
-
-}
-
-func (c *testSingleMapCleaner) Clean(_ string) (int, error) {
-
-	c.observations.cleanInvocations++
-
-	if c.behavior.returnErrorUponClean {
-		return 0, fmt.Errorf("something somewhere went terribly wrong")
-	}
-
-	return c.behavior.numElementsCleanedReturnValue, nil
-
-}
-
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
 
 	ms := assembleTestMapStore(b)
@@ -3440,6 +3422,24 @@ func assembleRunnerConfigForBatchTestLoop(
 	c.batch = &batchTestLoopConfig{sleepAfterChainAction, sleepBetweenActionBatches}
 
 	return c
+
+}
+
+func fellowshipMemberName(element any) string {
+
+	return element.(string)
+
+}
+
+func populateTestHzMapStore(ms *testHzMapStore) {
+
+	mapNumber := uint16(0)
+	// Store all elements from test data source in map
+	for _, value := range theFellowship {
+		key := assembleMapKey(mapNumber, value)
+
+		ms.m.data.Store(key, value)
+	}
 
 }
 
