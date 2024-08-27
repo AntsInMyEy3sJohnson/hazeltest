@@ -94,7 +94,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 					"queueTests.tweets.enabled": true,
 				},
 			}
-			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
+			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}, hzClientHandler: &testHzClientHandler{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()

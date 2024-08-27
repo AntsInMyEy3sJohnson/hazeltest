@@ -96,7 +96,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 					"queueTests.load.enabled": true,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}, hzClientHandler: &testHzClientHandler{}}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
