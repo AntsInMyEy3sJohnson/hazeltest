@@ -58,17 +58,16 @@ type (
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
-		id               uuid.UUID
-		runnerName       string
-		source           string
-		hzClientHandler  hazelcastwrapper.HzClientHandler
-		hzMapStore       hazelcastwrapper.MapStore
-		stateCleaner     state.SingleCleaner
-		hzService        string
-		runnerConfig     *runnerConfig
-		elements         []t
-		ctx              context.Context
-		getElementIdFunc getElementID
+		id                  uuid.UUID
+		runnerName          string
+		source              string
+		hzClientHandler     hazelcastwrapper.HzClientHandler
+		hzMapStore          hazelcastwrapper.MapStore
+		stateCleanerBuilder state.SingleMapCleanerBuilder
+		runnerConfig        *runnerConfig
+		elements            []t
+		ctx                 context.Context
+		getElementIdFunc    getElementID
 	}
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]int
@@ -543,10 +542,11 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	rc := tle.runnerConfig
 	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
 
+	var stateCleaner state.SingleCleaner
+	var hzService string
 	if tle.runnerConfig.preRunClean.enabled {
-		builder := &state.DefaultSingleMapCleanerBuilder{}
 		// TODO Add information collected by tracker to test loop status
-		tle.stateCleaner, tle.hzService = builder.Build(
+		stateCleaner, hzService = tle.stateCleanerBuilder.Build(
 			tle.ctx,
 			tle.hzMapStore,
 			&state.CleanedDataStructureTracker{G: gatherer},
@@ -580,13 +580,18 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
 			if tle.runnerConfig.preRunClean.enabled {
-				if tle.stateCleaner == nil || tle.hzService == "" {
+				if stateCleaner == nil || hzService == "" {
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
 					return
 				}
-				if numCleanedItems, err := tle.stateCleaner.Clean(mapName); err != nil {
-					lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction -- won't start test run for this map: %v", mapName, err), tle.runnerName, log.ErrorLevel)
-					return
+				if numCleanedItems, err := stateCleaner.Clean(mapName); err != nil {
+					configuredErrorBehavior := tle.runnerConfig.preRunClean.errorBehavior
+					if state.Ignore == tle.runnerConfig.preRunClean.errorBehavior {
+						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction, but error behavior is '%s', so test loop will commence: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.WarnLevel)
+					} else {
+						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction and error behavior is '%s' -- won't start test run for this map: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.ErrorLevel)
+						return
+					}
 				} else if numCleanedItems > 0 {
 					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", numCleanedItems, mapName), tle.runnerName, log.InfoLevel)
 				} else {
