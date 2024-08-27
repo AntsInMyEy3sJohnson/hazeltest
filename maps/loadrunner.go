@@ -10,6 +10,7 @@ import (
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
+	"hazeltest/state"
 	"hazeltest/status"
 	"strconv"
 )
@@ -107,15 +108,16 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
 	lc := &testLoopExecution[loadElement]{
-		id:               uuid.New(),
-		runnerName:       r.name,
-		source:           r.source,
-		hzClientHandler:  r.hzClientHandler,
-		hzMapStore:       r.hzMapStore,
-		runnerConfig:     config,
-		elements:         populateLoadElements(),
-		ctx:              ctx,
-		getElementIdFunc: getLoadElementID,
+		id:                  uuid.New(),
+		runnerName:          r.name,
+		source:              r.source,
+		hzClientHandler:     r.hzClientHandler,
+		hzMapStore:          r.hzMapStore,
+		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:        config,
+		elements:            populateLoadElements(),
+		ctx:                 ctx,
+		getElementIdFunc:    getLoadElementID,
 	}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
