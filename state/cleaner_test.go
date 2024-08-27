@@ -3247,7 +3247,8 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 
 				tr := &testCleanedTracker{}
 				cih := &DefaultLastCleanedInfoHandler{
-					Ms: ms,
+					Ms:  ms,
+					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
 				mc, _ := builder.Build(context.TODO(), ms, tr, cih)
 
@@ -3321,6 +3322,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms:  testMapStore,
 					Ctx: ctx,
+					Cfg: &LastCleanedInfoHandlerConfig{
+						UseCleanAgainThreshold: true,
+						CleanAgainThresholdMs:  30_000,
+					},
 				}
 
 				tracker := &testCleanedTracker{}
@@ -4481,9 +4486,12 @@ func runTestCaseAndResetState(testFunc func()) {
 func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
-		basePath + ".enabled":        true,
-		basePath + ".prefix.enabled": true,
-		basePath + ".prefix.prefix":  "ht_",
+		basePath + ".enabled":                         true,
+		basePath + ".errorBehavior":                   "ignore",
+		basePath + ".prefix.enabled":                  true,
+		basePath + ".prefix.prefix":                   "ht_",
+		basePath + ".cleanAgainThreshold.enabled":     true,
+		basePath + ".cleanAgainThreshold.thresholdMs": 30_000,
 	}
 
 }
