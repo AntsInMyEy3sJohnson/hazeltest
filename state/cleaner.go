@@ -30,7 +30,7 @@ type (
 		hzCluster string
 		hzMembers []string
 		keyPath   string
-		c         *cleanerConfig
+		cfg       *cleanerConfig
 		ms        hazelcastwrapper.MapStore
 		ois       hazelcastwrapper.ObjectInfoStore
 		ch        hazelcastwrapper.HzClientHandler
@@ -46,7 +46,7 @@ type (
 		hzCluster string
 		hzMembers []string
 		keyPath   string
-		c         *cleanerConfig
+		cfg       *cleanerConfig
 		qs        hazelcastwrapper.QueueStore
 		ms        hazelcastwrapper.MapStore
 		ois       hazelcastwrapper.ObjectInfoStore
@@ -129,8 +129,20 @@ type (
 	CleanedTracker interface {
 		add(name string, cleaned int)
 	}
-	ErrorDuringCleanBehavior string
-	cleanerConfig            struct {
+	ErrorDuringCleanBehavior     string
+	LastCleanedInfoHandlerConfig struct {
+		UseCleanAgainThreshold bool
+		CleanAgainThresholdMs  uint64
+	}
+	DefaultLastCleanedInfoHandler struct {
+		Ctx context.Context
+		Ms  hazelcastwrapper.MapStore
+		Cfg *LastCleanedInfoHandlerConfig
+	}
+	CleanedDataStructureTracker struct {
+		G *status.Gatherer
+	}
+	cleanerConfig struct {
 		enabled                bool
 		usePrefix              bool
 		prefix                 string
@@ -149,18 +161,6 @@ type (
 	mapLockInfo struct {
 		m            hazelcastwrapper.Map
 		mapName, key string
-	}
-	LastCleanedInfoHandlerConfig struct {
-		UseCleanAgainThreshold bool
-		CleanAgainThresholdMs  uint64
-	}
-	DefaultLastCleanedInfoHandler struct {
-		Ctx context.Context
-		Ms  hazelcastwrapper.MapStore
-		Cfg *LastCleanedInfoHandlerConfig
-	}
-	CleanedDataStructureTracker struct {
-		G *status.Gatherer
 	}
 )
 
@@ -257,7 +257,7 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
-		c:         config,
+		cfg:       config,
 		ms:        ms,
 		ois:       &hazelcastwrapper.DefaultObjectInfoStore{Client: ch.GetClient()},
 		ch:        ch,
@@ -377,7 +377,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 		_ = c.ch.Shutdown(c.ctx)
 	}()
 
-	if !c.c.enabled {
+	if !c.cfg.enabled {
 		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), HzMapService, log.InfoLevel)
 		return 0, nil
 	}
@@ -389,8 +389,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 		c.ctx,
 		c.ois,
 		HzMapService,
-		c.c.usePrefix,
-		c.c.prefix,
+		c.cfg,
 		sc,
 	)
 
@@ -427,7 +426,7 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
 		keyPath:   b.cfb.keyPath,
-		c:         config,
+		cfg:       config,
 		qs:        &hazelcastwrapper.DefaultQueueStore{Client: ch.GetClient()},
 		ms:        ms,
 		ois:       &hazelcastwrapper.DefaultObjectInfoStore{Client: ch.GetClient()},
@@ -571,8 +570,7 @@ func runGenericBatchClean(
 	ctx context.Context,
 	ois hazelcastwrapper.ObjectInfoStore,
 	hzService string,
-	usePrefix bool,
-	prefix string,
+	cfg *cleanerConfig,
 	sc SingleCleaner,
 ) (int, error) {
 
@@ -590,10 +588,10 @@ func runGenericBatchClean(
 	}
 
 	var filteredDataStructures []hazelcastwrapper.ObjectInfo
-	if usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", prefix, len(candidateDataStructures)), hzService, log.TraceLevel)
+	if cfg.usePrefix {
+		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", cfg.prefix, len(candidateDataStructures)), hzService, log.TraceLevel)
 		for _, v := range candidateDataStructures {
-			if strings.HasPrefix(v.GetName(), prefix) {
+			if strings.HasPrefix(v.GetName(), cfg.prefix) {
 				filteredDataStructures = append(filteredDataStructures, v)
 			}
 		}
@@ -606,15 +604,24 @@ func runGenericBatchClean(
 		if numItemsCleaned, err := sc.Clean(v.GetName()); numItemsCleaned > 0 {
 			numCleanedDataStructures++
 			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
-				return numCleanedDataStructures, err
+				if Ignore == cfg.errorBehavior {
+					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been claned from paylod data structure "+
+						"'%s' and an error occured, but error behavior was configured as '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
+				} else {
+					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
+					return numCleanedDataStructures, err
+				}
 			} else {
 				lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d elements from payload data structure '%s'; cleaned %d data structure/-s so far", numItemsCleaned, v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
 			}
 		} else {
 			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
-				return numCleanedDataStructures, err
+				if Ignore == cfg.errorBehavior {
+					lp.LogStateCleanerEvent(fmt.Sprintf("error occured upon attempt to clean payload data structure '%s', but error behavior was configured to be '%s', so error will be ignored: %v", v.GetName(), Ignore, err), hzService, log.WarnLevel)
+				} else {
+					lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
+					return numCleanedDataStructures, err
+				}
 			} else {
 				lp.LogStateCleanerEvent(fmt.Sprintf("invocation of clean was successful on payload data structure '%s'; however, zero items were cleaned", v.GetName()), hzService, log.InfoLevel)
 			}
@@ -695,7 +702,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		_ = c.ch.Shutdown(c.ctx)
 	}()
 
-	if !c.c.enabled {
+	if !c.cfg.enabled {
 		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), HzQueueService, log.InfoLevel)
 		return 0, nil
 	}
@@ -706,8 +713,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		c.ctx,
 		c.ois,
 		HzQueueService,
-		c.c.usePrefix,
-		c.c.prefix,
+		c.cfg,
 		sc,
 	)
 

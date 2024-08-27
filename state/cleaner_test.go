@@ -34,6 +34,7 @@ type (
 	}
 	testSingleCleaner struct {
 		behavior *testCleanerBehavior
+		cfg      *cleanerConfig
 	}
 	cleanerWatcher struct {
 		m                      sync.Mutex
@@ -407,7 +408,7 @@ func (c *testSingleCleaner) Clean(_ string) (int, error) {
 	cw.cleanSingleInvocations++
 
 	if c.behavior.returnErrorUponClean && (c.behavior.returnCleanErrorAfterNoInvocations == 0 || cw.cleanSingleInvocations == c.behavior.returnCleanErrorAfterNoInvocations+1) {
-		return 0, singleCleanerCleanError
+		return c.behavior.numItemsCleanedReturnValue, singleCleanerCleanError
 	}
 
 	return c.behavior.numItemsCleanedReturnValue, nil
@@ -2693,9 +2694,11 @@ func TestRunGenericBatchClean(t *testing.T) {
 				ois := populateTestObjectInfos(0, []string{}, HzMapService)
 				ois.returnErrorUponGetObjectInfos = true
 
-				sc := &testSingleCleaner{}
+				sc := &testSingleCleaner{
+					cfg: &cleanerConfig{},
+				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\terror must be returned"
 				if errors.Is(err, getDistributedObjectInfoError) {
@@ -2725,9 +2728,11 @@ func TestRunGenericBatchClean(t *testing.T) {
 			runTestCaseAndResetState(func() {
 				ois := populateTestObjectInfos(0, []string{}, HzMapService)
 
-				sc := &testSingleCleaner{}
+				sc := &testSingleCleaner{
+					cfg: &cleanerConfig{},
+				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2763,9 +2768,10 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
+					cfg: &cleanerConfig{},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2795,9 +2801,13 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
+					cfg: &cleanerConfig{
+						usePrefix: true,
+						prefix:    prefixToConsider,
+					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, true, prefixToConsider, sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2815,7 +2825,92 @@ func TestRunGenericBatchClean(t *testing.T) {
 			})
 		}
 
-		t.Log("\twhen invocation of clean for individual data structure yields error")
+		t.Log("\twhen invocation of clean for individual data structure yields error and error behavior advises error to be ignored")
+		{
+			t.Log("\t\twhen single cleaner reports zero items have been removed")
+			{
+				runTestCaseAndResetState(func() {
+					numObjectsPerPrefix := 12
+					prefixes := []string{"ht_"}
+					ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, HzMapService)
+
+					sc := &testSingleCleaner{
+						behavior: &testCleanerBehavior{
+							returnErrorUponClean: true,
+						},
+						cfg: &cleanerConfig{
+							errorBehavior: Ignore,
+						},
+					}
+
+					numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
+
+					msg := "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\treported number of maps cleaned must be zero"
+					if numMapsCleaned == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numMapsCleaned)
+					}
+
+					msg = "\t\t\tsingle cleaner clean must have been invoked for all data structures"
+					if cw.cleanSingleInvocations == numObjectsPerPrefix*len(prefixes) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+					}
+				})
+			}
+			t.Log("\t\twhen single cleaner reports number of cleaned items is greater than zero despite error")
+			{
+				runTestCaseAndResetState(func() {
+					numObjectsPerPrefix := 12
+					prefixes := []string{"ht_"}
+					ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, HzMapService)
+
+					sc := &testSingleCleaner{
+						behavior: &testCleanerBehavior{
+							numItemsCleanedReturnValue: 9,
+							returnErrorUponClean:       true,
+						},
+						cfg: &cleanerConfig{
+							errorBehavior: Ignore,
+						},
+					}
+
+					numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
+
+					msg := "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\treported number of maps cleaned must be equal to number of map entries contained in object info store"
+					if numMapsCleaned == numObjectsPerPrefix*len(prefixes) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numMapsCleaned)
+					}
+
+					msg = "\t\t\tsingle cleaner clean must have been invoked for all data structures"
+					if cw.cleanSingleInvocations == numObjectsPerPrefix*len(prefixes) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, cw.cleanSingleInvocations)
+					}
+				})
+			}
+		}
+
+		t.Log("\twhen invocation of clean for individual data structure yields error and error behavior advises error not to be ignored")
 		{
 			runTestCaseAndResetState(func() {
 				numObjectsPerPrefix := 9
@@ -2828,9 +2923,12 @@ func TestRunGenericBatchClean(t *testing.T) {
 						returnCleanErrorAfterNoInvocations: 3,
 						returnErrorUponClean:               true,
 					},
+					cfg: &cleanerConfig{
+						errorBehavior: Fail,
+					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\terror must be returned"
 				if errors.Is(err, singleCleanerCleanError) {
@@ -2839,8 +2937,12 @@ func TestRunGenericBatchClean(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\treported number of maps cleaned must be equal to single clean operations successful prior to error"
-				if numMapsCleaned == cleanErrorAfterNoInvocations {
+				// All invocations, including the erroneous one, will return 1, signalling that one item has been cleaned
+				// from the target data structure. Hence, even in the face of an error, the function under test
+				// will count the data structure whose clean invocation yielded an error as a cleaned data structure,
+				// as one item was reported to be cleaned.
+				msg = "\t\treported number of maps cleaned must be equal to single clean operations successful prior to error plus one"
+				if numMapsCleaned == cleanErrorAfterNoInvocations+1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, numMapsCleaned)
@@ -2868,9 +2970,10 @@ func TestRunGenericBatchClean(t *testing.T) {
 						// anyway to convey why we expect zero maps reported to be cleaned
 						numItemsCleanedReturnValue: 0,
 					},
+					cfg: &cleanerConfig{},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2906,9 +3009,10 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
+					cfg: &cleanerConfig{},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -3942,7 +4046,7 @@ func TestDefaultBatchQueueCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tqueue cleaner built must carry state cleaner config"
-			if qc.c != nil {
+			if qc.cfg != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -4131,7 +4235,7 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tmap cleaner built must carry state cleaner config"
-			if mc.c != nil {
+			if mc.cfg != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -4484,7 +4588,7 @@ func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testH
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
 		keyPath:   queueCleanerBasePath,
-		c:         c,
+		cfg:       c,
 		qs:        qs,
 		ms:        ms,
 		ois:       ois,
@@ -4502,7 +4606,7 @@ func assembleBatchMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzOb
 		hzCluster: hzCluster,
 		hzMembers: hzMembers,
 		keyPath:   mapCleanerBasePath,
-		c:         c,
+		cfg:       c,
 		ms:        ms,
 		ois:       ois,
 		ch:        ch,
