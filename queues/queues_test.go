@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client"
 	"hazeltest/hazelcastwrapper"
 	"sync"
 )
@@ -27,15 +28,15 @@ type (
 		remainingCapacityInvocations int
 		behavior                     *testQueueStoreBehavior
 	}
+	testQueueStoreBehavior struct {
+		returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut, returnErrorUponPoll bool
+	}
+	testHzClientHandler struct {
+		getClientInvocations, initClientInvocations, shutdownInvocations int
+		hzClusterName                                                    string
+		hzClusterMembers                                                 []string
+	}
 )
-
-func (d *testHzQueue) Clear(_ context.Context) error {
-	return nil
-}
-
-func (d *testHzQueue) Size(_ context.Context) (int, error) {
-	return 0, nil
-}
 
 const (
 	checkMark     = "\u2713"
@@ -52,8 +53,12 @@ var (
 	testQueueOperationLock   sync.Mutex
 )
 
-type testQueueStoreBehavior struct {
-	returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut, returnErrorUponPoll bool
+func (d *testHzQueue) Clear(_ context.Context) error {
+	return nil
+}
+
+func (d *testHzQueue) Size(_ context.Context) (int, error) {
+	return 0, nil
 }
 
 func (d testHzQueueStore) Shutdown(_ context.Context) error {
@@ -163,6 +168,28 @@ func (d *testHzQueue) Destroy(_ context.Context) error {
 
 	return nil
 
+}
+
+func (d *testHzClientHandler) GetClusterName() string {
+	return d.hzClusterName
+}
+
+func (d *testHzClientHandler) GetClusterMembers() []string {
+	return d.hzClusterMembers
+}
+
+func (d *testHzClientHandler) GetClient() *hazelcast.Client {
+	d.getClientInvocations++
+	return nil
+}
+
+func (d *testHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	d.initClientInvocations++
+}
+
+func (d *testHzClientHandler) Shutdown(_ context.Context) error {
+	d.shutdownInvocations++
+	return nil
 }
 
 func checkRunnerStateTransitions(expected []state, actual []state) (string, bool) {
