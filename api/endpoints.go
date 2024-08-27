@@ -35,7 +35,7 @@ func init() {
 	l = &liveness{true}
 	r = &readiness{false, false, 0}
 
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 
 }
 

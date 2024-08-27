@@ -24,6 +24,8 @@ type LogProvider struct {
 	ClientID uuid.UUID
 }
 
+var lp *LogProvider
+
 func init() {
 
 	log.SetFormatter(&log.JSONFormatter{})
@@ -57,6 +59,16 @@ func init() {
 	log.SetLevel(logLevel)
 	log.SetOutput(out)
 	log.SetReportCaller(false)
+
+}
+
+func GetLogProviderInstance(clientID uuid.UUID) *LogProvider {
+
+	if lp == nil {
+		lp = &LogProvider{ClientID: clientID}
+	}
+
+	return lp
 
 }
 

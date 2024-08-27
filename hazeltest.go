@@ -17,7 +17,7 @@ import (
 
 func main() {
 
-	lp := &logging.LogProvider{ClientID: client.ID()}
+	lp := logging.GetLogProviderInstance(client.ID())
 
 	if err := client.ParseConfigs(); err != nil {
 		// Logging with fatal level will cause the application to exit.

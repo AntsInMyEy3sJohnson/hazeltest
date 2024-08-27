@@ -75,7 +75,7 @@ func register(r runner) {
 }
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 }
 
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {

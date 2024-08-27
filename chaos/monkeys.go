@@ -108,7 +108,7 @@ var (
 )
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 	register(&memberKillerMonkey{})
 }
 

@@ -56,7 +56,7 @@ func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
 }
 
 func NewHzClientHelper() HzClientAssembler {
-	return HzClientAssembler{client.ID(), &logging.LogProvider{ClientID: client.ID()}}
+	return HzClientAssembler{client.ID(), logging.GetLogProviderInstance(client.ID())}
 }
 
 func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {

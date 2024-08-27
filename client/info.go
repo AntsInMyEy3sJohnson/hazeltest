@@ -4,10 +4,9 @@ import "github.com/google/uuid"
 
 var clientID uuid.UUID
 
-func init() {
-	clientID = uuid.New()
-}
-
 func ID() uuid.UUID {
+	if clientID == uuid.Nil {
+		clientID = uuid.New()
+	}
 	return clientID
 }

@@ -115,7 +115,7 @@ func register(r runner) {
 }
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 }
 
 func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {

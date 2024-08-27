@@ -191,7 +191,7 @@ var (
 func init() {
 	register(newMapCleanerBuilder())
 	register(newQueueCleanerBuilder())
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 }
 
 func newMapCleanerBuilder() *DefaultBatchMapCleanerBuilder {

@@ -65,7 +65,7 @@ var (
 )
 
 func init() {
-	lp = &logging.LogProvider{ClientID: ID()}
+	lp = logging.GetLogProviderInstance(ID())
 }
 
 func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
