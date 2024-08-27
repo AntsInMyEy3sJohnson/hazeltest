@@ -420,10 +420,10 @@ func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context
 	b.gathererPassedIn = g
 
 	if b.behavior.returnErrorUponBuild {
-		return nil, hzMapService, cleanerBuildError
+		return nil, HzMapService, cleanerBuildError
 	}
 
-	return &testBatchCleaner{behavior: b.behavior}, hzMapService, nil
+	return &testBatchCleaner{behavior: b.behavior}, HzMapService, nil
 
 }
 
@@ -512,7 +512,7 @@ func TestValidateErrorDuringCleanBehavior(t *testing.T) {
 
 		t.Log("\twhen string representing valid error behavior is provided")
 		{
-			for _, v := range []string{string(ignore), string(fail)} {
+			for _, v := range []string{string(Ignore), string(Fail)} {
 
 				err := ValidateErrorDuringCleanBehavior(keyPath, v)
 
@@ -535,7 +535,7 @@ func TestReleaseLock(t *testing.T) {
 	{
 		t.Log("\twhen given lock info is empty lock info value")
 		{
-			err := releaseLock(context.TODO(), emptyMapLockInfo, hzMapService)
+			err := releaseLock(context.TODO(), emptyMapLockInfo, HzMapService)
 
 			msg := "\tno error must be returned"
 			if err == nil {
@@ -554,7 +554,7 @@ func TestReleaseLock(t *testing.T) {
 				mapName: "awesome-map",
 				key:     "awesome-key",
 			}
-			err := releaseLock(context.TODO(), li, hzMapService)
+			err := releaseLock(context.TODO(), li, HzMapService)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -572,7 +572,7 @@ func TestReleaseLock(t *testing.T) {
 				key:     "awesome-key",
 			}
 
-			err := releaseLock(context.TODO(), li, hzMapService)
+			err := releaseLock(context.TODO(), li, HzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -658,7 +658,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				Ctx: context.TODO(),
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_aragorn-0", HzMapService)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, getSyncMapError) {
@@ -694,7 +694,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				Ctx: context.TODO(),
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_gimli-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_gimli-0", HzMapService)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, tryLockError) {
@@ -745,7 +745,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				Ctx: context.TODO(),
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, "ht_legolas-0", HzMapService)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -800,7 +800,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			payloadDataStructureName := "awesome-map-name"
-			lockInfo, shouldClean, err := cih.check(mapCleanersSyncMapName, payloadDataStructureName, hzMapService)
+			lockInfo, shouldClean, err := cih.check(mapCleanersSyncMapName, payloadDataStructureName, HzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -871,7 +871,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			payloadMapName := prefix + "load-0"
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, HzMapService)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getOnMapError) {
@@ -932,7 +932,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 			}
 
 			payloadMapName := "ht_aragorn-0"
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, HzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -995,7 +995,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				},
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, HzMapService)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1039,7 +1039,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				},
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, HzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1083,7 +1083,7 @@ func TestDefaultLastCleanedInfoHandler_Check(t *testing.T) {
 				},
 			}
 
-			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, hzMapService)
+			lockInfo, shouldCheck, err := cih.check(mapCleanersSyncMapName, payloadMapName, HzMapService)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1198,15 +1198,15 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 	{
 		valid := &hazelcastwrapper.SimpleObjectInfo{
 			Name:        "ht_load-1",
-			ServiceName: hzMapService,
+			ServiceName: HzMapService,
 		}
 		invalidBecauseSystemInternal := &hazelcastwrapper.SimpleObjectInfo{
 			Name:        "__sql.catalog",
-			ServiceName: hzMapService,
+			ServiceName: HzMapService,
 		}
 		invalidBecauseRepresentsQueue := &hazelcastwrapper.SimpleObjectInfo{
 			Name:        "ht_load-2",
-			ServiceName: hzQueueService,
+			ServiceName: HzQueueService,
 		}
 
 		t.Log("\twhen object info retrieval does not yield error")
@@ -1218,7 +1218,7 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 					objectInfos: objectInfos,
 				}
 
-				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), HzMapService)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1240,7 +1240,7 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 				ois := &testHzObjectInfoStore{
 					objectInfos: []hazelcastwrapper.ObjectInfo{invalidBecauseSystemInternal, invalidBecauseRepresentsQueue},
 				}
-				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), HzMapService)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1262,7 +1262,7 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 				ois := &testHzObjectInfoStore{
 					objectInfos: make([]hazelcastwrapper.ObjectInfo, 0),
 				}
-				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
+				candidates, err := identifyCandidateDataStructures(ois, context.TODO(), HzMapService)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -1286,7 +1286,7 @@ func TestIdentifyCandidateDataStructures(t *testing.T) {
 				returnErrorUponGetObjectInfos: true,
 			}
 
-			candidates, err := identifyCandidateDataStructures(ois, context.TODO(), hzMapService)
+			candidates, err := identifyCandidateDataStructures(ois, context.TODO(), HzMapService)
 
 			msg := "\t\t\terror must be returned"
 			if errors.Is(err, getDistributedObjectInfoError) {
@@ -1598,7 +1598,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 
 				baseName := "load"
 				testQueueStore := populateTestQueueStore(numQueueObjects, prefixes, baseName, 1)
-				testObjectInfoStore := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
+				testObjectInfoStore := populateTestObjectInfos(numQueueObjects, prefixes, HzQueueService)
 
 				// Add object representing map, so we can verify that no attempt was made to retrieve it
 				// The name of this object matches the given predicate, so method under test must use service name to establish
@@ -1687,7 +1687,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				clearNotInvokedMsg := "\t\t\tclear must not have been invoked on data structure that is either not a queue or whose name does not correspond to given prefix"
 
 				for k, v := range testQueueStore.queues {
-					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == hzQueueService {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == HzQueueService {
 						if v.sizeInvocations == 1 {
 							t.Log(sizeInvokedOnceMsg, checkMark, k)
 						} else {
@@ -1773,7 +1773,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				queuesSyncMap := ms.maps[queueCleanersSyncMapName]
 				queuesSyncMap.tryLockReturnValue = true
 
-				ois := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
+				ois := populateTestObjectInfos(numQueueObjects, prefixes, HzQueueService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
@@ -1942,7 +1942,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			qs := populateTestQueueStore(numPayloadQueueObjects, prefixes, "load", 1)
 			qs.returnErrorUponGetQueue = true
 
-			ois := populateTestObjectInfos(numPayloadQueueObjects, prefixes, hzQueueService)
+			ois := populateTestObjectInfos(numPayloadQueueObjects, prefixes, HzQueueService)
 
 			tracker := &testCleanedTracker{}
 
@@ -2003,7 +2003,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 
 			baseName := "load"
 			qs := populateTestQueueStore(numQueueObjects, prefixes, baseName, 1)
-			ois := populateTestObjectInfos(numQueueObjects, prefixes, hzQueueService)
+			ois := populateTestObjectInfos(numQueueObjects, prefixes, HzQueueService)
 
 			erroneousClearQueueName := prefixes[0] + baseName + "-0"
 			qs.queues[erroneousClearQueueName].returnErrorUponClear = true
@@ -2153,7 +2153,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 			}
 
 			payloadMapName := "ht_darthvader"
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(err, lastCleanedInfoCheckError) {
@@ -2216,7 +2216,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 			mc, _ := b.Build(context.TODO(), ms, tr, cih)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
-			numItemsCleaned, err := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, hzMapService, dmc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, HzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2278,7 +2278,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, getPayloadMapError) {
@@ -2405,7 +2405,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, mapEvictAllError) {
@@ -2532,7 +2532,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(err, lastCleanedInfoUpdateError) {
@@ -2593,7 +2593,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, hzMapService, mc.retrieveAndClean)
+			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2661,7 +2661,7 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 				dmc := mc.(*DefaultSingleMapCleaner)
 
-				numCleanedItems, err := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", hzMapService, dmc.retrieveAndClean)
+				numCleanedItems, err := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", HzMapService, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2690,12 +2690,12 @@ func TestRunGenericBatchClean(t *testing.T) {
 		t.Log("\twhen identifying target data structures yields error")
 		{
 			runTestCaseAndResetState(func() {
-				ois := populateTestObjectInfos(0, []string{}, hzMapService)
+				ois := populateTestObjectInfos(0, []string{}, HzMapService)
 				ois.returnErrorUponGetObjectInfos = true
 
 				sc := &testSingleCleaner{}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\terror must be returned"
 				if errors.Is(err, getDistributedObjectInfoError) {
@@ -2723,11 +2723,11 @@ func TestRunGenericBatchClean(t *testing.T) {
 		t.Log("\twhen zero target data structures were identified")
 		{
 			runTestCaseAndResetState(func() {
-				ois := populateTestObjectInfos(0, []string{}, hzMapService)
+				ois := populateTestObjectInfos(0, []string{}, HzMapService)
 
 				sc := &testSingleCleaner{}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2757,7 +2757,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 			runTestCaseAndResetState(func() {
 				numObjectsPerPrefix := 9
 				prefixes := []string{"ht_", "somethingcompletelydifferent_"}
-				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, HzMapService)
 
 				sc := &testSingleCleaner{
 					behavior: &testCleanerBehavior{
@@ -2765,7 +2765,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2789,7 +2789,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 				numObjectsPerPrefix := 21
 				prefixToConsider := "ht_"
 
-				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{prefixToConsider, "somethingcompletelydifferent_"}, hzMapService)
+				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{prefixToConsider, "somethingcompletelydifferent_"}, HzMapService)
 
 				sc := &testSingleCleaner{
 					behavior: &testCleanerBehavior{
@@ -2797,7 +2797,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, true, prefixToConsider, sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, true, prefixToConsider, sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2819,7 +2819,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 		{
 			runTestCaseAndResetState(func() {
 				numObjectsPerPrefix := 9
-				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{"ht_"}, hzMapService)
+				ois := populateTestObjectInfos(numObjectsPerPrefix, []string{"ht_"}, HzMapService)
 
 				cleanErrorAfterNoInvocations := 3
 				sc := &testSingleCleaner{
@@ -2830,7 +2830,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\terror must be returned"
 				if errors.Is(err, singleCleanerCleanError) {
@@ -2860,7 +2860,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 			runTestCaseAndResetState(func() {
 				numObjectsPerPrefix := 99
 				prefixes := []string{"ht_"}
-				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, HzMapService)
 
 				sc := &testSingleCleaner{
 					behavior: &testCleanerBehavior{
@@ -2870,7 +2870,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -2900,7 +2900,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 			runTestCaseAndResetState(func() {
 				numObjectsPerPrefix := 12
 				prefixes := []string{"ht_"}
-				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, hzMapService)
+				ois := populateTestObjectInfos(numObjectsPerPrefix, prefixes, HzMapService)
 
 				sc := &testSingleCleaner{
 					behavior: &testCleanerBehavior{
@@ -2908,7 +2908,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					},
 				}
 
-				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, hzMapService, false, "", sc)
+				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, false, "", sc)
 
 				msg := "\t\tno error must be returned"
 				if err == nil {
@@ -3189,7 +3189,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				prefixes := []string{prefixToConsider, "gimli_"}
 
 				testMapStore := populateTestMapStore(numMapObjects, prefixes, 1)
-				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+				testObjectInfoStore := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 				// Add object representing queue, so we can verify that no attempt was made to retrieve it
 				// The name of this object matches the given predicate, so method under test must use service name to establish
@@ -3268,7 +3268,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				invokedOnceMsg := "\t\t\tevict all must have been invoked on all maps whose prefix matches configuration"
 				notInvokedMsg := "\t\t\tevict all must not have been invoked on data structure that is either not a map or whose name does not correspond to given prefix"
 				for k, v := range testMapStore.maps {
-					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == hzMapService {
+					if strings.HasPrefix(k, prefixToConsider) && resolveObjectKindForNameFromObjectInfoList(k, testObjectInfoStore.objectInfos) == HzMapService {
 						if v.evictAllInvocations == 1 {
 							t.Log(invokedOnceMsg, checkMark, k)
 						} else {
@@ -3342,7 +3342,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				mapsSyncMap := ms.maps[mapCleanersSyncMapName]
 				mapsSyncMap.tryLockReturnValue = true
 
-				ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+				ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 				// Add Hazelcast-internal map to make sure cleaner does not consider such maps
 				// even when prefix usage has been disabled
@@ -3511,7 +3511,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			mapsSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapsSyncMap.tryLockReturnValue = true
 
-			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				syncMap:        mapsSyncMap,
@@ -3568,7 +3568,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			mapsSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapsSyncMap.tryLockReturnValue = true
 
-			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 			erroneousEvictAllMapName := "ht_load-0"
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
@@ -3645,7 +3645,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			mapsSyncMap := ms.maps[mapCleanersSyncMapName]
 			mapsSyncMap.tryLockReturnValue = true
 
-			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 			numMapsToBeCleaned := 3
 			cih := &testLastCleanedInfoHandler{
@@ -3693,7 +3693,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 			ms := populateTestMapStore(numMapObjects, prefixes, 1)
-			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				returnErrorUponCheck: true,
@@ -3737,7 +3737,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
 			ms := populateTestMapStore(numMapObjects, prefixes, 1)
-			ois := populateTestObjectInfos(numMapObjects, prefixes, hzMapService)
+			ois := populateTestObjectInfos(numMapObjects, prefixes, HzMapService)
 
 			cih := &testLastCleanedInfoHandler{
 				syncMap:               ms.maps[mapCleanersSyncMapName],
@@ -3850,7 +3850,7 @@ func TestDefaultSingleQueueCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tstring indicating correct Hazelcast service type cleaner refers to must be returned along with cleaner"
-			if hzService == hzQueueService {
+			if hzService == HzQueueService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -3919,7 +3919,7 @@ func TestDefaultBatchQueueCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tbuild method must report hazelcast service type corresponding to map cleaner"
-			if hzService == hzQueueService {
+			if hzService == HzQueueService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, hzService)
@@ -4004,7 +4004,7 @@ func TestDefaultBatchQueueCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tbuilder must report type of hazelcast service for which builder was to be assembled"
-			if service == hzQueueService {
+			if service == HzQueueService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, service)
@@ -4046,7 +4046,7 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tstring indicating correct Hazelcast service type cleaner refers to must be returned along with cleaner"
-			if hzService == hzMapService {
+			if hzService == HzMapService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -4108,7 +4108,7 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tbuild method must report hazelcast service type corresponding to map cleaner"
-			if hzService == hzMapService {
+			if hzService == HzMapService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, hzService)
@@ -4194,7 +4194,7 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 			}
 
 			msg = "\t\tbuilder must report type of hazelcast service for which builder was to be assembled"
-			if service == hzMapService {
+			if service == HzMapService {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, service)
@@ -4397,14 +4397,14 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 func newMapObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleObjectInfo {
 	return &hazelcastwrapper.SimpleObjectInfo{
 		Name:        objectInfoName,
-		ServiceName: hzMapService,
+		ServiceName: HzMapService,
 	}
 }
 
 func newQueueObjectInfoFromName(objectInfoName string) *hazelcastwrapper.SimpleObjectInfo {
 	return &hazelcastwrapper.SimpleObjectInfo{
 		Name:        objectInfoName,
-		ServiceName: hzQueueService,
+		ServiceName: HzQueueService,
 	}
 }
 
@@ -4477,7 +4477,7 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hazel
 
 }
 
-func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *DefaultBatchQueueCleaner {
+func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchQueueCleaner {
 
 	return &DefaultBatchQueueCleaner{
 		name:      queueCleanerName,
@@ -4495,7 +4495,7 @@ func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testH
 
 }
 
-func assembleBatchMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih lastCleanedInfoHandler, t cleanedTracker) *DefaultBatchMapCleaner {
+func assembleBatchMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchMapCleaner {
 
 	return &DefaultBatchMapCleaner{
 		name:      mapCleanerName,

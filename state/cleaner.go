@@ -34,8 +34,8 @@ type (
 		ms        hazelcastwrapper.MapStore
 		ois       hazelcastwrapper.ObjectInfoStore
 		ch        hazelcastwrapper.HzClientHandler
-		cih       lastCleanedInfoHandler
-		t         cleanedTracker
+		cih       LastCleanedInfoHandler
+		t         CleanedTracker
 	}
 	DefaultBatchQueueCleanerBuilder struct {
 		cfb cleanerConfigBuilder
@@ -51,8 +51,8 @@ type (
 		ms        hazelcastwrapper.MapStore
 		ois       hazelcastwrapper.ObjectInfoStore
 		ch        hazelcastwrapper.HzClientHandler
-		cih       lastCleanedInfoHandler
-		t         cleanedTracker
+		cih       LastCleanedInfoHandler
+		t         CleanedTracker
 	}
 )
 
@@ -77,34 +77,34 @@ type (
 	// would be possible, but would lead to inefficiency. For example, why would a single cleaner initialize a
 	// new Hazelcast client if the caller already has one?)
 	SingleMapCleanerBuilder interface {
-		Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string)
+		Build(ctx context.Context, ms hazelcastwrapper.MapStore, t CleanedTracker, cih LastCleanedInfoHandler) (SingleCleaner, string)
 	}
 	// SingleQueueCleanerBuilder is an interface for encapsulating the capability of assembling queue cleaners
 	// implementing the SingleCleaner interface. Concerning why the Build method asks for so little knowledge about
 	// the target Hazelcast cluster and capabilities for accessing it, the same thoughts as on the
 	// SingleMapCleanerBuilder interface apply.
 	SingleQueueCleanerBuilder interface {
-		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) SingleCleaner
+		Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t CleanedTracker, cih LastCleanedInfoHandler) SingleCleaner
 	}
 	DefaultSingleMapCleanerBuilder struct{}
 	DefaultSingleMapCleaner        struct {
 		ctx context.Context
 		ms  hazelcastwrapper.MapStore
-		cih lastCleanedInfoHandler
-		t   cleanedTracker
+		cih LastCleanedInfoHandler
+		t   CleanedTracker
 	}
 	DefaultSingleQueueCleanerBuilder struct{}
 	DefaultSingleQueueCleaner        struct {
 		ctx context.Context
 		ms  hazelcastwrapper.MapStore
 		qs  hazelcastwrapper.QueueStore
-		cih lastCleanedInfoHandler
-		t   cleanedTracker
+		cih LastCleanedInfoHandler
+		t   CleanedTracker
 	}
 )
 
 type (
-	lastCleanedInfoHandler interface {
+	LastCleanedInfoHandler interface {
 		// check asserts whether the given payload data structure in the target Hazelcast cluster is susceptible
 		// to cleaning. In doing so, it acquires a lock on the given sync map (a map that, for each kind of Cleaner
 		// implementation, tracks when payload data structures were last cleaned). The lock is not released
@@ -126,7 +126,7 @@ type (
 		check(syncMapName, payloadDataStructureName, hzService string) (mapLockInfo, bool, error)
 		update(lockInfo mapLockInfo) error
 	}
-	cleanedTracker interface {
+	CleanedTracker interface {
 		add(name string, cleaned int)
 	}
 	ErrorDuringCleanBehavior string
@@ -143,7 +143,7 @@ type (
 		a       client.ConfigPropertyAssigner
 	}
 	// mapLockInfo exists to signal to the caller of the check method on an implementation of
-	// lastCleanedInfoHandler that the method acquired a lock on the map represented by the map
+	// LastCleanedInfoHandler that the method acquired a lock on the map represented by the map
 	// proxy object contained in the return value (mapLockInfo.m) for a specific key (mapLockInfo.keyName),
 	// so the caller knows it should try to release the lock on the map for the key.
 	mapLockInfo struct {
@@ -165,18 +165,21 @@ type (
 )
 
 const (
-	mapCleanerBasePath            = "stateCleaners.maps"
-	queueCleanerBasePath          = "stateCleaners.queues"
-	hzInternalDataStructurePrefix = "__"
-	hzMapService                  = "hz:impl:mapService"
-	hzQueueService                = "hz:impl:queueService"
-	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
-	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
+	Ignore ErrorDuringCleanBehavior = "ignore"
+	Fail   ErrorDuringCleanBehavior = "fail"
 )
 
 const (
-	ignore ErrorDuringCleanBehavior = "ignore"
-	fail   ErrorDuringCleanBehavior = "fail"
+	HzMapService   = "hz:impl:mapService"
+	HzQueueService = "hz:impl:queueService"
+)
+
+const (
+	mapCleanerBasePath            = "stateCleaners.maps"
+	queueCleanerBasePath          = "stateCleaners.queues"
+	hzInternalDataStructurePrefix = "__"
+	mapCleanersSyncMapName        = hzInternalDataStructurePrefix + "ht.mapCleaners"
+	queueCleanersSyncMapName      = hzInternalDataStructurePrefix + "ht.queueCleaners"
 )
 
 var (
@@ -228,8 +231,8 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), hzMapService, log.ErrorLevel)
-		return nil, hzMapService, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), HzMapService, log.ErrorLevel)
+		return nil, HzMapService, err
 	}
 
 	clientName := "mapCleaner"
@@ -260,7 +263,7 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 		ch:        ch,
 		cih:       cih,
 		t:         t,
-	}, hzMapService, nil
+	}, HzMapService, nil
 
 }
 
@@ -375,7 +378,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	}()
 
 	if !c.c.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), hzMapService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), HzMapService, log.InfoLevel)
 		return 0, nil
 	}
 
@@ -385,7 +388,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	return runGenericBatchClean(
 		c.ctx,
 		c.ois,
-		hzMapService,
+		HzMapService,
 		c.c.usePrefix,
 		c.c.prefix,
 		sc,
@@ -398,8 +401,8 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), hzQueueService, log.ErrorLevel)
-		return nil, hzQueueService, err
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), HzQueueService, log.ErrorLevel)
+		return nil, HzQueueService, err
 	}
 
 	clientName := "queueCleaner"
@@ -431,7 +434,7 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 		ch:        ch,
 		cih:       cih,
 		t:         t,
-	}, hzQueueService, nil
+	}, HzQueueService, nil
 
 }
 
@@ -451,21 +454,21 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 
 }
 
-func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string) {
+func (b *DefaultSingleMapCleanerBuilder) Build(ctx context.Context, ms hazelcastwrapper.MapStore, t CleanedTracker, cih LastCleanedInfoHandler) (SingleCleaner, string) {
 
 	return &DefaultSingleMapCleaner{
 		ctx: ctx,
 		ms:  ms,
 		cih: cih,
 		t:   t,
-	}, hzMapService
+	}, HzMapService
 
 }
 
 func runGenericSingleClean(
 	ctx context.Context,
-	cih lastCleanedInfoHandler,
-	t cleanedTracker,
+	cih LastCleanedInfoHandler,
+	t CleanedTracker,
 	syncMapName, payloadDataStructureName, hzService string,
 	retrieveAndCleanFunc func(payloadDataStructureName string) (int, error),
 ) (int, error) {
@@ -518,32 +521,32 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 	mapToClean, err := c.ms.GetMap(c.ctx, payloadMapName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), HzMapService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if mapToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because map retrieved from target Hazelcast cluster was nil", payloadMapName)
-		lp.LogStateCleanerEvent(msg, hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(msg, HzMapService, log.ErrorLevel)
 		return 0, errors.New(msg)
 	}
 
 	size, err := mapToClean.Size(c.ctx)
 	if err != nil {
 		msg := fmt.Sprintf("unable to clean '%s' because retrieval of current size returned with error: %v", payloadMapName, err)
-		lp.LogStateCleanerEvent(msg, hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(msg, HzMapService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), hzMapService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.DebugLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), hzMapService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.DebugLevel)
 
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), hzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
 		return 0, err
 	}
 	return size, nil
@@ -558,7 +561,7 @@ func (c *DefaultSingleMapCleaner) Clean(name string) (int, error) {
 		c.t,
 		mapCleanersSyncMapName,
 		name,
-		hzMapService,
+		HzMapService,
 		c.retrieveAndClean,
 	)
 
@@ -622,7 +625,7 @@ func runGenericBatchClean(
 
 }
 
-func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t cleanedTracker, cih lastCleanedInfoHandler) (SingleCleaner, string) {
+func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelcastwrapper.QueueStore, ms hazelcastwrapper.MapStore, t CleanedTracker, cih LastCleanedInfoHandler) (SingleCleaner, string) {
 
 	return &DefaultSingleQueueCleaner{
 		ctx: ctx,
@@ -630,7 +633,7 @@ func (b *DefaultSingleQueueCleanerBuilder) Build(ctx context.Context, qs hazelca
 		ms:  ms,
 		cih: cih,
 		t:   t,
-	}, hzQueueService
+	}, HzQueueService
 
 }
 
@@ -639,32 +642,32 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 	queueToClean, err := c.qs.GetQueue(c.ctx, payloadQueueName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if queueToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because queue retrieved from target Hazelcast cluster was nil", payloadQueueName)
-		lp.LogStateCleanerEvent(msg, hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(msg, HzQueueService, log.ErrorLevel)
 		return 0, errors.New(msg)
 	}
 
 	size, err := queueToClean.Size(c.ctx)
 	if err != nil {
 		msg := fmt.Sprintf("unable to clean '%s' because size check failed with error: %v", payloadQueueName, err)
-		lp.LogStateCleanerEvent(msg, hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(msg, HzQueueService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), hzQueueService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.DebugLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), hzQueueService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.DebugLevel)
 
 	if err := queueToClean.Clear(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), hzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
 		return 0, err
 	}
 
@@ -680,7 +683,7 @@ func (c *DefaultSingleQueueCleaner) Clean(name string) (int, error) {
 		c.t,
 		queueCleanersSyncMapName,
 		name,
-		hzQueueService,
+		HzQueueService,
 		c.retrieveAndClean,
 	)
 
@@ -693,7 +696,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 	}()
 
 	if !c.c.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), hzQueueService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), HzQueueService, log.InfoLevel)
 		return 0, nil
 	}
 
@@ -702,7 +705,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
-		hzQueueService,
+		HzQueueService,
 		c.c.usePrefix,
 		c.c.prefix,
 		sc,
@@ -831,10 +834,10 @@ func ValidateErrorDuringCleanBehavior(keyPath string, a any) error {
 	}
 
 	switch a {
-	case string(ignore), string(fail):
+	case string(Ignore), string(Fail):
 		return nil
 	default:
-		return fmt.Errorf("pre-run error behavior to be either '%s' or '%s', got %v", ignore, fail, a)
+		return fmt.Errorf("pre-run error behavior to be either '%s' or '%s', got %v", Ignore, Fail, a)
 	}
 
 }
