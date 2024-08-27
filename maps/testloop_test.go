@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/state"
 	"hazeltest/status"
 	"math"
 	"strings"
@@ -35,7 +36,7 @@ var (
 	rpOneMapOneRunNoEvictionScDisabled = &runnerProperties{
 		numMaps:             1,
 		numRuns:             1,
-		evictMapsPriorToRun: false,
+		cleanMapsPriorToRun: false,
 		sleepBetweenRuns:    sleepConfigDisabled,
 	}
 )
@@ -512,7 +513,7 @@ func TestRunWrapper(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -561,15 +562,63 @@ func TestRunWrapper(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen evict target map prior to execution is enabled")
+		t.Log("\twhen clean target map prior to execution is disabled")
 		{
-			t.Log("\t\twhen evict all is successful")
+			rc := assembleRunnerConfigForBatchTestLoop(
+				&runnerProperties{
+					numMaps:             1,
+					numRuns:             1,
+					cleanMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
+				},
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+			cleaner := &testSingleMapCleaner{
+				observations: &testSingleMapCleanerObservations{},
+			}
+			tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
+
+			go tl.gatherer.Listen()
+
+			runFuncCalled := false
+			runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
+				return "yeeehaw"
+			}, func(h hazelcastwrapper.Map, s string, u uint16) {
+				runFuncCalled = true
+			})
+
+			tl.gatherer.StopListen()
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg := "\t\tthere must have been no invocations on single map cleaner"
+			if cleaner.observations.cleanInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, cleaner.observations.cleanInvocations)
+			}
+
+			msg = "\t\ttest loop's run function must have been invoked"
+			if runFuncCalled {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen clean target map prior to execution is enabled")
+		{
+			t.Log("\t\twhen clean is successful and at least one element was cleaned from target map")
 			{
 				rc := assembleRunnerConfigForBatchTestLoop(
 					&runnerProperties{
 						numMaps:             1,
 						numRuns:             1,
-						evictMapsPriorToRun: true,
+						cleanMapsPriorToRun: true,
 						sleepBetweenRuns:    sleepConfigDisabled,
 					},
 					sleepConfigDisabled,
@@ -577,54 +626,15 @@ func TestRunWrapper(t *testing.T) {
 				)
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-				populateTestHzMapStore(&ms)
 
-				go tl.gatherer.Listen()
-				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
-					return "banana"
-				}, func(h hazelcastwrapper.Map, s string, u uint16) {
-					// No-op
-				})
-				tl.gatherer.StopListen()
-
-				waitForStatusGatheringDone(tl.gatherer)
-
-				msg := "\tevict all must have been called once"
-				if ms.m.evictAllInvocations == 1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, ms.m.evictAllInvocations)
-				}
-
-				msg = "\tmap must be empty"
-				elementsInMap := 0
-				ms.m.data.Range(func(key, value any) bool {
-					elementsInMap++
-					return true
-				})
-
-				if elementsInMap == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, elementsInMap)
-				}
-
-			}
-
-			t.Log("\t\twhen evict all is unsuccessful")
-			{
-				rc := assembleRunnerConfigForBatchTestLoop(
-					&runnerProperties{
-						numMaps:             1,
-						numRuns:             1,
-						evictMapsPriorToRun: true,
-						sleepBetweenRuns:    sleepConfigDisabled,
+				cleaner := &testSingleMapCleaner{
+					behavior: &testSingleMapCleanerBehavior{
+						numElementsCleanedReturnValue: 1,
 					},
-					sleepConfigDisabled,
-					sleepConfigDisabled,
-				)
-				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponEvictAll: true})
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+					observations: &testSingleMapCleanerObservations{},
+				}
+				tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
+
 				populateTestHzMapStore(&ms)
 
 				go tl.gatherer.Listen()
@@ -638,15 +648,112 @@ func TestRunWrapper(t *testing.T) {
 
 				waitForStatusGatheringDone(tl.gatherer)
 
-				msg := "\tevict all must have been called once"
-				if ms.m.evictAllInvocations == 1 {
+				msg := "\t\t\tsingle cleaner must have been invoked once"
+				if cleaner.observations.cleanInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cleaner.observations.cleanInvocations)
+				}
+
+				msg = "\t\t\ttest loop's run function must have been invoked once"
+				if runFuncCalled {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+
+			t.Log("\t\twhen evict all is unsuccessful and configured error behavior advises to ignore the error")
+			{
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{
+						numMaps:               1,
+						numRuns:               1,
+						cleanMapsPriorToRun:   true,
+						mapCleanErrorBehavior: state.Ignore,
+						sleepBetweenRuns:      sleepConfigDisabled,
+					},
+					sleepConfigDisabled,
+					sleepConfigDisabled)
+				ms := assembleTestMapStore(&testMapStoreBehavior{})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+				cleaner := &testSingleMapCleaner{
+					behavior: &testSingleMapCleanerBehavior{
+						returnErrorUponClean: true,
+					},
+					observations: &testSingleMapCleanerObservations{},
+				}
+				tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
+
+				runFuncCalled := false
+				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
+					return "blubbi"
+				}, func(_ hazelcastwrapper.Map, _ string, _ uint16) {
+					runFuncCalled = true
+				})
+
+				msg := "\t\t\tsingle cleaner must have been invoked once"
+				if cleaner.observations.cleanInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, cleaner.observations.cleanInvocations)
+				}
+
+				msg = "\t\t\ttest loop's run function must have been invoked despite error during pre-run clean"
+				if runFuncCalled {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+
+			t.Log("\t\twhen evict all is unsuccessful and configured error behavior advises to fail")
+			{
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{
+						numMaps:               1,
+						numRuns:               1,
+						cleanMapsPriorToRun:   true,
+						mapCleanErrorBehavior: state.Fail,
+						sleepBetweenRuns:      sleepConfigDisabled,
+					},
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+				)
+				ms := assembleTestMapStore(&testMapStoreBehavior{})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+				cleaner := &testSingleMapCleaner{
+					behavior:     &testSingleMapCleanerBehavior{returnErrorUponClean: true},
+					observations: &testSingleMapCleanerObservations{},
+				}
+				tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
+
+				populateTestHzMapStore(&ms)
+
+				go tl.gatherer.Listen()
+				runFuncCalled := false
+				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
+					return "banana"
+				}, func(h hazelcastwrapper.Map, s string, u uint16) {
+					runFuncCalled = true
+				})
+				tl.gatherer.StopListen()
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg := "\t\t\tsingle map cleaner must have been invoked once"
+				if cleaner.observations.cleanInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, ms.m.evictAllInvocations)
 				}
 
-				msg = "\trun func must have been called anyway"
-				if runFuncCalled {
+				msg = "\t\t\trun func must not have been invoked"
+				if !runFuncCalled {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1159,18 +1266,6 @@ func TestExecuteMapAction(t *testing.T) {
 
 }
 
-func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
-
-	recordedValue := statusCopy[string(expectedKey)].(int)
-
-	if recordedValue == expectedValue {
-		return true, ""
-	} else {
-		return false, fmt.Sprintf("expected %d, got %d", expectedValue, recordedValue)
-	}
-
-}
-
 func TestDetermineNextMapAction(t *testing.T) {
 
 	t.Log("given a function to determine the next map action to be executed")
@@ -1515,7 +1610,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						&runnerProperties{
 							numMaps:             numMaps,
 							numRuns:             numRuns,
-							evictMapsPriorToRun: false,
+							cleanMapsPriorToRun: false,
 							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
@@ -1556,7 +1651,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						&runnerProperties{
 							numMaps:             numMaps,
 							numRuns:             numRuns,
-							evictMapsPriorToRun: false,
+							cleanMapsPriorToRun: false,
 							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
@@ -1611,7 +1706,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 						&runnerProperties{
 							numMaps:             numMaps,
 							numRuns:             numRuns,
-							evictMapsPriorToRun: false,
+							cleanMapsPriorToRun: false,
 							sleepBetweenRuns:    sleepConfigDisabled,
 						},
 						sleepConfigDisabled,
@@ -2245,7 +2340,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2298,7 +2393,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2352,7 +2447,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2395,7 +2490,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2445,7 +2540,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             numMaps,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2475,7 +2570,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             20,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    scBetweenRuns,
 				},
 				sleepConfigDisabled,
@@ -2520,7 +2615,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             numRuns,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    scBetweenRuns,
 				},
 				sleepConfigDisabled,
@@ -2570,7 +2665,7 @@ func TestIngestAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2624,7 +2719,7 @@ func TestIngestAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2681,7 +2776,7 @@ func TestIngestAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2737,7 +2832,7 @@ func TestIngestAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2772,7 +2867,7 @@ func TestIngestAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
@@ -2817,7 +2912,7 @@ func TestReadAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             12,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2866,7 +2961,7 @@ func TestReadAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2903,7 +2998,7 @@ func TestReadAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -2950,7 +3045,7 @@ func TestReadAll(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
@@ -2996,7 +3091,7 @@ func TestRemoveSome(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -3036,7 +3131,7 @@ func TestRemoveSome(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				sleepConfigDisabled,
@@ -3073,7 +3168,7 @@ func TestRemoveSome(t *testing.T) {
 				&runnerProperties{
 					numMaps:             1,
 					numRuns:             9,
-					evictMapsPriorToRun: false,
+					cleanMapsPriorToRun: false,
 					sleepBetweenRuns:    sleepConfigDisabled,
 				},
 				&sleepConfig{
@@ -3105,6 +3200,18 @@ func TestRemoveSome(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+	}
+
+}
+
+func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+
+	recordedValue := statusCopy[string(expectedKey)].(int)
+
+	if recordedValue == expectedValue {
+		return true, ""
+	} else {
+		return false, fmt.Sprintf("expected %d, got %d", expectedValue, recordedValue)
 	}
 
 }
@@ -3219,15 +3326,49 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch
 
 }
 
-type testMapStoreBehavior struct {
-	returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll, returnErrorUponEvictAll bool
+type (
+	testMapStoreBehavior struct {
+		returnErrorUponGetMap, returnErrorUponGet, returnErrorUponSet, returnErrorUponContainsKey, returnErrorUponRemove, returnErrorUponRemoveAll, returnErrorUponEvictAll bool
+	}
+	runnerProperties struct {
+		numMaps               uint16
+		numRuns               uint32
+		cleanMapsPriorToRun   bool
+		mapCleanErrorBehavior state.ErrorDuringCleanBehavior
+		sleepBetweenRuns      *sleepConfig
+	}
+	testSingleMapCleanerBuilder struct {
+		mapCleanerToReturn state.SingleCleaner
+	}
+	testSingleMapCleanerBehavior struct {
+		numElementsCleanedReturnValue int
+		returnErrorUponClean          bool
+	}
+	testSingleMapCleanerObservations struct {
+		cleanInvocations int
+	}
+	testSingleMapCleaner struct {
+		behavior     *testSingleMapCleanerBehavior
+		observations *testSingleMapCleanerObservations
+	}
+)
+
+func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
+
+	return b.mapCleanerToReturn, "hz:impl:mapService"
+
 }
 
-type runnerProperties struct {
-	numMaps             uint16
-	numRuns             uint32
-	evictMapsPriorToRun bool
-	sleepBetweenRuns    *sleepConfig
+func (c *testSingleMapCleaner) Clean(_ string) (int, error) {
+
+	c.observations.cleanInvocations++
+
+	if c.behavior.returnErrorUponClean {
+		return 0, fmt.Errorf("something somewhere went terribly wrong")
+	}
+
+	return c.behavior.numElementsCleanedReturnValue, nil
+
 }
 
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
@@ -3314,7 +3455,8 @@ func assembleBaseRunnerConfig(rp *runnerProperties) *runnerConfig {
 		appendMapIndexToMapName: false,
 		appendClientIdToMapName: false,
 		preRunClean: &preRunCleanConfig{
-			enabled: rp.evictMapsPriorToRun,
+			enabled:       rp.cleanMapsPriorToRun,
+			errorBehavior: rp.mapCleanErrorBehavior,
 		},
 		sleepBetweenRuns: rp.sleepBetweenRuns,
 		loopType:         boundary,
