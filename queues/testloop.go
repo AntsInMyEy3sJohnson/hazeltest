@@ -146,6 +146,9 @@ func (l *testLoop[t]) run() {
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 
+			// TODO Check whether queue should be cleaned prior to starting put and pull operations
+			// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/69
+
 			var putWg sync.WaitGroup
 			if tle.runnerConfig.putConfig.enabled {
 				putWg.Add(1)

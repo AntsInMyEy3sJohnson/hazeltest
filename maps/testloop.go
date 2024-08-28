@@ -546,6 +546,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	var hzService string
 	if tle.runnerConfig.preRunClean.enabled {
 		// TODO Add information collected by tracker to test loop status
+		// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/70
 		stateCleaner, hzService = tle.stateCleanerBuilder.Build(
 			tle.ctx,
 			tle.hzMapStore,
