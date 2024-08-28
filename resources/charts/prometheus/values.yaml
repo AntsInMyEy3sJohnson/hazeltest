@@ -29,7 +29,7 @@ prometheusServer:
       deploy: true
       port: 8080
       # Point this to the correct IP address in your DNS config
-      hostName: prometheus.thelittlevmthatcould.local
+      hostName: prometheus.awesomeserver1.local
   metrics:
     retentionTime: 24h
   config:
