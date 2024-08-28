@@ -48,7 +48,6 @@ func init() {
 		name:            "queuesTweetRunner",
 		source:          "tweetRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
-		hzQueueStore:    &hazelcastwrapper.DefaultQueueStore{},
 		l:               &testLoop[tweet]{},
 	})
 	gob.Register(tweet{})
@@ -58,7 +57,7 @@ func (r *tweetRunner) getSourceName() string {
 	return "tweetRunner"
 }
 
-func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initQueueStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -89,6 +88,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
+	r.hzQueueStore = storeFunc(r.hzClientHandler)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)

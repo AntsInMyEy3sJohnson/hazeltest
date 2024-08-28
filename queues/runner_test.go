@@ -3,6 +3,7 @@ package queues
 import (
 	"errors"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"strings"
 	"testing"
@@ -40,6 +41,9 @@ var (
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enabled":                   true,
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.durationMs":                2000,
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enableRandomness":          true,
+	}
+	initTestQueueStore initQueueStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
+		return &testHzQueueStore{observations: &testQueueStoreObservations{}}
 	}
 )
 

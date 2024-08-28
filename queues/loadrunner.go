@@ -41,7 +41,6 @@ func init() {
 		name:            "queuesLoadRunner",
 		source:          "loadRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
-		hzQueueStore:    &hazelcastwrapper.DefaultQueueStore{},
 		l:               &testLoop[loadElement]{},
 	})
 	gob.Register(loadElement{})
@@ -51,7 +50,7 @@ func (r *loadRunner) getSourceName() string {
 	return r.source
 }
 
-func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initQueueStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -78,6 +77,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
+	r.hzQueueStore = storeFunc(r.hzClientHandler)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)

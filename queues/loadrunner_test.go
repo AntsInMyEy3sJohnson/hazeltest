@@ -1,6 +1,7 @@
 package queues
 
 import (
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"testing"
 )
@@ -32,7 +33,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runQueueTests(hzCluster, hzMembers, gatherer)
+			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
@@ -70,7 +71,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runQueueTests(hzCluster, hzMembers, gatherer)
+			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
@@ -88,7 +89,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
 		}
-		t.Log("\twhen hazelcast queue store has been initialized and test loop has executed")
+		t.Log("\twhen test loop has successfully executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
@@ -96,11 +97,16 @@ func TestRunLoadQueueTests(t *testing.T) {
 					"queueTests.load.enabled": true,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}, hzClientHandler: &testHzClientHandler{}}
+			ch := &testHzClientHandler{}
+			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}, hzClientHandler: ch}
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runQueueTests(hzCluster, hzMembers, gatherer)
+			qs := &testHzQueueStore{observations: &testQueueStoreObservations{}}
+			r.runQueueTests(hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
+				qs.observations.numInitInvocations++
+				return qs
+			})
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
@@ -117,6 +123,28 @@ func TestRunLoadQueueTests(t *testing.T) {
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
+
+			msg := "\t\thazelcast client handler must have initialized hazelcast client once"
+			if ch.initClientInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\thazelcast client handler must have performed shutdown of hazelcast client once"
+			if ch.shutdownInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
+			msg = "\t\tqueue store must have been initialized once"
+			if qs.observations.numInitInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, qs.observations.numInitInvocations)
+			}
+
 		}
 	}
 

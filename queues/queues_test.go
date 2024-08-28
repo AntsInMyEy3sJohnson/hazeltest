@@ -16,8 +16,9 @@ type (
 		testConfig  map[string]any
 	}
 	testHzQueueStore struct {
-		q        *testHzQueue
-		behavior *testQueueStoreBehavior
+		q            *testHzQueue
+		behavior     *testQueueStoreBehavior
+		observations *testQueueStoreObservations
 	}
 	testHzQueue struct {
 		queueCapacity                int
@@ -30,6 +31,9 @@ type (
 	}
 	testQueueStoreBehavior struct {
 		returnErrorUponGetQueue, returnErrorUponRemainingCapacity, returnErrorUponPut, returnErrorUponPoll bool
+	}
+	testQueueStoreObservations struct {
+		numInitInvocations int
 	}
 	testHzClientHandler struct {
 		getClientInvocations, initClientInvocations, shutdownInvocations int
