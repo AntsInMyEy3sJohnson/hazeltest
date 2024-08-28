@@ -11,6 +11,7 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/state"
 	"hazeltest/status"
 )
 
@@ -133,15 +134,16 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	lp.LogMapRunnerEvent("starting pokedex test loop for maps", r.name, log.InfoLevel)
 
 	lc := &testLoopExecution[pokemon]{
-		id:               uuid.New(),
-		runnerName:       r.name,
-		source:           r.source,
-		hzClientHandler:  r.hzClientHandler,
-		hzMapStore:       r.hzMapStore,
-		runnerConfig:     config,
-		elements:         p.Pokemon,
-		ctx:              ctx,
-		getElementIdFunc: getPokemonID,
+		id:                  uuid.New(),
+		runnerName:          r.name,
+		source:              r.source,
+		hzClientHandler:     r.hzClientHandler,
+		hzMapStore:          r.hzMapStore,
+		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:        config,
+		elements:            p.Pokemon,
+		ctx:                 ctx,
+		getElementIdFunc:    getPokemonID,
 	}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
