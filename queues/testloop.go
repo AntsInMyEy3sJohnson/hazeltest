@@ -269,7 +269,7 @@ func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 			l.ct.increaseCounter(statusKeyNumNilPolls)
 			lp.LogQueueRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 		} else {
-			lp.LogQueueRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), l.tle.runnerName, log.TraceLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("successfully retrieved value from queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 		}
 		if i > 0 && i%pollConfig.batchSize == 0 {
 			l.s.sleep(pollConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, l.tle.runnerName, "poll")
