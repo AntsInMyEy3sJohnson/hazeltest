@@ -81,16 +81,45 @@ chaosMonkeys:
 # It is generally advisable not to assign names starting with two underscores to regular payload data structures.
 stateCleaners:
   maps:
+    # Whether this state cleaner should be enabled.
     enabled: true
+    # What to do about an error that occurs upon attempt to clean any of the identified data structures.
+    # Can be one of 'ignore' or 'fail', where the former is the default. Usually, when a state cleaner encounters
+    # an error, the cause is that the state cleaner of another Hazeltest instance currently holds the lock in the
+    # map cleaner sync map (which has to be the same for all Hazeltest instances) for the payload map in
+    # question. This error can be safely ignored -- as soon as the lock is released, any instance checking
+    # whether the payload data structure should be cleaned would make a negative conclusion anyway because it has
+    # just been cleaned (unless 'cleanAgainThreshold.enabled' was set to 'false', but that would be an unusual case
+    # -- set the error behavior to 'fail' in this case so the Hazeltest instance fails fast and gets restarted).
+    # It is for this reason that 'ignore', rather than 'fail', is the default error behavior.
     errorBehavior: ignore
     prefix:
+      # Whether to enable prefix usage for identifying target maps.
       enabled: true
+      # When prefix usage has been enabled, this prefix will be used to search for maps to clean in the entire set of
+      # maps available on the target Hazelcast cluster (except those maps whose name starts with two underscores).
       prefix: "ht_"
+    # Map cleaners across Hazeltest instances keep track of which payload maps they have cleaned at which timestamp.
+    # This is the key to avoiding that a number of Hazeltest instances clean payload maps containing the state of
+    # other instances in cases where payload map names are shared across these instances (which is the case for a
+    # map runner when 'appendClientIdToMapName' was set to 'false' for this map runner). For example, when 100 Hazeltest
+    # instances get created on a Kubernetes cluster in the form of Pods, Kubernetes won't create them all at precisely
+    # the same time, but in small batches, whose creation happens milliseconds apart. Thus, without a means to check
+    # when a payload data structure has been cleaned the last time, the later instances would clean payload maps that
+    # are already in use by earlier instance, which would create havoc in these instances' map test loops. To prevent
+    # this situation, a 'clean again threshold' can be configured, stating, for example, that any payload map identified
+    # as a candidate for cleaning should only be cleaned if the given time, in milliseconds, has elapsed since the
+    # map was cleaned the last time.
     cleanAgainThreshold:
+      # Whether to apply the threshold specified by 'thresholdMs' to determine if a target payload map identified as
+      # cleaning candidate is susceptible to cleaning.
       enabled: true
+      # The threshold to apply to the cleaning decision. A candidate payload map will be cleaned if the difference
+      # between the last cleaned timestamp and the current timestamp is greater than or equal to this number.
       thresholdMs: 30000
+  # See 'stateCleaners.maps' for an explanation on these properties.
   queues:
-    enabled: false
+    enabled: true
     errorBehavior: ignore
     prefix:
       enabled: true
