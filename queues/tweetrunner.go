@@ -43,12 +43,13 @@ var tweetsFile embed.FS
 
 func init() {
 	register(&tweetRunner{
-		assigner:     &client.DefaultConfigPropertyAssigner{},
-		stateList:    []state{},
-		name:         "queuesTweetRunner",
-		source:       "tweetRunner",
-		hzQueueStore: &hazelcastwrapper.DefaultQueueStore{},
-		l:            &testLoop[tweet]{},
+		assigner:        &client.DefaultConfigPropertyAssigner{},
+		stateList:       []state{},
+		name:            "queuesTweetRunner",
+		source:          "tweetRunner",
+		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
+		hzQueueStore:    &hazelcastwrapper.DefaultQueueStore{},
+		l:               &testLoop[tweet]{},
 	})
 	gob.Register(tweet{})
 }
