@@ -18,10 +18,13 @@ const TimingEvent = "timing event"
 const IoEvent = "io event"
 const HzEvent = "hazelcast event"
 const ConfigurationEvent = "configuration event"
+const InternalStateEvent = "internal state event"
 
 type LogProvider struct {
 	ClientID uuid.UUID
 }
+
+var lp *LogProvider
 
 func init() {
 
@@ -59,6 +62,16 @@ func init() {
 
 }
 
+func GetLogProviderInstance(clientID uuid.UUID) *LogProvider {
+
+	if lp == nil {
+		lp = &LogProvider{ClientID: clientID}
+	}
+
+	return lp
+
+}
+
 func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
@@ -73,6 +86,16 @@ func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
 
 	fields := log.Fields{
 		"kind": ApiEvent,
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogInternalStateInfo(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": InternalStateEvent,
 	}
 
 	lp.doLog(msg, fields, level)
@@ -111,10 +134,24 @@ func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level log.Lev
 	lp.doLog(msg, fields, level)
 }
 
-func (lp *LogProvider) LogRunnerEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level log.Level) {
 
 	fields := log.Fields{
-		"kind": RunnerEvent,
+		"kind":       RunnerEvent,
+		"runnerName": runnerName,
+		"runnerKind": "map",
+	}
+
+	lp.doLog(msg, fields, level)
+
+}
+
+func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level log.Level) {
+
+	fields := log.Fields{
+		"kind":       RunnerEvent,
+		"runnerName": runnerName,
+		"runnerKind": "queue",
 	}
 
 	lp.doLog(msg, fields, level)

@@ -8,20 +8,23 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
+	"hazeltest/state"
 	"hazeltest/status"
 	"strconv"
 )
 
 type (
 	loadRunner struct {
-		assigner  client.ConfigPropertyAssigner
-		stateList []state
-		name      string
-		source    string
-		mapStore  hzMapStore
-		l         looper[loadElement]
-		gatherer  *status.Gatherer
+		assigner        client.ConfigPropertyAssigner
+		stateList       []runnerState
+		name            string
+		source          string
+		hzClientHandler hazelcastwrapper.HzClientHandler
+		hzMapStore      hazelcastwrapper.MapStore
+		l               looper[loadElement]
+		gatherer        *status.Gatherer
 	}
 	loadElement struct {
 		Key     string
@@ -36,12 +39,11 @@ var (
 
 func init() {
 	register(&loadRunner{
-		assigner:  &client.DefaultConfigPropertyAssigner{},
-		stateList: []state{},
-		name:      "mapsLoadRunner",
-		source:    "loadRunner",
-		mapStore:  &defaultHzMapStore{},
-		l:         &batchTestLoop[loadElement]{},
+		assigner:        &client.DefaultConfigPropertyAssigner{},
+		stateList:       []runnerState{},
+		name:            "mapsLoadRunner",
+		source:          "loadRunner",
+		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
 	})
 	gob.Register(loadElement{})
 }
@@ -63,21 +65,21 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
 
 	config, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), log.ErrorLevel)
+		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogRunnerEvent("load runner not enabled -- won't run", log.InfoLevel)
+		lp.LogMapRunnerEvent("load runner not enabled -- won't run", r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -86,27 +88,37 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer 
 
 	l, err := initializeLoadElementTestLoop(config)
 	if err != nil {
-		lp.LogRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), log.ErrorLevel)
+		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), r.name, log.ErrorLevel)
 		return
 	}
 	r.l = l
 
 	r.appendState(assignTestLoopComplete)
 
-	ctx := context.TODO()
-
-	r.mapStore.InitHazelcastClient(ctx, "mapsLoadRunner", hzCluster, hzMembers)
+	r.hzClientHandler.InitHazelcastClient(ctx, r.name, hzCluster, hzMembers)
 	defer func() {
-		_ = r.mapStore.Shutdown(ctx)
+		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
+	r.hzMapStore = storeFunc(r.hzClientHandler)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogRunnerEvent("initialized hazelcast client", log.InfoLevel)
-	lp.LogRunnerEvent("starting load test loop for maps", log.InfoLevel)
+	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{uuid.New(), r.source, r.mapStore, config, populateLoadElements(), ctx, getLoadElementID}
+	lc := &testLoopExecution[loadElement]{
+		id:                  uuid.New(),
+		runnerName:          r.name,
+		source:              r.source,
+		hzClientHandler:     r.hzClientHandler,
+		hzMapStore:          r.hzMapStore,
+		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:        config,
+		elements:            populateLoadElements(),
+		ctx:                 ctx,
+		getElementIdFunc:    getLoadElementID,
+	}
 
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
 
@@ -114,11 +126,11 @@ func (r *loadRunner) runMapTests(hzCluster string, hzMembers []string, gatherer 
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogRunnerEvent("finished map load test loop", log.InfoLevel)
+	lp.LogMapRunnerEvent("finished map load test loop", r.name, log.InfoLevel)
 
 }
 
-func (r *loadRunner) appendState(s state) {
+func (r *loadRunner) appendState(s runnerState) {
 
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}

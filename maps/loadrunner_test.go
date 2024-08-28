@@ -1,17 +1,19 @@
 package maps
 
 import (
+	"context"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"testing"
 )
 
-type dummyLoadTestLoop struct{}
+type testLoadTestLoop struct{}
 
-func (d dummyLoadTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
+func (d testLoadTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 
-func (d dummyLoadTestLoop) run() {
+func (d testLoadTestLoop) run() {
 	// No-op
 }
 
@@ -89,16 +91,16 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
-				dummyConfig: nil,
+				testConfig:  nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -123,20 +125,21 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled": false,
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
-			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start, latestState}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -149,21 +152,40 @@ func TestRunLoadMapTests(t *testing.T) {
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
+
+			msg := "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
 		}
-		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
+		t.Log("\twhen test loop has executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled":       true,
 					"mapTests.load.testLoop.type": "batch",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+				ms.observations.numInitInvocations++
+				return ms
+			})
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
@@ -181,25 +203,47 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
 
+			msg := "\t\thazelcast client handler must have initialized hazelcast client once"
+			if ch.initClientInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\thazelcast client handler must have performed shutdown of hazelcast client once"
+			if ch.shutdownInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
+			msg = "\t\tmap store must have been initialized once"
+			if ms.observations.numInitInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.observations.numInitInvocations)
+			}
+
 		}
 
 		t.Log("\twhen test loop cannot be initialized")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.load.enabled":       true,
 					"mapTests.load.testLoop.type": "awesome-non-existing-test-loop-type",
 				},
 			}
-			r := loadRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyLoadTestLoop{}, gatherer: status.NewGatherer()}
+			ch := &testHzClientHandler{}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}, gatherer: status.NewGatherer()}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -211,6 +255,20 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, start)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, start)
+			}
+
+			msg := "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
 
 		}

@@ -34,13 +34,13 @@ func TestRegisterStatefulActor(t *testing.T) {
 		{
 			actorGroup := MapRunners
 			actorName := "pokedex"
-			dummyKey := "awesome-key"
-			dummyFn := func() map[string]any {
+			testKey := "awesome-key"
+			testFn := func() map[string]any {
 				return map[string]any{
-					dummyKey: "awesome-value",
+					testKey: "awesome-value",
 				}
 			}
-			RegisterStatefulActor(actorGroup, actorName, dummyFn)
+			RegisterStatefulActor(actorGroup, actorName, testFn)
 
 			msg := "\t\tlist of stateful actors must contain entry for actor group"
 			if _, ok := tracker.m[actorGroup]; ok {
@@ -59,7 +59,7 @@ func TestRegisterStatefulActor(t *testing.T) {
 			}
 
 			msg = "\t\tquery status function must have been associated with actor"
-			if _, ok := actorGroupList[actorName]()[dummyKey]; ok {
+			if _, ok := actorGroupList[actorName]()[testKey]; ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)

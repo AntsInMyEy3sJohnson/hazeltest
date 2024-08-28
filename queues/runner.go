@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
 	"hazeltest/status"
 	"sync"
@@ -17,7 +18,7 @@ type (
 	}
 	runner interface {
 		getSourceName() string
-		runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer)
+		runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initQueueStoreFunc)
 	}
 	runnerConfig struct {
 		enabled                     bool
@@ -48,8 +49,9 @@ type (
 		runnerKeyPath string
 		queueBaseName string
 	}
-	state     string
-	statusKey string
+	state              string
+	statusKey          string
+	initQueueStoreFunc func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore
 )
 
 const (
@@ -66,8 +68,11 @@ const (
 )
 
 var (
-	runners []runner
-	lp      *logging.LogProvider
+	runners               []runner
+	lp                    *logging.LogProvider
+	initDefaultQueueStore initQueueStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
+		return &hazelcastwrapper.DefaultQueueStore{Client: ch.GetClient()}
+	}
 )
 
 func register(r runner) {
@@ -75,7 +80,7 @@ func register(r runner) {
 }
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 }
 
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
@@ -252,7 +257,7 @@ func populateConfig(assigner client.ConfigPropertyAssigner, runnerKeyPath string
 func (t *QueueTester) TestQueues() {
 
 	clientID := client.ID()
-	logInternalStateInfo(fmt.Sprintf("%s: queue tester starting %d runner/-s", clientID, len(runners)))
+	lp.LogInternalStateInfo(fmt.Sprintf("%s: queue tester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
@@ -267,20 +272,10 @@ func (t *QueueTester) TestQueues() {
 			runner := runners[i]
 
 			api.RegisterStatefulActor(api.QueueRunners, runner.getSourceName(), gatherer.AssembleStatusCopy)
-			runner.runQueueTests(t.HzCluster, t.HzMembers, gatherer)
+			runner.runQueueTests(t.HzCluster, t.HzMembers, gatherer, initDefaultQueueStore)
 		}(i)
 	}
 
 	wg.Wait()
-
-}
-
-// TODO Get rid of this function -- use logprovider instead
-func logInternalStateInfo(msg string) {
-
-	log.WithFields(log.Fields{
-		"kind":   logging.RunnerEvent,
-		"client": client.ID(),
-	}).Trace(msg)
 
 }

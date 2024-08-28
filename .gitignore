@@ -14,10 +14,11 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Exclude directories IDEs might introduce
+# Exclude files and directories IDEs might introduce
 *.vscode
 *.idea
 *.run
+*.iml
 
 __debug_bin
 *.swp

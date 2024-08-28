@@ -108,7 +108,7 @@ var (
 )
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 	register(&memberKillerMonkey{})
 }
 
@@ -428,7 +428,7 @@ func RunMonkeys() {
 		go func(i int) {
 			defer wg.Done()
 			m := monkeys[i]
-			// The only mode for accessing hazelcast members is currently through kubernetes, and as long as that's the
+			// The only mode for accessing hazelcastwrapper members is currently through kubernetes, and as long as that's the
 			// case, we can safely hard-code the member chooser and member killer
 			// Member chooser and member killer share the same Kubernetes clientset
 			clientsetProvider := &defaultK8sClientsetProvider{

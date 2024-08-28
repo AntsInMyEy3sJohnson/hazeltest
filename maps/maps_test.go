@@ -4,20 +4,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"strings"
 	"sync"
+	"time"
 )
 
 type (
 	testConfigPropertyAssigner struct {
 		returnError bool
-		dummyConfig map[string]any
+		testConfig  map[string]any
 	}
-	dummyHzMapStore struct {
-		m                     *dummyHzMap
+	testHzClientHandler struct {
+		getClientInvocations, initClientInvocations, shutdownInvocations int
+		hzClusterName                                                    string
+		hzClusterMembers                                                 []string
+	}
+	testHzMapStore struct {
+		m                     *testHzMap
 		returnErrorUponGetMap bool
+		observations          *testHzMapStoreObservations
+	}
+	testHzMapStoreObservations struct {
+		numInitInvocations int
 	}
 	boundaryMonitoring struct {
 		upperBoundaryNumElements       int
@@ -27,7 +39,7 @@ type (
 		upperBoundaryViolationValue    int
 		lowerBoundaryViolationValue    int
 	}
-	dummyHzMap struct {
+	testHzMap struct {
 		containsKeyInvocations                    int
 		setInvocations                            int
 		getInvocations                            int
@@ -37,7 +49,7 @@ type (
 		removeAllInvocations                      int
 		evictAllInvocations                       int
 		lastPredicateFilterForRemoveAllInvocation string
-		// TODO Use regular map rather than sync.Map because access to dummyHzMap properties has to ge guarded by lock anyway
+		// TODO Use regular map rather than sync.Map because access to testHzMap properties has to ge guarded by lock anyway
 		data                       *sync.Map
 		returnErrorUponGet         bool
 		returnErrorUponSet         bool
@@ -48,6 +60,40 @@ type (
 		bm                         *boundaryMonitoring
 	}
 )
+
+func (d *testHzClientHandler) GetClusterName() string {
+	return d.hzClusterName
+}
+
+func (d *testHzClientHandler) GetClusterMembers() []string {
+	return d.hzClusterMembers
+}
+
+func (d *testHzClientHandler) GetClient() *hazelcast.Client {
+	d.getClientInvocations++
+	return nil
+}
+
+func (d *testHzClientHandler) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+	d.initClientInvocations++
+}
+
+func (d *testHzClientHandler) Shutdown(_ context.Context) error {
+	d.shutdownInvocations++
+	return nil
+}
+
+func (m *testHzMap) SetWithTTLAndMaxIdle(_ context.Context, _, _ any, _ time.Duration, _ time.Duration) error {
+	return nil
+}
+
+func (m *testHzMap) TryLock(_ context.Context, _ any) (bool, error) {
+	return false, nil
+}
+
+func (m *testHzMap) Unlock(_ context.Context, _ any) error {
+	return nil
+}
 
 const (
 	checkMark     = "\u2713"
@@ -60,8 +106,8 @@ const (
 var (
 	hzCluster                = "awesome-hz-cluster"
 	hzMembers                = []string{"awesome-hz-cluster-svc.cluster.local"}
-	expectedStatesForFullRun = []state{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
-	dummyMapOperationLock    sync.Mutex
+	expectedStatesForFullRun = []runnerState{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete, raiseReadyComplete, testLoopStart, testLoopComplete}
+	testMapOperationLock     sync.Mutex
 )
 
 func waitForStatusGatheringDone(g *status.Gatherer) {
@@ -74,7 +120,7 @@ func waitForStatusGatheringDone(g *status.Gatherer) {
 
 }
 
-func latestStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
+func latestStatePresentInGatherer(g *status.Gatherer, desiredState runnerState) bool {
 
 	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
 		return true
@@ -84,28 +130,28 @@ func latestStatePresentInGatherer(g *status.Gatherer, desiredState state) bool {
 
 }
 
-func (d dummyHzMapStore) Shutdown(_ context.Context) error {
+func (d testHzMapStore) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (d dummyHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
+func (d testHzMapStore) InitHazelcastClient(_ context.Context, _ string, _ string, _ []string) {
 	// No-op
 }
 
-func (d dummyHzMapStore) GetMap(_ context.Context, _ string) (hzMap, error) {
+func (d testHzMapStore) GetMap(_ context.Context, _ string) (hazelcastwrapper.Map, error) {
 	if d.returnErrorUponGetMap {
 		return nil, errors.New("i was told to throw an error")
 	}
 	return d.m, nil
 }
 
-func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
+func (m *testHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.containsKeyInvocations++
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	if m.returnErrorUponContainsKey {
 		return false, errors.New("a deliberately returned error")
@@ -113,7 +159,7 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 
 	keyString, ok := key.(string)
 	if !ok {
-		return false, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
+		return false, fmt.Errorf("unable to parse given key into string for querying test data source: %v", key)
 	}
 	if _, ok := m.data.Load(keyString); ok {
 		return true, nil
@@ -123,13 +169,13 @@ func (m *dummyHzMap) ContainsKey(_ context.Context, key any) (bool, error) {
 
 }
 
-func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
+func (m *testHzMap) Set(_ context.Context, key any, value any) error {
 
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.setInvocations++
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	if m.returnErrorUponSet {
 		return errors.New("also a deliberately thrown error")
@@ -137,7 +183,7 @@ func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 
 	keyString, ok := key.(string)
 	if !ok {
-		return fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
+		return fmt.Errorf("unable to parse given key into string for querying test data source: %v", key)
 	}
 
 	m.data.Store(keyString, value)
@@ -169,21 +215,21 @@ func (m *dummyHzMap) Set(_ context.Context, key any, value any) error {
 
 }
 
-func (m *dummyHzMap) Get(_ context.Context, key any) (any, error) {
+func (m *testHzMap) Get(_ context.Context, key any) (any, error) {
 
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.getInvocations++
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	if m.returnErrorUponGet {
-		return nil, errors.New("awesome dummy error")
+		return nil, errors.New("awesome test error")
 	}
 
 	keyString, ok := key.(string)
 	if !ok {
-		return nil, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
+		return nil, fmt.Errorf("unable to parse given key into string for querying test data source: %v", key)
 	}
 
 	value, _ := m.data.Load(keyString)
@@ -191,7 +237,7 @@ func (m *dummyHzMap) Get(_ context.Context, key any) (any, error) {
 
 }
 
-func applyFunctionToDummyMapContents(m *dummyHzMap, fn func(key, value any) bool) {
+func applyFunctionToTestMapContents(m *testHzMap, fn func(key, value any) bool) {
 
 	m.data.Range(func(key, value any) bool {
 		return fn(key, value)
@@ -199,13 +245,13 @@ func applyFunctionToDummyMapContents(m *dummyHzMap, fn func(key, value any) bool
 
 }
 
-func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
+func (m *testHzMap) Remove(_ context.Context, key any) (any, error) {
 
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.removeInvocations++
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	if m.returnErrorUponRemove {
 		return nil, errors.New("lo and behold, an error")
@@ -213,7 +259,7 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 
 	keyString, ok := key.(string)
 	if !ok {
-		return nil, fmt.Errorf("unable to parse given key into string for querying dummy data source: %v", key)
+		return nil, fmt.Errorf("unable to parse given key into string for querying test data source: %v", key)
 	}
 
 	if value, ok := m.data.Load(keyString); ok {
@@ -227,30 +273,30 @@ func (m *dummyHzMap) Remove(_ context.Context, key any) (any, error) {
 
 }
 
-func (m *dummyHzMap) Destroy(_ context.Context) error {
+func (m *testHzMap) Destroy(_ context.Context) error {
 
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.destroyInvocations++
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	return nil
 
 }
 
-func (m *dummyHzMap) Size(_ context.Context) (int, error) {
+func (m *testHzMap) Size(_ context.Context) (int, error) {
 
 	size := 0
-	dummyMapOperationLock.Lock()
+	testMapOperationLock.Lock()
 	{
 		m.sizeInvocations++
-		applyFunctionToDummyMapContents(m, func(key, value any) bool {
+		applyFunctionToTestMapContents(m, func(key, value any) bool {
 			size++
 			return true
 		})
 	}
-	dummyMapOperationLock.Unlock()
+	testMapOperationLock.Unlock()
 
 	return size, nil
 
@@ -262,10 +308,10 @@ func extractFilterFromPredicate(p predicate.Predicate) string {
 
 }
 
-func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
+func (m *testHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate) error {
 
-	dummyMapOperationLock.Lock()
-	defer dummyMapOperationLock.Unlock()
+	testMapOperationLock.Lock()
+	defer testMapOperationLock.Unlock()
 
 	m.removeAllInvocations++
 
@@ -276,7 +322,7 @@ func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate)
 	predicateFilter := extractFilterFromPredicate(predicate)
 
 	m.lastPredicateFilterForRemoveAllInvocation = predicateFilter
-	applyFunctionToDummyMapContents(m, func(key, value any) bool {
+	applyFunctionToTestMapContents(m, func(key, value any) bool {
 		if strings.HasPrefix(key.(string), predicateFilter) {
 			m.data.Delete(key)
 		}
@@ -287,10 +333,10 @@ func (m *dummyHzMap) RemoveAll(_ context.Context, predicate predicate.Predicate)
 
 }
 
-func (m *dummyHzMap) EvictAll(_ context.Context) error {
+func (m *testHzMap) EvictAll(_ context.Context) error {
 
-	dummyMapOperationLock.Lock()
-	defer dummyMapOperationLock.Unlock()
+	testMapOperationLock.Lock()
+	defer testMapOperationLock.Unlock()
 
 	m.evictAllInvocations++
 
@@ -310,7 +356,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 		return errors.New("deliberately thrown error")
 	}
 
-	if value, ok := a.dummyConfig[keyPath]; ok {
+	if value, ok := a.testConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
 			return err
 		}
@@ -321,7 +367,7 @@ func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any
 
 }
 
-func checkRunnerStateTransitions(expected []state, actual []state) (string, bool) {
+func checkRunnerStateTransitions(expected []runnerState, actual []runnerState) (string, bool) {
 
 	if len(expected) != len(actual) {
 		return fmt.Sprintf("expected %d state transition(-s), got %d", len(expected), len(actual)), false

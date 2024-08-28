@@ -20,7 +20,7 @@ type (
 		givenHzMember  hzMember
 	}
 	testConfigPropertyAssigner struct {
-		dummyConfig map[string]any
+		testConfig map[string]any
 	}
 	testSleeper struct {
 		secondsSlept int
@@ -84,13 +84,13 @@ func (c *testHzMemberChooser) choose(_ memberAccessConfig) (hzMember, error) {
 
 func (a testConfigPropertyAssigner) Assign(keyPath string, eval func(string, any) error, assign func(any)) error {
 
-	if value, ok := a.dummyConfig[keyPath]; ok {
+	if value, ok := a.testConfig[keyPath]; ok {
 		if err := eval(keyPath, value); err != nil {
 			return err
 		}
 		assign(value)
 	} else {
-		return fmt.Errorf("test error: unable to find value in dummy config for given key path '%s'", keyPath)
+		return fmt.Errorf("test error: unable to find value in test config for given key path '%s'", keyPath)
 	}
 
 	return nil
@@ -154,14 +154,14 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			m := memberKillerMonkey{}
 
 			raiseReadyInvoked := false
-			dummyReadyFunc := func() {
+			testReadyFunc := func() {
 				raiseReadyInvoked = true
 			}
 			raiseNotReadyInvoked := false
-			dummyNotReadyFunc := func() {
+			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -200,14 +200,14 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			m := memberKillerMonkey{}
 
 			raiseReadyInvoked := false
-			dummyReadyFunc := func() {
+			testReadyFunc := func() {
 				raiseReadyInvoked = true
 			}
 			raiseNotReadyInvoked := false
-			dummyNotReadyFunc := func() {
+			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -256,14 +256,14 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			m := memberKillerMonkey{}
 
 			raiseReadyInvoked := false
-			dummyReadyFunc := func() {
+			testReadyFunc := func() {
 				raiseReadyInvoked = true
 			}
 			raiseNotReadyInvoked := false
-			dummyNotReadyFunc := func() {
+			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), dummyReadyFunc, dummyNotReadyFunc)
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)

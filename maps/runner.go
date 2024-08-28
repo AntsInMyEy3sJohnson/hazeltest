@@ -1,11 +1,14 @@
 package maps
 
 import (
+	"context"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
+	"hazeltest/state"
 	"hazeltest/status"
 	"sync"
 )
@@ -14,7 +17,7 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		runMapTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer)
+		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -25,11 +28,17 @@ type (
 		mapPrefix               string
 		appendMapIndexToMapName bool
 		appendClientIdToMapName bool
-		evictMapsPriorToRun     bool
-		sleepBetweenRuns        *sleepConfig
 		loopType                runnerLoopType
+		preRunClean             *preRunCleanConfig
+		sleepBetweenRuns        *sleepConfig
 		boundary                *boundaryTestLoopConfig
 		batch                   *batchTestLoopConfig
+	}
+	preRunCleanConfig struct {
+		enabled                  bool
+		errorBehavior            state.ErrorDuringCleanBehavior
+		applyCleanAgainThreshold bool
+		cleanAgainThresholdMs    uint64
 	}
 	sleepConfig struct {
 		enabled          bool
@@ -45,8 +54,9 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
-	state     string
-	statusKey string
+	runnerState      string
+	statusKey        string
+	initMapStoreFunc func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore
 )
 
 type (
@@ -79,13 +89,13 @@ const (
 )
 
 const (
-	start                  state = "start"
-	populateConfigComplete state = "populateConfigComplete"
-	checkEnabledComplete   state = "checkEnabledComplete"
-	assignTestLoopComplete state = "assignTestLoopComplete"
-	raiseReadyComplete     state = "raiseReadyComplete"
-	testLoopStart          state = "testLoopStart"
-	testLoopComplete       state = "testLoopComplete"
+	start                  runnerState = "start"
+	populateConfigComplete runnerState = "populateConfigComplete"
+	checkEnabledComplete   runnerState = "checkEnabledComplete"
+	assignTestLoopComplete runnerState = "assignTestLoopComplete"
+	raiseReadyComplete     runnerState = "raiseReadyComplete"
+	testLoopStart          runnerState = "testLoopStart"
+	testLoopComplete       runnerState = "testLoopComplete"
 )
 
 const (
@@ -93,8 +103,11 @@ const (
 )
 
 var (
-	runners []runner
-	lp      *logging.LogProvider
+	runners             []runner
+	lp                  *logging.LogProvider
+	initDefaultMapStore initMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+		return &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
+	}
 )
 
 func register(r runner) {
@@ -102,7 +115,7 @@ func register(r runner) {
 }
 
 func init() {
-	lp = &logging.LogProvider{ClientID: client.ID()}
+	lp = logging.GetLogProviderInstance(client.ID())
 }
 
 func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {
@@ -396,10 +409,31 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
-	var evictMapsPriorToRun bool
+	var performPreRunClean bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".evictMapsPriorToRun", client.ValidateBool, func(a any) {
-			evictMapsPriorToRun = a.(bool)
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.enabled", client.ValidateBool, func(a any) {
+			performPreRunClean = a.(bool)
+		})
+	})
+
+	var errorDuringPreRunCleanBehavior state.ErrorDuringCleanBehavior
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.errorBehavior", state.ValidateErrorDuringCleanBehavior, func(a any) {
+			errorDuringPreRunCleanBehavior = state.ErrorDuringCleanBehavior(a.(string))
+		})
+	})
+
+	var applyCleanAgainThreshold bool
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.cleanAgainThreshold.enabled", client.ValidateBool, func(a any) {
+			applyCleanAgainThreshold = a.(bool)
+		})
+	})
+
+	var cleanAgainThresholdMs uint64
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.cleanAgainThreshold.thresholdMs", client.ValidateInt, func(a any) {
+			cleanAgainThresholdMs = uint64(a.(int))
 		})
 	})
 
@@ -478,7 +512,6 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		enabled:                 enabled,
 		numMaps:                 numMaps,
 		numRuns:                 numRuns,
-		evictMapsPriorToRun:     evictMapsPriorToRun,
 		mapBaseName:             b.mapBaseName,
 		useMapPrefix:            useMapPrefix,
 		mapPrefix:               mapPrefix,
@@ -488,6 +521,12 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 			sleepBetweenRunsEnabled,
 			sleepBetweenRunsDurationMs,
 			sleepBetweenRunsEnableRandomness,
+		},
+		preRunClean: &preRunCleanConfig{
+			enabled:                  performPreRunClean,
+			errorBehavior:            errorDuringPreRunCleanBehavior,
+			applyCleanAgainThreshold: applyCleanAgainThreshold,
+			cleanAgainThresholdMs:    cleanAgainThresholdMs,
 		},
 		loopType: loopType,
 		boundary: boundaryConfig,
@@ -499,7 +538,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ID()
-	lp.LogRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
+	lp.LogMapRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), "mapTester", log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
@@ -511,11 +550,11 @@ func (t *MapTester) TestMaps() {
 			go gatherer.Listen()
 			defer gatherer.StopListen()
 
-			runner := runners[i]
+			rn := runners[i]
 
-			api.RegisterStatefulActor(api.MapRunners, runner.getSourceName(), gatherer.AssembleStatusCopy)
+			api.RegisterStatefulActor(api.MapRunners, rn.getSourceName(), gatherer.AssembleStatusCopy)
 
-			runner.runMapTests(t.HzCluster, t.HzMembers, gatherer)
+			rn.runMapTests(context.TODO(), t.HzCluster, t.HzMembers, gatherer, initDefaultMapStore)
 		}(i)
 	}
 

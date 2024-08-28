@@ -6,7 +6,7 @@ platform:
   service:
     type: NodePort
     port: 5701
-    nodePort: 30571
+    nodePort: 32571
   cluster:
     prometheusScrape:
       enable: true
@@ -40,7 +40,7 @@ platform:
             # The name of the property beneath the Secret's 'data' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
-      count: 2
+      count: 3
       ports:
         member: 5701
         metrics: 8080
@@ -48,14 +48,14 @@ platform:
         maxWaitSeconds: 60
       containerResources:
         requests:
-          cpu: "1"
-          memory: "2G"
+          cpu: "8"
+          memory: "20G"
         limits:
-          cpu: "1"
-          memory: "2G"
+          cpu: "8"
+          memory: "20G"
       jvmResources:
-        xmx: 1600m
-        xms: 1600m
+        xmx: 16000m
+        xms: 16000m
       liveness:
         initialDelaySeconds: 15
         periodSeconds: 10
@@ -203,8 +203,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "500m"
-        memory: "1G"
+        cpu: "8"
+        memory: "6G"
       limits:
-        cpu: "1"
-        memory: "2G"
+        cpu: "8"
+        memory: "6G"

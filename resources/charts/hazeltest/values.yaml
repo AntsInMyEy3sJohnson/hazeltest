@@ -4,17 +4,17 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.14.0
-  digest: 2a0597f7d52eb4aa2dd99bb9b11aa70e3c4cadbd95cf1a1493e50ad9f8fe42a7
+  tag: 0.14.1
+  digest: d779125dc445270ca7981a592c485851c8f7bbd06d7724e8e931c37e2c1263da
   pullPolicy: IfNotPresent
 
 resources:
   requests:
     cpu: "200m"
-    memory: "100Mi"
+    memory: "500M"
   limits:
     cpu: "400m"
-    memory: "200Mi"
+    memory: "1G"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -70,17 +70,25 @@ config:
         enabled: true
         durationSeconds: 30
         enableRandomness: true
-  stateCleaner:
+  stateCleaners:
     maps:
-      enabled: false
+      enabled: true
+      errorBehavior: ignore
       prefix:
         enabled: true
         prefix: "ht_"
+      cleanAgainThreshold:
+        enabled: true
+        thresholdMs: 30000
     queues:
-      enabled: false
+      enabled: true
+      errorBehavior: ignore
       prefix:
         enabled: true
         prefix: "ht_"
+      cleanAgainThreshold:
+        enabled: true
+        thresholdMs: 30000
   queueTests:
     tweets:
       enabled: true
@@ -168,15 +176,19 @@ config:
             enabled: true
             durationMs: 3500
             enableRandomness: true
-
   mapTests:
     pokedex:
       enabled: true
-      numMaps: 1
+      numMaps: 10
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
-      evictMapsPriorToRun: false
+      performPreRunClean:
+        enabled: false
+        errorBehavior: ignore
+        cleanAgainThreshold:
+          enabled: true
+          thresholdMs: 30000
       mapPrefix:
         enabled: true
         prefix: "ht_"
@@ -230,7 +242,12 @@ config:
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
-      evictMapsPriorToRun: false
+      performPreRunClean:
+        enabled: false
+        errorBehavior: ignore
+        cleanAgainThreshold:
+          enabled: true
+          thresholdMs: 30000
       mapPrefix:
         enabled: true
         prefix: "ht_"

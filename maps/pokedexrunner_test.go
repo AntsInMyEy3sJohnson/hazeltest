@@ -1,17 +1,19 @@
 package maps
 
 import (
+	"context"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"testing"
 )
 
-type dummyPokedexTestLoop struct{}
+type testPokedexTestLoop struct{}
 
-func (d dummyPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ *status.Gatherer) {
+func (d testPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ *status.Gatherer) {
 	// No-op
 }
 
-func (d dummyPokedexTestLoop) run() {
+func (d testPokedexTestLoop) run() {
 	// No-op
 }
 
@@ -89,17 +91,18 @@ func TestRunPokedexMapTests(t *testing.T) {
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: true,
-				dummyConfig: nil,
+				testConfig:  nil,
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 
 			go gatherer.Listen()
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
-			if msg, ok := checkRunnerStateTransitions([]state{start}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -120,25 +123,40 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
 		}
 		t.Log("\twhen runner has been disabled")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.pokedex.enabled": false,
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
-			if msg, ok := checkRunnerStateTransitions([]state{start, latestState}, r.stateList); ok {
+			if msg, ok := checkRunnerStateTransitions([]runnerState{start, latestState}, r.stateList); ok {
 				t.Log(genericMsgStateTransitions, checkMark)
 			} else {
 				t.Fatal(genericMsgStateTransitions, ballotX, msg)
@@ -151,22 +169,47 @@ func TestRunPokedexMapTests(t *testing.T) {
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
 			}
+
+			msg := "\t\thazelcast client handler must not have initialized hazelcast client"
+			if ch.initClientInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\tsimilarly, hazelcast client handler must not have performed shutdown on hazelcast client"
+			if ch.shutdownInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
 		}
-		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
+		t.Log("\twhen test loop has executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
-				dummyConfig: map[string]any{
+				testConfig: map[string]any{
 					"mapTests.pokedex.enabled":       true,
 					"mapTests.pokedex.testLoop.type": "batch",
 				},
 			}
-			r := pokedexRunner{assigner: assigner, stateList: []state{}, mapStore: dummyHzMapStore{}, l: dummyPokedexTestLoop{}}
+			ch := &testHzClientHandler{}
+			r := pokedexRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				hzMapStore:      testHzMapStore{},
+				l:               testPokedexTestLoop{},
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(hzCluster, hzMembers, gatherer)
+			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+				ms.observations.numInitInvocations++
+				return ms
+			})
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
@@ -182,6 +225,27 @@ func TestRunPokedexMapTests(t *testing.T) {
 				t.Log(genericMsgLatestStateInGatherer, checkMark, latestState)
 			} else {
 				t.Fatal(genericMsgLatestStateInGatherer, ballotX, latestState)
+			}
+
+			msg := "\t\thazelcast client handler must have initialized hazelcast client once"
+			if ch.initClientInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.initClientInvocations)
+			}
+
+			msg = "\t\thazelcast client handler must have performed shutdown on hazelcast client once"
+			if ch.shutdownInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
+			msg = "\t\tmap store must have been initialized once"
+			if ms.observations.numInitInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.observations.numInitInvocations)
 			}
 		}
 	}

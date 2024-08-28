@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"math/rand"
 	"sync"
@@ -15,26 +16,27 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	looper[t any]       interface {
-		init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer)
 		run()
 	}
 	sleeper interface {
-		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName string, o operation)
+		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation)
 	}
 	counterTracker interface {
 		init(gatherer *status.Gatherer)
 		increaseCounter(sk statusKey)
 	}
 	testLoop[t any] struct {
-		config   *testLoopConfig[t]
+		tle      *testLoopExecution[t]
 		s        sleeper
 		gatherer *status.Gatherer
 		ct       counterTracker
 	}
-	testLoopConfig[t any] struct {
+	testLoopExecution[t any] struct {
 		id           uuid.UUID
+		runnerName   string
 		source       string
-		hzQueueStore hzQueueStore
+		hzQueueStore hazelcastwrapper.QueueStore
 		runnerConfig *runnerConfig
 		elements     []t
 		ctx          context.Context
@@ -109,8 +111,8 @@ func (ct *queueTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
 }
 
-func (l *testLoop[t]) init(lc *testLoopConfig[t], s sleeper, g *status.Gatherer) {
-	l.config = lc
+func (l *testLoop[t]) init(tle *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+	l.tle = tle
 	l.s = s
 	l.gatherer = g
 
@@ -125,41 +127,44 @@ func (l *testLoop[t]) run() {
 	l.insertLoopWithInitialStatus()
 
 	var numQueuesWg sync.WaitGroup
-	c := l.config
-	for i := 0; i < c.runnerConfig.numQueues; i++ {
+	tle := l.tle
+	for i := 0; i < tle.runnerConfig.numQueues; i++ {
 		numQueuesWg.Add(1)
 		go func(i int) {
 			defer numQueuesWg.Done()
 
 			queueName := l.assembleQueueName(i)
-			lp.LogRunnerEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), log.InfoLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), l.tle.runnerName, log.InfoLevel)
 			start := time.Now()
-			q, err := l.config.hzQueueStore.GetQueue(l.config.ctx, queueName)
+			q, err := l.tle.hzQueueStore.GetQueue(l.tle.ctx, queueName)
 			if err != nil {
 				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
 			}
 			defer func() {
-				_ = q.Destroy(l.config.ctx)
+				_ = q.Destroy(l.tle.ctx)
 			}()
 			elapsed := time.Since(start).Milliseconds()
 			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
 
+			// TODO Check whether queue should be cleaned prior to starting put and pull operations
+			// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/69
+
 			var putWg sync.WaitGroup
-			if c.runnerConfig.putConfig.enabled {
+			if tle.runnerConfig.putConfig.enabled {
 				putWg.Add(1)
 				go func() {
 					defer putWg.Done()
-					l.runElementLoop(l.config.elements, q, put, queueName, i)
+					l.runElementLoop(l.tle.elements, q, put, queueName, i)
 				}()
 
 			}
 
 			var pollWg sync.WaitGroup
-			if c.runnerConfig.pollConfig.enabled {
+			if tle.runnerConfig.pollConfig.enabled {
 				pollWg.Add(1)
 				go func() {
 					defer pollWg.Done()
-					l.runElementLoop(l.config.elements, q, poll, queueName, i)
+					l.runElementLoop(l.tle.elements, q, poll, queueName, i)
 				}()
 			}
 
@@ -174,12 +179,12 @@ func (l *testLoop[t]) run() {
 
 func (l *testLoop[t]) insertLoopWithInitialStatus() {
 
-	c := l.config
+	tle := l.tle
 
-	numQueues := c.runnerConfig.numQueues
+	numQueues := tle.runnerConfig.numQueues
 	l.gatherer.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
-	l.gatherer.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.putConfig)}
-	l.gatherer.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, c.runnerConfig.pollConfig)}
+	l.gatherer.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.putConfig)}
+	l.gatherer.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.pollConfig)}
 
 }
 
@@ -194,80 +199,80 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l *testLoop[t]) runElementLoop(elements []t, q hzQueue, o operation, queueName string, queueNumber int) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hazelcastwrapper.Queue, o operation, queueName string, queueNumber int) {
 
 	var config *operationConfig
-	var queueFunction func(queue hzQueue, queueName string)
+	var queueFunction func(queue hazelcastwrapper.Queue, queueName string)
 	if o == put {
-		config = l.config.runnerConfig.putConfig
+		config = l.tle.runnerConfig.putConfig
 		queueFunction = l.putElements
 	} else {
-		config = l.config.runnerConfig.pollConfig
+		config = l.tle.runnerConfig.pollConfig
 		queueFunction = l.pollElements
 	}
 
-	l.s.sleep(config.initialDelay, sleepTimeFunc, "initialDelay", queueName, o)
+	l.s.sleep(config.initialDelay, sleepTimeFunc, "initialDelay", queueName, l.tle.runnerName, o)
 
 	numRuns := config.numRuns
 	for i := uint32(0); i < numRuns; i++ {
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
-			lp.LogRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), log.InfoLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), l.tle.runnerName, log.InfoLevel)
 		}
 		queueFunction(q, queueName)
-		l.s.sleep(config.sleepBetweenRuns, sleepTimeFunc, "betweenRuns", queueName, o)
-		lp.LogRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), log.TraceLevel)
+		l.s.sleep(config.sleepBetweenRuns, sleepTimeFunc, "betweenRuns", queueName, l.tle.runnerName, o)
+		lp.LogQueueRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), l.tle.runnerName, log.TraceLevel)
 	}
 
-	lp.LogRunnerEvent(fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber), log.InfoLevel)
+	lp.LogQueueRunnerEvent(fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber), l.tle.runnerName, log.InfoLevel)
 
 }
 
-func (l *testLoop[t]) putElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) putElements(q hazelcastwrapper.Queue, queueName string) {
 
-	elements := l.config.elements
-	putConfig := l.config.runnerConfig.putConfig
+	elements := l.tle.elements
+	putConfig := l.tle.runnerConfig.putConfig
 
 	for i := 0; i < len(elements); i++ {
 		e := elements[i]
-		if remaining, err := q.RemainingCapacity(l.config.ctx); err != nil {
+		if remaining, err := q.RemainingCapacity(l.tle.ctx); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedCapacityChecks)
-			lp.LogRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), log.WarnLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), l.tle.runnerName, log.WarnLevel)
 		} else if remaining == 0 {
 			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
-			lp.LogRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), log.WarnLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), l.tle.runnerName, log.WarnLevel)
 		} else {
-			err := q.Put(l.config.ctx, e)
+			err := q.Put(l.tle.ctx, e)
 			if err != nil {
 				l.ct.increaseCounter(statusKeyNumFailedPuts)
-				lp.LogRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), log.WarnLevel)
+				lp.LogQueueRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), l.tle.runnerName, log.WarnLevel)
 			} else {
-				lp.LogRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s'", queueName), log.TraceLevel)
+				lp.LogQueueRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {
-			l.s.sleep(putConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, "put")
+			l.s.sleep(putConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, l.tle.runnerName, "put")
 		}
 	}
 
 }
 
-func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
+func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 
-	pollConfig := l.config.runnerConfig.pollConfig
+	pollConfig := l.tle.runnerConfig.pollConfig
 
-	for i := 0; i < len(l.config.elements); i++ {
-		valueFromQueue, err := q.Poll(l.config.ctx)
+	for i := 0; i < len(l.tle.elements); i++ {
+		valueFromQueue, err := q.Poll(l.tle.ctx)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedPolls)
-			lp.LogRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), log.WarnLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), l.tle.runnerName, log.WarnLevel)
 		} else if valueFromQueue == nil {
 			l.ct.increaseCounter(statusKeyNumNilPolls)
-			lp.LogRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), log.TraceLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 		} else {
-			lp.LogRunnerEvent(fmt.Sprintf("retrieved value from queue '%s': %v", queueName, valueFromQueue), log.TraceLevel)
+			lp.LogQueueRunnerEvent(fmt.Sprintf("successfully retrieved value from queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 		}
 		if i > 0 && i%pollConfig.batchSize == 0 {
-			l.s.sleep(pollConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, "poll")
+			l.s.sleep(pollConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, l.tle.runnerName, "poll")
 		}
 	}
 
@@ -275,17 +280,17 @@ func (l *testLoop[t]) pollElements(q hzQueue, queueName string) {
 
 func (l *testLoop[t]) assembleQueueName(queueIndex int) string {
 
-	c := l.config
+	tle := l.tle
 
-	queueName := c.runnerConfig.queueBaseName
+	queueName := tle.runnerConfig.queueBaseName
 
-	if c.runnerConfig.useQueuePrefix && c.runnerConfig.queuePrefix != "" {
-		queueName = fmt.Sprintf("%s%s", c.runnerConfig.queuePrefix, queueName)
+	if tle.runnerConfig.useQueuePrefix && tle.runnerConfig.queuePrefix != "" {
+		queueName = fmt.Sprintf("%s%s", tle.runnerConfig.queuePrefix, queueName)
 	}
-	if c.runnerConfig.appendQueueIndexToQueueName {
+	if tle.runnerConfig.appendQueueIndexToQueueName {
 		queueName = fmt.Sprintf("%s-%d", queueName, queueIndex)
 	}
-	if c.runnerConfig.appendClientIdToQueueName {
+	if tle.runnerConfig.appendClientIdToQueueName {
 		queueName = fmt.Sprintf("%s-%s", queueName, client.ID())
 	}
 
@@ -293,12 +298,12 @@ func (l *testLoop[t]) assembleQueueName(queueIndex int) string {
 
 }
 
-func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName string, o operation) {
+func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation) {
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
-		lp.LogRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'",
-			sleepDuration, kind, queueName, o), log.TraceLevel)
+		lp.LogQueueRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'",
+			sleepDuration, kind, queueName, o), runnerName, log.TraceLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 

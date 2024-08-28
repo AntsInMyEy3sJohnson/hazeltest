@@ -3,6 +3,7 @@ package queues
 import (
 	"errors"
 	"hazeltest/client"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"strings"
 	"testing"
@@ -41,6 +42,9 @@ var (
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.durationMs":                2000,
 		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enableRandomness":          true,
 	}
+	initTestQueueStore initQueueStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
+		return &testHzQueueStore{observations: &testQueueStoreObservations{}}
+	}
 )
 
 func waitForStatusGatheringDone(g *status.Gatherer) {
@@ -70,7 +74,7 @@ func TestPopulateConfig(t *testing.T) {
 		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, queueBaseName: queueBaseName}
 		t.Log("\twhen property assignment does not generate an error")
 		{
-			assigner := testConfigPropertyAssigner{returnError: false, dummyConfig: testConfig}
+			assigner := testConfigPropertyAssigner{returnError: false, testConfig: testConfig}
 			b.assigner = assigner
 			rc, err := b.populateConfig()
 
@@ -98,7 +102,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen property assigning a property yields an error")
 		{
-			assigner := testConfigPropertyAssigner{returnError: true, dummyConfig: map[string]any{}}
+			assigner := testConfigPropertyAssigner{returnError: true, testConfig: map[string]any{}}
 			b.assigner = assigner
 			_, err := b.populateConfig()
 
@@ -117,7 +121,7 @@ func TestPopulateConfig(t *testing.T) {
 			invalidValuePath := runnerKeyPath + ".numQueues"
 			testConfigCopy[invalidValuePath] = "boom!"
 
-			assigner := testConfigPropertyAssigner{returnError: false, dummyConfig: testConfigCopy}
+			assigner := testConfigPropertyAssigner{returnError: false, testConfig: testConfigCopy}
 			b.assigner = assigner
 
 			_, err := b.populateConfig()
