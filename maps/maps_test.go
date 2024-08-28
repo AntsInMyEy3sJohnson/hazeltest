@@ -26,6 +26,10 @@ type (
 	testHzMapStore struct {
 		m                     *testHzMap
 		returnErrorUponGetMap bool
+		observations          *testHzMapStoreObservations
+	}
+	testHzMapStoreObservations struct {
+		numInitInvocations int
 	}
 	boundaryMonitoring struct {
 		upperBoundaryNumElements       int

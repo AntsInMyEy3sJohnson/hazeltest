@@ -2,6 +2,7 @@ package maps
 
 import (
 	"context"
+	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"testing"
 )
@@ -166,7 +167,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
 		}
-		t.Log("\twhen hazelcast map store has been initialized and test loop has executed")
+		t.Log("\twhen test loop has executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
@@ -180,7 +181,11 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+				ms.observations.numInitInvocations++
+				return ms
+			})
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
@@ -210,6 +215,13 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, ch.shutdownInvocations)
+			}
+
+			msg = "\t\tmap store must have been initialized once"
+			if ms.observations.numInitInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, ms.observations.numInitInvocations)
 			}
 
 		}

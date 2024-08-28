@@ -54,7 +54,7 @@ var (
 		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
 	}
 	initTestMapStore initMapStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
-		return &testHzMapStore{}
+		return &testHzMapStore{observations: &testHzMapStoreObservations{}}
 	}
 )
 
