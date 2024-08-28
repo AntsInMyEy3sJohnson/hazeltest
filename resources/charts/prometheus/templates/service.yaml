@@ -14,3 +14,6 @@ spec:
     - name: {{ .Values.prometheusServer.instance.ports.web.name }}
       port: {{ .Values.prometheusServer.reachability.service.port }}
       targetPort: {{ .Values.prometheusServer.instance.ports.web.name }}
+      {{- if eq .Values.prometheusServer.reachability.service.type "NodePort" }}
+      nodePort: {{ .Values.prometheusServer.reachability.service.nodePort }}
+      {{- end }}
