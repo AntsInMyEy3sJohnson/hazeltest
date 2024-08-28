@@ -295,7 +295,7 @@ mapTests:
       # Whether to clean all maps for this runner prior to the runner's test loop launching. For example, if 'numMaps' is
       # 10, this property will ensure the maps the runner's test loop will act upon are cleaned of all entries before
       # the test loop starts.
-      enabled: true
+      enabled: false
       # What to do when cleaning a target map fails. Can be either 'ignore' or 'fail'. Default is 'ignore'.
       # 'ignore': Treats the error as a warning. The warning will be logged, but the map runner will
       # nonetheless start with its test loop.
@@ -474,7 +474,7 @@ mapTests:
     appendClientIdToMapName: false
     numRuns: 10000
     performPreRunClean:
-      enabled: true
+      enabled: false
       errorBehavior: ignore
       cleanAgainThreshold:
         enabled: true
