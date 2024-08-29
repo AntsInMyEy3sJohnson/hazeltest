@@ -478,7 +478,7 @@ mapTests:
         enabled: true
         lowerBoundaryBytes: 15000
         upperBoundaryBytes: 2000000
-        evaluateNewSizeSteps: 100
+        evaluateNewSizeAfterNumWriteActions: 100
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
