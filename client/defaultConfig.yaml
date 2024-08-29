@@ -470,6 +470,15 @@ mapTests:
     # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
     # reduce the application's memory footprint)
     payloadSizeBytes: 10000000
+    payload:
+      fixedSize:
+        enabled: false
+        sizeBytes: 10000000
+      variableSize:
+        enabled: true
+        lowerBoundaryBytes: 15000
+        upperBoundaryBytes: 2000000
+        evaluateNewSizeSteps: 100
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000
