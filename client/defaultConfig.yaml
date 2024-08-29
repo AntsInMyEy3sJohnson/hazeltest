@@ -469,7 +469,6 @@ mapTests:
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
     # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
     # reduce the application's memory footprint)
-    payloadSizeBytes: 10000000
     payload:
       fixedSize:
         enabled: false
