@@ -32,9 +32,19 @@ type (
 	}
 )
 
+const (
+	mapLoadRunnerKeyPath     = "mapTests.load"
+	mapLoadRunnerMapBaseName = "load"
+)
+
 var (
-	numEntriesPerMap int
-	payloadSizeBytes int
+	numEntriesPerMap                                   int
+	useFixedPayload                                    bool
+	fixedPayloadSizeBytes                              int
+	useVariablePayload                                 bool
+	variablePayloadSizeLowerBoundaryBytes              int
+	variablePayloadSizeUpperBoundaryBytes              int
+	variablePayloadEvaluateNewSizeAfterNumWriteActions int
 )
 
 func init() {
@@ -70,7 +80,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	r.gatherer = gatherer
 	r.appendState(start)
 
-	config, err := populateLoadConfig(r.assigner)
+	config, err := populateLoadConfig(mapLoadRunnerKeyPath, mapLoadRunnerMapBaseName, r.assigner)
 	if err != nil {
 		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), r.name, log.ErrorLevel)
 		return
@@ -143,7 +153,7 @@ func populateLoadElements() []loadElement {
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and reference that string in each load element
-	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
+	randomPayload := loadsupport.GenerateRandomStringPayload(fixedPayloadSizeBytes)
 
 	for i := 0; i < numEntriesPerMap; i++ {
 		elements[i] = loadElement{
@@ -163,26 +173,62 @@ func getLoadElementID(element any) string {
 
 }
 
-func populateLoadConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
+func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
-	runnerKeyPath := "mapTests.load"
+	var assignmentOps []func() error
 
-	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
-		numEntriesPerMap = a.(int)
-	}); err != nil {
-		return nil, err
-	}
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
+			numEntriesPerMap = a.(int)
+		})
+	})
 
-	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
-		payloadSizeBytes = a.(int)
-	}); err != nil {
-		return nil, err
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.fixedSize.enabled", client.ValidateBool, func(a any) {
+			useFixedPayload = a.(bool)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.fixedSize.sizeBytes", client.ValidateInt, func(a any) {
+			fixedPayloadSizeBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.enabled", client.ValidateBool, func(a any) {
+			useVariablePayload = a.(bool)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.lowerBoundaryBytes", client.ValidateInt, func(a any) {
+			variablePayloadSizeLowerBoundaryBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.upperBoundaryBytes", client.ValidateInt, func(a any) {
+			variablePayloadSizeUpperBoundaryBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.evaluateNewSizeAfterNumWriteActions", client.ValidateInt, func(a any) {
+			variablePayloadEvaluateNewSizeAfterNumWriteActions = a.(int)
+		})
+	})
+
+	for _, fn := range assignmentOps {
+		if err := fn(); err != nil {
+			return nil, err
+		}
 	}
 
 	configBuilder := runnerConfigBuilder{
 		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
-		mapBaseName:   "load",
+		mapBaseName:   mapBaseName,
 	}
 	return configBuilder.populateConfig()
 

@@ -96,11 +96,11 @@ func (m *testHzMap) Unlock(_ context.Context, _ any) error {
 }
 
 const (
-	checkMark     = "\u2713"
-	ballotX       = "\u2717"
-	runnerKeyPath = "testMapRunner"
-	mapPrefix     = "t_"
-	mapBaseName   = "test"
+	checkMark            = "\u2713"
+	ballotX              = "\u2717"
+	testMapRunnerKeyPath = "testMapRunner"
+	mapPrefix            = "t_"
+	testMapBaseName      = "test"
 )
 
 var (

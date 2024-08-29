@@ -275,3 +275,107 @@ func TestRunLoadMapTests(t *testing.T) {
 	}
 
 }
+
+func TestPopulateLoadConfig(t *testing.T) {
+
+	t.Log("given set of configuration properties to populate the load config from")
+	{
+		t.Log("\twhen property contains invalid value")
+		{
+			a := &testConfigPropertyAssigner{
+				testConfig: map[string]any{
+					testMapRunnerKeyPath + ".numEntriesPerMap": "i find your lack of faith disturbing",
+				},
+			}
+
+			cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned config must be nil"
+			if cfg == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen properties are correct")
+		{
+			tc := assembleTestConfigForTestLoopType(boundary)
+			a := &testConfigPropertyAssigner{testConfig: tc}
+
+			cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tconfig should contain expected values"
+			if valid, detail := configValuesAsExpected(cfg, tc); valid {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
+
+			msg = "\t\tconfig values specific to load runner must have been correctly populated, too"
+			if numEntriesPerMap == tc[testMapRunnerKeyPath+".numEntriesPerMap"].(int) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			keyPath := testMapRunnerKeyPath + ".payload.fixedSize.enabled"
+			if useFixedPayload == tc[keyPath].(bool) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+			keyPath = testMapRunnerKeyPath + ".payload.fixedSize.sizeBytes"
+			if fixedPayloadSizeBytes == tc[keyPath].(int) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+			keyPath = testMapRunnerKeyPath + ".payload.variableSize.enabled"
+			if useVariablePayload == tc[keyPath].(bool) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+			keyPath = testMapRunnerKeyPath + ".payload.variableSize.lowerBoundaryBytes"
+			if variablePayloadSizeLowerBoundaryBytes == tc[keyPath].(int) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+			keyPath = testMapRunnerKeyPath + ".payload.variableSize.upperBoundaryBytes"
+			if variablePayloadSizeUpperBoundaryBytes == tc[keyPath].(int) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+			keyPath = testMapRunnerKeyPath + ".payload.variableSize.evaluateNewSizeAfterNumWriteActions"
+			if variablePayloadEvaluateNewSizeAfterNumWriteActions == tc[keyPath].(int) {
+				t.Log(msg, checkMark, keyPath)
+			} else {
+				t.Fatal(msg, ballotX, keyPath)
+			}
+
+		}
+	}
+
+}

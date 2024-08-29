@@ -2949,7 +2949,7 @@ func TestReadAll(t *testing.T) {
 			populateTestHzMapStore(&ms)
 
 			go tl.gatherer.Listen()
-			err := tl.readAll(ms.m, mapBaseName, 0)
+			err := tl.readAll(ms.m, testMapBaseName, 0)
 			tl.gatherer.StopListen()
 
 			waitForStatusGatheringDone(tl.gatherer)
@@ -2997,7 +2997,7 @@ func TestReadAll(t *testing.T) {
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
 			go tl.gatherer.Listen()
-			err := tl.readAll(ms.m, mapBaseName, 0)
+			err := tl.readAll(ms.m, testMapBaseName, 0)
 			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
@@ -3036,7 +3036,7 @@ func TestReadAll(t *testing.T) {
 			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
 
 			go tl.gatherer.Listen()
-			err := tl.readAll(ms.m, mapBaseName, 0)
+			err := tl.readAll(ms.m, testMapBaseName, 0)
 			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
@@ -3131,7 +3131,7 @@ func TestRemoveSome(t *testing.T) {
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedRemoves: 0,
 			}
-			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
+			err := tl.removeSome(ms.m, testMapBaseName, uint16(0))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -3169,7 +3169,7 @@ func TestRemoveSome(t *testing.T) {
 			populateTestHzMapStore(&ms)
 
 			go tl.gatherer.Listen()
-			err := tl.removeSome(ms.m, mapBaseName, uint16(0))
+			err := tl.removeSome(ms.m, testMapBaseName, uint16(0))
 			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
