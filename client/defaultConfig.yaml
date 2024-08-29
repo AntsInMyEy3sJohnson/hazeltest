@@ -465,7 +465,7 @@ mapTests:
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
-    numEntriesPerMap: 500
+    numEntriesPerMap: 50000
     # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
     # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
     # reduce the application's memory footprint)
