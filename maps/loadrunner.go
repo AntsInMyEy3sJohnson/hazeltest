@@ -127,7 +127,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	} else if useVariablePayload {
 		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
 		// let the payload be generated on demand by downstream functionality
-		loadElements = populateLoadElementKeys()
+		loadElements = populateLoadElementKeys(numEntriesPerMap)
 	} else {
 		lp.LogMapRunnerEvent("neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements", r.name, log.ErrorLevel)
 		return
@@ -170,11 +170,11 @@ func (r *loadRunner) appendState(s runnerState) {
 
 }
 
-func populateLoadElementKeys() []loadElement {
+func populateLoadElementKeys(numKeysToPopulate int) []loadElement {
 
-	elements := make([]loadElement, numEntriesPerMap)
+	elements := make([]loadElement, numKeysToPopulate)
 
-	for i := 0; i < numEntriesPerMap; i++ {
+	for i := 0; i < numKeysToPopulate; i++ {
 		elements[i] = loadElement{Key: strconv.Itoa(i)}
 	}
 

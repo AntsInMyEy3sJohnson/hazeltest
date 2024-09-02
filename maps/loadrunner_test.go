@@ -35,6 +35,35 @@ func newTestLoadTestLoop() *testLoadTestLoop {
 	}
 }
 
+func TestPopulateLoadElementKeys(t *testing.T) {
+
+	t.Log("given a function to populate only load element keys")
+	{
+		t.Log("\twhen number of entries per map is configured")
+		{
+			msgNumKeys := "\t\tnumber of populated load element keys must be equal to configured number of keys"
+			msgEmptyPayload := "\t\t\tpayload must be empty"
+			for _, numKeys := range []int{0, 3, 12} {
+				loadElementOnlyKeys := populateLoadElementKeys(numKeys)
+				if len(loadElementOnlyKeys) == numKeys {
+					t.Log(msgNumKeys, checkMark, numKeys)
+				} else {
+					t.Fatal(msgNumKeys, ballotX, numKeys)
+				}
+
+				for _, l := range loadElementOnlyKeys {
+					if l.Payload == "" {
+						t.Log(msgEmptyPayload, checkMark, l.Key, numKeys)
+					} else {
+						t.Fatal(msgEmptyPayload, ballotX, l.Key, numKeys)
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestPopulateLoadElements(t *testing.T) {
 
 	t.Log("given a function to populate a list of load elements")
