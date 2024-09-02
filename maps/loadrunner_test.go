@@ -35,6 +35,36 @@ func newTestLoadTestLoop() *testLoadTestLoop {
 	}
 }
 
+func TestPopulateLoadElements(t *testing.T) {
+
+	t.Log("given a function to populate a list of load elements")
+	{
+		t.Log("\twhen number of entries per map is configured")
+		{
+			msgNumEntries := "\t\tnumber of load elements in populated list must be equal to configured number of entries per map"
+			msgPayloadSize := "\t\t\tload element must carry payload having configured size"
+			payloadSize := 3
+			for _, numEntries := range []int{0, 6, 21} {
+				loadElements := populateLoadElements(numEntries, payloadSize)
+				if len(loadElements) == numEntries {
+					t.Log(msgNumEntries, checkMark, numEntries)
+				} else {
+					t.Fatal(msgNumEntries, ballotX, numEntries)
+				}
+
+				for _, l := range loadElements {
+					if len(l.Payload) == payloadSize {
+						t.Log(msgPayloadSize, checkMark, numEntries, payloadSize)
+					} else {
+						t.Fatal(msgPayloadSize, ballotX, numEntries, payloadSize)
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestInitializeLoadElementTestLoop(t *testing.T) {
 
 	t.Log("given a function to initialize the test loop from the provided loop type")
