@@ -123,7 +123,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	var loadElements []loadElement
 	if useFixedPayload {
-		loadElements = populateLoadElements()
+		loadElements = populateLoadElements(numEntriesPerMap, fixedPayloadSizeBytes)
 	} else if useVariablePayload {
 		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
 		// let the payload be generated on demand by downstream functionality
@@ -182,15 +182,15 @@ func populateLoadElementKeys() []loadElement {
 
 }
 
-func populateLoadElements() []loadElement {
+func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loadElement {
 
-	elements := make([]loadElement, numEntriesPerMap)
+	elements := make([]loadElement, numElementsToPopulate)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and reference that string in each load element
-	randomPayload := loadsupport.GenerateRandomStringPayload(fixedPayloadSizeBytes)
+	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
-	for i := 0; i < numEntriesPerMap; i++ {
+	for i := 0; i < numElementsToPopulate; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
 			Payload: randomPayload,
