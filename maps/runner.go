@@ -17,7 +17,7 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc)
+		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -54,9 +54,9 @@ type (
 		HzCluster string
 		HzMembers []string
 	}
-	runnerState      string
-	statusKey        string
-	initMapStoreFunc func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore
+	runnerState     string
+	statusKey       string
+	newMapStoreFunc func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore
 )
 
 type (
@@ -103,9 +103,9 @@ const (
 )
 
 var (
-	runners             []runner
-	lp                  *logging.LogProvider
-	initDefaultMapStore initMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+	runners            []runner
+	lp                 *logging.LogProvider
+	newDefaultMapStore newMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
 		return &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
 	}
 )
@@ -554,7 +554,7 @@ func (t *MapTester) TestMaps() {
 
 			api.RegisterStatefulActor(api.MapRunners, rn.getSourceName(), gatherer.AssembleStatusCopy)
 
-			rn.runMapTests(context.TODO(), t.HzCluster, t.HzMembers, gatherer, initDefaultMapStore)
+			rn.runMapTests(context.TODO(), t.HzCluster, t.HzMembers, gatherer)
 		}(i)
 	}
 

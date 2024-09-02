@@ -4,17 +4,35 @@ import (
 	"context"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
+	"strconv"
 	"testing"
 )
 
-type testLoadTestLoop struct{}
+type (
+	testLoadTestLoop struct {
+		assignedTestLoopExecution *testLoopExecution[loadElement]
+		observations              *testLoadTestLoopObservations
+	}
+	testLoadTestLoopObservations struct {
+		numNewLooperInvocations  int
+		numInitLooperInvocations int
+		numRunInvocations        int
+	}
+)
 
-func (d testLoadTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
-	// No-op
+func (d *testLoadTestLoop) init(tle *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
+	d.observations.numInitLooperInvocations++
+	d.assignedTestLoopExecution = tle
 }
 
-func (d testLoadTestLoop) run() {
-	// No-op
+func (d *testLoadTestLoop) run() {
+	d.observations.numRunInvocations++
+}
+
+func newTestLoadTestLoop() *testLoadTestLoop {
+	return &testLoadTestLoop{
+		observations: &testLoadTestLoopObservations{},
+	}
 }
 
 func TestInitializeLoadElementTestLoop(t *testing.T) {
@@ -23,7 +41,7 @@ func TestInitializeLoadElementTestLoop(t *testing.T) {
 	{
 		t.Log("\twhen boundary test loop type is provided")
 		{
-			l, err := initializeLoadElementTestLoop(&runnerConfig{loopType: boundary})
+			l, err := newLoadElementTestLoop(&runnerConfig{loopType: boundary})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -42,7 +60,7 @@ func TestInitializeLoadElementTestLoop(t *testing.T) {
 
 		t.Log("\twhen batch test loop type is provided")
 		{
-			l, err := initializeLoadElementTestLoop(&runnerConfig{loopType: batch})
+			l, err := newLoadElementTestLoop(&runnerConfig{loopType: batch})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -61,7 +79,7 @@ func TestInitializeLoadElementTestLoop(t *testing.T) {
 
 		t.Log("\twhen unknown test loop type is provided")
 		{
-			l, err := initializeLoadElementTestLoop(&runnerConfig{loopType: "saruman"})
+			l, err := newLoadElementTestLoop(&runnerConfig{loopType: "saruman"})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -93,11 +111,22 @@ func TestRunLoadMapTests(t *testing.T) {
 				returnError: true,
 				testConfig:  nil,
 			}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
+			l := &testLoadTestLoop{}
+			r := loadRunner{
+				assigner:   assigner,
+				stateList:  []runnerState{},
+				hzMapStore: testHzMapStore{},
+				providerFuncs: struct {
+					mapStore            newMapStoreFunc
+					loadElementTestLoop newLoadElementTestLoopFunc
+				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+					return l, nil
+				}},
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
@@ -130,12 +159,12 @@ func TestRunLoadMapTests(t *testing.T) {
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
+			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
@@ -172,20 +201,35 @@ func TestRunLoadMapTests(t *testing.T) {
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				testConfig: map[string]any{
-					"mapTests.load.enabled":       true,
-					"mapTests.load.testLoop.type": "batch",
+					"mapTests.load.enabled":                      true,
+					"mapTests.load.testLoop.type":                "batch",
+					"mapTests.load.payload.variableSize.enabled": true,
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}}
+			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
+			l := newTestLoadTestLoop()
+
+			r := loadRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				providerFuncs: struct {
+					mapStore            newMapStoreFunc
+					loadElementTestLoop newLoadElementTestLoopFunc
+				}{mapStore: func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+					ms.observations.numInitInvocations++
+					return ms
+				}, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+					l.observations.numNewLooperInvocations++
+					return l, nil
+				}},
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
-				ms.observations.numInitInvocations++
-				return ms
-			})
+
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {
@@ -224,8 +268,28 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, ms.observations.numInitInvocations)
 			}
 
-		}
+			msg = "\t\tlooper must have been created once"
+			if l.observations.numNewLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
+			}
 
+			msg = "\t\tlooper must have been initialized once"
+			if l.observations.numInitLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
+			}
+
+			msg = "\t\tlooper must have been run once"
+			if l.observations.numRunInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
+			}
+
+		}
 		t.Log("\twhen test loop cannot be initialized")
 		{
 			assigner := testConfigPropertyAssigner{
@@ -236,11 +300,16 @@ func TestRunLoadMapTests(t *testing.T) {
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testLoadTestLoop{}, gatherer: status.NewGatherer()}
+			r := loadRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				gatherer:        status.NewGatherer(),
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
@@ -270,7 +339,218 @@ func TestRunLoadMapTests(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
+		}
+		t.Log("\twhen usage of fixed-size load elements was enabled")
+		{
+			a := &testConfigPropertyAssigner{testConfig: map[string]any{
+				"mapTests.load.enabled":                   true,
+				"mapTests.load.testLoop.type":             string(batch),
+				"mapTests.load.payload.fixedSize.enabled": true,
+			}}
+			ch := &testHzClientHandler{}
+			l := newTestLoadTestLoop()
+			r := loadRunner{
+				assigner:        a,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				l:               l,
+				providerFuncs: struct {
+					mapStore            newMapStoreFunc
+					loadElementTestLoop newLoadElementTestLoopFunc
+				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+					l.observations.numNewLooperInvocations++
+					return l, nil
+				}},
+			}
 
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			numEntriesPerMap = 9
+			fixedPayloadSizeBytes = 3
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
+
+			waitForStatusGatheringDone(gatherer)
+
+			msg := "\t\ttest loop must have been created once"
+			if l.observations.numNewLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
+			}
+
+			msg = "\t\ttest loop must have been initialized once"
+			if l.observations.numInitLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
+			}
+
+			msg = "\t\tnumber of generated load elements must be correct"
+			elements := l.assignedTestLoopExecution.elements
+			if len(elements) == numEntriesPerMap {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(elements))
+			}
+
+			msg = "\t\tboth key and payload must have been populated on each generated load element"
+			for i, v := range elements {
+				if v.Key == strconv.Itoa(i) && len(v.Payload) == fixedPayloadSizeBytes {
+					t.Log(msg, checkMark, v.Key)
+				} else {
+					t.Fatal(msg, ballotX, v.Key)
+				}
+			}
+
+			msg = "\t\ttest loop must have been run once"
+			if l.observations.numRunInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
+			}
+		}
+		t.Log("\twhen usage of variable-size load elements was enabled")
+		{
+			a := &testConfigPropertyAssigner{testConfig: map[string]any{
+				"mapTests.load.enabled":                      true,
+				"mapTests.load.testLoop.type":                string(batch),
+				"mapTests.load.payload.fixedSize.enabled":    false,
+				"mapTests.load.payload.variableSize.enabled": true,
+			}}
+			ch := &testHzClientHandler{}
+			l := newTestLoadTestLoop()
+			r := loadRunner{
+				assigner:        a,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				l:               l,
+				providerFuncs: struct {
+					mapStore            newMapStoreFunc
+					loadElementTestLoop newLoadElementTestLoopFunc
+				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+					l.observations.numNewLooperInvocations++
+					return l, nil
+				}},
+			}
+
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			numEntriesPerMap = 9
+			fixedPayloadSizeBytes = 3
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
+
+			waitForStatusGatheringDone(gatherer)
+
+			msg := "\t\ttest loop must have been created once"
+			if l.observations.numNewLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
+			}
+
+			msg = "\t\ttest loop must have been initialized once"
+			if l.observations.numInitLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
+			}
+
+			msg = "\t\tnumber of generated load elements must be correct"
+			elements := l.assignedTestLoopExecution.elements
+			if len(elements) == numEntriesPerMap {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, len(elements))
+			}
+
+			msg = "\t\tonly keys of load elements must have been populated"
+			for i, v := range elements {
+				if v.Key == strconv.Itoa(i) && v.Payload == "" {
+					t.Log(msg, checkMark, v.Key)
+				} else {
+					t.Fatal(msg, ballotX, v.Key)
+				}
+			}
+
+			msg = "\t\ttest loop must have been run once"
+			if l.observations.numRunInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
+			}
+		}
+		t.Log("\twhen neither fixed-size nor variable-size load elements were enabled")
+		{
+			a := &testConfigPropertyAssigner{testConfig: map[string]any{
+				"mapTests.load.enabled":                      true,
+				"mapTests.load.testLoop.type":                string(batch),
+				"mapTests.load.payload.fixedSize.enabled":    false,
+				"mapTests.load.payload.variableSize.enabled": false,
+			}}
+			ch := &testHzClientHandler{}
+			l := newTestLoadTestLoop()
+			r := loadRunner{
+				assigner:        a,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+				l:               l,
+				providerFuncs: struct {
+					mapStore            newMapStoreFunc
+					loadElementTestLoop newLoadElementTestLoopFunc
+				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+					l.observations.numNewLooperInvocations++
+					return l, nil
+				}},
+			}
+
+			gatherer := status.NewGatherer()
+			go gatherer.Listen()
+
+			numEntriesPerMap = 9
+			fixedPayloadSizeBytes = 3
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
+			gatherer.StopListen()
+
+			waitForStatusGatheringDone(gatherer)
+
+			msg := "\t\ttest loop must have been created once"
+			if l.observations.numNewLooperInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
+			}
+
+			msg = "\t\ttest loop must not have been initialized"
+			if l.observations.numInitLooperInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
+			}
+
+			msg = "\t\tno test loop execution must have been assigned"
+			if l.assignedTestLoopExecution == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\ttest loop must not have been run"
+			if l.observations.numRunInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
+			}
+
+			msg = "\t\trunner state list must contain expected state transitions"
+			if detail, ok := checkRunnerStateTransitions([]runnerState{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete}, r.stateList); ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, detail)
+			}
 		}
 	}
 

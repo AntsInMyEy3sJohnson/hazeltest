@@ -25,8 +25,13 @@ type (
 		hzClientHandler hazelcastwrapper.HzClientHandler
 		l               looper[pokemon]
 		gatherer        *status.Gatherer
+		providerFuncs   struct {
+			mapStore        newMapStoreFunc
+			pokemonTestLoop newPokemonTestLoopFunc
+		}
 	}
-	pokedex struct {
+	newPokemonTestLoopFunc func(rc *runnerConfig) (looper[pokemon], error)
+	pokedex                struct {
 		Pokemon []pokemon `json:"pokemon"`
 	}
 	pokemon struct {
@@ -65,11 +70,15 @@ func init() {
 		name:            "mapsPokedexRunner",
 		source:          "pokedexRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
+		providerFuncs: struct {
+			mapStore        newMapStoreFunc
+			pokemonTestLoop newPokemonTestLoopFunc
+		}{mapStore: newDefaultMapStore, pokemonTestLoop: initPokedexTestLoop},
 	})
 	gob.Register(pokemon{})
 }
 
-func initializePokemonTestLoop(rc *runnerConfig) (looper[pokemon], error) {
+func initPokedexTestLoop(rc *runnerConfig) (looper[pokemon], error) {
 
 	switch rc.loopType {
 	case batch:
@@ -86,7 +95,7 @@ func (r *pokedexRunner) getSourceName() string {
 	return "pokedexRunner"
 }
 
-func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
+func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -112,7 +121,7 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
 
-	l, err := initializePokemonTestLoop(config)
+	l, err := r.providerFuncs.pokemonTestLoop(config)
 	if err != nil {
 		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map pokedex runner: unable to initialize test loop: %s", err.Error()), r.name, log.ErrorLevel)
 		return
@@ -125,7 +134,7 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
-	r.hzMapStore = storeFunc(r.hzClientHandler)
+	r.hzMapStore = r.providerFuncs.mapStore(r.hzClientHandler)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)

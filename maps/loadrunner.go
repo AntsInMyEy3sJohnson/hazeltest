@@ -25,11 +25,16 @@ type (
 		hzMapStore      hazelcastwrapper.MapStore
 		l               looper[loadElement]
 		gatherer        *status.Gatherer
+		providerFuncs   struct {
+			mapStore            newMapStoreFunc
+			loadElementTestLoop newLoadElementTestLoopFunc
+		}
 	}
 	loadElement struct {
 		Key     string
 		Payload string
 	}
+	newLoadElementTestLoopFunc func(rc *runnerConfig) (looper[loadElement], error)
 )
 
 const (
@@ -54,11 +59,15 @@ func init() {
 		name:            "mapsLoadRunner",
 		source:          "loadRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
+		providerFuncs: struct {
+			mapStore            newMapStoreFunc
+			loadElementTestLoop newLoadElementTestLoopFunc
+		}{mapStore: newDefaultMapStore, loadElementTestLoop: newLoadElementTestLoop},
 	})
 	gob.Register(loadElement{})
 }
 
-func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
+func newLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
 
 	switch rc.loopType {
 	case batch:
@@ -75,7 +84,7 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
+func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -96,7 +105,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	api.RaiseNotReady()
 
-	l, err := initializeLoadElementTestLoop(config)
+	l, err := r.providerFuncs.loadElementTestLoop(config)
 	if err != nil {
 		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), r.name, log.ErrorLevel)
 		return
@@ -109,15 +118,29 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
-	r.hzMapStore = storeFunc(r.hzClientHandler)
+	r.hzMapStore = r.providerFuncs.mapStore(r.hzClientHandler)
+	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+
+	var loadElements []loadElement
+	if useFixedPayload {
+		loadElements = populateLoadElements()
+	} else if useVariablePayload {
+		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
+		// let the payload be generated on demand by downstream functionality
+		loadElements = populateLoadElementKeys()
+	} else {
+		lp.LogMapRunnerEvent("neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements", r.name, log.ErrorLevel)
+		return
+	}
+
+	lp.LogMapRunnerEvent("initialized load elements", r.name, log.InfoLevel)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{
+	tle := &testLoopExecution[loadElement]{
 		id:                  uuid.New(),
 		runnerName:          r.name,
 		source:              r.source,
@@ -125,12 +148,12 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		hzMapStore:          r.hzMapStore,
 		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
 		runnerConfig:        config,
-		elements:            populateLoadElements(),
+		elements:            loadElements,
 		ctx:                 ctx,
 		getElementIdFunc:    getLoadElementID,
 	}
 
-	r.l.init(lc, &defaultSleeper{}, r.gatherer)
+	r.l.init(tle, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -144,6 +167,18 @@ func (r *loadRunner) appendState(s runnerState) {
 
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
+
+}
+
+func populateLoadElementKeys() []loadElement {
+
+	elements := make([]loadElement, numEntriesPerMap)
+
+	for i := 0; i < numEntriesPerMap; i++ {
+		elements[i] = loadElement{Key: strconv.Itoa(i)}
+	}
+
+	return elements
 
 }
 
