@@ -213,7 +213,10 @@ func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (string
 
 	l := element.(loadElement)
 
-	if useFixedPayload && len(l.Payload) > 0 {
+	if useFixedPayload {
+		if len(l.Payload) == 0 {
+			return "", errors.New("fixed-size payloads have been enabled, but no payload of fixed size was provided in load element")
+		}
 		return l.Payload, nil
 	}
 
