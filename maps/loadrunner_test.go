@@ -678,6 +678,146 @@ func TestRunLoadMapTests(t *testing.T) {
 
 }
 
+func TestGetOrAssemblePayload(t *testing.T) {
+
+	t.Log("given map name, map number, and a load element")
+	{
+		t.Log("\twhen usage of fixed-size payloads were enabled")
+		{
+			t.Log("\t\twhen load element has empty payload")
+			{
+				useFixedPayload = true
+
+				le := loadElement{}
+
+				p, err := getOrAssemblePayload("some-map-name", uint16(0), le)
+
+				msg := "\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tempty payload must be returned"
+				if len(p) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen load element has populated payload")
+			{
+				useFixedPayload = true
+
+				le := loadElement{
+					Key:     "awesome-key",
+					Payload: "awesome-value",
+				}
+				p, err := getOrAssemblePayload("awesome-map-name", uint16(0), le)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tpayload of given load element must be returned without modification"
+				if p == le.Payload {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+		}
+
+		t.Log("\twhen variable-size payloads were enabled")
+		{
+			useFixedPayload = false
+			useVariablePayload = true
+
+			t.Log("\t\twhen no payload-consuming actor has registered")
+			{
+				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+
+				p, err := getOrAssemblePayload("map-name", uint16(6), loadElement{})
+
+				msg := "\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tempty payload must be returned"
+				if len(p) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen payload-consuming actor has previously registered payload generation requirement")
+			{
+				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+
+				actorBaseName := mapLoadRunnerName
+
+				variablePayloadSizeLowerBoundaryBytes = 9
+				variablePayloadSizeUpperBoundaryBytes = 111
+				variablePayloadEvaluateNewSizeAfterNumWriteActions = 100
+
+				loadsupport.RegisterPayloadGenerationRequirement(actorBaseName, loadsupport.PayloadGenerationRequirement{
+					LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
+					UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
+					SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
+				})
+
+				p, err := getOrAssemblePayload("ht_load", uint16(0), loadElement{})
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tpayload must be generated within the specified boundaries"
+				if len(p) >= variablePayloadSizeLowerBoundaryBytes && len(p) <= variablePayloadSizeUpperBoundaryBytes {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+
+		t.Log("\twhen neither fixed-size nor variable-size payloads were enabled")
+		{
+			useFixedPayload = false
+			useVariablePayload = false
+
+			p, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tempty payload must be returned"
+			if len(p) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestPopulateLoadConfig(t *testing.T) {
 
 	t.Log("given set of configuration properties to populate the load config from")
