@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -40,6 +41,7 @@ type (
 const (
 	mapLoadRunnerKeyPath     = "mapTests.load"
 	mapLoadRunnerMapBaseName = "load"
+	mapLoadRunnerName        = "mapsLoadRunner"
 )
 
 var (
@@ -56,7 +58,7 @@ func init() {
 	register(&loadRunner{
 		assigner:        &client.DefaultConfigPropertyAssigner{},
 		stateList:       []runnerState{},
-		name:            "mapsLoadRunner",
+		name:            mapLoadRunnerName,
 		source:          "loadRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
 		providerFuncs: struct {
@@ -128,6 +130,11 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
 		// let the payload be generated on demand by downstream functionality
 		loadElements = populateLoadElementKeys(numEntriesPerMap)
+		loadsupport.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
+			LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
+			UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
+			SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
+		})
 	} else {
 		lp.LogMapRunnerEvent("neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements", r.name, log.ErrorLevel)
 		return
@@ -141,16 +148,17 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
 	tle := &testLoopExecution[loadElement]{
-		id:                  uuid.New(),
-		runnerName:          r.name,
-		source:              r.source,
-		hzClientHandler:     r.hzClientHandler,
-		hzMapStore:          r.hzMapStore,
-		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:        config,
-		elements:            loadElements,
-		ctx:                 ctx,
-		getElementIdFunc:    getLoadElementID,
+		id:                   uuid.New(),
+		runnerName:           r.name,
+		source:               r.source,
+		hzClientHandler:      r.hzClientHandler,
+		hzMapStore:           r.hzMapStore,
+		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:         config,
+		elements:             loadElements,
+		ctx:                  ctx,
+		getElementID:         getLoadElementID,
+		getOrAssemblePayload: getOrAssemblePayload,
 	}
 
 	r.l.init(tle, &defaultSleeper{}, r.gatherer)
@@ -201,10 +209,28 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 }
 
+func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (string, error) {
+
+	l := element.(loadElement)
+
+	if useFixedPayload && len(l.Payload) > 0 {
+		return l.Payload, nil
+	}
+
+	if useVariablePayload {
+		return loadsupport.GenerateTrackedRandomStringPayloadWithinBoundary(
+			fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber),
+		)
+	}
+
+	return "", errors.New("instructions unclear: neither fixed-size nor variable-size payloads enabled")
+
+}
+
 func getLoadElementID(element any) string {
 
-	loadElement := element.(loadElement)
-	return loadElement.Key
+	l := element.(loadElement)
+	return l.Key
 
 }
 

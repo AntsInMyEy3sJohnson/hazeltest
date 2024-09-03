@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/loadsupport"
 	"hazeltest/status"
 	"strconv"
 	"testing"
@@ -401,6 +402,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		}
 		t.Log("\twhen usage of fixed-size load elements was enabled")
 		{
+			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                   true,
 				"mapTests.load.testLoop.type":             string(batch),
@@ -413,6 +415,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				l:               l,
+				name:            mapLoadRunnerName,
 				providerFuncs: struct {
 					mapStore            newMapStoreFunc
 					loadElementTestLoop newLoadElementTestLoopFunc
@@ -469,14 +472,39 @@ func TestRunLoadMapTests(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
 			}
+
+			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
+			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tempty payload generation requirement must be returned"
+			emptyPgr := loadsupport.PayloadGenerationRequirement{}
+			if pgr == emptyPgr {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 		t.Log("\twhen usage of variable-size load elements was enabled")
 		{
+			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+
+			lowerBoundaryBytes := 6
+			upperBoundaryBytes := 1200
+			sameSizeSteps := 100
+
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
-				"mapTests.load.enabled":                      true,
-				"mapTests.load.testLoop.type":                string(batch),
-				"mapTests.load.payload.fixedSize.enabled":    false,
-				"mapTests.load.payload.variableSize.enabled": true,
+				"mapTests.load.enabled":                                                  true,
+				"mapTests.load.testLoop.type":                                            string(batch),
+				"mapTests.load.payload.fixedSize.enabled":                                false,
+				"mapTests.load.payload.variableSize.enabled":                             true,
+				"mapTests.load.payload.variableSize.lowerBoundaryBytes":                  lowerBoundaryBytes,
+				"mapTests.load.payload.variableSize.upperBoundaryBytes":                  upperBoundaryBytes,
+				"mapTests.load.payload.variableSize.evaluateNewSizeAfterNumWriteActions": sameSizeSteps,
 			}}
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
@@ -485,6 +513,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				l:               l,
+				name:            mapLoadRunnerName,
 				providerFuncs: struct {
 					mapStore            newMapStoreFunc
 					loadElementTestLoop newLoadElementTestLoopFunc
@@ -509,6 +538,24 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
+			}
+
+			registeredRequirement, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
+
+			msg = "\t\tno error must be returned upon attempt to find matching payload generation requirement"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpayload generation requirement must have been registered"
+			if registeredRequirement.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
+				registeredRequirement.LowerBoundaryBytes == variablePayloadSizeLowerBoundaryBytes &&
+				registeredRequirement.UpperBoundaryBytes == variablePayloadSizeUpperBoundaryBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\ttest loop must have been initialized once"
@@ -609,6 +656,22 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
+			}
+
+			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
+			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tempty payload generation requirement must be returned"
+			emptyPgr := loadsupport.PayloadGenerationRequirement{}
+			if pgr == emptyPgr {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
