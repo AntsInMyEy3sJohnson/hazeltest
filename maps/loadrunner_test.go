@@ -349,6 +349,13 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
 			}
 
+			msg = "\t\tget or assemble payload function of test loop execution must be populated"
+			if l.assignedTestLoopExecution.getOrAssemblePayload != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 		t.Log("\twhen test loop cannot be initialized")
 		{
