@@ -2,6 +2,7 @@ package maps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/client"
@@ -39,6 +40,15 @@ type (
 		behavior     *testSingleMapCleanerBehavior
 		observations *testSingleMapCleanerObservations
 	}
+	getOrAssemblePayloadFunctionBehavior struct {
+		returnError bool
+	}
+	getOrAssemblePayloadFunctionObservations struct {
+		numInvocations int
+	}
+	testSleeper struct {
+		sleepInvoked bool
+	}
 )
 
 const testSource = "theFellowship"
@@ -66,7 +76,9 @@ var (
 		cleanMapsPriorToRun: false,
 		sleepBetweenRuns:    sleepConfigDisabled,
 	}
-	numGetOrAssemblePayloadInvocations = 0
+	getOrAssembleBehavior     = getOrAssemblePayloadFunctionBehavior{}
+	getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+	getOrAssemblePayloadError = errors.New("the error everyone told you not to worry about")
 )
 
 func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
@@ -800,7 +812,8 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key yet")
 			{
-				numGetOrAssemblePayloadInvocations = 0
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{}
 
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
@@ -866,7 +879,7 @@ func TestExecuteMapAction(t *testing.T) {
 				}
 
 				msg = "\t\t\tget or assemble payload function must have been invoked once"
-				if numGetOrAssemblePayloadInvocations == 1 {
+				if getOrAssembleObservations.numInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -874,7 +887,8 @@ func TestExecuteMapAction(t *testing.T) {
 			}
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
-				numGetOrAssemblePayloadInvocations = 0
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{}
 
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponSet: true})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
@@ -911,17 +925,18 @@ func TestExecuteMapAction(t *testing.T) {
 				}
 
 				msg = "\t\t\tget or assemble payload function must have been invoked nonetheless"
-				if numGetOrAssemblePayloadInvocations == 1 {
+				if getOrAssembleObservations.numInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 			}
-
 			t.Log("\t\twhen target map already contains key")
 			{
-				numGetOrAssemblePayloadInvocations = 0
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{}
+
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
@@ -957,19 +972,60 @@ func TestExecuteMapAction(t *testing.T) {
 				}
 
 				msg = "\t\t\tget or assemble payload function must have been invoked anyway"
-				if numGetOrAssemblePayloadInvocations == 1 {
+				if getOrAssembleObservations.numInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 			}
+			t.Log("\t\twhen get or assemble payload function yields error")
+			{
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{returnError: true}
+
+				ms := assembleTestMapStore(&testMapStoreBehavior{})
+				rc := assembleRunnerConfigForBoundaryTestLoop(
+					rpOneMapOneRunNoEvictionScDisabled,
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+					1.0,
+					0.0,
+					0.5,
+					42,
+					true,
+				)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+				action := insert
+
+				mapNumber := 0
+				mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
+				go tl.gatherer.Listen()
+				err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
+				tl.gatherer.StopListen()
+
+				msg := "\t\t\terror must be returned"
+				if errors.Is(err, getOrAssemblePayloadError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno set on map must have been attempted"
+				if ms.m.setInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ms.m.setInvocations)
+				}
+			}
 		}
 		t.Log("\twhen next action is remove")
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
-				numGetOrAssemblePayloadInvocations = 0
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{}
+
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -1018,7 +1074,7 @@ func TestExecuteMapAction(t *testing.T) {
 				}
 
 				msg = "\t\t\tget or assemble payload function must not have been invoked"
-				if numGetOrAssemblePayloadInvocations == 0 {
+				if getOrAssembleObservations.numInvocations == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1231,7 +1287,9 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
-				numGetOrAssemblePayloadInvocations = 0
+				getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+				getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{}
+
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -1271,7 +1329,7 @@ func TestExecuteMapAction(t *testing.T) {
 				}
 
 				msg = "\t\t\tget or assemble payload function must not have been invoked"
-				if numGetOrAssemblePayloadInvocations == 0 {
+				if getOrAssembleObservations.numInvocations == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2387,10 +2445,6 @@ func TestRunOperationChain(t *testing.T) {
 
 }
 
-type testSleeper struct {
-	sleepInvoked bool
-}
-
 func (s *testSleeper) sleep(_ *sleepConfig, _ evaluateTimeToSleep, _ string) {
 
 	s.sleepInvoked = true
@@ -3398,7 +3452,11 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch
 }
 
 func returnFellowshipMemberName(_ string, _ uint16, element any) (any, error) {
-	numGetOrAssemblePayloadInvocations++
+	getOrAssembleObservations.numInvocations++
+
+	if getOrAssembleBehavior.returnError {
+		return "", getOrAssemblePayloadError
+	}
 	return element, nil
 }
 
