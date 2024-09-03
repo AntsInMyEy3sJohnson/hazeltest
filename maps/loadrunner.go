@@ -209,7 +209,7 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 }
 
-func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (string, error) {
+func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (any, error) {
 
 	l := element.(loadElement)
 

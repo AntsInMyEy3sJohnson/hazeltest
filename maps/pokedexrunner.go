@@ -142,20 +142,21 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
 	lp.LogMapRunnerEvent("starting pokedex test loop for maps", r.name, log.InfoLevel)
 
-	lc := &testLoopExecution[pokemon]{
-		id:                  uuid.New(),
-		runnerName:          r.name,
-		source:              r.source,
-		hzClientHandler:     r.hzClientHandler,
-		hzMapStore:          r.hzMapStore,
-		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:        config,
-		elements:            p.Pokemon,
-		ctx:                 ctx,
-		getElementIdFunc:    getPokemonID,
+	le := &testLoopExecution[pokemon]{
+		id:                   uuid.New(),
+		runnerName:           r.name,
+		source:               r.source,
+		hzClientHandler:      r.hzClientHandler,
+		hzMapStore:           r.hzMapStore,
+		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:         config,
+		elements:             p.Pokemon,
+		ctx:                  ctx,
+		getElementID:         getPokemonID,
+		getOrAssemblePayload: returnPokemonPayload,
 	}
 
-	r.l.init(lc, &defaultSleeper{}, r.gatherer)
+	r.l.init(le, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -170,6 +171,10 @@ func (r *pokedexRunner) appendState(s runnerState) {
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
 
+}
+
+func returnPokemonPayload(_ string, _ uint16, element any) (any, error) {
+	return element, nil
 }
 
 func getPokemonID(element any) string {
