@@ -42,7 +42,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				actorBaseName := "mapLoadRunner"
 				actorExtendedName := "mapLoadRunner-ht_load-0"
 
-				tr = payloadConsumingActorTracker{}
+				ActorTracker = PayloadConsumingActorTracker{}
 
 				registeredRequirement := PayloadGenerationRequirement{
 					LowerBoundaryBytes: 0,
@@ -98,7 +98,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				actorBaseName := "mapLoadRunner"
 				actorExtendedName := "mapLoadRunner-ht_load-0"
 
-				tr = payloadConsumingActorTracker{}
+				ActorTracker = PayloadConsumingActorTracker{}
 
 				registeredRequirement := PayloadGenerationRequirement{
 					LowerBoundaryBytes: 0,
@@ -181,13 +181,13 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 	{
 		t.Log("\twhen no actor with corresponding base name has previously registered")
 		{
-			tr = payloadConsumingActorTracker{}
+			ActorTracker = PayloadConsumingActorTracker{}
 			// Register a couple of dummy actors
 			for _, a := range []string{"aragorn", "gimli", "legolas"} {
 				RegisterPayloadGenerationRequirement(a, PayloadGenerationRequirement{LowerBoundaryBytes: len(a)})
 			}
 
-			r, err := tr.findMatchingRequirement("super-awesome-actor-name")
+			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("super-awesome-actor-name")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -207,7 +207,7 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 		t.Log("\twhen actor with corresponding base name has previously registered")
 		{
-			tr = payloadConsumingActorTracker{}
+			ActorTracker = PayloadConsumingActorTracker{}
 
 			actorBaseName := "mapLoadRunner"
 			registeredRequirement := PayloadGenerationRequirement{
@@ -219,7 +219,7 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 			RegisterPayloadGenerationRequirement("mapPokedexRunner", PayloadGenerationRequirement{})
 
-			r, err := tr.findMatchingRequirement("mapLoadRunner-ht_load-0")
+			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("mapLoadRunner-ht_load-0")
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -251,7 +251,7 @@ func TestRegisterPayloadGenerationRequirement(t *testing.T) {
 
 			RegisterPayloadGenerationRequirement(actorBaseName, r)
 
-			registered, ok := tr.actors.Load(actorBaseName)
+			registered, ok := ActorTracker.actors.Load(actorBaseName)
 			msg := "\t\tactor must have been registered"
 			if ok {
 				t.Log(msg, checkMark)

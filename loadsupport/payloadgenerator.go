@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	payloadConsumingActorTracker struct {
+	PayloadConsumingActorTracker struct {
 		actors sync.Map
 	}
 	PayloadGenerationRequirement struct {
@@ -36,19 +36,19 @@ const (
 
 var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
-	tr                     = payloadConsumingActorTracker{}
+	ActorTracker           = PayloadConsumingActorTracker{}
 	payloadConsumingActors sync.Map
 )
 
 func RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
 
-	tr.actors.Store(actorBaseName, r)
+	ActorTracker.actors.Store(actorBaseName, r)
 
 }
 
 func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string, error) {
 
-	r, err := tr.findMatchingRequirement(actorName)
+	r, err := ActorTracker.FindMatchingPayloadGenerationRequirement(actorName)
 
 	if err != nil {
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("cannot generate payload for actor '%s' because attempt to identify payload generation requirement resulted in error: %v", actorName, err), log.ErrorLevel)
@@ -107,7 +107,7 @@ func GenerateRandomStringPayload(n int) string {
 
 }
 
-func (tr *payloadConsumingActorTracker) findMatchingRequirement(actorName string) (PayloadGenerationRequirement, error) {
+func (tr *PayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (PayloadGenerationRequirement, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName), log.TraceLevel)
 
