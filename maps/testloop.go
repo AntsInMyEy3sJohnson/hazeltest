@@ -418,7 +418,6 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 	switch action {
 	case insert:
-		// TODO Write test case for this
 		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, element)
 		if err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)

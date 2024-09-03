@@ -66,6 +66,7 @@ var (
 		cleanMapsPriorToRun: false,
 		sleepBetweenRuns:    sleepConfigDisabled,
 	}
+	numGetOrAssemblePayloadInvocations = 0
 )
 
 func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
@@ -799,6 +800,8 @@ func TestExecuteMapAction(t *testing.T) {
 		{
 			t.Log("\t\twhen target map does not contain key yet")
 			{
+				numGetOrAssemblePayloadInvocations = 0
+
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
@@ -861,9 +864,18 @@ func TestExecuteMapAction(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX, detail)
 				}
+
+				msg = "\t\t\tget or assemble payload function must have been invoked once"
+				if numGetOrAssemblePayloadInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 			t.Log("\t\twhen target map does not contain key yet and set yields error")
 			{
+				numGetOrAssemblePayloadInvocations = 0
+
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponSet: true})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
@@ -898,10 +910,18 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, detail)
 				}
 
+				msg = "\t\t\tget or assemble payload function must have been invoked nonetheless"
+				if numGetOrAssemblePayloadInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 			}
 
 			t.Log("\t\twhen target map already contains key")
 			{
+				numGetOrAssemblePayloadInvocations = 0
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
@@ -936,12 +956,20 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected no invocations, got %d", ms.m.setInvocations))
 				}
 
+				msg = "\t\t\tget or assemble payload function must have been invoked anyway"
+				if numGetOrAssemblePayloadInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 			}
 		}
 		t.Log("\twhen next action is remove")
 		{
 			t.Log("\t\twhen target map does not contain key")
 			{
+				numGetOrAssemblePayloadInvocations = 0
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -987,6 +1015,13 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
+				}
+
+				msg = "\t\t\tget or assemble payload function must not have been invoked"
+				if numGetOrAssemblePayloadInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
 				}
 			}
 
@@ -1196,6 +1231,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 			t.Log("\t\twhen target map contains key and get does not yield error")
 			{
+				numGetOrAssemblePayloadInvocations = 0
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -1232,6 +1268,13 @@ func TestExecuteMapAction(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected 1 invocation, got %d", ms.m.getInvocations))
+				}
+
+				msg = "\t\t\tget or assemble payload function must not have been invoked"
+				if numGetOrAssemblePayloadInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
 				}
 
 			}
@@ -3355,6 +3398,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch
 }
 
 func returnFellowshipMemberName(_ string, _ uint16, element any) (any, error) {
+	numGetOrAssemblePayloadInvocations++
 	return element, nil
 }
 
