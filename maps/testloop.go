@@ -19,9 +19,10 @@ import (
 )
 
 type (
-	evaluateTimeToSleep func(sc *sleepConfig) int
-	getElementID        func(element any) string
-	looper[t any]       interface {
+	evaluateTimeToSleep      func(sc *sleepConfig) int
+	getElementIdFunc         func(element any) string
+	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (any, error)
+	looper[t any]            interface {
 		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
 		run()
 	}
@@ -58,16 +59,17 @@ type (
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
-		id                  uuid.UUID
-		runnerName          string
-		source              string
-		hzClientHandler     hazelcastwrapper.HzClientHandler
-		hzMapStore          hazelcastwrapper.MapStore
-		stateCleanerBuilder state.SingleMapCleanerBuilder
-		runnerConfig        *runnerConfig
-		elements            []t
-		ctx                 context.Context
-		getElementIdFunc    getElementID
+		id                   uuid.UUID
+		runnerName           string
+		source               string
+		hzClientHandler      hazelcastwrapper.HzClientHandler
+		hzMapStore           hazelcastwrapper.MapStore
+		stateCleanerBuilder  state.SingleMapCleanerBuilder
+		runnerConfig         *runnerConfig
+		elements             []t
+		ctx                  context.Context
+		getElementID         getElementIdFunc
+		getOrAssemblePayload getOrAssemblePayloadFunc
 	}
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]int
@@ -203,7 +205,7 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 	switch action {
 	case insert:
 		for _, v := range l.tle.elements {
-			key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+			key := assembleMapKey(mapNumber, l.tle.getElementID(v))
 			if _, containsKey := keysCache[key]; !containsKey {
 				return v, nil
 			}
@@ -222,7 +224,7 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 			return l.tle.elements[0], fmt.Errorf(msg)
 		}
 		for _, v := range l.tle.elements {
-			keyFromSourceData := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+			keyFromSourceData := assembleMapKey(mapNumber, l.tle.getElementID(v))
 			if keyFromSourceData == keyFromCache {
 				return v, nil
 			}
@@ -381,7 +383,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), l.tle.runnerName, log.TraceLevel)
 			actions.last = actions.next
 			actions.next = ""
-			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.tle.getElementIdFunc(nextMapElement)), l.tle.runnerName)
+			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.tle.getElementID(nextMapElement)), l.tle.runnerName)
 		}
 
 		l.s.sleep(l.tle.runnerConfig.boundary.sleepAfterChainAction, sleepTimeFunc, l.tle.runnerName)
@@ -410,13 +412,19 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName string, mapNumber uint16, element t, action mapAction) error {
 
-	elementID := l.tle.getElementIdFunc(element)
+	elementID := l.tle.getElementID(element)
 
 	key := assembleMapKey(mapNumber, elementID)
 
 	switch action {
 	case insert:
-		if err := m.Set(l.tle.ctx, key, element); err != nil {
+		// TODO Write test case for this
+		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, element)
+		if err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
+			return err
+		}
+		if err := m.Set(l.tle.ctx, key, payload); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -663,7 +671,7 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 
 	numNewlyIngested := 0
 	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+		key := assembleMapKey(mapNumber, l.tle.getElementID(v))
 		containsKey, err := m.ContainsKey(l.tle.ctx, key)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
@@ -672,7 +680,13 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 		if containsKey {
 			continue
 		}
-		if err = m.Set(l.tle.ctx, key, v); err != nil {
+		// TODO Write test case around this
+		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, v)
+		if err != nil {
+			return err
+		}
+		if err = m.Set(l.tle.ctx, key, value); err != nil {
+			// TODO Write test case to verify inserted value had random payload
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
@@ -689,7 +703,7 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
 	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+		key := assembleMapKey(mapNumber, l.tle.getElementID(v))
 		valueFromHZ, err := m.Get(l.tle.ctx, key)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedReads)
@@ -716,7 +730,7 @@ func (l *batchTestLoop[t]) removeSome(m hazelcastwrapper.Map, mapName string, ma
 	elements := l.tle.elements
 
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(elements[i]))
+		key := assembleMapKey(mapNumber, l.tle.getElementID(elements[i]))
 		containsKey, err := m.ContainsKey(l.tle.ctx, key)
 		if err != nil {
 			return err

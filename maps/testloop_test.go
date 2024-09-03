@@ -238,7 +238,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				tl := boundaryTestLoop[string]{
 					tle: &testLoopExecution[string]{
 						elements: theFellowship,
-						getElementIdFunc: func(element any) string {
+						getElementID: func(element any) string {
 							return element.(string)
 						},
 					},
@@ -275,7 +275,7 @@ func TestChooseNextMapElement(t *testing.T) {
 						elements: []string{
 							theFellowship[0],
 						},
-						getElementIdFunc: func(element any) string {
+						getElementID: func(element any) string {
 							return element.(string)
 						},
 					},
@@ -347,7 +347,7 @@ func TestChooseNextMapElement(t *testing.T) {
 							elements: []string{
 								elementInSourceData,
 							},
-							getElementIdFunc: func(element any) string {
+							getElementID: func(element any) string {
 								return element.(string)
 							},
 						},
@@ -381,7 +381,7 @@ func TestChooseNextMapElement(t *testing.T) {
 					tl := boundaryTestLoop[string]{
 						tle: &testLoopExecution[string]{
 							elements: theFellowship,
-							getElementIdFunc: func(element any) string {
+							getElementID: func(element any) string {
 								return "So you have chosen... death."
 							},
 						},
@@ -3341,14 +3341,14 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzCl
 func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
-		id:               id,
-		source:           source,
-		hzClientHandler:  ch,
-		hzMapStore:       ms,
-		runnerConfig:     rc,
-		elements:         theFellowship,
-		ctx:              nil,
-		getElementIdFunc: fellowshipMemberName,
+		id:              id,
+		source:          source,
+		hzClientHandler: ch,
+		hzMapStore:      ms,
+		runnerConfig:    rc,
+		elements:        theFellowship,
+		ctx:             nil,
+		getElementID:    fellowshipMemberName,
 	}
 
 }
