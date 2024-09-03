@@ -3341,16 +3341,21 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzCl
 func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
-		id:              id,
-		source:          source,
-		hzClientHandler: ch,
-		hzMapStore:      ms,
-		runnerConfig:    rc,
-		elements:        theFellowship,
-		ctx:             nil,
-		getElementID:    fellowshipMemberName,
+		id:                   id,
+		source:               source,
+		hzClientHandler:      ch,
+		hzMapStore:           ms,
+		runnerConfig:         rc,
+		elements:             theFellowship,
+		ctx:                  nil,
+		getElementID:         fellowshipMemberName,
+		getOrAssemblePayload: returnFellowshipMemberName,
 	}
 
+}
+
+func returnFellowshipMemberName(_ string, _ uint16, element any) (any, error) {
+	return element, nil
 }
 
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
