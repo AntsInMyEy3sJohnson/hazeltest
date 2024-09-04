@@ -238,10 +238,18 @@ config:
       enabled: true
       numMaps: 10
       numEntriesPerMap: 1000
-      payloadSizeBytes: 100000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
+      payload:
+        fixedSize:
+          enabled: false
+          sizeBytes: 10000000
+        variableSize:
+          enabled: true
+          lowerBoundaryBytes: 15000
+          upperBoundaryBytes: 2000000
+          evaluateNewSizeAfterNumWriteActions: 100
       performPreRunClean:
         enabled: false
         errorBehavior: ignore
