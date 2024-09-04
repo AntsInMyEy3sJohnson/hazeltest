@@ -2784,6 +2784,8 @@ func TestIngestAll(t *testing.T) {
 	{
 		t.Log("\twhen target map does not contain key yet and set does not yield error")
 		{
+			getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
 			rc := assembleRunnerConfigForBatchTestLoop(
 				&runnerProperties{
@@ -2834,8 +2836,14 @@ func TestIngestAll(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
-		}
 
+			msg = "\t\tnumber of get or assemble payload invocations must be equal to number of elements in source data"
+			if getOrAssembleObservations.numInvocations == len(tl.tle.elements) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, getOrAssembleObservations.numInvocations)
+			}
+		}
 		t.Log("\twhen target map contains all keys")
 		{
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
@@ -2890,7 +2898,6 @@ func TestIngestAll(t *testing.T) {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d", expected, actual))
 			}
 		}
-
 		t.Log("\twhen target map contains no keys and insert yields error")
 		{
 			ms := assembleTestMapStore(&testMapStoreBehavior{
@@ -2946,7 +2953,6 @@ func TestIngestAll(t *testing.T) {
 			}
 
 		}
-
 		t.Log("\twhen contains key check yields error")
 		{
 			ms := assembleTestMapStore(&testMapStoreBehavior{
@@ -2983,7 +2989,6 @@ func TestIngestAll(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 		}
-
 		t.Log("\twhen sleep after batch action is enabled")
 		{
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
@@ -3016,6 +3021,47 @@ func TestIngestAll(t *testing.T) {
 
 			msg = "\t\tsleeper must have been invoked"
 			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen invocation of get or assemble payload yields error")
+		{
+			getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
+			getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{returnError: true}
+
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				&runnerProperties{
+					numMaps:             1,
+					numRuns:             9,
+					cleanMapsPriorToRun: false,
+					sleepBetweenRuns:    sleepConfigDisabled,
+				},
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+			err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, getOrAssemblePayloadError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tget or assemble payload function must have been invoked only once"
+			if getOrAssembleObservations.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, getOrAssembleObservations.numInvocations)
+			}
+
+			msg = "\t\tthere must have been no attempt of inserting a key-value pair into the target map"
+			if ms.m.setInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)

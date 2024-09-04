@@ -679,13 +679,11 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 		if containsKey {
 			continue
 		}
-		// TODO Write test case around this
 		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, v)
 		if err != nil {
 			return err
 		}
 		if err = m.Set(l.tle.ctx, key, value); err != nil {
-			// TODO Write test case to verify inserted value had random payload
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
