@@ -125,8 +125,10 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	var loadElements []loadElement
 	if useFixedPayload {
+		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.TraceLevel)
 		loadElements = populateLoadElements(numEntriesPerMap, fixedPayloadSizeBytes)
 	} else if useVariablePayload {
+		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.TraceLevel)
 		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
 		// let the payload be generated on demand by downstream functionality
 		loadElements = populateLoadElementKeys(numEntriesPerMap)

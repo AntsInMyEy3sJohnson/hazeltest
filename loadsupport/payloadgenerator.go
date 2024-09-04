@@ -42,12 +42,14 @@ var (
 
 func RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
 
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("registering payload generation requirement for actor '%s': %v", actorBaseName, r), log.TraceLevel)
 	ActorTracker.actors.Store(actorBaseName, r)
 
 }
 
 func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string, error) {
 
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating payload for actor '%s'", actorName), log.TraceLevel)
 	r, err := ActorTracker.FindMatchingPayloadGenerationRequirement(actorName)
 
 	if err != nil {
@@ -69,9 +71,11 @@ func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string,
 
 	steps, lower, upper := r.SameSizeStepsLimit, r.LowerBoundaryBytes, r.UpperBoundaryBytes
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
-		info.numGeneratePayloadInvocations = 0
 		payloadSize := lower + rand.Intn(upper-lower+1)
-		lp.LogPayloadGeneratorEvent(fmt.Sprintf("limit of %d invocations for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize), log.InfoLevel)
+		if !freshlyInserted {
+			lp.LogPayloadGeneratorEvent(fmt.Sprintf("limit of %d invocation/-s for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize), log.InfoLevel)
+		}
+		info.numGeneratePayloadInvocations = 0
 		info.payloadSize = payloadSize
 	}
 
