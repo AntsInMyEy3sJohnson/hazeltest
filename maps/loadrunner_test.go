@@ -932,3 +932,38 @@ func TestPopulateLoadConfig(t *testing.T) {
 	}
 
 }
+
+func TestValidateVariablePayloadSizeBoundaries(t *testing.T) {
+
+	t.Log("given a lower and an upper boundary representing the size in bytes of payloads to be generated")
+	{
+		t.Log("\twhen lower is less than upper")
+		{
+			msg := "\t\tno error must be returned"
+			if err := validateVariablePayloadSizeBoundaries(10, 1000); err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen lower is equal to upper")
+		{
+			msg := "\t\terror must be returned"
+			if err := validateVariablePayloadSizeBoundaries(10, 10); err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen lower is greater than upper")
+		{
+			msg := "\t\terror must be returned"
+			if err := validateVariablePayloadSizeBoundaries(15000, 1000); err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}

@@ -239,6 +239,16 @@ func getLoadElementID(element any) string {
 
 }
 
+func validateVariablePayloadSizeBoundaries(lower, upper int) error {
+
+	if lower >= upper {
+		return fmt.Errorf("expected upper boundary to be greater than lower boundary, got %d (upper) and %d (lower)", upper, lower)
+	}
+
+	return nil
+
+}
+
 func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.ConfigPropertyAssigner) (*runnerConfig, error) {
 
 	var assignmentOps []func() error
@@ -289,6 +299,11 @@ func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.Confi
 		if err := fn(); err != nil {
 			return nil, err
 		}
+	}
+
+	err := validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
+	if err != nil {
+		return nil, err
 	}
 
 	configBuilder := runnerConfigBuilder{
