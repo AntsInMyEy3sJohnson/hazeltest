@@ -73,7 +73,7 @@ func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string,
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
 		payloadSize := lower + rand.Intn(upper-lower+1)
 		if !freshlyInserted {
-			lp.LogPayloadGeneratorEvent(fmt.Sprintf("limit of %d invocation/-s for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize), log.InfoLevel)
+			lp.LogPayloadGeneratorEvent(fmt.Sprintf("limit of %d invocation/-s for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize), log.TraceLevel)
 		}
 		info.numGeneratePayloadInvocations = 0
 		info.payloadSize = payloadSize
