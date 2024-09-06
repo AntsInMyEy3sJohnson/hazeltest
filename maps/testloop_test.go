@@ -120,7 +120,7 @@ func TestMapTestLoopCountersTrackerInit(t *testing.T) {
 			}
 
 			msg = "\t\tall status keys must have been inserted into status record"
-			initialCounterValue := 0
+			initialCounterValue := uint64(0)
 			for _, v := range counters {
 				if counter, ok := ct.counters[v]; ok && counter == initialCounterValue {
 					t.Log(msg, checkMark, v)
@@ -134,7 +134,7 @@ func TestMapTestLoopCountersTrackerInit(t *testing.T) {
 			statusCopy := g.AssembleStatusCopy()
 
 			for _, v := range counters {
-				if ok, detail := expectedStatusPresent(statusCopy, v, initialCounterValue); ok {
+				if ok, detail := expectedCounterValuePresent(statusCopy, v, initialCounterValue); ok {
 					t.Log(msg, checkMark, v)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -152,7 +152,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 		t.Log("\twhen method is not invoked concurrently")
 		{
 			ct := &mapTestLoopCountersTracker{
-				counters: make(map[statusKey]int),
+				counters: make(map[statusKey]uint64),
 				l:        sync.Mutex{},
 				gatherer: status.NewGatherer(),
 			}
@@ -171,7 +171,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 					msg = "\t\t\tcorresponding update must have been sent to status gatherer"
 					update := <-ct.gatherer.Updates
-					if update.Key == string(v) && update.Value == 1 {
+					if update.Key == string(v) && update.Value == uint64(1) {
 						t.Log(msg, checkMark, v)
 					} else {
 						t.Fatal(msg, ballotX, v)
@@ -183,7 +183,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 		{
 			wg := sync.WaitGroup{}
 			ct := &mapTestLoopCountersTracker{
-				counters: make(map[statusKey]int),
+				counters: make(map[statusKey]uint64),
 				l:        sync.Mutex{},
 				gatherer: status.NewGatherer(),
 			}
@@ -202,7 +202,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 			msg := "\t\tfinal counter value must be equal to number of invoking goroutines"
 
-			if ct.counters[statusKeyNumFailedInserts] == numInvokingGoroutines {
+			if ct.counters[statusKeyNumFailedInserts] == uint64(numInvokingGoroutines) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -594,7 +594,7 @@ func TestRunWrapper(t *testing.T) {
 
 			msg = "\t\tstatus gatherer must contain initial test loop state: %s"
 			for _, v := range []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumFailedRemoves, statusKeyNumNilReads} {
-				if ok, detail := expectedStatusPresent(sc, v, 0); ok {
+				if ok, detail := expectedCounterValuePresent(sc, v, 0); ok {
 					t.Log(fmt.Sprintf(msg, v), checkMark)
 				} else {
 					t.Fatal(fmt.Sprintf(msg, v), ballotX, detail)
@@ -872,7 +872,7 @@ func TestExecuteMapAction(t *testing.T) {
 					waitForStatusGatheringDone(tl.gatherer)
 
 					msg = "\t\t\tstatus gatherer must indicate zero failed insert operations"
-					if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 0); ok {
+					if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 0); ok {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, detail)
@@ -919,7 +919,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 					msg = "\t\t\ttest loop must have informed status gatherer about error"
 					statusCopy := tl.gatherer.AssembleStatusCopy()
-					if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedInserts, 1); ok {
+					if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumFailedInserts, 1); ok {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, detail)
@@ -1080,7 +1080,7 @@ func TestExecuteMapAction(t *testing.T) {
 					waitForStatusGatheringDone(tl.gatherer)
 
 					msg = "\t\t\tstatus gatherer must indicate zero failed remove attempts"
-					if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 0); ok {
+					if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 0); ok {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, detail)
@@ -1142,7 +1142,7 @@ func TestExecuteMapAction(t *testing.T) {
 				statusCopy := tl.gatherer.AssembleStatusCopy()
 				msg = "\t\t\ttest loop must have informed status gatherer about error"
 
-				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedRemoves, 1); ok {
+				if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumFailedRemoves, 1); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -1238,7 +1238,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				msg = "\t\t\tstatus record must inform about one nil read"
 				statusCopy := tl.gatherer.AssembleStatusCopy()
-				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
+				if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumNilReads, 1); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -1291,7 +1291,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				msg = "\t\t\ttest loop must have informed status gatherer about error"
 				statusCopy := tl.gatherer.AssembleStatusCopy()
-				if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedReads, 1); ok {
+				if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumFailedReads, 1); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -2562,8 +2562,8 @@ func TestRunOperationChain(t *testing.T) {
 
 				msg = "\t\t\tstatus tracker must have been informed about failed read attempts"
 				statusCopy := tl.gatherer.AssembleStatusCopy()
-				failedReadAttempts := statusCopy[string(statusKeyNumFailedReads)].(int)
-				if failedReadAttempts == ms.m.getInvocations {
+				failedReadAttempts := statusCopy[string(statusKeyNumFailedReads)].(uint64)
+				if failedReadAttempts == uint64(ms.m.getInvocations) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -3161,7 +3161,7 @@ func TestIngestAll(t *testing.T) {
 				waitForStatusGatheringDone(tl.gatherer)
 
 				msg = "\t\tstatus gatherer must have been informed about one failed insert attempt"
-				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 1); ok {
+				if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedInserts, 1); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -3202,7 +3202,7 @@ func TestIngestAll(t *testing.T) {
 
 				msg = "\t\tstatus gatherer must have been informed about one failed contains key check"
 				waitForStatusGatheringDone(tl.gatherer)
-				if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedKeyChecks, 1); ok {
+				if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedKeyChecks, 1); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -3329,7 +3329,7 @@ func TestReadAll(t *testing.T) {
 			msg := "\t\tstatus gatherer must indicate zero failed operations"
 			statusCopy := tl.gatherer.AssembleStatusCopy()
 			for _, v := range counters {
-				if ok, detail := expectedStatusPresent(statusCopy, v, 0); ok {
+				if ok, detail := expectedCounterValuePresent(statusCopy, v, 0); ok {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, detail)
@@ -3382,7 +3382,7 @@ func TestReadAll(t *testing.T) {
 			waitForStatusGatheringDone(tl.gatherer)
 
 			msg = "\t\tstatus gatherer must have been informed about one failed read"
-			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedReads, 1); ok {
+			if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedReads, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -3423,14 +3423,14 @@ func TestReadAll(t *testing.T) {
 			statusCopy := tl.gatherer.AssembleStatusCopy()
 
 			msg = "\t\tstatus gatherer must indicate zero failed reads"
-			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumFailedReads, 0); ok {
+			if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumFailedReads, 0); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tstatus gatherer must indicate one nil read"
-			if ok, detail := expectedStatusPresent(statusCopy, statusKeyNumNilReads, 1); ok {
+			if ok, detail := expectedCounterValuePresent(statusCopy, statusKeyNumNilReads, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -3554,7 +3554,7 @@ func TestRemoveSome(t *testing.T) {
 			waitForStatusGatheringDone(tl.gatherer)
 
 			msg = "\t\tstatus gatherer must have been informed about one failed remove invocation"
-			if ok, detail := expectedStatusPresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 1); ok {
+			if ok, detail := expectedCounterValuePresent(tl.gatherer.AssembleStatusCopy(), statusKeyNumFailedRemoves, 1); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -3610,9 +3610,9 @@ func resetGetOrAssemblePayloadTestSetup() {
 
 }
 
-func expectedStatusPresent(statusCopy map[string]any, expectedKey statusKey, expectedValue int) (bool, string) {
+func expectedCounterValuePresent(statusCopy map[string]any, expectedKey statusKey, expectedValue uint64) (bool, string) {
 
-	recordedValue := statusCopy[string(expectedKey)].(int)
+	recordedValue := statusCopy[string(expectedKey)].(uint64)
 
 	if recordedValue == expectedValue {
 		return true, ""

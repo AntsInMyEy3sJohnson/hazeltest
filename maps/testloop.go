@@ -72,7 +72,7 @@ type (
 		getOrAssemblePayload getOrAssemblePayloadFunc
 	}
 	mapTestLoopCountersTracker struct {
-		counters map[statusKey]int
+		counters map[statusKey]uint64
 		l        sync.Mutex
 		gatherer *status.Gatherer
 	}
@@ -127,9 +127,9 @@ var (
 func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
 	ct.gatherer = gatherer
 
-	ct.counters = make(map[statusKey]int)
+	ct.counters = make(map[statusKey]uint64)
 
-	initialCounterValue := 0
+	initialCounterValue := uint64(0)
 	for _, v := range counters {
 		ct.counters[v] = initialCounterValue
 		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
@@ -138,7 +138,7 @@ func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
 
 func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
-	var newValue int
+	var newValue uint64
 	ct.l.Lock()
 	{
 		newValue = ct.counters[sk] + 1
