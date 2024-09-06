@@ -2455,6 +2455,174 @@ func TestRunOperationChain(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+
+		t.Log("\twhen action in chain yields error")
+		{
+			t.Log("\t\twhen first insert yields error")
+			{
+				rc := assembleRunnerConfigForBoundaryTestLoop(
+					rpOneMapOneRunNoEvictionScDisabled,
+					sleepConfigDisabled,
+					&sleepConfig{true, 1_000, false},
+					1.0,
+					0.0,
+					1.0,
+					3,
+					true,
+				)
+				ms := assembleTestMapStore(&testMapStoreBehavior{
+					returnErrorUponSet: true,
+				})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+				ts := &testSleeper{}
+				tl.s = ts
+
+				ac := &actionCache{}
+				kc := map[string]struct{}{}
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+
+				msg := "\t\t\taction must be tracked anyway"
+				// We can check whether the action was tracked by verifying the action cache's last action is populated
+				if ac.last != "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkeys cache must not be updated"
+				if len(kc) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				// The local cache keeping track of the contents of the remote map hasn't been updated (meaning it
+				// will still contain zero elements), hence 'determineNextMapAction' will return insert as next action
+				// even if it was also the last, because insert is the only action that makes sense on an empty cache
+				msg = "\t\t\tinsert must have been retried"
+				if ms.m.setInvocations == 3 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen read fails after successful inserts")
+			{
+				operationChainLength := len(theFellowship)
+				rc := assembleRunnerConfigForBoundaryTestLoop(
+					rpOneMapOneRunNoEvictionScDisabled,
+					sleepConfigDisabled,
+					&sleepConfig{true, 1_000, false},
+					1.0,
+					0.0,
+					1.0,
+					operationChainLength,
+					true,
+				)
+				ms := assembleTestMapStore(&testMapStoreBehavior{
+					returnErrorUponGet: true,
+				})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+				ts := &testSleeper{}
+				tl.s = ts
+
+				ac := &actionCache{}
+				kc := map[string]struct{}{}
+				go tl.gatherer.Listen()
+
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+				tl.gatherer.StopListen()
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg := "\t\t\toperation chain must commence"
+				// We can verify the operation chain continued by checking the number of inserts on the map store
+				if ms.m.setInvocations == operationChainLength {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treads must have been retried"
+				if ms.m.getInvocations == operationChainLength-1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tcache must have been updated after each successful insert"
+				if len(kc) == operationChainLength {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus tracker must have been informed about failed read attempts"
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				failedReadAttempts := statusCopy[string(statusKeyNumFailedReads)].(int)
+				if failedReadAttempts == ms.m.getInvocations {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen read and remove operations fail after successful inserts")
+			{
+				operationChainLength := len(theFellowship) * 2
+				rc := assembleRunnerConfigForBoundaryTestLoop(
+					rpOneMapOneRunNoEvictionScDisabled,
+					sleepConfigDisabled,
+					&sleepConfig{true, 1_000, false},
+					1.0,
+					0.0,
+					1.0,
+					operationChainLength,
+					true,
+				)
+				ms := assembleTestMapStore(&testMapStoreBehavior{
+					returnErrorUponGet:    true,
+					returnErrorUponRemove: true,
+				})
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
+
+				ts := &testSleeper{}
+				tl.s = ts
+
+				ac := &actionCache{}
+				kc := map[string]struct{}{}
+				go tl.gatherer.Listen()
+
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+				tl.gatherer.StopListen()
+
+				waitForStatusGatheringDone(tl.gatherer)
+
+				msg := "\t\t\tremoves must have been retried"
+				if ms.m.removeInvocations == operationChainLength/2 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treads must have been retried"
+				if ms.m.getInvocations == operationChainLength-1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno element must have been removed from cache"
+				if len(kc) == ms.m.setInvocations {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
 	}
 
 }

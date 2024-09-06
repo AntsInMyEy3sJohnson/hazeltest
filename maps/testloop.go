@@ -377,12 +377,14 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		lp.LogMapRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), l.tle.runnerName, log.TraceLevel)
 
-		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in iteration '%d': %v", actions.next, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
+		err = l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next)
+		actions.last = actions.next
+		actions.next = ""
+
+		if err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
 		} else {
-			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), l.tle.runnerName, log.TraceLevel)
-			actions.last = actions.next
-			actions.next = ""
+			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName), l.tle.runnerName, log.TraceLevel)
 			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.tle.getElementID(nextMapElement)), l.tle.runnerName)
 		}
 
