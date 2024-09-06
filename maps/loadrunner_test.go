@@ -261,9 +261,11 @@ func TestRunLoadMapTests(t *testing.T) {
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
 				testConfig: map[string]any{
-					"mapTests.load.enabled":                      true,
-					"mapTests.load.testLoop.type":                "batch",
-					"mapTests.load.payload.variableSize.enabled": true,
+					"mapTests.load.enabled":                                 true,
+					"mapTests.load.testLoop.type":                           "batch",
+					"mapTests.load.payload.variableSize.enabled":            true,
+					"mapTests.load.payload.variableSize.lowerBoundaryBytes": 42,
+					"mapTests.load.payload.variableSize.upperBoundaryBytes": 43,
 				},
 			}
 			ch := &testHzClientHandler{}
@@ -928,6 +930,60 @@ func TestPopulateLoadConfig(t *testing.T) {
 				t.Fatal(msg, ballotX, keyPath)
 			}
 
+		}
+
+		t.Log("\twhen lower and upper boundary for variable-size payloads have not been provided")
+		{
+			t.Log("\t\twhen variable-size payloads have been enabled")
+			{
+				tc := assembleTestConfigForTestLoopType(boundary)
+				tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
+				tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+
+				a := &testConfigPropertyAssigner{testConfig: tc}
+
+				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+				msg := "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tnil config must be returned"
+				if cfg == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen variable-size payloads have not been enabled")
+			{
+				tc := assembleTestConfigForTestLoopType(boundary)
+				tc["testMapRunner.payload.fixedSize.enabled"] = true
+				tc["testMapRunner.payload.variableSize.enabled"] = false
+				tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
+				tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+
+				a := &testConfigPropertyAssigner{testConfig: tc}
+
+				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tpopulated config must be returned"
+				if cfg != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
 		}
 	}
 

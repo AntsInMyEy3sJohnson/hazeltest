@@ -301,9 +301,11 @@ func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.Confi
 		}
 	}
 
-	err := validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
-	if err != nil {
-		return nil, err
+	if useVariablePayload {
+		err := validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	configBuilder := runnerConfigBuilder{
