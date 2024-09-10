@@ -413,9 +413,10 @@ func TestRunLoadMapTests(t *testing.T) {
 		{
 			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
-				"mapTests.load.enabled":                   true,
-				"mapTests.load.testLoop.type":             string(batch),
-				"mapTests.load.payload.fixedSize.enabled": true,
+				"mapTests.load.enabled":                      true,
+				"mapTests.load.testLoop.type":                string(batch),
+				"mapTests.load.payload.fixedSize.enabled":    true,
+				"mapTests.load.payload.variableSize.enabled": false,
 			}}
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
@@ -632,8 +633,8 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			waitForStatusGatheringDone(gatherer)
 
-			msg := "\t\ttest loop must have been created once"
-			if l.observations.numNewLooperInvocations == 1 {
+			msg := "\t\ttest loop must not have been created"
+			if l.observations.numNewLooperInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
@@ -661,7 +662,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			msg = "\t\trunner state list must contain expected state transitions"
-			if detail, ok := checkRunnerStateTransitions([]runnerState{start, populateConfigComplete, checkEnabledComplete, assignTestLoopComplete}, r.stateList); ok {
+			if detail, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, detail)
@@ -691,7 +692,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 
 	t.Log("given map name, map number, and a load element")
 	{
-		t.Log("\twhen usage of fixed-size payloads were enabled")
+		t.Log("\twhen usage of fixed-size payloads was enabled")
 		{
 			t.Log("\t\twhen load element has empty payload")
 			{
@@ -742,8 +743,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 
 			}
 		}
-
-		t.Log("\twhen variable-size payloads were enabled")
+		t.Log("\twhen usage of variable-size payloads was enabled")
 		{
 			useFixedPayload = false
 			useVariablePayload = true
@@ -804,7 +804,6 @@ func TestGetOrAssemblePayload(t *testing.T) {
 				}
 			}
 		}
-
 		t.Log("\twhen neither fixed-size nor variable-size payloads were enabled")
 		{
 			useFixedPayload = false
@@ -822,6 +821,80 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			payload := v.(string)
 			msg = "\t\tempty payload must be returned"
 			if len(payload) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen both fixed-size and variable-size payloads were enabled")
+		{
+			useFixedPayload = true
+			useVariablePayload = true
+
+			v, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			payload := v.(string)
+			msg = "\t\tempty payload must be returned"
+			if len(payload) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
+func TestAssertExactlyOnePayloadModeEnabled(t *testing.T) {
+
+	t.Log("given two modes for generating payloads for the map load runner")
+	{
+		t.Log("\twhen both modes are enabled")
+		{
+			err := assertExactlyOnePayloadModeEnabled(true, true)
+
+			msg := "\t\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen neither of the two modes is enabled")
+		{
+			err := assertExactlyOnePayloadModeEnabled(false, false)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen only fixed-size payloads are enabled")
+		{
+			err := assertExactlyOnePayloadModeEnabled(true, false)
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
+				t.Log(msg, checkMark)
+			}
+		}
+		t.Log("\twhen only variable-size payloads are enabled")
+		{
+			err := assertExactlyOnePayloadModeEnabled(false, true)
+
+			msg := "\t\tno error must be returned"
+
+			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -859,7 +932,6 @@ func TestPopulateLoadConfig(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
-
 		t.Log("\twhen properties are correct")
 		{
 			tc := assembleTestConfigForTestLoopType(boundary)
@@ -931,14 +1003,94 @@ func TestPopulateLoadConfig(t *testing.T) {
 			}
 
 		}
-
 		t.Log("\twhen lower and upper boundary for variable-size payloads have not been provided")
 		{
 			t.Log("\t\twhen variable-size payloads have been enabled")
 			{
+				t.Log("\t\t\twhen runner has been enabled")
+				{
+					tc := assembleTestConfigForTestLoopType(boundary)
+					tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
+					tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+
+					a := &testConfigPropertyAssigner{testConfig: tc}
+
+					cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+					msg := "\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tnil config must be returned"
+					if cfg == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+				t.Log("\t\t\twhen runner has been disabled")
+				{
+					tc := assembleTestConfigForTestLoopType(boundary)
+					tc["testMapRunner.enabled"] = false
+					tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
+					tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+
+					a := &testConfigPropertyAssigner{testConfig: tc}
+
+					cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+					msg := "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tpopulated config must be returned"
+					if cfg != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+			t.Log("\t\twhen variable-size payloads have not been enabled")
+			{
 				tc := assembleTestConfigForTestLoopType(boundary)
+				tc["testMapRunner.payload.fixedSize.enabled"] = true
+				tc["testMapRunner.payload.variableSize.enabled"] = false
 				tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
 				tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+
+				a := &testConfigPropertyAssigner{testConfig: tc}
+
+				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tpopulated config must be returned"
+				if cfg != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen both fixed-size and variable-size payloads have been enabled")
+		{
+			t.Log("\t\twhen runner has been enabled")
+			{
+				tc := assembleTestConfigForTestLoopType(boundary)
+				tc["testMapRunner.payload.fixedSize.enabled"] = true
+				tc["testMapRunner.payload.variableSize.enabled"] = true
 
 				a := &testConfigPropertyAssigner{testConfig: tc}
 
@@ -958,15 +1110,68 @@ func TestPopulateLoadConfig(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 			}
-			t.Log("\t\twhen variable-size payloads have not been enabled")
+			t.Log("\t\twhen runner has been disabled")
 			{
 				tc := assembleTestConfigForTestLoopType(boundary)
+				tc["testMapRunner.enabled"] = false
 				tc["testMapRunner.payload.fixedSize.enabled"] = true
-				tc["testMapRunner.payload.variableSize.enabled"] = false
-				tc["testMapRunner.payload.variableSize.upperBoundaryBytes"] = 42
-				tc["testMapRunner.payload.variableSize.lowerBoundaryBytes"] = 43
+				tc["testMapRunner.payload.variableSize.enabled"] = true
 
 				a := &testConfigPropertyAssigner{testConfig: tc}
+
+				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tpopulated config must be returned"
+				if cfg != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+
+		}
+		t.Log("\twhen both fixed-size nor variable-size payloads have been disabled")
+		{
+			t.Log("\t\twhen runner has been enabled")
+			{
+				a := &testConfigPropertyAssigner{testConfig: map[string]any{
+					"testMapRunner.enabled":                      true,
+					"testMapRunner.payload.fixedSize.enabled":    false,
+					"testMapRunner.payload.variableSize.enabled": false,
+				}}
+
+				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
+
+				msg := "\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tnil config must be returned"
+				if cfg == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen runner has been disabled")
+			{
+
+				a := &testConfigPropertyAssigner{testConfig: map[string]any{
+					"testMapRunner.enabled":                      false,
+					"testMapRunner.payload.fixedSize.enabled":    false,
+					"testMapRunner.payload.variableSize.enabled": false,
+				}}
 
 				cfg, err := populateLoadConfig(testMapRunnerKeyPath, testMapBaseName, a)
 

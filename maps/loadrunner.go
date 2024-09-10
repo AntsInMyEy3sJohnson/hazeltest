@@ -213,6 +213,10 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (any, error) {
 
+	if useFixedPayload && useVariablePayload {
+		return "", errors.New("instructions unclear: both fixed-size and variable-size payloads enabled")
+	}
+
 	l := element.(loadElement)
 
 	if useFixedPayload {
@@ -236,6 +240,20 @@ func getLoadElementID(element any) string {
 
 	l := element.(loadElement)
 	return l.Key
+
+}
+
+func assertExactlyOnePayloadModeEnabled(fixedEnabled, variableEnabled bool) error {
+
+	if fixedEnabled == variableEnabled {
+		if fixedEnabled {
+			return errors.New("instructions unclear: both fixed-size and variable-size payloads have been enabled")
+
+		}
+		return errors.New("instructions unclear: neither fixed-size nor variable-size payloads have been enabled")
+	}
+
+	return nil
 
 }
 
@@ -301,18 +319,32 @@ func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.Confi
 		}
 	}
 
-	if useVariablePayload {
-		err := validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	configBuilder := runnerConfigBuilder{
 		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
 		mapBaseName:   mapBaseName,
 	}
-	return configBuilder.populateConfig()
+
+	cfg, err := configBuilder.populateConfig()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.enabled {
+		// Perform additional checks only if runner has been enabled
+		if err = assertExactlyOnePayloadModeEnabled(useFixedPayload, useVariablePayload); err != nil {
+			return nil, err
+		}
+
+		if useVariablePayload {
+			err = validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return cfg, nil
 
 }
