@@ -79,6 +79,8 @@ var (
 	getOrAssembleBehavior     = getOrAssemblePayloadFunctionBehavior{}
 	getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
 	getOrAssemblePayloadError = errors.New("the error everyone told you not to worry about")
+	defaultTestMapName        = "awesome-map"
+	defaultTestMapNumber      = uint16(0)
 )
 
 func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
@@ -96,6 +98,94 @@ func (c *testSingleMapCleaner) Clean(_ string) (int, error) {
 	}
 
 	return c.behavior.numElementsCleanedReturnValue, nil
+
+}
+
+func BenchmarkRunOperationChain(b *testing.B) {
+
+	ms := assembleTestMapStore(&testMapStoreBehavior{})
+	chainLength := 100 * len(theFellowship)
+	rc := assembleRunnerConfigForBoundaryTestLoop(
+		rpOneMapOneRunNoEvictionScDisabled,
+		sleepConfigDisabled,
+		sleepConfigDisabled,
+		1.0,
+		0.0,
+		1.0,
+		chainLength,
+		true,
+	)
+	tl := assembleBoundaryTestLoopForBenchmark(uuid.New(), testSource, 1_000, &testHzClientHandler{}, ms, rc)
+
+	mc := &modeCache{}
+	ac := &actionCache{}
+	elementsInserted := make(map[string]string)
+	elementsAvailableForInsertion := make(map[string]string)
+
+	for i := 0; i < b.N; i++ {
+		err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map-name", 0, elementsInserted, elementsAvailableForInsertion)
+
+		if err != nil {
+			b.Fatal("encountered error in scope of running operation chain: ", err)
+		}
+	}
+
+}
+
+func TestPopulateElementsAvailableForInsertion(t *testing.T) {
+
+	t.Log("given source data elements that are available for insertion as long as they haven't been inserted yet")
+	{
+		t.Log("\twhen test loop execution's source data contains at least one element")
+		{
+			tl := &boundaryTestLoop[string]{
+				tle: &testLoopExecution[string]{
+					elements: theFellowship,
+					getElementID: func(element any) string {
+						return element.(string)
+					},
+				},
+			}
+
+			mapName := "awesome-map"
+			mapNumber := uint16(0)
+			availableForInsertion := tl.populateElementsAvailableForInsertion(mapName, mapNumber)
+
+			msg := "\t\telements available for insertion must have been populated"
+			if len(availableForInsertion) == len(theFellowship) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\telements available for insertion must contain all elements from source data"
+			for _, v := range theFellowship {
+				key := assembleMapKey(mapName, mapNumber, v)
+				if _, ok := availableForInsertion[key]; ok {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+		}
+		t.Log("\twhen test loop execution's source data contains zero elements")
+		{
+			tl := &boundaryTestLoop[string]{
+				tle: &testLoopExecution[string]{
+					elements: []string{},
+				},
+			}
+
+			availableForInsertion := tl.populateElementsAvailableForInsertion("awesome-map", 0)
+
+			msg := "\t\treturned map must be empty"
+			if len(availableForInsertion) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
 
 }
 
@@ -213,33 +303,6 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 
 }
 
-func TestChooseRandomElementFromSourceData(t *testing.T) {
-
-	t.Log("given a populated source data as part of the test loop execution's runnerState")
-	{
-		t.Log("\twhen caller desires random element from source data")
-		{
-			tle := testLoopExecution[pokemon]{
-				elements: []pokemon{
-					{Name: "Charmander"},
-				},
-			}
-			tl := boundaryTestLoop[pokemon]{
-				tle: &tle,
-			}
-			selectedElement := tl.chooseRandomElementFromSourceData()
-
-			msg := "\t\telement from source data must be selected"
-			if selectedElement.Name == tle.elements[0].Name {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-	}
-
-}
-
 func TestChooseNextMapElement(t *testing.T) {
 
 	t.Log("given a set of possible map actions and a cache mirroring the current state of the corresponding map in hazelcast")
@@ -257,20 +320,26 @@ func TestChooseNextMapElement(t *testing.T) {
 					},
 				}
 
-				cache := make(map[string]struct{}, len(theFellowship)-1)
+				elementsInserted := make(map[string]string, len(theFellowship)-1)
+				mapName := "awesome-map"
 				mapNumber := uint16(0)
 				for i := 0; i < len(theFellowship)-1; i++ {
-					key := assembleMapKey(mapNumber, theFellowship[i])
-					cache[key] = struct{}{}
+					key := assembleMapKey(mapName, mapNumber, theFellowship[i])
+					elementsInserted[key] = theFellowship[i]
 				}
-				elementNotYetInCache := theFellowship[len(theFellowship)-1]
-				selectedElement, err := tl.chooseNextMapElement(insert, cache, 0)
+
+				elementNotInserted := theFellowship[len(theFellowship)-1]
+				keyOfNotInsertedElement := assembleMapKey(mapName, mapNumber, elementNotInserted)
+				elementsAvailableForInsertion := map[string]string{
+					keyOfNotInsertedElement: elementNotInserted,
+				}
+				selectedElement, err := tl.chooseNextMapElement(insert, elementsInserted, elementsAvailableForInsertion)
 
 				msg := "\t\t\tselected element must be only element not yet stored in cache"
-				if selectedElement == elementNotYetInCache {
+				if selectedElement == elementsAvailableForInsertion[keyOfNotInsertedElement] {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementNotYetInCache))
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementsAvailableForInsertion))
 				}
 
 				msg = "\t\t\tno error must be returned"
@@ -298,11 +367,13 @@ func TestChooseNextMapElement(t *testing.T) {
 				// --> Has same effect in loop, but easier this way to test whether random selection was
 				// invoked because with only one element in source data, random selection must yield
 				// precisely this element
+				mapName := "awesome-map"
 				mapNumber := uint16(0)
-				cache := map[string]struct{}{
-					assembleMapKey(mapNumber, theFellowship[0]): {},
+				cache := map[string]string{
+					assembleMapKey(mapName, mapNumber, theFellowship[0]): theFellowship[0],
 				}
-				selectedElement, err := tl.chooseNextMapElement(insert, cache, mapNumber)
+
+				selectedElement, err := tl.chooseNextMapElement(insert, cache, make(map[string]string))
 
 				msg := "\t\t\tselected element must be equal to only element in source data"
 				if selectedElement == theFellowship[0] {
@@ -334,7 +405,17 @@ func TestChooseNextMapElement(t *testing.T) {
 						},
 					}
 
-					selectedElement, err := tl.chooseNextMapElement(action, map[string]struct{}{}, 0)
+					// When the cache of keys written to the target Hazelcast map, then that means
+					// all elements from the source data must be available for insertion
+					availableForInsertion := make(map[string]string, len(theFellowship))
+					mapName := "awesome-map"
+					mapNumber := uint16(42)
+					for i := 0; i < len(theFellowship); i++ {
+						element := theFellowship[i]
+						key := assembleMapKey(mapName, mapNumber, element)
+						availableForInsertion[key] = element
+					}
+					selectedElement, err := tl.chooseNextMapElement(action, map[string]string{}, availableForInsertion)
 
 					msg := "\t\t\terror must be returned"
 					if err != nil {
@@ -366,12 +447,20 @@ func TestChooseNextMapElement(t *testing.T) {
 						},
 					}
 
+					mapName := "awesome-map"
 					mapNumber := uint16(0)
-					cache := map[string]struct{}{
-						assembleMapKey(mapNumber, elementInSourceData): {},
+					cache := map[string]string{
+						assembleMapKey(mapName, mapNumber, elementInSourceData): elementInSourceData,
 					}
 
-					selectedElement, err := tl.chooseNextMapElement(action, cache, mapNumber)
+					elementsAvailableForInsertion := make(map[string]string, len(theFellowship)-1)
+					for i := 1; i < len(theFellowship); i++ {
+						element := theFellowship[i]
+						key := assembleMapKey(mapName, mapNumber, element)
+						elementsAvailableForInsertion[key] = element
+					}
+
+					selectedElement, err := tl.chooseNextMapElement(action, cache, elementsAvailableForInsertion)
 
 					msg := "\t\t\tselected element must be equal to element stored in cache"
 					if selectedElement == elementInSourceData {
@@ -386,42 +475,8 @@ func TestChooseNextMapElement(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX, err)
 					}
-
-				}
-
-				t.Log("\t\twhen mismatch between source data and state in cache has occurred")
-				{
-					tl := boundaryTestLoop[string]{
-						tle: &testLoopExecution[string]{
-							elements: theFellowship,
-							getElementID: func(element any) string {
-								return "So you have chosen... death."
-							},
-						},
-					}
-
-					cache := map[string]struct{}{
-						"You shall not pass!": {},
-					}
-					selectedElement, err := tl.chooseNextMapElement(action, cache, 0)
-
-					msg := "\t\t\terror must be returned"
-					if err != nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\tselected element must be equal to first element in source data"
-					elementFromSourceData := theFellowship[0]
-					if selectedElement == elementFromSourceData {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementFromSourceData))
-					}
 				}
 			}
-
 		}
 
 		t.Log("\twhen unknown map action is provided")
@@ -432,7 +487,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				},
 			}
 
-			selectedElement, err := tl.chooseNextMapElement("awesomeNonExistingMapAction", map[string]struct{}{}, 0)
+			selectedElement, err := tl.chooseNextMapElement("awesomeNonExistingMapAction", map[string]string{}, map[string]string{})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -459,8 +514,7 @@ func TestAssemblePredicate(t *testing.T) {
 		t.Log("\twhen client id and map number are provided")
 		{
 			clientID := uuid.New()
-			mapNumber := uint16(0)
-			predicate := assemblePredicate(clientID, mapNumber)
+			predicate := assemblePredicate(clientID, defaultTestMapName, defaultTestMapNumber)
 
 			msg := "\t\tpredicate must be returned"
 			if predicate != nil {
@@ -478,7 +532,7 @@ func TestAssemblePredicate(t *testing.T) {
 			}
 
 			actualFilter := strings.ReplaceAll(predicateString, "SQL", "")
-			expectedFilter := fmt.Sprintf("(__key like %s-%d%%)", clientID, mapNumber)
+			expectedFilter := fmt.Sprintf("(__key like %s-%s-%d%%)", clientID, defaultTestMapName, defaultTestMapNumber)
 			msg = "\t\tpredicate must contain expected filter"
 			if actualFilter == expectedFilter {
 				t.Log(msg, checkMark)
@@ -486,56 +540,6 @@ func TestAssemblePredicate(t *testing.T) {
 				t.Fatal(msg, ballotX, fmt.Sprintf("expected '%s', got '%s'", expectedFilter, actualFilter))
 			}
 
-		}
-	}
-
-}
-
-func TestChooseRandomKeyFromCache(t *testing.T) {
-
-	t.Log("given a cache of keys values have to be selected from")
-	{
-		t.Log("\twhen empty cache is provided")
-		{
-			selectedKey, err := chooseRandomKeyFromCache(map[string]struct{}{})
-
-			msg := "\t\tselected key must be empty string"
-			if selectedKey == "" {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, msg)
-			}
-
-			msg = "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-		}
-
-		t.Log("\twhen cache contains element")
-		{
-			key := "gandalf"
-			cache := map[string]struct{}{
-				key: {},
-			}
-
-			selectedKey, err := chooseRandomKeyFromCache(cache)
-			msg := "\t\tkey must be selected"
-
-			if selectedKey == key {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, selectedKey)
-			}
-
-			msg = "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
 		}
 	}
 
@@ -675,7 +679,7 @@ func TestRunWrapper(t *testing.T) {
 				}
 				tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
 
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				go tl.gatherer.Listen()
 				runFuncCalled := false
@@ -772,7 +776,7 @@ func TestRunWrapper(t *testing.T) {
 				}
 				tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
 
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				go tl.gatherer.Listen()
 				runFuncCalled := false
@@ -954,7 +958,7 @@ func TestExecuteMapAction(t *testing.T) {
 					action := insert
 
 					mapNumber := uint16(0)
-					populateTestHzMapStore(&ms)
+					populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 					mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
 
 					err := tl.executeMapAction(ms.m, mapName, mapNumber, theFellowship[0], action)
@@ -1110,7 +1114,7 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponRemove: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
@@ -1165,7 +1169,7 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 
@@ -1260,7 +1264,7 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGet: true})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				go tl.gatherer.Listen()
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
@@ -1316,9 +1320,9 @@ func TestExecuteMapAction(t *testing.T) {
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-					populateTestHzMapStore(&ms)
+					populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-					err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
+					err := tl.executeMapAction(ms.m, defaultTestMapName, defaultTestMapNumber, theFellowship[0], read)
 
 					msg := "\t\t\tno error must be returned"
 					if err == nil {
@@ -1911,24 +1915,28 @@ func TestResetAfterOperationChain(t *testing.T) {
 		{
 			t.Log("\t\twhen remove all on remote map does not yield error")
 			{
-				mapNumber := uint16(0)
 				tl := boundaryTestLoop[string]{
 					tle: &testLoopExecution[string]{
-						ctx: context.TODO(),
+						ctx:      context.TODO(),
+						elements: theFellowship,
+						getElementID: func(element any) string {
+							return element.(string)
+						},
 					},
 				}
 
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				mc := &modeCache{current: fill, forceActionTowardsMode: true}
 				ac := &actionCache{last: insert, next: read}
-				keysCache := map[string]struct{}{}
-				ms.m.data.Range(func(key, _ any) bool {
-					keysCache[key.(string)] = struct{}{}
+				keysCache := map[string]string{}
+				ms.m.data.Range(func(key, value any) bool {
+					keysCache[key.(string)] = value.(string)
 					return true
 				})
-				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, mc, ac)
+				elementsAvailableForInsertion := make(map[string]string, len(theFellowship))
+				tl.resetAfterOperationChain(ms.m, defaultTestMapName, defaultTestMapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
 
 				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
 				if mc.current == "" && !mc.forceActionTowardsMode {
@@ -1952,7 +1960,7 @@ func TestResetAfterOperationChain(t *testing.T) {
 				}
 
 				msg = "\t\t\tremove all must have been invoked with correct predicate"
-				expectedPredicateFilter := fmt.Sprintf("%s-%d", client.ID(), mapNumber)
+				expectedPredicateFilter := fmt.Sprintf("%s-%s-%d", client.ID(), defaultTestMapName, defaultTestMapNumber)
 				if ms.m.lastPredicateFilterForRemoveAllInvocation == expectedPredicateFilter {
 					t.Log(msg, checkMark)
 				} else {
@@ -1964,6 +1972,14 @@ func TestResetAfterOperationChain(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("contains %d element/-s", len(keysCache)))
+				}
+
+				msg = "\t\t\tstore representing elements available for insertion must have been re-populated"
+				msg = "\t\t\tstore representing elements available for insertion must have been re-populated"
+				if len(elementsAvailableForInsertion) == len(theFellowship) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(elementsAvailableForInsertion)))
 				}
 
 			}
@@ -1978,16 +1994,17 @@ func TestResetAfterOperationChain(t *testing.T) {
 				}
 
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponRemoveAll: true})
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				keysCache := map[string]struct{}{}
-				ms.m.data.Range(func(key, _ any) bool {
-					keysCache[key.(string)] = struct{}{}
+				keysCache := map[string]string{}
+				ms.m.data.Range(func(key, value any) bool {
+					keysCache[key.(string)] = value.(string)
 					return true
 				})
 				mc := &modeCache{current: fill}
 				ac := &actionCache{last: insert, next: read}
-				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, mc, ac)
+				elementsAvailableForInsertion := make(map[string]string, len(theFellowship))
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
 
 				msg := "\t\t\tlocal mode cache for given map number must be cleared anyway"
 				if mc.current == "" {
@@ -2008,6 +2025,13 @@ func TestResetAfterOperationChain(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(keysCache)))
+				}
+
+				msg = "\t\t\tstore representing set of elements available for insertion must remain unmodified, too"
+				if len(elementsAvailableForInsertion) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected 0 elements, got %d", len(elementsAvailableForInsertion)))
 				}
 			}
 		}
@@ -2219,9 +2243,10 @@ func TestRunOperationChain(t *testing.T) {
 
 			mc := &modeCache{}
 			ac := &actionCache{}
-			keysCache := map[string]struct{}{}
+			keysCache := map[string]string{}
+			availableForInsertion := map[string]string{}
 
-			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, availableForInsertion)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2293,9 +2318,13 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
-				keysCache := map[string]struct{}{}
+				keysCache := map[string]string{}
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+				mapName := "awesome-map"
+				mapNumber := uint16(0)
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+
+				err := tl.runOperationChain(0, ms.m, mc, ac, mapName, mapNumber, keysCache, availableForInsertion)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2371,9 +2400,13 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
-				keysCache := map[string]struct{}{}
+				keysCache := map[string]string{}
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache)
+				mapName := "awesome-map"
+				mapNumber := uint16(0)
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+
+				err := tl.runOperationChain(0, ms.m, mc, ac, mapName, mapNumber, keysCache, availableForInsertion)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2416,7 +2449,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]struct{}{})
+			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]string{}, map[string]string{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2445,7 +2478,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]struct{}{})
+			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]string{}, map[string]string{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2479,8 +2512,13 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]struct{}{}
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+				kc := map[string]string{}
+
+				mapName := "awesome-map"
+				mapNumber := uint16(12)
+
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, mapName, mapNumber, kc, availableForInsertion)
 
 				msg := "\t\t\taction must be tracked anyway"
 				// We can check whether the action was tracked by verifying the action cache's last action is populated
@@ -2492,6 +2530,13 @@ func TestRunOperationChain(t *testing.T) {
 
 				msg = "\t\t\tkeys cache must not be updated"
 				if len(kc) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\telement must not have been removed from elements available for insertion"
+				if len(availableForInsertion) == len(theFellowship) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2530,10 +2575,15 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]struct{}{}
+				kc := map[string]string{}
 				go tl.gatherer.Listen()
 
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+				mapName := "awesome-map"
+				mapNumber := uint16(12)
+
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, mapName, mapNumber, kc, availableForInsertion)
 				tl.gatherer.StopListen()
 
 				waitForStatusGatheringDone(tl.gatherer)
@@ -2593,10 +2643,17 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]struct{}{}
+				kc := map[string]string{}
 				go tl.gatherer.Listen()
 
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, "awesome-map", 12, kc)
+				availableForInsertion := make(map[string]string, len(theFellowship))
+				for i := 0; i < len(theFellowship); i++ {
+					element := theFellowship[i]
+					key := assembleMapKey(defaultTestMapName, defaultTestMapNumber, element)
+					availableForInsertion[key] = element
+				}
+
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, defaultTestMapName, defaultTestMapNumber, kc, availableForInsertion)
 				tl.gatherer.StopListen()
 
 				waitForStatusGatheringDone(tl.gatherer)
@@ -2617,6 +2674,13 @@ func TestRunOperationChain(t *testing.T) {
 
 				msg = "\t\t\tno element must have been removed from cache"
 				if len(kc) == ms.m.setInvocations {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno elements must have been inserted into store representing elements available for insertion"
+				if len(availableForInsertion) == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -3069,7 +3133,7 @@ func TestIngestAll(t *testing.T) {
 					sleepConfigDisabled,
 				)
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-				populateTestHzMapStore(&ms)
+				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				statusRecord := map[statusKey]any{
 					statusKeyNumFailedInserts: 0,
@@ -3318,10 +3382,10 @@ func TestReadAll(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-			populateTestHzMapStore(&ms)
+			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 			go tl.gatherer.Listen()
-			err := tl.readAll(ms.m, testMapBaseName, 0)
+			err := tl.readAll(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
 			waitForStatusGatheringDone(tl.gatherer)
@@ -3405,7 +3469,7 @@ func TestReadAll(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-			ms.m.data.Store(assembleMapKey(0, "legolas"), nil)
+			ms.m.data.Store(assembleMapKey("awesome-map", 0, "legolas"), nil)
 
 			go tl.gatherer.Listen()
 			err := tl.readAll(ms.m, testMapBaseName, 0)
@@ -3453,13 +3517,13 @@ func TestReadAll(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-			populateTestHzMapStore(&ms)
+			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 			s := &testSleeper{}
 			tl.s = s
 
 			go tl.gatherer.Listen()
-			err := tl.readAll(ms.m, "yet-another-awesome-map", uint16(0))
+			err := tl.readAll(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
 			msg := "\t\tno error must be returned"
@@ -3498,7 +3562,7 @@ func TestRemoveSome(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-			populateTestHzMapStore(&ms)
+			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 			statusRecord := map[statusKey]any{
 				statusKeyNumFailedRemoves: 0,
@@ -3538,10 +3602,10 @@ func TestRemoveSome(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-			populateTestHzMapStore(&ms)
+			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 			go tl.gatherer.Listen()
-			err := tl.removeSome(ms.m, testMapBaseName, uint16(0))
+			err := tl.removeSome(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
 			msg := "\t\terror must be returned"
@@ -3576,13 +3640,13 @@ func TestRemoveSome(t *testing.T) {
 				sleepConfigDisabled,
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-			populateTestHzMapStore(&ms)
+			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 			s := &testSleeper{}
 			tl.s = s
 
 			go tl.gatherer.Listen()
-			err := tl.removeSome(ms.m, "yet-another-awesome-map", uint16(0))
+			err := tl.removeSome(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
 			msg := "\t\tno error must be returned"
@@ -3698,9 +3762,25 @@ func numElementsInSyncMap(data *sync.Map) int {
 
 }
 
+func assembleBoundaryTestLoopForBenchmark(id uuid.UUID, source string, numElements int, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore, rc *runnerConfig) boundaryTestLoop[string] {
+
+	elements := make([]string, numElements)
+
+	for i := 0; i < numElements; i++ {
+		elements[i] = fmt.Sprintf("%d", i)
+	}
+
+	tle := assembleTestLoopExecution(id, source, elements, rc, ch, ms)
+	tl := boundaryTestLoop[string]{}
+	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
+
+	return tl
+
+}
+
 func assembleBoundaryTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore, rc *runnerConfig) boundaryTestLoop[string] {
 
-	tle := assembleTestLoopExecution(id, source, rc, ch, ms)
+	tle := assembleTestLoopExecution(id, source, theFellowship, rc, ch, ms)
 	tl := boundaryTestLoop[string]{}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
@@ -3709,7 +3789,7 @@ func assembleBoundaryTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.H
 
 func assembleBatchTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore, rc *runnerConfig) batchTestLoop[string] {
 
-	tle := assembleTestLoopExecution(id, source, rc, ch, ms)
+	tle := assembleTestLoopExecution(id, source, theFellowship, rc, ch, ms)
 	tl := batchTestLoop[string]{}
 	tl.init(&tle, &defaultSleeper{}, status.NewGatherer())
 
@@ -3717,7 +3797,7 @@ func assembleBatchTestLoop(id uuid.UUID, source string, ch hazelcastwrapper.HzCl
 
 }
 
-func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
+func assembleTestLoopExecution(id uuid.UUID, source string, elements []string, rc *runnerConfig, ch hazelcastwrapper.HzClientHandler, ms hazelcastwrapper.MapStore) testLoopExecution[string] {
 
 	return testLoopExecution[string]{
 		id:                   id,
@@ -3725,7 +3805,7 @@ func assembleTestLoopExecution(id uuid.UUID, source string, rc *runnerConfig, ch
 		hzClientHandler:      ch,
 		hzMapStore:           ms,
 		runnerConfig:         rc,
-		elements:             theFellowship,
+		elements:             elements,
 		ctx:                  nil,
 		getElementID:         fellowshipMemberName,
 		getOrAssemblePayload: returnFellowshipMemberName,
@@ -3820,12 +3900,25 @@ func fellowshipMemberName(element any) string {
 
 }
 
-func populateTestHzMapStore(ms *testHzMapStore) {
+func populateElementsAvailableForInsertion(mapName string, mapNumber uint16, sourceData []string) map[string]string {
 
-	mapNumber := uint16(0)
+	result := make(map[string]string, len(sourceData))
+
+	for i := 0; i < len(sourceData); i++ {
+		element := sourceData[i]
+		key := assembleMapKey(mapName, mapNumber, element)
+		result[key] = element
+	}
+
+	return result
+
+}
+
+func populateTestHzMapStore(mapName string, mapNumber uint16, ms *testHzMapStore) {
+
 	// Store all elements from test data source in map
 	for _, value := range theFellowship {
-		key := assembleMapKey(mapNumber, value)
+		key := assembleMapKey(mapName, mapNumber, value)
 
 		ms.m.data.Store(key, value)
 	}
