@@ -128,11 +128,10 @@ func (g *Gatherer) ListeningStopped() bool {
 
 func (g *Gatherer) insertSynchronously(u Update) {
 
-	// No-op for testing dev4 image
-	/*g.l.lock()
+	g.l.lock()
 	{
 		g.status[u.Key] = u.Value
 	}
-	g.l.unlock()*/
+	g.l.unlock()
 
 }
