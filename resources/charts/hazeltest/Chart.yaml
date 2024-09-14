@@ -4,10 +4,6 @@ description: A Helm chart for deploying Hazeltest on Kubernetes
 
 type: application
 
-version: 1.2.1-0.14.1
+version: 1.2.1-0.15.0
 
-appVersion: "0.14.1"
-
-# Useful commands:
-# helm upgrade --install hazeltest . --namespace=hazelcastplatform
-# helm uninstall hazeltest --namespace=hazelcastplatform
+appVersion: "0.15.0"

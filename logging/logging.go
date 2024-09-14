@@ -19,6 +19,7 @@ const IoEvent = "io event"
 const HzEvent = "hazelcast event"
 const ConfigurationEvent = "configuration event"
 const InternalStateEvent = "internal state event"
+const PayloadGeneratorEvent = "payload generator event"
 
 type LogProvider struct {
 	ClientID uuid.UUID
@@ -69,6 +70,16 @@ func GetLogProviderInstance(clientID uuid.UUID) *LogProvider {
 	}
 
 	return lp
+
+}
+
+func (lp *LogProvider) LogPayloadGeneratorEvent(msg string, level log.Level) {
+
+	fields := log.Fields{
+		"kind": PayloadGeneratorEvent,
+	}
+
+	lp.doLog(msg, fields, level)
 
 }
 

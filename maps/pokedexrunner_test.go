@@ -23,7 +23,7 @@ func TestInitializePokemonTestLoop(t *testing.T) {
 	{
 		t.Log("\twhen boundary test loop type is provided")
 		{
-			l, err := initializePokemonTestLoop(&runnerConfig{loopType: boundary})
+			l, err := initPokedexTestLoop(&runnerConfig{loopType: boundary})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -42,7 +42,7 @@ func TestInitializePokemonTestLoop(t *testing.T) {
 
 		t.Log("\twhen batch test loop type is provided")
 		{
-			l, err := initializePokemonTestLoop(&runnerConfig{loopType: batch})
+			l, err := initPokedexTestLoop(&runnerConfig{loopType: batch})
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -61,7 +61,7 @@ func TestInitializePokemonTestLoop(t *testing.T) {
 
 		t.Log("\twhen unknown test loop type is provided")
 		{
-			l, err := initializePokemonTestLoop(&runnerConfig{loopType: "saruman"})
+			l, err := initPokedexTestLoop(&runnerConfig{loopType: "saruman"})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -94,12 +94,16 @@ func TestRunPokedexMapTests(t *testing.T) {
 				testConfig:  nil,
 			}
 			ch := &testHzClientHandler{}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
+			r := pokedexRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+			}
 
 			gatherer := status.NewGatherer()
 
 			go gatherer.Listen()
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions([]runnerState{start}, r.stateList); ok {
@@ -147,12 +151,16 @@ func TestRunPokedexMapTests(t *testing.T) {
 				},
 			}
 			ch := &testHzClientHandler{}
-			r := pokedexRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch, hzMapStore: testHzMapStore{}, l: testPokedexTestLoop{}}
+			r := pokedexRunner{
+				assigner:        assigner,
+				stateList:       []runnerState{},
+				hzClientHandler: ch,
+			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, initTestMapStore)
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			latestState := populateConfigComplete
@@ -194,22 +202,26 @@ func TestRunPokedexMapTests(t *testing.T) {
 				},
 			}
 			ch := &testHzClientHandler{}
+			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
 			r := pokedexRunner{
 				assigner:        assigner,
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
-				hzMapStore:      testHzMapStore{},
-				l:               testPokedexTestLoop{},
+				providerFuncs: struct {
+					mapStore        newMapStoreFunc
+					pokemonTestLoop newPokemonTestLoopFunc
+				}{mapStore: func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+					ms.observations.numInitInvocations++
+					return ms
+				}, pokemonTestLoop: func(rc *runnerConfig) (looper[pokemon], error) {
+					return &testPokedexTestLoop{}, nil
+				}},
 			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen()
 
-			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
-			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
-				ms.observations.numInitInvocations++
-				return ms
-			})
+			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
 			if msg, ok := checkRunnerStateTransitions(expectedStatesForFullRun, r.stateList); ok {

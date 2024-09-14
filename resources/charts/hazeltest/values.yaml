@@ -11,10 +11,10 @@ image:
 resources:
   requests:
     cpu: "200m"
-    memory: "500M"
+    memory: "250Mi"
   limits:
     cpu: "400m"
-    memory: "1G"
+    memory: "500Mi"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -237,11 +237,19 @@ config:
     load:
       enabled: true
       numMaps: 10
-      numEntriesPerMap: 1000
-      payloadSizeBytes: 100000
+      numEntriesPerMap: 10000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
       numRuns: 10000
+      payload:
+        fixedSize:
+          enabled: false
+          sizeBytes: 10000000
+        variableSize:
+          enabled: true
+          lowerBoundaryBytes: 1000
+          upperBoundaryBytes: 10000
+          evaluateNewSizeAfterNumWriteActions: 100
       performPreRunClean:
         enabled: false
         errorBehavior: ignore

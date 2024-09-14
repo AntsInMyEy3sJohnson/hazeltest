@@ -19,9 +19,10 @@ import (
 )
 
 type (
-	evaluateTimeToSleep func(sc *sleepConfig) int
-	getElementID        func(element any) string
-	looper[t any]       interface {
+	evaluateTimeToSleep      func(sc *sleepConfig) int
+	getElementIdFunc         func(element any) string
+	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (any, error)
+	looper[t any]            interface {
 		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
 		run()
 	}
@@ -58,19 +59,20 @@ type (
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
-		id                  uuid.UUID
-		runnerName          string
-		source              string
-		hzClientHandler     hazelcastwrapper.HzClientHandler
-		hzMapStore          hazelcastwrapper.MapStore
-		stateCleanerBuilder state.SingleMapCleanerBuilder
-		runnerConfig        *runnerConfig
-		elements            []t
-		ctx                 context.Context
-		getElementIdFunc    getElementID
+		id                   uuid.UUID
+		runnerName           string
+		source               string
+		hzClientHandler      hazelcastwrapper.HzClientHandler
+		hzMapStore           hazelcastwrapper.MapStore
+		stateCleanerBuilder  state.SingleMapCleanerBuilder
+		runnerConfig         *runnerConfig
+		elements             []t
+		ctx                  context.Context
+		getElementID         getElementIdFunc
+		getOrAssemblePayload getOrAssemblePayloadFunc
 	}
 	mapTestLoopCountersTracker struct {
-		counters map[statusKey]int
+		counters map[statusKey]uint64
 		l        sync.Mutex
 		gatherer *status.Gatherer
 	}
@@ -125,9 +127,9 @@ var (
 func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
 	ct.gatherer = gatherer
 
-	ct.counters = make(map[statusKey]int)
+	ct.counters = make(map[statusKey]uint64)
 
-	initialCounterValue := 0
+	initialCounterValue := uint64(0)
 	for _, v := range counters {
 		ct.counters[v] = initialCounterValue
 		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
@@ -136,7 +138,7 @@ func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
 
 func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
-	var newValue int
+	var newValue uint64
 	ct.l.Lock()
 	{
 		newValue = ct.counters[sk] + 1
@@ -170,66 +172,31 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-func chooseRandomKeyFromCache(cache map[string]struct{}) (string, error) {
-
-	if len(cache) == 0 {
-		return "", errors.New("cannot pick element from empty cache")
-	}
-
-	randomIndex := rand.Intn(len(cache))
-
-	i := 0
-	for k := range cache {
-		if i == randomIndex {
-			return k, nil
-		}
-		i++
-	}
-
-	// Due to the way the random index is initialized and the element is selected, this cannot occur
-	return "", fmt.Errorf("no match found for index %d in cache of size %d", randomIndex, len(cache))
-
-}
-
-func (l *boundaryTestLoop[t]) chooseRandomElementFromSourceData() t {
-
-	randomIndex := rand.Intn(len(l.tle.elements))
-	return l.tle.elements[randomIndex]
-
-}
-
-func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache map[string]struct{}, mapNumber uint16) (t, error) {
+func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, elementsInserted, elementsAvailableForInsertion map[string]t) (t, error) {
 
 	switch action {
 	case insert:
-		for _, v := range l.tle.elements {
-			key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
-			if _, containsKey := keysCache[key]; !containsKey {
-				return v, nil
-			}
+		// Maps do not preserve order in Go, but that's totally fine -- just whatever element from those available
+		// for insertion happens to be the first one right now
+		for _, v := range elementsAvailableForInsertion {
+			return v, nil
 		}
 		// Getting to this point means that the 'insert' action was chosen elsewhere despite the fact
 		// that all elements have already been stored in cache. This case should not occur,
 		// but when it does nonetheless, it is not sufficiently severe to report an error
 		// and abort execution. So, in this case, we simply choose an element from the source data randomly.
-		lp.LogMapRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- choosing one at random", l.tle.runnerName, log.WarnLevel)
-		return l.chooseRandomElementFromSourceData(), nil
+		lp.LogMapRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- using first element from runner source data", l.tle.runnerName, log.WarnLevel)
+		return l.tle.elements[0], nil
 	case read, remove:
-		keyFromCache, err := chooseRandomKeyFromCache(keysCache)
-		if err != nil {
-			msg := fmt.Sprintf("choosing next map element for map action '%s' unsuccessful: %s", action, err.Error())
-			lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
-			return l.tle.elements[0], fmt.Errorf(msg)
+		if len(elementsInserted) == 0 {
+			return l.tle.elements[0], errors.New("no elements have been previously inserted, so cannot choose element to read or remove")
 		}
-		for _, v := range l.tle.elements {
-			keyFromSourceData := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
-			if keyFromSourceData == keyFromCache {
-				return v, nil
-			}
+		// Similar to above, the fact that maps do not preserve order doesn't concern us
+		for _, v := range elementsInserted {
+			return v, nil
 		}
-		msg := fmt.Sprintf("key '%s' from local cache had no match in source data -- cache may have been populated incorrectly", keyFromCache)
-		lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
-		return l.tle.elements[0], errors.New(msg)
+		// This case cannot occur
+		return l.tle.elements[0], nil
 	default:
 		msg := fmt.Sprintf("no such map action: %s", action)
 		lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
@@ -238,9 +205,9 @@ func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, keysCache m
 
 }
 
-func assemblePredicate(clientID uuid.UUID, mapNumber uint16) predicate.Predicate {
+func assemblePredicate(clientID uuid.UUID, mapName string, mapNumber uint16) predicate.Predicate {
 
-	return predicate.SQL(fmt.Sprintf("__key like %s-%d%%", clientID, mapNumber))
+	return predicate.SQL(fmt.Sprintf("__key like %s-%s-%d%%", clientID, mapName, mapNumber))
 
 }
 
@@ -250,7 +217,8 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 
 	mc := &modeCache{}
 	ac := &actionCache{}
-	keysCache := make(map[string]struct{})
+	elementsInserted := make(map[string]t)
+	elementsAvailableForInsertion := l.populateElementsAvailableForInsertion(mapName, mapNumber)
 
 	for i := uint32(0); i < l.tle.runnerConfig.numRuns; i++ {
 
@@ -260,7 +228,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 			lp.LogMapRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.tle.runnerConfig.numRuns, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
 		}
 
-		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, keysCache); err != nil {
+		if err := l.runOperationChain(i, m, mc, ac, mapName, mapNumber, elementsInserted, elementsAvailableForInsertion); err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), l.tle.runnerName, log.WarnLevel)
 		} else {
 			lp.LogMapRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), l.tle.runnerName, log.InfoLevel)
@@ -268,7 +236,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 
 		if l.tle.runnerConfig.boundary.resetAfterChain {
 			lp.LogMapRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), l.tle.runnerName, log.InfoLevel)
-			l.resetAfterOperationChain(m, mapName, mapNumber, &keysCache, mc, ac)
+			l.resetAfterOperationChain(m, mapName, mapNumber, &elementsInserted, &elementsAvailableForInsertion, mc, ac)
 		}
 
 	}
@@ -277,20 +245,21 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, keysCache *map[string]struct{}, mc *modeCache, ac *actionCache) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, elementsInserted, elementsAvailableForInsertion *map[string]t, mc *modeCache, ac *actionCache) {
 
 	lp.LogMapRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), l.tle.runnerName, log.TraceLevel)
 
 	*mc = modeCache{}
 	*ac = actionCache{}
 
-	p := assemblePredicate(client.ID(), mapNumber)
+	p := assemblePredicate(client.ID(), mapName, mapNumber)
 	lp.LogMapRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), l.tle.runnerName, log.TraceLevel)
 	err := m.RemoveAll(l.tle.ctx, p)
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
 	} else {
-		*keysCache = make(map[string]struct{})
+		*elementsInserted = make(map[string]t)
+		*elementsAvailableForInsertion = l.populateElementsAvailableForInsertion(mapName, mapNumber)
 	}
 
 }
@@ -322,7 +291,8 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	actions *actionCache,
 	mapName string,
 	mapNumber uint16,
-	keysCache map[string]struct{},
+	elementsInserted map[string]t,
+	elementsAvailableForInsertion map[string]t,
 ) error {
 
 	chainLength := l.tle.runnerConfig.boundary.chainLength
@@ -341,14 +311,14 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogMapRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
 		}
 
-		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(keysCache)), modes.current)
+		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, uint32(len(elementsInserted)), modes.current)
 		if nextMode != modes.current && modes.current != "" {
-			lp.LogMapRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, len(keysCache)), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, len(elementsInserted)), l.tle.runnerName, log.InfoLevel)
 			l.s.sleep(l.tle.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc, l.tle.runnerName)
 		}
 		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
 
-		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(keysCache))
+		actions.next = determineNextMapAction(modes, actions.last, actionProbability, len(elementsInserted))
 
 		lp.LogMapRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), l.tle.runnerName, log.TraceLevel)
 		if actions.next == noop {
@@ -366,7 +336,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			j--
 		}
 
-		nextMapElement, err := l.chooseNextMapElement(actions.next, keysCache, mapNumber)
+		nextMapElement, err := l.chooseNextMapElement(actions.next, elementsInserted, elementsAvailableForInsertion)
 
 		if err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), l.tle.runnerName, log.ErrorLevel)
@@ -375,13 +345,16 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		lp.LogMapRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), l.tle.runnerName, log.TraceLevel)
 
-		if err := l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next); err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in iteration '%d': %v", actions.next, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
+		err = l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next)
+		actions.last = actions.next
+		actions.next = ""
+
+		if err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
 		} else {
-			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop", actions.next, mapName), l.tle.runnerName, log.TraceLevel)
-			actions.last = actions.next
-			actions.next = ""
-			updateKeysCache(actions.last, keysCache, assembleMapKey(mapNumber, l.tle.getElementIdFunc(nextMapElement)), l.tle.runnerName)
+			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName), l.tle.runnerName, log.TraceLevel)
+			key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(nextMapElement))
+			l.updateKeysCache(nextMapElement, actions.last, elementsInserted, elementsAvailableForInsertion, key, l.tle.runnerName)
 		}
 
 		l.s.sleep(l.tle.runnerConfig.boundary.sleepAfterChainAction, sleepTimeFunc, l.tle.runnerName)
@@ -392,16 +365,29 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 }
 
-func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct{}, key, runnerName string) {
+func (l *boundaryTestLoop[t]) populateElementsAvailableForInsertion(mapName string, mapNumber uint16) map[string]t {
+
+	notYetInserted := make(map[string]t, len(l.tle.elements))
+	for _, v := range l.tle.elements {
+		notYetInserted[assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))] = v
+	}
+
+	return notYetInserted
+
+}
+
+func (l *boundaryTestLoop[t]) updateKeysCache(element t, lastSuccessfulAction mapAction, elementsInserted, elementsAvailableForInsertion map[string]t, key, runnerName string) {
 
 	switch lastSuccessfulAction {
 	case insert, remove:
 		if lastSuccessfulAction == insert {
-			keysCache[key] = struct{}{}
+			elementsInserted[key] = element
+			delete(elementsAvailableForInsertion, key)
 		} else {
-			delete(keysCache, key)
+			delete(elementsInserted, key)
+			elementsAvailableForInsertion[key] = element
 		}
-		lp.LogMapRunnerEvent(fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(keysCache)), runnerName, log.TraceLevel)
+		lp.LogMapRunnerEvent(fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(elementsInserted)), runnerName, log.TraceLevel)
 	default:
 		lp.LogMapRunnerEvent(fmt.Sprintf("no action to perform on local cache for last successful action '%s'", lastSuccessfulAction), runnerName, log.TraceLevel)
 	}
@@ -410,13 +396,18 @@ func updateKeysCache(lastSuccessfulAction mapAction, keysCache map[string]struct
 
 func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName string, mapNumber uint16, element t, action mapAction) error {
 
-	elementID := l.tle.getElementIdFunc(element)
+	elementID := l.tle.getElementID(element)
 
-	key := assembleMapKey(mapNumber, elementID)
+	key := assembleMapKey(mapName, mapNumber, elementID)
 
 	switch action {
 	case insert:
-		if err := m.Set(l.tle.ctx, key, element); err != nil {
+		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, element)
+		if err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
+			return err
+		}
+		if err := m.Set(l.tle.ctx, key, payload); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -663,7 +654,7 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 
 	numNewlyIngested := 0
 	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))
 		containsKey, err := m.ContainsKey(l.tle.ctx, key)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
@@ -672,7 +663,11 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 		if containsKey {
 			continue
 		}
-		if err = m.Set(l.tle.ctx, key, v); err != nil {
+		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, v)
+		if err != nil {
+			return err
+		}
+		if err = m.Set(l.tle.ctx, key, value); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			return err
 		}
@@ -689,7 +684,7 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
 	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(v))
+		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))
 		valueFromHZ, err := m.Get(l.tle.ctx, key)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedReads)
@@ -716,7 +711,7 @@ func (l *batchTestLoop[t]) removeSome(m hazelcastwrapper.Map, mapName string, ma
 	elements := l.tle.elements
 
 	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(mapNumber, l.tle.getElementIdFunc(elements[i]))
+		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(elements[i]))
 		containsKey, err := m.ContainsKey(l.tle.ctx, key)
 		if err != nil {
 			return err
@@ -766,8 +761,8 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, runnerNa
 
 }
 
-func assembleMapKey(mapNumber uint16, elementID string) string {
+func assembleMapKey(mapName string, mapNumber uint16, elementID string) string {
 
-	return fmt.Sprintf("%s-%d-%s", client.ID(), mapNumber, elementID)
+	return fmt.Sprintf("%s-%s-%d-%s", client.ID(), mapName, mapNumber, elementID)
 
 }

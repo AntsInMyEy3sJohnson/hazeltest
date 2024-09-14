@@ -128,7 +128,6 @@ stateCleaners:
       enabled: true
       thresholdMs: 30000
 
-
 queueTests:
   # 'queueTests.tweets' configures the TweetRunner. The TweetRunner has access to a file containing 500 tweets on
   # Marvel's "Avengers: Endgame" movie. This file is a simplified and shortened version of the original tweet collection,
@@ -172,7 +171,7 @@ queueTests:
       # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
       # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
       # regarding the client behavior this queue runner can simulate.
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         # Makes a put goroutine sleep once before performing the first put operation.
@@ -204,7 +203,7 @@ queueTests:
     pollConfig:
       # Enable or disable polling goroutine.
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       # Same as for putConfig
       sleeps:
@@ -239,7 +238,7 @@ queueTests:
       prefix: "ht_"
     putConfig:
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         initialDelay:
@@ -256,7 +255,7 @@ queueTests:
           enableRandomness: true
     pollConfig:
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         initialDelay:
@@ -465,11 +464,32 @@ mapTests:
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
-    numEntriesPerMap: 500
-    # The payload for each of the <numEntriesPerMap> entries the LoadRunner creates is a random string, whose size in bytes is controlled by the 'payloadSizeBytes' property
-    # (that is to say only one random string is created and will be used as the value in each of the <numEntriesPerMap> key-value pairs in order to
-    # reduce the application's memory footprint)
-    payloadSizeBytes: 10000000
+    numEntriesPerMap: 50000
+    # Whereas the PokedexRunner uses a pre-defined data set and hence cannot offer the option for adjusting the payload
+    # size of the keys it writes, the LoadRunner generates a string to be used as the payload, and the properties
+    # below can be used to adjust the manner and size in which this string is generated.
+    payload:
+      fixedSize:
+        # Whether to use a fixed-size payload. Enabling this will make the LoadRunner generate one string with a
+        # size of 'sizeBytes' and pre-populate all load elements to be used in scope of the LoadRunner's
+        # test loop. Hence, each key-value pair thus written will use the same string payload. Enabling fixed-size
+        # payloads is equivalent to the LoadRunner's functionality in all versions of Hazeltest prior to 0.15.0.
+        enabled: false
+        sizeBytes: 10000000
+      variableSize:
+        # Whether to use variable-size payloads for the LoadRunner's test loop. If enabled, the properties below
+        # are used to configure generating a string-based payload. The size of the generated payload will be within
+        # the closed interval of [lower boundary, upper boundary], as specified by the two corresponding properties below.
+        enabled: true
+        # The lower boundary (inclusive) of the size, in bytes, to use for payload generation.
+        lowerBoundaryBytes: 1000
+        # The upper boundary (also inclusive) of the size, in bytes, to use for payload generation.
+        upperBoundaryBytes: 10000
+        # The steps after which the size of the payload should be re-evaluated. If set to 100, for example, an evaluated
+        # size within the [lower, upper] boundary will be used for 100 write operations (emphasis on "write" operations;
+        # a read or delete operation will not increase the counter). Set this to 1 if you would like the LoadRunner's test
+        # loop to use a random size within the [lower, upper] boundary for each write operation.
+        evaluateNewSizeAfterNumWriteActions: 100
     appendMapIndexToMapName: true
     appendClientIdToMapName: false
     numRuns: 10000

@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -25,30 +26,50 @@ type (
 		hzMapStore      hazelcastwrapper.MapStore
 		l               looper[loadElement]
 		gatherer        *status.Gatherer
+		providerFuncs   struct {
+			mapStore            newMapStoreFunc
+			loadElementTestLoop newLoadElementTestLoopFunc
+		}
 	}
 	loadElement struct {
 		Key     string
 		Payload string
 	}
+	newLoadElementTestLoopFunc func(rc *runnerConfig) (looper[loadElement], error)
+)
+
+const (
+	mapLoadRunnerKeyPath     = "mapTests.load"
+	mapLoadRunnerMapBaseName = "load"
+	mapLoadRunnerName        = "mapsLoadRunner"
 )
 
 var (
-	numEntriesPerMap int
-	payloadSizeBytes int
+	numEntriesPerMap                                   int
+	useFixedPayload                                    bool
+	fixedPayloadSizeBytes                              int
+	useVariablePayload                                 bool
+	variablePayloadSizeLowerBoundaryBytes              int
+	variablePayloadSizeUpperBoundaryBytes              int
+	variablePayloadEvaluateNewSizeAfterNumWriteActions int
 )
 
 func init() {
 	register(&loadRunner{
 		assigner:        &client.DefaultConfigPropertyAssigner{},
 		stateList:       []runnerState{},
-		name:            "mapsLoadRunner",
+		name:            mapLoadRunnerName,
 		source:          "loadRunner",
 		hzClientHandler: &hazelcastwrapper.DefaultHzClientHandler{},
+		providerFuncs: struct {
+			mapStore            newMapStoreFunc
+			loadElementTestLoop newLoadElementTestLoopFunc
+		}{mapStore: newDefaultMapStore, loadElementTestLoop: newLoadElementTestLoop},
 	})
 	gob.Register(loadElement{})
 }
 
-func initializeLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
+func newLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {
 
 	switch rc.loopType {
 	case batch:
@@ -65,12 +86,12 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initMapStoreFunc) {
+func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
 
-	config, err := populateLoadConfig(r.assigner)
+	config, err := populateLoadConfig(mapLoadRunnerKeyPath, mapLoadRunnerMapBaseName, r.assigner)
 	if err != nil {
 		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), r.name, log.ErrorLevel)
 		return
@@ -86,7 +107,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	api.RaiseNotReady()
 
-	l, err := initializeLoadElementTestLoop(config)
+	l, err := r.providerFuncs.loadElementTestLoop(config)
 	if err != nil {
 		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), r.name, log.ErrorLevel)
 		return
@@ -99,28 +120,50 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	defer func() {
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
-	r.hzMapStore = storeFunc(r.hzClientHandler)
+	r.hzMapStore = r.providerFuncs.mapStore(r.hzClientHandler)
+	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+
+	var loadElements []loadElement
+	if useFixedPayload {
+		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.TraceLevel)
+		loadElements = populateLoadElements(numEntriesPerMap, fixedPayloadSizeBytes)
+	} else if useVariablePayload {
+		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.TraceLevel)
+		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
+		// let the payload be generated on demand by downstream functionality
+		loadElements = populateLoadElementKeys(numEntriesPerMap)
+		loadsupport.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
+			LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
+			UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
+			SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
+		})
+	} else {
+		lp.LogMapRunnerEvent("neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements", r.name, log.ErrorLevel)
+		return
+	}
+
+	lp.LogMapRunnerEvent("initialized load elements", r.name, log.InfoLevel)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
-	lc := &testLoopExecution[loadElement]{
-		id:                  uuid.New(),
-		runnerName:          r.name,
-		source:              r.source,
-		hzClientHandler:     r.hzClientHandler,
-		hzMapStore:          r.hzMapStore,
-		stateCleanerBuilder: &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:        config,
-		elements:            populateLoadElements(),
-		ctx:                 ctx,
-		getElementIdFunc:    getLoadElementID,
+	tle := &testLoopExecution[loadElement]{
+		id:                   uuid.New(),
+		runnerName:           r.name,
+		source:               r.source,
+		hzClientHandler:      r.hzClientHandler,
+		hzMapStore:           r.hzMapStore,
+		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:         config,
+		elements:             loadElements,
+		ctx:                  ctx,
+		getElementID:         getLoadElementID,
+		getOrAssemblePayload: getOrAssemblePayload,
 	}
 
-	r.l.init(lc, &defaultSleeper{}, r.gatherer)
+	r.l.init(tle, &defaultSleeper{}, r.gatherer)
 
 	r.appendState(testLoopStart)
 	r.l.run()
@@ -137,15 +180,27 @@ func (r *loadRunner) appendState(s runnerState) {
 
 }
 
-func populateLoadElements() []loadElement {
+func populateLoadElementKeys(numKeysToPopulate int) []loadElement {
 
-	elements := make([]loadElement, numEntriesPerMap)
+	elements := make([]loadElement, numKeysToPopulate)
+
+	for i := 0; i < numKeysToPopulate; i++ {
+		elements[i] = loadElement{Key: strconv.Itoa(i)}
+	}
+
+	return elements
+
+}
+
+func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loadElement {
+
+	elements := make([]loadElement, numElementsToPopulate)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
 	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and reference that string in each load element
 	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
-	for i := 0; i < numEntriesPerMap; i++ {
+	for i := 0; i < numElementsToPopulate; i++ {
 		elements[i] = loadElement{
 			Key:     strconv.Itoa(i),
 			Payload: randomPayload,
@@ -156,34 +211,140 @@ func populateLoadElements() []loadElement {
 
 }
 
-func getLoadElementID(element any) string {
+func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (any, error) {
 
-	loadElement := element.(loadElement)
-	return loadElement.Key
+	if useFixedPayload && useVariablePayload {
+		return "", errors.New("instructions unclear: both fixed-size and variable-size payloads enabled")
+	}
+
+	l := element.(loadElement)
+
+	if useFixedPayload {
+		if len(l.Payload) == 0 {
+			return "", errors.New("fixed-size payloads have been enabled, but no payload of fixed size was provided in load element")
+		}
+		return l.Payload, nil
+	}
+
+	if useVariablePayload {
+		return loadsupport.GenerateTrackedRandomStringPayloadWithinBoundary(
+			fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber),
+		)
+	}
+
+	return "", errors.New("instructions unclear: neither fixed-size nor variable-size payloads enabled")
 
 }
 
-func populateLoadConfig(a client.ConfigPropertyAssigner) (*runnerConfig, error) {
+func getLoadElementID(element any) string {
 
-	runnerKeyPath := "mapTests.load"
+	l := element.(loadElement)
+	return l.Key
 
-	if err := a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
-		numEntriesPerMap = a.(int)
-	}); err != nil {
-		return nil, err
+}
+
+func assertExactlyOnePayloadModeEnabled(fixedEnabled, variableEnabled bool) error {
+
+	if fixedEnabled == variableEnabled {
+		if fixedEnabled {
+			return errors.New("instructions unclear: both fixed-size and variable-size payloads have been enabled")
+
+		}
+		return errors.New("instructions unclear: neither fixed-size nor variable-size payloads have been enabled")
 	}
 
-	if err := a.Assign(runnerKeyPath+".payloadSizeBytes", client.ValidateInt, func(a any) {
-		payloadSizeBytes = a.(int)
-	}); err != nil {
-		return nil, err
+	return nil
+
+}
+
+func validateVariablePayloadSizeBoundaries(lower, upper int) error {
+
+	if lower >= upper {
+		return fmt.Errorf("expected upper boundary to be greater than lower boundary, got %d (upper) and %d (lower)", upper, lower)
+	}
+
+	return nil
+
+}
+
+func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.ConfigPropertyAssigner) (*runnerConfig, error) {
+
+	var assignmentOps []func() error
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
+			numEntriesPerMap = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.fixedSize.enabled", client.ValidateBool, func(a any) {
+			useFixedPayload = a.(bool)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.fixedSize.sizeBytes", client.ValidateInt, func(a any) {
+			fixedPayloadSizeBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.enabled", client.ValidateBool, func(a any) {
+			useVariablePayload = a.(bool)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.lowerBoundaryBytes", client.ValidateInt, func(a any) {
+			variablePayloadSizeLowerBoundaryBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.upperBoundaryBytes", client.ValidateInt, func(a any) {
+			variablePayloadSizeUpperBoundaryBytes = a.(int)
+		})
+	})
+
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(runnerKeyPath+".payload.variableSize.evaluateNewSizeAfterNumWriteActions", client.ValidateInt, func(a any) {
+			variablePayloadEvaluateNewSizeAfterNumWriteActions = a.(int)
+		})
+	})
+
+	for _, fn := range assignmentOps {
+		if err := fn(); err != nil {
+			return nil, err
+		}
 	}
 
 	configBuilder := runnerConfigBuilder{
 		assigner:      a,
 		runnerKeyPath: runnerKeyPath,
-		mapBaseName:   "load",
+		mapBaseName:   mapBaseName,
 	}
-	return configBuilder.populateConfig()
+
+	cfg, err := configBuilder.populateConfig()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.enabled {
+		// Perform additional checks only if runner has been enabled
+		if err = assertExactlyOnePayloadModeEnabled(useFixedPayload, useVariablePayload); err != nil {
+			return nil, err
+		}
+
+		if useVariablePayload {
+			err = validateVariablePayloadSizeBoundaries(variablePayloadSizeLowerBoundaryBytes, variablePayloadSizeUpperBoundaryBytes)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return cfg, nil
 
 }

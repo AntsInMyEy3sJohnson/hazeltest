@@ -9,51 +9,58 @@ import (
 
 var (
 	baseTestConfig = map[string]any{
-		runnerKeyPath + ".enabled":                                            true,
-		runnerKeyPath + ".numMaps":                                            10,
-		runnerKeyPath + ".appendMapIndexToMapName":                            true,
-		runnerKeyPath + ".appendClientIdToMapName":                            false,
-		runnerKeyPath + ".numRuns":                                            1_000,
-		runnerKeyPath + ".performPreRunClean.enabled":                         true,
-		runnerKeyPath + ".performPreRunClean.errorBehavior":                   "ignore",
-		runnerKeyPath + ".performPreRunClean.cleanAgainThreshold.enabled":     true,
-		runnerKeyPath + ".performPreRunClean.cleanAgainThreshold.thresholdMs": 30000,
-		runnerKeyPath + ".mapPrefix.enabled":                                  true,
-		runnerKeyPath + ".mapPrefix.prefix":                                   mapPrefix,
-		runnerKeyPath + ".sleeps.betweenRuns.enabled":                         true,
-		runnerKeyPath + ".sleeps.betweenRuns.durationMs":                      2_500,
-		runnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                true,
+		testMapRunnerKeyPath + ".enabled":                                                  true,
+		testMapRunnerKeyPath + ".numMaps":                                                  10,
+		testMapRunnerKeyPath + ".appendMapIndexToMapName":                                  true,
+		testMapRunnerKeyPath + ".appendClientIdToMapName":                                  false,
+		testMapRunnerKeyPath + ".numRuns":                                                  1_000,
+		testMapRunnerKeyPath + ".numEntriesPerMap":                                         2_000_000,
+		testMapRunnerKeyPath + ".payload.fixedSize.enabled":                                false,
+		testMapRunnerKeyPath + ".payload.fixedSize.sizeBytes":                              10_000,
+		testMapRunnerKeyPath + ".payload.variableSize.enabled":                             true,
+		testMapRunnerKeyPath + ".payload.variableSize.lowerBoundaryBytes":                  15_000,
+		testMapRunnerKeyPath + ".payload.variableSize.upperBoundaryBytes":                  2000000,
+		testMapRunnerKeyPath + ".payload.variableSize.evaluateNewSizeAfterNumWriteActions": 100,
+		testMapRunnerKeyPath + ".performPreRunClean.enabled":                               true,
+		testMapRunnerKeyPath + ".performPreRunClean.errorBehavior":                         "ignore",
+		testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.enabled":           true,
+		testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.thresholdMs":       30000,
+		testMapRunnerKeyPath + ".mapPrefix.enabled":                                        true,
+		testMapRunnerKeyPath + ".mapPrefix.prefix":                                         mapPrefix,
+		testMapRunnerKeyPath + ".sleeps.betweenRuns.enabled":                               true,
+		testMapRunnerKeyPath + ".sleeps.betweenRuns.durationMs":                            2_500,
+		testMapRunnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                      true,
 	}
 	batchTestConfig = map[string]any{
-		runnerKeyPath + ".testLoop.type":                                               "batch",
-		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled":              true,
-		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs":           50,
-		runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness":     false,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
-		runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
+		testMapRunnerKeyPath + ".testLoop.type":                                               "batch",
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled":              true,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs":           50,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness":     false,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
 	}
 	boundaryTestConfig = map[string]any{
-		runnerKeyPath + ".testLoop.type":                                                    "boundary",
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":          true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":       2_500,
-		runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness": true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":             100,
-		runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":       true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled":                  true,
-		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs":               6_000,
-		runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness":         false,
-		runnerKeyPath + ".testLoop.boundary.operationChain.length":                          1_000,
-		runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                 true,
+		testMapRunnerKeyPath + ".testLoop.type":                                                    "boundary",
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled":          true,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs":       2_500,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness": true,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled":                true,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs":             100,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness":       true,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled":                  true,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs":               6_000,
+		testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness":         false,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.length":                          1_000,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain":                 true,
 		// Provide int value to verify config population can handle this case, too
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          1,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
-		runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage":          1,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness":           true,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage":          0.2,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness":           true,
+		testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability": 0.75,
 	}
-	initTestMapStore initMapStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+	newTestMapStore newMapStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
 		return &testHzMapStore{observations: &testHzMapStoreObservations{}}
 	}
 )
@@ -134,7 +141,7 @@ func TestPopulateConfig(t *testing.T) {
 
 	t.Log("given a map runner config containing properties for both a batch and a boundary test loop")
 	{
-		b := runnerConfigBuilder{runnerKeyPath: runnerKeyPath, mapBaseName: mapBaseName}
+		b := runnerConfigBuilder{runnerKeyPath: testMapRunnerKeyPath, mapBaseName: testMapBaseName}
 		t.Log("\twhen property assignment does not yield an error")
 		{
 			for _, lt := range []runnerLoopType{batch, boundary} {
@@ -197,8 +204,8 @@ func TestPopulateConfig(t *testing.T) {
 				}
 
 				testConfig := assembleTestConfigForTestLoopType(boundary)
-				testConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"] = upper
-				testConfig[runnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"] = lower
+				testConfig[testMapRunnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"] = upper
+				testConfig[testMapRunnerKeyPath+".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"] = lower
 				assigner := testConfigPropertyAssigner{false, testConfig}
 
 				b.assigner = assigner
@@ -226,87 +233,87 @@ func TestPopulateConfig(t *testing.T) {
 
 func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, string) {
 
-	if rc.mapBaseName != mapBaseName {
+	if rc.mapBaseName != testMapBaseName {
 		return false, "map base name"
 	}
 
-	keyPath := runnerKeyPath + ".enabled"
+	keyPath := testMapRunnerKeyPath + ".enabled"
 	if rc.enabled != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".numMaps"
+	keyPath = testMapRunnerKeyPath + ".numMaps"
 	if rc.numMaps != uint16(expected[keyPath].(int)) {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".numRuns"
+	keyPath = testMapRunnerKeyPath + ".numRuns"
 	if rc.numRuns != uint32(expected[keyPath].(int)) {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".mapPrefix.enabled"
+	keyPath = testMapRunnerKeyPath + ".mapPrefix.enabled"
 	if rc.useMapPrefix != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".mapPrefix.prefix"
+	keyPath = testMapRunnerKeyPath + ".mapPrefix.prefix"
 	if rc.mapPrefix != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".appendMapIndexToMapName"
+	keyPath = testMapRunnerKeyPath + ".appendMapIndexToMapName"
 	if rc.appendMapIndexToMapName != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".appendClientIdToMapName"
+	keyPath = testMapRunnerKeyPath + ".appendClientIdToMapName"
 	if rc.appendClientIdToMapName != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".sleeps.betweenRuns.enabled"
+	keyPath = testMapRunnerKeyPath + ".sleeps.betweenRuns.enabled"
 	if rc.sleepBetweenRuns.enabled != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".sleeps.betweenRuns.durationMs"
+	keyPath = testMapRunnerKeyPath + ".sleeps.betweenRuns.durationMs"
 	if rc.sleepBetweenRuns.durationMs != expected[keyPath] {
 		return false, keyPath
 	}
 
-	keyPath = runnerKeyPath + ".testLoop.type"
+	keyPath = testMapRunnerKeyPath + ".testLoop.type"
 	if string(rc.loopType) != expected[keyPath] {
 		return false, keyPath
 	}
 
 	if rc.loopType == batch {
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled"
 		if rc.batch.sleepAfterBatchAction.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs"
 		if rc.batch.sleepAfterBatchAction.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness"
 		if rc.batch.sleepAfterBatchAction.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
 		if rc.batch.sleepBetweenActionBatches.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs"
 		if rc.batch.sleepBetweenActionBatches.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness"
 		if rc.batch.sleepBetweenActionBatches.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
@@ -315,78 +322,78 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 			return false, fmt.Sprintf("boundary test loop config must be nil when batch test loop was configured")
 		}
 	} else if rc.loopType == boundary {
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enabled"
 		if rc.boundary.sleepBetweenOperationChains.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.durationMs"
 		if rc.boundary.sleepBetweenOperationChains.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.betweenOperationChains.enableRandomness"
 		if rc.boundary.sleepBetweenOperationChains.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enabled"
 		if rc.boundary.sleepAfterChainAction.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.durationMs"
 		if rc.boundary.sleepAfterChainAction.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.afterChainAction.enableRandomness"
 		if rc.boundary.sleepAfterChainAction.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enabled"
 		if rc.boundary.sleepUponModeChange.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.durationMs"
 		if rc.boundary.sleepUponModeChange.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.sleeps.uponModeChange.enableRandomness"
 		if rc.boundary.sleepUponModeChange.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.resetAfterChain"
 		if rc.boundary.resetAfterChain != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.mapFillPercentage"
 		// int value was provided for this property, so have to perform conversion to int
 		if rc.boundary.upper.mapFillPercentage != float32(expected[keyPath].(int)) {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.upper.enableRandomness"
 		if rc.boundary.upper.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.mapFillPercentage"
 		if rc.boundary.lower.mapFillPercentage != float32(expected[keyPath].(float64)) {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.lower.enableRandomness"
 		if rc.boundary.lower.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = runnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
+		keyPath = testMapRunnerKeyPath + ".testLoop.boundary.operationChain.boundaryDefinition.actionTowardsBoundaryProbability"
 		if rc.boundary.actionTowardsBoundaryProbability != float32(expected[keyPath].(float64)) {
 			return false, keyPath
 		}
