@@ -171,7 +171,7 @@ queueTests:
       # operations (put and poll) are decoupled in that they run in their own goroutines, so the ability to configure
       # the number of test loops individually for puts and polls directly translates to a higher degree of versatility
       # regarding the client behavior this queue runner can simulate.
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         # Makes a put goroutine sleep once before performing the first put operation.
@@ -203,7 +203,7 @@ queueTests:
     pollConfig:
       # Enable or disable polling goroutine.
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       # Same as for putConfig
       sleeps:
@@ -238,7 +238,7 @@ queueTests:
       prefix: "ht_"
     putConfig:
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         initialDelay:
@@ -255,7 +255,7 @@ queueTests:
           enableRandomness: true
     pollConfig:
       enabled: true
-      numRuns: 500
+      numRuns: 10000
       batchSize: 50
       sleeps:
         initialDelay:
