@@ -482,9 +482,9 @@ mapTests:
         # the closed interval of [lower boundary, upper boundary], as specified by the two corresponding properties below.
         enabled: true
         # The lower boundary (inclusive) of the size, in bytes, to use for payload generation.
-        lowerBoundaryBytes: 15000
+        lowerBoundaryBytes: 1000
         # The upper boundary (also inclusive) of the size, in bytes, to use for payload generation.
-        upperBoundaryBytes: 2000000
+        upperBoundaryBytes: 10000
         # The steps after which the size of the payload should be re-evaluated. If set to 100, for example, an evaluated
         # size within the [lower, upper] boundary will be used for 100 write operations (emphasis on "write" operations;
         # a read or delete operation will not increase the counter). Set this to 1 if you would like the LoadRunner's test
