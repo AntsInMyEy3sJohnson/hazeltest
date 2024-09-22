@@ -605,8 +605,8 @@ func runGenericBatchClean(
 			numCleanedDataStructures++
 			if err != nil {
 				if Ignore == cfg.errorBehavior {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been claned from paylod data structure "+
-						"'%s' and an error occured, but error behavior was configured as '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure "+
+						"'%s' and an error occured, but error behavior was configured to be '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
 				} else {
 					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
 					return numCleanedDataStructures, err
