@@ -487,7 +487,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 	{
 		t.Log("\twhen list contains varying numbers of elements to invoke clean function on")
 		{
-			numElementsList := []int{1, 10, 19, 100, 1287}
+			numElementsList := []int{1, 10, 19, 58, 121}
 
 			for i := 0; i < len(numElementsList); i++ {
 				ois := populateTestObjectInfos(numElementsList[i], []string{"ht_"}, HzMapService)
@@ -498,7 +498,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 					cleanInvokedTracker.Store(ois.objectInfos[j].GetName(), 0)
 				}
 
-				results := performParallelSingleCleans(ois.objectInfos, func(name string) SingleCleanResult {
+				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
 					if v, ok := cleanInvokedTracker.Load(name); ok {
 						numInvoked := v.(int)
 						numInvoked++
@@ -538,7 +538,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 		t.Log("\twhen list of elements is empty")
 		{
 			numCleanInvocations := 0
-			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, func(name string) SingleCleanResult {
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
 				numCleanInvocations++
 				return SingleCleanResult{}
 			})
@@ -560,6 +560,70 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, numCleanInvocations)
+			}
+		}
+		t.Log("\twhen error occurs upon invocation of clean function on element in list")
+		{
+			t.Log("\t\twhen error behavior is ignore")
+			{
+				numElements := 21
+				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
+
+				numCleanInvocations := 0
+				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
+					numCleanInvocations++
+					return SingleCleanResult{err: singleCleanerCleanError}
+				})
+
+				numResults := 0
+				for range results {
+					numResults++
+				}
+
+				msg := "\t\t\tnumber of results must be equal to number of elements in list of data structures"
+				if numResults == numElements {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numResults)
+				}
+
+				msg = "\t\t\tnumber of clean invocations must be equal to number of elements in list of data structures"
+				if numCleanInvocations == numElements {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleanInvocations)
+				}
+			}
+			t.Log("\t\twhen error behavior is fail")
+			{
+				numElements := 54
+				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
+
+				numCleanInvocations := 0
+				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
+					numCleanInvocations++
+					return SingleCleanResult{err: singleCleanerCleanError}
+				})
+
+				numResults := 0
+				for range results {
+					numResults++
+				}
+
+				msg := "\t\t\tnumber of results must be one"
+				if numResults == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numResults)
+				}
+
+				msg = "\t\t\tnumber of clean invocations must be one"
+				if numCleanInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleanInvocations)
+				}
+
 			}
 		}
 	}
