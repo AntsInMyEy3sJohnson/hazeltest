@@ -10,9 +10,9 @@ import (
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
 	"hazeltest/status"
+	"math"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -649,23 +649,36 @@ func runGenericBatchClean(
 
 func performParallelSingleCleans(filteredDataStructures []hazelcastwrapper.ObjectInfo, singleCleanFunc func(name string) SingleCleanResult) <-chan SingleCleanResult {
 
-	numWorkers := len(filteredDataStructures) / 10
+	if len(filteredDataStructures) == 0 {
+		emptyChan := make(chan SingleCleanResult)
+		close(emptyChan)
+		return emptyChan
+	}
 
-	results := make(chan SingleCleanResult, numWorkers)
+	numWorkers := int(math.Max(1.0, math.Ceil(float64(len(filteredDataStructures)/10))))
+
+	results := make(chan SingleCleanResult, len(filteredDataStructures))
+
+	cleanTasks := make(chan string, len(filteredDataStructures))
 
 	var wg sync.WaitGroup
 
-	var numCleanedDataStructures uint32
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
-			for ; int(numCleanedDataStructures) < len(filteredDataStructures); atomic.AddUint32(&numCleanedDataStructures, 1) {
-				results <- singleCleanFunc(filteredDataStructures[numCleanedDataStructures].GetName())
+			for task := range cleanTasks {
+				results <- singleCleanFunc(task)
 			}
 		}()
 	}
+
+	go func() {
+		for _, obj := range filteredDataStructures {
+			cleanTasks <- obj.GetName()
+		}
+		close(cleanTasks)
+	}()
 
 	go func() {
 		wg.Wait()
