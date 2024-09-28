@@ -108,8 +108,8 @@ type (
 		t   CleanedTracker
 	}
 	SingleCleanResult struct {
-		numCleanedItems int
-		err             error
+		NumCleanedItems int
+		Err             error
 	}
 )
 
@@ -613,9 +613,12 @@ func runGenericBatchClean(
 
 	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean, hzService)
 	for result := range cleanResults {
-		numItemsCleaned := result.numCleanedItems
+		numItemsCleaned, err := result.NumCleanedItems, result.Err
 		if numItemsCleaned > 0 {
 			numCleanedDataStructures++
+		}
+		if Fail == cfg.errorBehavior && err != nil {
+			return numCleanedDataStructures, err
 		}
 	}
 
@@ -659,17 +662,17 @@ func performParallelSingleCleans(
 				}
 				result := singleCleanFunc(task)
 				results <- result
-				if result.err != nil {
+				if result.Err != nil {
 					if Fail == b {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.err), hzService, log.ErrorLevel)
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.Err), hzService, log.ErrorLevel)
 						once.Do(func() {
 							close(errorDuringProcessing)
 						})
 					} else {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.err), hzService, log.InfoLevel)
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err), hzService, log.InfoLevel)
 					}
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.numCleanedItems, task), hzService, log.InfoLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task), hzService, log.InfoLevel)
 				}
 			}
 		}()

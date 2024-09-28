@@ -572,7 +572,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				numCleanInvocations := 0
 				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
 					numCleanInvocations++
-					return SingleCleanResult{err: singleCleanerCleanError}
+					return SingleCleanResult{Err: singleCleanerCleanError}
 				}, HzMapService)
 
 				numResults := 0
@@ -603,7 +603,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				numCleanInvocations := 0
 				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
 					numCleanInvocations++
-					return SingleCleanResult{err: singleCleanerCleanError}
+					return SingleCleanResult{Err: singleCleanerCleanError}
 				}, HzMapService)
 
 				numResults := 0
@@ -1670,17 +1670,17 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				scResult := qc.Clean("something")
 
 				msg := "\t\t\terror must be returned"
-				if scResult.err != nil {
+				if scResult.Err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be zero"
-				if scResult.numCleanedItems == 0 {
+				if scResult.NumCleanedItems == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, scResult.numCleanedItems)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 			}
 
@@ -1709,14 +1709,14 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				scResult := qc.Clean(prefix + baseName + "-0")
 
 				msg := "\t\t\tno error must be returned"
-				if scResult.err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of items cleaned from queue must be equal to number of items previously held by queue"
-				if scResult.numCleanedItems == numItemsInQueues {
+				if scResult.NumCleanedItems == numItemsInQueues {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2085,7 +2085,8 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 			numPayloadQueueObjects := 9
 			prefixes := []string{"ht_"}
@@ -2160,7 +2161,8 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			qs.queues[erroneousClearQueueName].returnErrorUponClear = true
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 
 			tracker := &testCleanedTracker{}
@@ -2307,17 +2309,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
-			if errors.Is(scResult.err, lastCleanedInfoCheckError) {
+			if errors.Is(scResult.Err, lastCleanedInfoCheckError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tlast cleaned info check must have been invoked once"
@@ -2370,17 +2372,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, HzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
-			if scResult.err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\ttry lock must have been invoked once on map cleaners sync map"
@@ -2432,17 +2434,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(scResult.err, getPayloadMapError) {
+			if errors.Is(scResult.Err, getPayloadMapError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2497,17 +2499,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := mc.Clean(payloadMapName)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(scResult.err, mapSizeError) {
+			if errors.Is(scResult.Err, mapSizeError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of items cleaned must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tno last cleaned info update must have been performed"
@@ -2559,17 +2561,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(scResult.err, mapEvictAllError) {
+			if errors.Is(scResult.Err, mapEvictAllError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tevict all must have been invoked once on payload map"
@@ -2625,17 +2627,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := mc.Clean(mapPrefix + "load-0")
 
 			msg := "\t\tno error must be returned"
-			if scResult.err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if scResult.numCleanedItems == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tdata structure must not have been added to cleaned data structure tracker"
@@ -2686,17 +2688,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(scResult.err, lastCleanedInfoUpdateError) {
+			if errors.Is(scResult.Err, lastCleanedInfoUpdateError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items previously held by payload map"
-			if scResult.numCleanedItems == numItemsInPayloadMaps {
+			if scResult.NumCleanedItems == numItemsInPayloadMaps {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2747,17 +2749,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
-			if scResult.err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items previously held by payload map"
-			if scResult.numCleanedItems == numItemsInPayloadMaps {
+			if scResult.NumCleanedItems == numItemsInPayloadMaps {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, scResult.numCleanedItems)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2815,17 +2817,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 				scResult := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", HzMapService, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
-				if scResult.err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\tnumber of cleaned items must be reported correctly anyway"
-				if scResult.numCleanedItems == numItemsInPayloadMaps {
+				if scResult.NumCleanedItems == numItemsInPayloadMaps {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, scResult.numCleanedItems)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 			}()
 
@@ -2999,7 +3001,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, err)
 					}
 
 					msg = "\t\t\treported number of maps cleaned must be zero"
@@ -3370,17 +3372,17 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				scResult := mc.Clean(prefix + "load-0")
 
 				msg := "\t\t\terror must be returned"
-				if scResult.err != nil {
+				if scResult.Err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be zero"
-				if scResult.numCleanedItems == 0 {
+				if scResult.NumCleanedItems == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, scResult.numCleanedItems)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 
 			}
@@ -3405,17 +3407,17 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				scResult := mc.Clean(prefix + "load-0")
 
 				msg := "\t\t\tno error must be returned"
-				if scResult.err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, scResult.err)
+					t.Fatal(msg, ballotX, scResult.Err)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be equal to number of items previously held by payload data structure"
-				if scResult.numCleanedItems == numItemsInPayloadMaps {
+				if scResult.NumCleanedItems == numItemsInPayloadMaps {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, scResult.numCleanedItems)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 
 				msg = "\t\t\tinformation on one cleaned data structure must have been added to cleaned data structures tracker"
@@ -3759,7 +3761,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3833,7 +3836,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 
 			cih := &testLastCleanedInfoHandler{
@@ -3947,7 +3951,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen should clean check fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3991,7 +3996,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen update of last cleaned info fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:       true,
+				errorBehavior: Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
