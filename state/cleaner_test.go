@@ -481,6 +481,91 @@ func (t *testCleanedTracker) add(_ string, _ int) {
 
 }
 
+func TestPerformParallelSingleCleans(t *testing.T) {
+
+	t.Log("given a list of filtered data structures and a clean function to invoke on the list's elements")
+	{
+		t.Log("\twhen list contains varying numbers of elements to invoke clean function on")
+		{
+			numElementsList := []int{1, 10, 19, 100, 1287}
+
+			for i := 0; i < len(numElementsList); i++ {
+				ois := populateTestObjectInfos(numElementsList[i], []string{"ht_"}, HzMapService)
+
+				var cleanInvokedTracker sync.Map
+
+				for j := 0; j < len(ois.objectInfos); j++ {
+					cleanInvokedTracker.Store(ois.objectInfos[j].GetName(), 0)
+				}
+
+				results := performParallelSingleCleans(ois.objectInfos, func(name string) SingleCleanResult {
+					if v, ok := cleanInvokedTracker.Load(name); ok {
+						numInvoked := v.(int)
+						numInvoked++
+						cleanInvokedTracker.Store(name, numInvoked)
+					} else {
+						t.Fatal("test setup error: no match in clean invoked tracker for given data structure name", name)
+					}
+					return SingleCleanResult{42, nil}
+				})
+
+				numberOfResults := 0
+				for _ = range results {
+					numberOfResults++
+				}
+
+				msg := "\t\tnumber of results must be equal to number of elements in filtered data structures list"
+				if numberOfResults == numElementsList[i] {
+					t.Log(msg, checkMark, numberOfResults)
+				} else {
+					t.Fatal(msg, ballotX, numberOfResults)
+				}
+
+				msg = "\t\tclean function must have been invoked exactly once on each data structure"
+				cleanInvokedTracker.Range(func(key, value any) bool {
+					dataStructureName := key.(string)
+					numCleanInvocations := value.(int)
+					if numCleanInvocations == 1 {
+						t.Log(msg, checkMark, dataStructureName)
+					} else {
+						t.Fatal(msg, ballotX, dataStructureName, numCleanInvocations)
+					}
+					return true
+				})
+
+			}
+		}
+		t.Log("\twhen list of elements is empty")
+		{
+			numCleanInvocations := 0
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, func(name string) SingleCleanResult {
+				numCleanInvocations++
+				return SingleCleanResult{}
+			})
+
+			numResults := 0
+			for _ = range results {
+				numResults++
+			}
+
+			msg := "\t\tzero results must be returned"
+			if numResults == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numResults)
+			}
+
+			msg = "\t\tthere must have been zero clean invocations"
+			if numCleanInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanInvocations)
+			}
+		}
+	}
+
+}
+
 func TestValidateErrorDuringCleanBehavior(t *testing.T) {
 
 	t.Log("given a value to configure pre-run clean error behavior")
