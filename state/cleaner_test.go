@@ -510,7 +510,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				})
 
 				numberOfResults := 0
-				for _ = range results {
+				for range results {
 					numberOfResults++
 				}
 
@@ -544,7 +544,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 			})
 
 			numResults := 0
-			for _ = range results {
+			for range results {
 				numResults++
 			}
 
