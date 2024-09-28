@@ -651,6 +651,7 @@ func performParallelSingleCleans(
 	filteredDataStructures []hazelcastwrapper.ObjectInfo,
 	b ErrorDuringCleanBehavior,
 	singleCleanFunc func(name string) SingleCleanResult,
+	hzService string,
 ) <-chan SingleCleanResult {
 
 	if len(filteredDataStructures) == 0 {
@@ -682,10 +683,17 @@ func performParallelSingleCleans(
 				}
 				result := singleCleanFunc(task)
 				results <- result
-				if result.err != nil && Fail == b {
-					once.Do(func() {
-						close(errorDuringProcessing)
-					})
+				if result.err != nil {
+					if Fail == b {
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.err), hzService, log.ErrorLevel)
+						once.Do(func() {
+							close(errorDuringProcessing)
+						})
+					} else {
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.err), hzService, log.InfoLevel)
+					}
+				} else {
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.numCleanedItems, task), hzService, log.InfoLevel)
 				}
 			}
 		}()
