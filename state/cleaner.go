@@ -54,11 +54,15 @@ type (
 		cih       LastCleanedInfoHandler
 		t         CleanedTracker
 	}
+	BatchCleanResult struct {
+		numCleanedDataStructures int
+		err                      error
+	}
 )
 
 type (
 	SingleCleaner interface {
-		Clean(name string) (int, error)
+		Clean(name string) SingleCleanResult
 	}
 	// SingleMapCleanerBuilder is an interface for encapsulating the capability of assembling map cleaners
 	// implementing the SingleCleaner interface. An interesting detail is perhaps that the Build methods for
@@ -100,6 +104,10 @@ type (
 		qs  hazelcastwrapper.QueueStore
 		cih LastCleanedInfoHandler
 		t   CleanedTracker
+	}
+	SingleCleanResult struct {
+		numCleanedItems int
+		err             error
 	}
 )
 
@@ -470,7 +478,7 @@ func runGenericSingleClean(
 	t CleanedTracker,
 	syncMapName, payloadDataStructureName, hzService string,
 	retrieveAndCleanFunc func(payloadDataStructureName string) (int, error),
-) (int, error) {
+) SingleCleanResult {
 
 	lockInfo, shouldClean, err := cih.check(syncMapName, payloadDataStructureName, hzService)
 
@@ -484,12 +492,12 @@ func runGenericSingleClean(
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return 0, err
+		return SingleCleanResult{0, err}
 	}
 
 	if !shouldClean {
 		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-		return 0, nil
+		return SingleCleanResult{0, nil}
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
@@ -497,7 +505,7 @@ func runGenericSingleClean(
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return 0, err
+		return SingleCleanResult{0, err}
 	}
 
 	if numItemsCleaned > 0 {
@@ -507,11 +515,11 @@ func runGenericSingleClean(
 
 	if err := cih.update(lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return numItemsCleaned, err
+		return SingleCleanResult{numItemsCleaned, err}
 	}
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-	return numItemsCleaned, nil
+	return SingleCleanResult{numItemsCleaned, err}
 
 }
 
@@ -552,7 +560,7 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 
 }
 
-func (c *DefaultSingleMapCleaner) Clean(name string) (int, error) {
+func (c *DefaultSingleMapCleaner) Clean(name string) SingleCleanResult {
 
 	return runGenericSingleClean(
 		c.ctx,
@@ -682,7 +690,7 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 
 }
 
-func (c *DefaultSingleQueueCleaner) Clean(name string) (int, error) {
+func (c *DefaultSingleQueueCleaner) Clean(name string) SingleCleanResult {
 
 	return runGenericSingleClean(
 		c.ctx,
