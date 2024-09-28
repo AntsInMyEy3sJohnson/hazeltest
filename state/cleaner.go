@@ -11,6 +11,8 @@ import (
 	"hazeltest/logging"
 	"hazeltest/status"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -609,34 +611,68 @@ func runGenericBatchClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		if numItemsCleaned, err := sc.Clean(v.GetName()); numItemsCleaned > 0 {
-			numCleanedDataStructures++
-			if err != nil {
-				if Ignore == cfg.errorBehavior {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure "+
-						"'%s' and an error occured, but error behavior was configured to be '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
+		cleanResults := performParallelSingleCleans(filteredDataStructures, sc.Clean)
+		for result := range cleanResults {
+			numItemsCleaned, err := result.numCleanedItems, result.err
+			if numItemsCleaned > 0 {
+				numCleanedDataStructures++
+				if err != nil {
+					if Ignore == cfg.errorBehavior {
+						lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure "+
+							"'%s' and an error occured, but error behavior was configured to be '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
+					} else {
+						lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
+						return numCleanedDataStructures, err
+					}
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
-					return numCleanedDataStructures, err
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d elements from payload data structure '%s'; cleaned %d data structure/-s so far", numItemsCleaned, v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
 				}
 			} else {
-				lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d elements from payload data structure '%s'; cleaned %d data structure/-s so far", numItemsCleaned, v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
-			}
-		} else {
-			if err != nil {
-				if Ignore == cfg.errorBehavior {
-					lp.LogStateCleanerEvent(fmt.Sprintf("error occured upon attempt to clean payload data structure '%s', but error behavior was configured to be '%s', so error will be ignored: %v", v.GetName(), Ignore, err), hzService, log.WarnLevel)
+				if err != nil {
+					if Ignore == cfg.errorBehavior {
+						lp.LogStateCleanerEvent(fmt.Sprintf("error occured upon attempt to clean payload data structure '%s', but error behavior was configured to be '%s', so error will be ignored: %v", v.GetName(), Ignore, err), hzService, log.WarnLevel)
+					} else {
+						lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
+						return numCleanedDataStructures, err
+					}
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
-					return numCleanedDataStructures, err
+					lp.LogStateCleanerEvent(fmt.Sprintf("invocation of clean was successful on payload data structure '%s'; however, zero items were cleaned", v.GetName()), hzService, log.InfoLevel)
 				}
-			} else {
-				lp.LogStateCleanerEvent(fmt.Sprintf("invocation of clean was successful on payload data structure '%s'; however, zero items were cleaned", v.GetName()), hzService, log.InfoLevel)
 			}
 		}
+
 	}
 
 	return numCleanedDataStructures, nil
+
+}
+
+func performParallelSingleCleans(filteredDataStructures []hazelcastwrapper.ObjectInfo, singleCleanFunc func(name string) SingleCleanResult) <-chan SingleCleanResult {
+
+	numWorkers := len(filteredDataStructures) / 10
+
+	results := make(chan SingleCleanResult, numWorkers)
+
+	var wg sync.WaitGroup
+
+	var numCleanedDataStructures uint32
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for ; int(numCleanedDataStructures) < len(filteredDataStructures); atomic.AddUint32(&numCleanedDataStructures, 1) {
+				results <- singleCleanFunc(filteredDataStructures[numCleanedDataStructures].GetName())
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	return results
 
 }
 
