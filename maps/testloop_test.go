@@ -89,15 +89,15 @@ func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrappe
 
 }
 
-func (c *testSingleMapCleaner) Clean(_ string) (int, error) {
+func (c *testSingleMapCleaner) Clean(_ string) state.SingleCleanResult {
 
 	c.observations.cleanInvocations++
 
 	if c.behavior.returnErrorUponClean {
-		return 0, fmt.Errorf("something somewhere went terribly wrong")
+		return state.SingleCleanResult{Err: fmt.Errorf("something somewhere went terribly wrong")}
 	}
 
-	return c.behavior.numElementsCleanedReturnValue, nil
+	return state.SingleCleanResult{NumCleanedItems: c.behavior.numElementsCleanedReturnValue}
 
 }
 
