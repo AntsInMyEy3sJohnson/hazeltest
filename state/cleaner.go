@@ -611,7 +611,7 @@ func runGenericBatchClean(
 
 	numCleanedDataStructures := 0
 	for _, v := range filteredDataStructures {
-		cleanResults := performParallelSingleCleans(filteredDataStructures, sc.Clean)
+		cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean)
 		for result := range cleanResults {
 			numItemsCleaned, err := result.numCleanedItems, result.err
 			if numItemsCleaned > 0 {
@@ -647,7 +647,11 @@ func runGenericBatchClean(
 
 }
 
-func performParallelSingleCleans(filteredDataStructures []hazelcastwrapper.ObjectInfo, singleCleanFunc func(name string) SingleCleanResult) <-chan SingleCleanResult {
+func performParallelSingleCleans(
+	filteredDataStructures []hazelcastwrapper.ObjectInfo,
+	b ErrorDuringCleanBehavior,
+	singleCleanFunc func(name string) SingleCleanResult,
+) <-chan SingleCleanResult {
 
 	if len(filteredDataStructures) == 0 {
 		emptyChan := make(chan SingleCleanResult)
@@ -658,17 +662,31 @@ func performParallelSingleCleans(filteredDataStructures []hazelcastwrapper.Objec
 	numWorkers := int(math.Max(1.0, math.Ceil(float64(len(filteredDataStructures)/10))))
 
 	results := make(chan SingleCleanResult, len(filteredDataStructures))
-
 	cleanTasks := make(chan string, len(filteredDataStructures))
+	errorDuringProcessing := make(chan struct{})
 
 	var wg sync.WaitGroup
+	var once sync.Once
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for task := range cleanTasks {
-				results <- singleCleanFunc(task)
+				select {
+				case <-errorDuringProcessing:
+					if Fail == b {
+						return
+					}
+				default:
+				}
+				result := singleCleanFunc(task)
+				results <- result
+				if result.err != nil && Fail == b {
+					once.Do(func() {
+						close(errorDuringProcessing)
+					})
+				}
 			}
 		}()
 	}
@@ -683,6 +701,9 @@ func performParallelSingleCleans(filteredDataStructures []hazelcastwrapper.Objec
 	go func() {
 		wg.Wait()
 		close(results)
+		once.Do(func() {
+			close(errorDuringProcessing)
+		})
 	}()
 
 	return results
