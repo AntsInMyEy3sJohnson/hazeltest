@@ -507,7 +507,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 						t.Fatal("test setup error: no match in clean invoked tracker for given data structure name", name)
 					}
 					return SingleCleanResult{42, nil}
-				})
+				}, HzMapService)
 
 				numberOfResults := 0
 				for range results {
@@ -541,7 +541,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
 				numCleanInvocations++
 				return SingleCleanResult{}
-			})
+			}, HzMapService)
 
 			numResults := 0
 			for range results {
@@ -573,7 +573,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{err: singleCleanerCleanError}
-				})
+				}, HzMapService)
 
 				numResults := 0
 				for range results {
@@ -596,14 +596,15 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 			}
 			t.Log("\t\twhen error behavior is fail")
 			{
-				numElements := 54
+				// Choose number so number of workers will be 1
+				numElements := 9
 				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
 
 				numCleanInvocations := 0
 				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{err: singleCleanerCleanError}
-				})
+				}, HzMapService)
 
 				numResults := 0
 				for range results {
