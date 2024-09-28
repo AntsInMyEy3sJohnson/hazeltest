@@ -576,7 +576,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
 					return
 				}
-				if numCleanedItems, err := stateCleaner.Clean(mapName); err != nil {
+				if scResult := stateCleaner.Clean(mapName); scResult.Err != nil {
 					configuredErrorBehavior := tle.runnerConfig.preRunClean.errorBehavior
 					if state.Ignore == tle.runnerConfig.preRunClean.errorBehavior {
 						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction, but error behavior is '%s', so test loop will commence: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.WarnLevel)
@@ -584,8 +584,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction and error behavior is '%s' -- won't start test run for this map: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.ErrorLevel)
 						return
 					}
-				} else if numCleanedItems > 0 {
-					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", numCleanedItems, mapName), tle.runnerName, log.InfoLevel)
+				} else if scResult.NumCleanedItems > 0 {
+					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", scResult.NumCleanedItems, mapName), tle.runnerName, log.InfoLevel)
 				} else {
 					lp.LogMapRunnerEvent(fmt.Sprintf("payload map '%s' either didn't contain elements to be cleaned, or wasn't susceptible to cleaning yet", mapName), tle.runnerName, log.InfoLevel)
 				}
