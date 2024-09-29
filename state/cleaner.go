@@ -395,13 +395,18 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	b := DefaultSingleMapCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.ms, c.t, c.cih)
 
-	return runGenericBatchClean(
+	start := time.Now()
+	numCleanedMaps, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
 		HzMapService,
 		c.cfg,
 		sc,
 	)
+	elapsed := time.Since(start).Milliseconds()
+	lp.LogTimingEvent("batch map clean", "N/A", int(elapsed), log.InfoLevel)
+
+	return numCleanedMaps, err
 
 }
 
@@ -774,6 +779,8 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 	b := DefaultSingleQueueCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.qs, c.ms, c.t, c.cih)
+
+	start := time.Now()
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
@@ -781,6 +788,8 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		c.cfg,
 		sc,
 	)
+	elapsed := time.Since(start).Milliseconds()
+	lp.LogTimingEvent("batch queue clean", "N/A", int(elapsed), log.InfoLevel)
 
 	return numCleaned, err
 
