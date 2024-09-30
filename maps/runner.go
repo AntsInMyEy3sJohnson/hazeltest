@@ -547,7 +547,10 @@ func (t *MapTester) TestMaps() {
 			defer wg.Done()
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			listenReady := make(chan struct{})
+			go gatherer.Listen(listenReady)
+			<-listenReady
+
 			defer gatherer.StopListen()
 
 			rn := runners[i]

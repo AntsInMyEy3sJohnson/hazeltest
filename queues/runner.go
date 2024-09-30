@@ -266,7 +266,11 @@ func (t *QueueTester) TestQueues() {
 			defer wg.Done()
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			listenReady := make(chan struct{})
+
+			go gatherer.Listen(listenReady)
+			<-listenReady
+
 			defer gatherer.StopListen()
 
 			runner := runners[i]
