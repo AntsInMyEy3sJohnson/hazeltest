@@ -797,48 +797,67 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 func RunCleaners(hzCluster string, hzMembers []string) error {
 
+	errorChan := make(chan error, len(builders))
+
+	var wg sync.WaitGroup
+	wg.Add(len(builders))
+
 	for _, b := range builders {
 
-		g := status.NewGatherer()
-		go g.Listen()
+		go func(b BatchCleanerBuilder) {
+			defer wg.Done()
 
-		ctx, cancel := context.WithCancel(context.Background())
-		err := func() error {
-			defer func() {
-				cancel()
-				g.StopListen()
+			g := status.NewGatherer()
+			go g.Listen()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			err := func() error {
+				defer func() {
+					cancel()
+					g.StopListen()
+				}()
+
+				c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
+				if err != nil {
+					lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
+					return err
+				}
+
+				if numCleanedDataStructures, err := c.Clean(); err != nil {
+					if numCleanedDataStructures > 0 {
+						lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
+					} else {
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
+					}
+					return err
+				} else {
+					if numCleanedDataStructures > 0 {
+						lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
+					} else {
+						lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
+					}
+				}
+
+				return nil
 			}()
 
-			c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
+			<-ctx.Done()
+
 			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
-				return err
+				errorChan <- err
 			}
 
-			if numCleanedDataStructures, err := c.Clean(); err != nil {
-				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
-				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
-				}
-				return err
-			} else {
-				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
-				} else {
-					lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
-				}
-			}
+		}(b)
 
-			return nil
-		}()
+	}
 
-		<-ctx.Done()
+	wg.Wait()
+	close(errorChan)
 
+	for err := range errorChan {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
