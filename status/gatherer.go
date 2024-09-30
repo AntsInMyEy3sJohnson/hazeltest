@@ -86,9 +86,15 @@ func (g *Gatherer) AssembleStatusCopy() map[string]any {
 
 }
 
-func (g *Gatherer) Listen() {
+func (g *Gatherer) Listen(ready chan struct{}) {
 
 	g.insertSynchronously(Update{Key: updateKeyFinished, Value: false})
+
+	// Caller is thus forced to receive on the channel -- receive operation, in turn, can be used
+	// to ensure the goroutine on which the Listen method is running has been successfully scheduled
+	// and started to run prior to any other goroutines the caller might spawn and whose code
+	// expects this status.Gatherer instance to be listening
+	ready <- struct{}{}
 
 	for {
 		update := <-g.Updates

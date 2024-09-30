@@ -804,17 +804,23 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 	for _, b := range builders {
 
-		go func(b BatchCleanerBuilder) {
-			defer wg.Done()
+		g := status.NewGatherer()
 
-			g := status.NewGatherer()
-			go g.Listen()
+		listenReady := make(chan struct{})
+		go g.Listen(listenReady)
+
+		<-listenReady
+
+		go func(b BatchCleanerBuilder, g *status.Gatherer) {
+			defer func() {
+				wg.Done()
+				g.StopListen()
+			}()
 
 			ctx, cancel := context.WithCancel(context.Background())
 			err := func() error {
 				defer func() {
 					cancel()
-					g.StopListen()
 				}()
 
 				c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
@@ -847,7 +853,7 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 				errorChan <- err
 			}
 
-		}(b)
+		}(b, g)
 
 	}
 

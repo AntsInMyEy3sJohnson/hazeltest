@@ -145,7 +145,11 @@ func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c 
 func (m *memberKillerMonkey) causeChaos() {
 
 	defer m.g.StopListen()
-	go m.g.Listen()
+
+	listenReady := make(chan struct{})
+	go m.g.Listen(listenReady)
+	<-listenReady
+
 	m.insertInitialStatus()
 
 	m.appendState(start)
