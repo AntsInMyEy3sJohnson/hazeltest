@@ -39,7 +39,7 @@ func TestQueueTestLoopCountersTrackerInit(t *testing.T) {
 			ct := &queueTestLoopCountersTracker{}
 			g := status.NewGatherer()
 
-			go g.Listen()
+			go g.Listen(make(chan struct{}, 1))
 			ct.init(g)
 			g.StopListen()
 
@@ -118,7 +118,7 @@ func TestQueueTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 				l:        sync.Mutex{},
 				gatherer: status.NewGatherer(),
 			}
-			go ct.gatherer.Listen()
+			go ct.gatherer.Listen(make(chan struct{}, 1))
 			ct.counters[statusKeyNumFailedPuts] = 0
 			numInvokingGoroutines := 100
 			for i := 0; i < numInvokingGoroutines; i++ {
@@ -157,7 +157,7 @@ func TestPutElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.putElements(qs.q, "awesomeQueue")
 			gatherer.StopListen()
 
@@ -194,7 +194,7 @@ func TestPutElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.putElements(qs.q, "awesomeQueue")
 			gatherer.StopListen()
 
@@ -232,7 +232,7 @@ func TestPutElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.putElements(qs.q, "anotherAwesomeQueue")
 			gatherer.StopListen()
 
@@ -262,7 +262,7 @@ func TestPutElements(t *testing.T) {
 			rc := assembleRunnerConfig(true, 1, false, 1, sleepConfigDisabled, sleepConfigDisabled)
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, status.NewGatherer())
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			tl.putElements(qs.q, "yetAnotherAwesomeQueue")
 			tl.gatherer.StopListen()
 
@@ -300,7 +300,7 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.pollElements(qs.q, "yeehawQueue")
 			gatherer.StopListen()
 
@@ -332,7 +332,7 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.pollElements(qs.q, "anotherYeehawQueue")
 			gatherer.StopListen()
 
@@ -366,7 +366,7 @@ func TestPollElements(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.pollElements(qs.q, "yetAnotherYeehawQueue")
 			gatherer.StopListen()
 
@@ -403,7 +403,7 @@ func TestRun(t *testing.T) {
 			gatherer := status.NewGatherer()
 			tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			tl.run()
 			gatherer.StopListen()
 
@@ -448,7 +448,7 @@ func TestRun(t *testing.T) {
 		gatherer := status.NewGatherer()
 		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 
@@ -484,7 +484,7 @@ func TestRun(t *testing.T) {
 		gatherer := status.NewGatherer()
 		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 
@@ -514,7 +514,7 @@ func TestRun(t *testing.T) {
 		gatherer := status.NewGatherer()
 		tl := assembleTestLoop(uuid.New(), testSource, qs, &rc, gatherer)
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 
@@ -555,7 +555,7 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 
@@ -596,7 +596,7 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 
@@ -636,7 +636,7 @@ func TestRun(t *testing.T) {
 			return 0
 		}
 
-		go gatherer.Listen()
+		go gatherer.Listen(make(chan struct{}, 1))
 		tl.run()
 		gatherer.StopListen()
 

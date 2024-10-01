@@ -1318,7 +1318,11 @@ func TestCleanedDataStructureTracker_add(t *testing.T) {
 		t.Log("\twhen status gatherer has been correctly populated")
 		{
 			g := status.NewGatherer()
-			go g.Listen()
+
+			listenReady := make(chan struct{})
+			go g.Listen(listenReady)
+
+			<-listenReady
 
 			tracker := &CleanedDataStructureTracker{g}
 

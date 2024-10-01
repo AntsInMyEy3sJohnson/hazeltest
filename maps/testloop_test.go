@@ -198,7 +198,7 @@ func TestMapTestLoopCountersTrackerInit(t *testing.T) {
 			ct := &mapTestLoopCountersTracker{}
 			g := status.NewGatherer()
 
-			go g.Listen()
+			go g.Listen(make(chan struct{}, 1))
 			ct.init(g)
 			g.StopListen()
 
@@ -277,7 +277,7 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 				l:        sync.Mutex{},
 				gatherer: status.NewGatherer(),
 			}
-			go ct.gatherer.Listen()
+			go ct.gatherer.Listen(make(chan struct{}, 1))
 			ct.counters[statusKeyNumFailedInserts] = 0
 			numInvokingGoroutines := 100
 			for i := 0; i < numInvokingGoroutines; i++ {
@@ -565,7 +565,7 @@ func TestRunWrapper(t *testing.T) {
 			)
 			ms := assembleTestMapStore(&testMapStoreBehavior{})
 			tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 				return "banana"
 			}, func(h hazelcastwrapper.Map, s string, u uint16) {
@@ -626,7 +626,7 @@ func TestRunWrapper(t *testing.T) {
 			}
 			tl.tle.stateCleanerBuilder = &testSingleMapCleanerBuilder{mapCleanerToReturn: cleaner}
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 
 			runFuncCalled := false
 			runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
@@ -681,7 +681,7 @@ func TestRunWrapper(t *testing.T) {
 
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				runFuncCalled := false
 				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
@@ -778,7 +778,7 @@ func TestRunWrapper(t *testing.T) {
 
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				runFuncCalled := false
 				runWrapper(tl.tle, tl.gatherer, func(config *runnerConfig, u uint16) string {
 					return "banana"
@@ -835,7 +835,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 					mapNumber := 0
 					mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-					go tl.gatherer.Listen()
+					go tl.gatherer.Listen(make(chan struct{}, 1))
 					err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
 					tl.gatherer.StopListen()
 
@@ -908,7 +908,7 @@ func TestExecuteMapAction(t *testing.T) {
 					)
 					tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-					go tl.gatherer.Listen()
+					go tl.gatherer.Listen(make(chan struct{}, 1))
 					err := tl.executeMapAction(ms.m, "awesome-map-name", 0, theFellowship[0], insert)
 					tl.gatherer.StopListen()
 
@@ -1009,7 +1009,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 					mapNumber := 0
 					mapName := fmt.Sprintf("%s-%s-%d", rc.mapPrefix, rc.mapBaseName, mapNumber)
-					go tl.gatherer.Listen()
+					go tl.gatherer.Listen(make(chan struct{}, 1))
 					err := tl.executeMapAction(ms.m, mapName, uint16(mapNumber), theFellowship[0], action)
 					tl.gatherer.StopListen()
 
@@ -1056,7 +1056,7 @@ func TestExecuteMapAction(t *testing.T) {
 					ms := assembleTestMapStore(&testMapStoreBehavior{})
 					tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-					go tl.gatherer.Listen()
+					go tl.gatherer.Listen(make(chan struct{}, 1))
 					err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 					tl.gatherer.StopListen()
 
@@ -1116,7 +1116,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], remove)
 				tl.gatherer.StopListen()
 
@@ -1213,7 +1213,7 @@ func TestExecuteMapAction(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				tl := assembleBoundaryTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 				tl.gatherer.StopListen()
 
@@ -1266,7 +1266,7 @@ func TestExecuteMapAction(t *testing.T) {
 
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.executeMapAction(ms.m, "my-map-name", uint16(0), theFellowship[0], read)
 				tl.gatherer.StopListen()
 
@@ -2576,7 +2576,7 @@ func TestRunOperationChain(t *testing.T) {
 
 				ac := &actionCache{}
 				kc := map[string]string{}
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 
 				mapName := "awesome-map"
 				mapNumber := uint16(12)
@@ -2644,7 +2644,7 @@ func TestRunOperationChain(t *testing.T) {
 
 				ac := &actionCache{}
 				kc := map[string]string{}
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 
 				availableForInsertion := make(map[string]string, len(theFellowship))
 				for i := 0; i < len(theFellowship); i++ {
@@ -2721,7 +2721,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				)
 				tl := assembleBatchTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				tl.run()
 				tl.gatherer.StopListen()
 
@@ -2779,7 +2779,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				tl.run()
 				tl.gatherer.StopListen()
 
@@ -2837,7 +2837,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGetMap: true})
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				tl.run()
 				tl.gatherer.StopListen()
 
@@ -2884,7 +2884,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponGet: true})
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				tl.run()
 				tl.gatherer.StopListen()
 
@@ -2934,7 +2934,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(id, testSource, &testHzClientHandler{}, ms, rc)
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			tl.run()
 			tl.gatherer.StopListen()
 
@@ -3194,7 +3194,7 @@ func TestIngestAll(t *testing.T) {
 				)
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 				tl.gatherer.StopListen()
 
@@ -3253,7 +3253,7 @@ func TestIngestAll(t *testing.T) {
 				)
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 				tl.gatherer.StopListen()
 
@@ -3296,7 +3296,7 @@ func TestIngestAll(t *testing.T) {
 				s := &testSleeper{}
 				tl.s = s
 
-				go tl.gatherer.Listen()
+				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.ingestAll(ms.m, "awesome-map", uint16(0))
 				tl.gatherer.StopListen()
 
@@ -3384,7 +3384,7 @@ func TestReadAll(t *testing.T) {
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.readAll(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
@@ -3432,7 +3432,7 @@ func TestReadAll(t *testing.T) {
 			)
 			tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, ms, rc)
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.readAll(ms.m, testMapBaseName, 0)
 			tl.gatherer.StopListen()
 
@@ -3471,7 +3471,7 @@ func TestReadAll(t *testing.T) {
 
 			ms.m.data.Store(assembleMapKey("awesome-map", 0, "legolas"), nil)
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.readAll(ms.m, testMapBaseName, 0)
 			tl.gatherer.StopListen()
 
@@ -3522,7 +3522,7 @@ func TestReadAll(t *testing.T) {
 			s := &testSleeper{}
 			tl.s = s
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.readAll(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
@@ -3604,7 +3604,7 @@ func TestRemoveSome(t *testing.T) {
 
 			populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.removeSome(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
@@ -3645,7 +3645,7 @@ func TestRemoveSome(t *testing.T) {
 			s := &testSleeper{}
 			tl.s = s
 
-			go tl.gatherer.Listen()
+			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.removeSome(ms.m, defaultTestMapName, defaultTestMapNumber)
 			tl.gatherer.StopListen()
 
