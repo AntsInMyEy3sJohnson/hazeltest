@@ -185,7 +185,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
@@ -222,7 +222,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			r := loadRunner{assigner: assigner, stateList: []runnerState{}, hzClientHandler: ch}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
@@ -289,7 +289,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
@@ -377,7 +377,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
@@ -436,7 +436,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			numEntriesPerMap = 9
 			fixedPayloadSizeBytes = 3
@@ -534,7 +534,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			numEntriesPerMap = 9
 			fixedPayloadSizeBytes = 3
@@ -624,7 +624,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			numEntriesPerMap = 9
 			fixedPayloadSizeBytes = 3

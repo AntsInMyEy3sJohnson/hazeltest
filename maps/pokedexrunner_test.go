@@ -102,7 +102,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 
 			gatherer := status.NewGatherer()
 
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
 
@@ -158,7 +158,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
@@ -219,7 +219,7 @@ func TestRunPokedexMapTests(t *testing.T) {
 			}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
