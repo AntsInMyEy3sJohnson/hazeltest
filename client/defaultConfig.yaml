@@ -99,6 +99,15 @@ stateCleaners:
       # When prefix usage has been enabled, this prefix will be used to search for maps to clean in the entire set of
       # maps available on the target Hazelcast cluster (except those maps whose name starts with two underscores).
       prefix: "ht_"
+    # The divisor to apply to the number of identified candidate data structures in order to calculate the number of
+    # workers to use for parallel cleaning. For example, if the cleaner has identified 2.000 maps in the target
+    # Hazelcast cluster that might be susceptible to cleaning and this divisor is set to 10, then the cleaner will
+    # spawn 200 workers.
+    # Note that "candidate data structure" doesn't necessarily mean the data structure in question is actually
+    # susceptible to cleaning -- this decision is made by each worker based on the clean again threshold configuration
+    # (see below). "Candidate data structure" therefore only means that the kind and name of the data structure make
+    # it a potential candidate for cleaning based on the configured prefix (see above).
+    parallelCleanNumDataStructuresDivisor: 10
     # Map cleaners across Hazeltest instances keep track of which payload maps they have cleaned at which timestamp.
     # This is the key to avoiding that a number of Hazeltest instances clean payload maps containing the state of
     # other instances in cases where payload map names are shared across these instances (which is the case for a
@@ -124,6 +133,7 @@ stateCleaners:
     prefix:
       enabled: true
       prefix: "ht_"
+    parallelCleanNumDataStructuresDivisor: 10
     cleanAgainThreshold:
       enabled: true
       thresholdMs: 30000

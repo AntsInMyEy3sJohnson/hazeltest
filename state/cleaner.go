@@ -153,12 +153,13 @@ type (
 		G *status.Gatherer
 	}
 	cleanerConfig struct {
-		enabled                bool
-		usePrefix              bool
-		prefix                 string
-		useCleanAgainThreshold bool
-		cleanAgainThresholdMs  uint64
-		errorBehavior          ErrorDuringCleanBehavior
+		enabled                               bool
+		usePrefix                             bool
+		prefix                                string
+		parallelCleanNumDataStructuresDivisor uint16
+		useCleanAgainThreshold                bool
+		cleanAgainThresholdMs                 uint64
+		errorBehavior                         ErrorDuringCleanBehavior
 	}
 	cleanerConfigBuilder struct {
 		keyPath string
@@ -616,7 +617,7 @@ func runGenericBatchClean(
 
 	numCleanedDataStructures := 0
 
-	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean, hzService)
+	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean, hzService, cfg.parallelCleanNumDataStructuresDivisor)
 	for result := range cleanResults {
 		numItemsCleaned, err := result.NumCleanedItems, result.Err
 		if numItemsCleaned > 0 {
@@ -636,6 +637,7 @@ func performParallelSingleCleans(
 	b ErrorDuringCleanBehavior,
 	singleCleanFunc func(name string) SingleCleanResult,
 	hzService string,
+	parallelCleanNumDataStructuresDivisor uint16,
 ) <-chan SingleCleanResult {
 
 	if len(filteredDataStructures) == 0 {
@@ -644,7 +646,7 @@ func performParallelSingleCleans(
 		return emptyChan
 	}
 
-	numWorkers := int(math.Max(1.0, math.Ceil(float64(len(filteredDataStructures)/10))))
+	numWorkers := int(math.Max(1.0, math.Ceil(float64(len(filteredDataStructures)/int(parallelCleanNumDataStructuresDivisor)))))
 
 	results := make(chan SingleCleanResult, len(filteredDataStructures))
 	cleanTasks := make(chan string, len(filteredDataStructures))
@@ -895,6 +897,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
+	var parallelCleanNumDataStructuresDivisor uint16
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".parallelCleanNumDataStructuresDivisor", client.ValidateInt, func(a any) {
+			parallelCleanNumDataStructuresDivisor = uint16(a.(int))
+		})
+	})
+
 	var useCleanAgainThreshold bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.a.Assign(b.keyPath+".cleanAgainThreshold.enabled", client.ValidateBool, func(a any) {
@@ -923,12 +932,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 	}
 
 	return &cleanerConfig{
-		enabled:                enabled,
-		usePrefix:              usePrefix,
-		prefix:                 prefix,
-		useCleanAgainThreshold: useCleanAgainThreshold,
-		cleanAgainThresholdMs:  cleanAgainThresholdMs,
-		errorBehavior:          cleanErrorBehavior,
+		enabled:                               enabled,
+		usePrefix:                             usePrefix,
+		prefix:                                prefix,
+		parallelCleanNumDataStructuresDivisor: parallelCleanNumDataStructuresDivisor,
+		useCleanAgainThreshold:                useCleanAgainThreshold,
+		cleanAgainThresholdMs:                 cleanAgainThresholdMs,
+		errorBehavior:                         cleanErrorBehavior,
 	}, nil
 
 }
