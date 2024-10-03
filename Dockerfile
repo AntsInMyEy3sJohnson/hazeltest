@@ -1,5 +1,5 @@
 # Slightly adapted version of https://github.com/docker-library/golang/issues/209#issuecomment-530591780
-FROM golang:1.23.1 as builder
+FROM golang:1.23.2 as builder
 
 WORKDIR /app
 
