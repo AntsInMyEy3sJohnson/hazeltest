@@ -167,12 +167,13 @@ var (
 	cw             = cleanerWatcher{}
 	cleanerKeyPath = "stateCleaners.test"
 	testConfig     = map[string]any{
-		cleanerKeyPath + ".enabled":                         true,
-		cleanerKeyPath + ".prefix.enabled":                  true,
-		cleanerKeyPath + ".prefix.prefix":                   "awesome_prefix_",
-		cleanerKeyPath + ".cleanAgainThreshold.enabled":     true,
-		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs": 30_000,
-		cleanerKeyPath + ".errorBehavior":                   "ignore",
+		cleanerKeyPath + ".enabled":                               true,
+		cleanerKeyPath + ".prefix.enabled":                        true,
+		cleanerKeyPath + ".prefix.prefix":                         "awesome_prefix_",
+		cleanerKeyPath + ".parallelCleanNumDataStructuresDivisor": 10,
+		cleanerKeyPath + ".cleanAgainThreshold.enabled":           true,
+		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs":       30_000,
+		cleanerKeyPath + ".errorBehavior":                         "ignore",
 	}
 	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
@@ -507,7 +508,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 						t.Fatal("test setup error: no match in clean invoked tracker for given data structure name", name)
 					}
 					return SingleCleanResult{42, nil}
-				}, HzMapService)
+				}, HzMapService, 10)
 
 				numberOfResults := 0
 				for range results {
@@ -541,7 +542,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
 				numCleanInvocations++
 				return SingleCleanResult{}
-			}, HzMapService)
+			}, HzMapService, 10)
 
 			numResults := 0
 			for range results {
@@ -573,7 +574,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{Err: singleCleanerCleanError}
-				}, HzMapService)
+				}, HzMapService, 10)
 
 				numResults := 0
 				for range results {
@@ -604,7 +605,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{Err: singleCleanerCleanError}
-				}, HzMapService)
+				}, HzMapService, 10)
 
 				numResults := 0
 				for range results {
@@ -1768,9 +1769,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				testQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
-					enabled:   true,
-					usePrefix: true,
-					prefix:    prefixToConsider,
+					enabled:                               true,
+					usePrefix:                             true,
+					prefix:                                prefixToConsider,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -1937,7 +1939,8 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				qs.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
-					enabled: true,
+					enabled:                               true,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -2089,8 +2092,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
 		{
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numPayloadQueueObjects := 9
 			prefixes := []string{"ht_"}
@@ -2165,8 +2169,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			qs.queues[erroneousClearQueueName].returnErrorUponClear = true
 
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 
 			tracker := &testCleanedTracker{}
@@ -2924,7 +2929,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -2958,8 +2965,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 						numItemsCleanedReturnValue: 1,
 					},
 					cfg: &cleanerConfig{
-						usePrefix: true,
-						prefix:    prefixToConsider,
+						usePrefix:                             true,
+						prefix:                                prefixToConsider,
+						parallelCleanNumDataStructuresDivisor: 10,
 					},
 				}
 
@@ -2995,7 +3003,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 							returnErrorUponClean: true,
 						},
 						cfg: &cleanerConfig{
-							errorBehavior: Ignore,
+							parallelCleanNumDataStructuresDivisor: 10,
+							errorBehavior:                         Ignore,
 						},
 					}
 
@@ -3036,7 +3045,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 							returnErrorUponClean:       true,
 						},
 						cfg: &cleanerConfig{
-							errorBehavior: Ignore,
+							parallelCleanNumDataStructuresDivisor: 10,
+							errorBehavior:                         Ignore,
 						},
 					}
 
@@ -3080,7 +3090,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 						returnErrorUponClean:               true,
 					},
 					cfg: &cleanerConfig{
-						errorBehavior: Fail,
+						parallelCleanNumDataStructuresDivisor: 10,
+						errorBehavior:                         Fail,
 					},
 				}
 
@@ -3126,7 +3137,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 						// anyway to convey why we expect zero maps reported to be cleaned
 						numItemsCleanedReturnValue: 0,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3165,7 +3178,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3465,9 +3480,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
-					enabled:   true,
-					usePrefix: true,
-					prefix:    prefixToConsider,
+					enabled:                               true,
+					usePrefix:                             true,
+					prefix:                                prefixToConsider,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 
@@ -3616,7 +3632,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				ms.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
-					enabled: true,
+					enabled:                               true,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -3765,8 +3782,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
 		{
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3840,8 +3858,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
 
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 
 			cih := &testLastCleanedInfoHandler{
@@ -3904,7 +3923,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		{
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3955,8 +3975,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen should clean check fails")
 		{
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -4000,8 +4021,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen update of last cleaned info fails")
 		{
 			c := &cleanerConfig{
-				enabled:       true,
-				errorBehavior: Fail,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -4646,12 +4668,13 @@ func runTestCaseAndResetState(testFunc func()) {
 func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
-		basePath + ".enabled":                         true,
-		basePath + ".errorBehavior":                   "ignore",
-		basePath + ".prefix.enabled":                  true,
-		basePath + ".prefix.prefix":                   "ht_",
-		basePath + ".cleanAgainThreshold.enabled":     true,
-		basePath + ".cleanAgainThreshold.thresholdMs": 30_000,
+		basePath + ".enabled":                               true,
+		basePath + ".errorBehavior":                         "ignore",
+		basePath + ".prefix.enabled":                        true,
+		basePath + ".prefix.prefix":                         "ht_",
+		basePath + ".parallelCleanNumDataStructuresDivisor": 10,
+		basePath + ".cleanAgainThreshold.enabled":           true,
+		basePath + ".cleanAgainThreshold.thresholdMs":       30_000,
 	}
 
 }
