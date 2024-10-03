@@ -306,7 +306,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		return emptyMapLockInfo, false, err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.TraceLevel)
 	lockSucceeded, err := syncMap.TryLock(cih.Ctx, payloadDataStructureName)
 
 	if err != nil {
@@ -324,7 +324,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		key:     payloadDataStructureName,
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.TraceLevel)
 	if !cih.Cfg.UseCleanAgainThreshold {
 		// No need to check for the last cleaned timestamp if the cleaner was advised not to apply a clean again threshold
 		// (Caution: One might be tempted to check whether to apply a threshold right at the beginning of this method,
@@ -346,7 +346,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 	// Value will be nil if key (name of payload map) was not present in sync map
 	if v == nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.TraceLevel)
 		return lockInfo, true, nil
 	}
 
@@ -360,13 +360,13 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	cleanAgainThresholdMs := cih.Cfg.CleanAgainThresholdMs
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.TraceLevel)
 	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*time.Duration(cleanAgainThresholdMs) {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.TraceLevel)
 		return lockInfo, false, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' milliseconds for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' milliseconds for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.TraceLevel)
 	return lockInfo, true, nil
 
 }
@@ -464,7 +464,7 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.TraceLevel)
 	return nil
 
 }
@@ -504,11 +504,11 @@ func runGenericSingleClean(
 	}
 
 	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.TraceLevel)
 		return SingleCleanResult{0, nil}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.TraceLevel)
 	numItemsCleaned, err := retrieveAndCleanFunc(payloadDataStructureName)
 
 	if err != nil {
@@ -518,7 +518,7 @@ func runGenericSingleClean(
 
 	if numItemsCleaned > 0 {
 		t.add(payloadDataStructureName, numItemsCleaned)
-		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), hzService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), hzService, log.TraceLevel)
 	}
 
 	if err := cih.update(lockInfo); err != nil {
@@ -526,7 +526,7 @@ func runGenericSingleClean(
 		return SingleCleanResult{numItemsCleaned, err}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.TraceLevel)
 	return SingleCleanResult{numItemsCleaned, err}
 
 }
@@ -554,11 +554,11 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.TraceLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.TraceLevel)
 
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
@@ -676,10 +676,10 @@ func performParallelSingleCleans(
 							close(errorDuringProcessing)
 						})
 					} else {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err), hzService, log.InfoLevel)
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err), hzService, log.TraceLevel)
 					}
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task), hzService, log.InfoLevel)
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task), hzService, log.TraceLevel)
 				}
 			}
 		}()
@@ -739,11 +739,11 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.TraceLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.TraceLevel)
 
 	if err := queueToClean.Clear(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
