@@ -482,6 +482,65 @@ func (t *testCleanedTracker) add(_ string, _ int) {
 
 }
 
+func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
+
+	t.Log("given the number of filtered data structures to be cleaned in total and a divisor to divide that number with")
+	{
+		t.Log("\twhen number of data structures is zero")
+		{
+			msg := "\t\tcalculated number of workers must be zero"
+
+			if calculateNumParallelSingleCleanWorkers(0, uint16(10)) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen divisor is zero")
+		{
+			msg := "\t\tcalculated number of workers must be zero"
+
+			numDataStructures := 10
+			if calculateNumParallelSingleCleanWorkers(numDataStructures, 0) == uint16(0) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen divisor is greater than number of filtered data structures")
+		{
+			msg := "\t\tcalculated number of workers must be one"
+
+			if calculateNumParallelSingleCleanWorkers(1, 20) == uint16(1) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen greater-than-zero number of data structures is greater than or equal to divisor")
+		{
+			msg := "\t\tcalculated number of workers must be result of dividing number of datastructures by divisor"
+
+			for i := 1; i < 100; i += 5 {
+				numWorkers := i * 10
+				divisor := i
+				calculated := calculateNumParallelSingleCleanWorkers(numWorkers, uint16(divisor))
+
+				if int(calculated) == numWorkers/divisor {
+					t.Log(msg, checkMark, numWorkers, divisor)
+				} else {
+					t.Fatal(msg, ballotX, numWorkers, divisor, calculated)
+				}
+			}
+
+		}
+	}
+
+}
+
 func TestPerformParallelSingleCleans(t *testing.T) {
 
 	t.Log("given a list of filtered data structures and a clean function to invoke on the list's elements")
