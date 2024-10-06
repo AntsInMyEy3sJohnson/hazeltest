@@ -632,6 +632,16 @@ func runGenericBatchClean(
 
 }
 
+func calculateNumParallelSingleCleanWorkers(numFilteredDataStructures int, parallelCleanNumDataStructuresDivisor uint16) uint16 {
+
+	if numFilteredDataStructures == 0 || parallelCleanNumDataStructuresDivisor == 0 {
+		return uint16(0)
+	}
+
+	return uint16(math.Max(1.0, math.Ceil(float64(numFilteredDataStructures/int(parallelCleanNumDataStructuresDivisor)))))
+
+}
+
 func performParallelSingleCleans(
 	filteredDataStructures []hazelcastwrapper.ObjectInfo,
 	b ErrorDuringCleanBehavior,
@@ -646,7 +656,7 @@ func performParallelSingleCleans(
 		return emptyChan
 	}
 
-	numWorkers := int(math.Max(1.0, math.Ceil(float64(len(filteredDataStructures)/int(parallelCleanNumDataStructuresDivisor)))))
+	numWorkers := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), parallelCleanNumDataStructuresDivisor)
 
 	results := make(chan SingleCleanResult, len(filteredDataStructures))
 	cleanTasks := make(chan string, len(filteredDataStructures))
@@ -655,7 +665,7 @@ func performParallelSingleCleans(
 	var wg sync.WaitGroup
 	var once sync.Once
 
-	for i := 0; i < numWorkers; i++ {
+	for i := uint16(0); i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
