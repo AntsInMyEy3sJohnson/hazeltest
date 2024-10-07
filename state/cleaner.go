@@ -632,13 +632,17 @@ func runGenericBatchClean(
 
 }
 
-func calculateNumParallelSingleCleanWorkers(numFilteredDataStructures int, parallelCleanNumDataStructuresDivisor uint16) uint16 {
+func calculateNumParallelSingleCleanWorkers(numFilteredDataStructures int, parallelCleanNumDataStructuresDivisor uint16) (uint16, error) {
 
-	if numFilteredDataStructures == 0 || parallelCleanNumDataStructuresDivisor == 0 {
-		return uint16(0)
+	if numFilteredDataStructures == 0 {
+		return 0, errors.New("cannot calculate number of workers for zero filtered data structures")
 	}
 
-	return uint16(math.Max(1.0, math.Ceil(float64(numFilteredDataStructures/int(parallelCleanNumDataStructuresDivisor)))))
+	if parallelCleanNumDataStructuresDivisor == 0 {
+		return 0, fmt.Errorf("cannot use zero as divisor in operation to calculate number of workers to perform parallel single clean on %d data structure/-s", numFilteredDataStructures)
+	}
+
+	return uint16(math.Max(1.0, math.Ceil(float64(numFilteredDataStructures/int(parallelCleanNumDataStructuresDivisor))))), nil
 
 }
 
@@ -656,9 +660,14 @@ func performParallelSingleCleans(
 		return emptyChan
 	}
 
-	numWorkers := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), parallelCleanNumDataStructuresDivisor)
-
 	results := make(chan SingleCleanResult, len(filteredDataStructures))
+
+	numWorkers, err := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), parallelCleanNumDataStructuresDivisor)
+	if err != nil {
+		return results
+	}
+
+	lp.LogStateCleanerEvent(fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures)), hzService, log.TraceLevel)
 	cleanTasks := make(chan string, len(filteredDataStructures))
 	errorDuringProcessing := make(chan struct{})
 

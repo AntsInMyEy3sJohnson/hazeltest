@@ -488,21 +488,37 @@ func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
 	{
 		t.Log("\twhen number of data structures is zero")
 		{
-			msg := "\t\tcalculated number of workers must be zero"
+			nw, err := calculateNumParallelSingleCleanWorkers(0, uint16(10))
 
-			if calculateNumParallelSingleCleanWorkers(0, uint16(10)) == 0 {
+			msg := "\t\terror must be returned"
+			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\treturned number of workers must be zero"
+			if nw == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 
 		t.Log("\twhen divisor is zero")
 		{
-			msg := "\t\tcalculated number of workers must be zero"
+			nw, err := calculateNumParallelSingleCleanWorkers(10, uint16(0))
 
-			numDataStructures := 10
-			if calculateNumParallelSingleCleanWorkers(numDataStructures, 0) == uint16(0) {
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned number of workers must be zero"
+			if nw == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -511,9 +527,17 @@ func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
 
 		t.Log("\twhen divisor is greater than number of filtered data structures")
 		{
-			msg := "\t\tcalculated number of workers must be one"
+			nw, err := calculateNumParallelSingleCleanWorkers(1, 20)
 
-			if calculateNumParallelSingleCleanWorkers(1, 20) == uint16(1) {
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcalculated number of workers must be one"
+			if nw == uint16(1) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -522,17 +546,24 @@ func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
 
 		t.Log("\twhen greater-than-zero number of data structures is greater than or equal to divisor")
 		{
-			msg := "\t\tcalculated number of workers must be result of dividing number of datastructures by divisor"
+			msgNoError := "\t\tno error must be returned"
+			msgNumWorkers := "\t\tcalculated number of workers must be result of dividing number of datastructures by divisor"
 
 			for i := 1; i < 100; i += 5 {
 				numWorkers := i * 10
 				divisor := i
-				calculated := calculateNumParallelSingleCleanWorkers(numWorkers, uint16(divisor))
+				nw, err := calculateNumParallelSingleCleanWorkers(numWorkers, uint16(divisor))
 
-				if int(calculated) == numWorkers/divisor {
-					t.Log(msg, checkMark, numWorkers, divisor)
+				if err == nil {
+					t.Log(msgNoError, checkMark, numWorkers, divisor)
 				} else {
-					t.Fatal(msg, ballotX, numWorkers, divisor, calculated)
+					t.Fatal(msgNoError, ballotX, numWorkers, divisor, err)
+				}
+
+				if int(nw) == numWorkers/divisor {
+					t.Log(msgNumWorkers, checkMark, numWorkers, divisor)
+				} else {
+					t.Fatal(msgNumWorkers, ballotX, numWorkers, divisor, nw)
 				}
 			}
 
