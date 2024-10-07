@@ -816,6 +816,39 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 }
 
+func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g *status.Gatherer, hzCluster string, hzMembers []string) error {
+
+	listenReady := make(chan struct{})
+	go g.Listen(listenReady)
+	defer g.StopListen()
+
+	<-listenReady
+
+	c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, context.TODO(), g, hzCluster, hzMembers)
+	if err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
+		return err
+	}
+
+	if numCleanedDataStructures, err := c.Clean(); err != nil {
+		if numCleanedDataStructures > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
+		} else {
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
+		}
+		return err
+	} else {
+		if numCleanedDataStructures > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
+		} else {
+			lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
+		}
+	}
+
+	return nil
+
+}
+
 func RunCleaners(hzCluster string, hzMembers []string) error {
 
 	errorChan := make(chan error, len(builders))
@@ -825,56 +858,12 @@ func RunCleaners(hzCluster string, hzMembers []string) error {
 
 	for _, b := range builders {
 
-		g := status.NewGatherer()
-
-		listenReady := make(chan struct{})
-		go g.Listen(listenReady)
-
-		<-listenReady
-
-		go func(b BatchCleanerBuilder, g *status.Gatherer) {
-			defer func() {
-				wg.Done()
-				g.StopListen()
-			}()
-
-			ctx, cancel := context.WithCancel(context.Background())
-			err := func() error {
-				defer func() {
-					cancel()
-				}()
-
-				c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
-				if err != nil {
-					lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
-					return err
-				}
-
-				if numCleanedDataStructures, err := c.Clean(); err != nil {
-					if numCleanedDataStructures > 0 {
-						lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
-					} else {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
-					}
-					return err
-				} else {
-					if numCleanedDataStructures > 0 {
-						lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
-					} else {
-						lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
-					}
-				}
-
-				return nil
-			}()
-
-			<-ctx.Done()
-
-			if err != nil {
+		go func(b BatchCleanerBuilder) {
+			defer wg.Done()
+			if err := buildCleanerAndInvokeClean(b, status.NewGatherer(), hzCluster, hzMembers); err != nil {
 				errorChan <- err
 			}
-
-		}(b, g)
+		}(b)
 
 	}
 
