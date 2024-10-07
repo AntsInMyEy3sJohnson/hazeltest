@@ -653,6 +653,33 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				t.Fatal(msg, ballotX, numCleanInvocations)
 			}
 		}
+		t.Log("\twhen divisor to use to calculate number of workers to perform parallel cleans is zero")
+		{
+			numCleanInvocations := 0
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
+				numCleanInvocations++
+				return SingleCleanResult{}
+			}, HzMapService, 0)
+
+			numResults := 0
+			for range results {
+				numResults++
+			}
+			msg := "\t\tzero results must be returned"
+
+			if numResults == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numResults)
+			}
+
+			msg = "\t\tthere must have been zero single clean invocations"
+			if numCleanInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanInvocations)
+			}
+		}
 		t.Log("\twhen error occurs upon invocation of clean function on element in list")
 		{
 			t.Log("\t\twhen error behavior is ignore")
