@@ -8,7 +8,7 @@ import (
 
 type testLoadRunnerTestLoop struct{}
 
-func (d testLoadRunnerTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
+func (d testLoadRunnerTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.DefaultGatherer) {
 	// No-op
 }
 

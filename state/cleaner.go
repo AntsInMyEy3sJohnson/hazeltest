@@ -21,7 +21,7 @@ type (
 		Clean() (int, error)
 	}
 	BatchCleanerBuilder interface {
-		Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error)
+		Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error)
 	}
 	DefaultBatchMapCleanerBuilder struct {
 		cfb cleanerConfigBuilder
@@ -150,7 +150,7 @@ type (
 		Cfg *LastCleanedInfoHandlerConfig
 	}
 	CleanedDataStructureTracker struct {
-		G *status.Gatherer
+		G status.Gatherer
 	}
 	cleanerConfig struct {
 		enabled                               bool
@@ -233,11 +233,11 @@ func register(cb BatchCleanerBuilder) {
 
 func (t *CleanedDataStructureTracker) add(name string, cleaned int) {
 
-	t.G.Updates <- status.Update{Key: name, Value: cleaned}
+	t.G.Gather(status.Update{Key: name, Value: cleaned})
 
 }
 
-func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -411,7 +411,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 
 }
 
-func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -816,19 +816,19 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 }
 
-func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g *status.Gatherer, hzCluster string, hzMembers []string) error {
-
-	listenReady := make(chan struct{})
-	go g.Listen(listenReady)
-	defer g.StopListen()
-
-	<-listenReady
+func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g status.Gatherer, hzCluster string, hzMembers []string) error {
 
 	c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, context.TODO(), g, hzCluster, hzMembers)
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
 		return err
 	}
+
+	listenReady := make(chan struct{})
+	go g.Listen(listenReady)
+	defer g.StopListen()
+
+	<-listenReady
 
 	if numCleanedDataStructures, err := c.Clean(); err != nil {
 		if numCleanedDataStructures > 0 {

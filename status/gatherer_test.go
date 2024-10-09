@@ -172,7 +172,7 @@ func TestGatherer_Listen(t *testing.T) {
 		t.Log("\twhen listener runs on goroutine")
 		{
 			l := &testLocker{}
-			g := &Gatherer{
+			g := &DefaultGatherer{
 				l:       l,
 				status:  map[string]any{},
 				Updates: make(chan Update),
@@ -358,7 +358,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			key := "someNumberKey"
 
 			l := &testLocker{}
-			g := &Gatherer{
+			g := &DefaultGatherer{
 				l:       l,
 				status:  map[string]any{},
 				Updates: make(chan Update),
