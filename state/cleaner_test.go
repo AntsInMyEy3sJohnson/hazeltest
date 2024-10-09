@@ -493,8 +493,9 @@ func (g *testGatherer) AssembleStatusCopy() map[string]any {
 	return nil
 }
 
-func (g *testGatherer) Listen(_ chan struct{}) {
+func (g *testGatherer) Listen(ready chan struct{}) {
 	g.o.listenInvoked = true
+	ready <- struct{}{}
 }
 
 func (g *testGatherer) StopListen() {
@@ -4651,7 +4652,7 @@ func TestBuildCleanerAndInvokeClean(t *testing.T) {
 
 	t.Log("given a batch cleaner builder and a status gatherer")
 	{
-		t.Log("\twhen build invocation is unsuccessful")
+		t.Log("\twhen build invocation was unsuccessful")
 		{
 			b := &testCleanerBuilder{behavior: &testCleanerBehavior{returnErrorUponBuild: true}}
 
@@ -4665,8 +4666,47 @@ func TestBuildCleanerAndInvokeClean(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tbuild must have been invoked with given status gatherer"
+			if b.gathererPassedIn == g {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 			msg = "\t\tstatus gatherer listen must not have been started"
 			if !g.o.listenInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen build invocation was successful, but clean invocation was not")
+		{
+			b := &testCleanerBuilder{
+				behavior: &testCleanerBehavior{
+					returnErrorUponClean: true,
+				},
+			}
+			g := &testGatherer{o: &testGathererObservations{}}
+			err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, batchCleanerCleanError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer listen must have been invoked"
+			if g.o.listenInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer stop listen must have been invoked"
+			if g.o.stopListenInvoked {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
