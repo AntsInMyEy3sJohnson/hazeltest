@@ -25,7 +25,7 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	monkey interface {
-		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer,
+		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.DefaultGatherer,
 			readyFunc raiseReady, notReadyFunc raiseNotReady)
 		causeChaos()
 	}
@@ -38,7 +38,7 @@ type (
 		s                sleeper
 		chooser          hzMemberChooser
 		killer           hzMemberKiller
-		g                *status.Gatherer
+		g                *status.DefaultGatherer
 		readyFunc        raiseReady
 		notReadyFunc     raiseNotReady
 		numMembersKilled uint32
@@ -127,7 +127,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 }
 
 func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller,
-	g *status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
+	g *status.DefaultGatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
 
 	m.a = a
 	m.s = s

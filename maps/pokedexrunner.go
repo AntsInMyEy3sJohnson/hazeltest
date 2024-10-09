@@ -24,7 +24,7 @@ type (
 		hzMapStore      hazelcastwrapper.MapStore
 		hzClientHandler hazelcastwrapper.HzClientHandler
 		l               looper[pokemon]
-		gatherer        *status.Gatherer
+		gatherer        *status.DefaultGatherer
 		providerFuncs   struct {
 			mapStore        newMapStoreFunc
 			pokemonTestLoop newPokemonTestLoopFunc
@@ -95,7 +95,7 @@ func (r *pokedexRunner) getSourceName() string {
 	return "pokedexRunner"
 }
 
-func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)

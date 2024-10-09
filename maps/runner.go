@@ -17,7 +17,7 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer)
+		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer)
 	}
 	runnerConfig struct {
 		enabled                 bool

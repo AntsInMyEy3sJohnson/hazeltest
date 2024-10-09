@@ -23,11 +23,11 @@ type (
 	getElementIdFunc         func(element any) string
 	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (any, error)
 	looper[t any]            interface {
-		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer)
 		run()
 	}
 	counterTracker interface {
-		init(gatherer *status.Gatherer)
+		init(gatherer *status.DefaultGatherer)
 		increaseCounter(sk statusKey)
 	}
 	sleeper interface {
@@ -39,7 +39,7 @@ type (
 type (
 	batchTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.Gatherer
+		gatherer *status.DefaultGatherer
 		ct       counterTracker
 		s        sleeper
 	}
@@ -54,7 +54,7 @@ type (
 	}
 	boundaryTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.Gatherer
+		gatherer *status.DefaultGatherer
 		s        sleeper
 		ct       counterTracker
 	}
@@ -74,7 +74,7 @@ type (
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]uint64
 		l        sync.Mutex
-		gatherer *status.Gatherer
+		gatherer *status.DefaultGatherer
 	}
 )
 
@@ -124,7 +124,7 @@ var (
 	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves, statusKeyNumFailedKeyChecks}
 )
 
-func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+func (ct *mapTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
 	ct.gatherer = gatherer
 
 	ct.counters = make(map[statusKey]uint64)
@@ -150,7 +150,7 @@ func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
 }
 
-func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
+func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -514,7 +514,7 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
+func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -526,7 +526,7 @@ func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *
 }
 
 func runWrapper[t any](tle *testLoopExecution[t],
-	gatherer *status.Gatherer,
+	gatherer *status.DefaultGatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hazelcastwrapper.Map, string, uint16)) {
 

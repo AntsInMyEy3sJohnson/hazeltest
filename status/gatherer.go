@@ -9,7 +9,14 @@ type (
 		Key   string
 		Value any
 	}
-	Gatherer struct {
+	Gatherer interface {
+		AssembleStatusCopy() map[string]any
+		Listen(ready chan struct{})
+		StopListen()
+		ListeningStopped() bool
+		Gather(u Update)
+	}
+	DefaultGatherer struct {
 		l       locker
 		status  map[string]any
 		Updates chan Update
@@ -57,9 +64,9 @@ func (l *mutexLocker) unlock() {
 
 }
 
-func NewGatherer() *Gatherer {
+func NewGatherer() *DefaultGatherer {
 
-	return &Gatherer{
+	return &DefaultGatherer{
 		l: &mutexLocker{
 			m: sync.RWMutex{},
 		},
@@ -70,7 +77,7 @@ func NewGatherer() *Gatherer {
 
 }
 
-func (g *Gatherer) AssembleStatusCopy() map[string]any {
+func (g *DefaultGatherer) AssembleStatusCopy() map[string]any {
 
 	mapCopy := make(map[string]any, len(g.status))
 
@@ -86,14 +93,14 @@ func (g *Gatherer) AssembleStatusCopy() map[string]any {
 
 }
 
-func (g *Gatherer) Listen(ready chan struct{}) {
+func (g *DefaultGatherer) Listen(ready chan struct{}) {
 
 	g.insertSynchronously(Update{Key: updateKeyFinished, Value: false})
 
 	// Caller is thus forced to receive on the channel -- receive operation, in turn, can be used
 	// to ensure the goroutine on which the Listen method is running has been successfully scheduled
 	// and started to run prior to any other goroutines the caller might spawn and whose code
-	// expects this status.Gatherer instance to be listening
+	// expects this status.DefaultGatherer instance to be listening
 	ready <- struct{}{}
 
 	for {
@@ -109,13 +116,19 @@ func (g *Gatherer) Listen(ready chan struct{}) {
 
 }
 
-func (g *Gatherer) StopListen() {
+func (g *DefaultGatherer) StopListen() {
 
 	g.Updates <- quitStatusGathering
 
 }
 
-func (g *Gatherer) ListeningStopped() bool {
+func (g *DefaultGatherer) Gather(u Update) {
+
+	g.Updates <- u
+
+}
+
+func (g *DefaultGatherer) ListeningStopped() bool {
 
 	var result bool
 	g.l.rLock()
@@ -132,7 +145,7 @@ func (g *Gatherer) ListeningStopped() bool {
 
 }
 
-func (g *Gatherer) insertSynchronously(u Update) {
+func (g *DefaultGatherer) insertSynchronously(u Update) {
 
 	g.l.lock()
 	{

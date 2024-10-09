@@ -25,7 +25,7 @@ type (
 		hzClientHandler hazelcastwrapper.HzClientHandler
 		hzMapStore      hazelcastwrapper.MapStore
 		l               looper[loadElement]
-		gatherer        *status.Gatherer
+		gatherer        *status.DefaultGatherer
 		providerFuncs   struct {
 			mapStore            newMapStoreFunc
 			loadElementTestLoop newLoadElementTestLoopFunc
@@ -86,7 +86,7 @@ func (r *loadRunner) getSourceName() string {
 	return "loadRunner"
 }
 
-func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer) {
+func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer) {
 
 	r.gatherer = gatherer
 	r.appendState(start)

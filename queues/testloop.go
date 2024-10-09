@@ -16,20 +16,20 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	looper[t any]       interface {
-		init(lc *testLoopExecution[t], s sleeper, g *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, g *status.DefaultGatherer)
 		run()
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation)
 	}
 	counterTracker interface {
-		init(gatherer *status.Gatherer)
+		init(gatherer *status.DefaultGatherer)
 		increaseCounter(sk statusKey)
 	}
 	testLoop[t any] struct {
 		tle      *testLoopExecution[t]
 		s        sleeper
-		gatherer *status.Gatherer
+		gatherer *status.DefaultGatherer
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
@@ -46,7 +46,7 @@ type (
 	queueTestLoopCountersTracker struct {
 		counters map[statusKey]int
 		l        sync.Mutex
-		gatherer *status.Gatherer
+		gatherer *status.DefaultGatherer
 	}
 )
 
@@ -84,7 +84,7 @@ var (
 	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyNumQueueFullEvents}
 )
 
-func (ct *queueTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+func (ct *queueTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
 	ct.gatherer = gatherer
 
 	ct.counters = make(map[statusKey]int)
@@ -111,7 +111,7 @@ func (ct *queueTestLoopCountersTracker) increaseCounter(sk statusKey) {
 
 }
 
-func (l *testLoop[t]) init(tle *testLoopExecution[t], s sleeper, g *status.Gatherer) {
+func (l *testLoop[t]) init(tle *testLoopExecution[t], s sleeper, g *status.DefaultGatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = g

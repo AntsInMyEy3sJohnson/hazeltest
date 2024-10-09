@@ -710,7 +710,7 @@ func operationConfigStatusContainsExpectedValues(status map[string]any, expected
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig, g *status.Gatherer) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig, g *status.DefaultGatherer) testLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}
