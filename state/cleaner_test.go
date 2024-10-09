@@ -21,7 +21,7 @@ type (
 	}
 	testCleanerBuilder struct {
 		behavior         *testCleanerBehavior
-		gathererPassedIn *status.Gatherer
+		gathererPassedIn status.Gatherer
 		buildInvocations int
 	}
 	testCleanerBehavior struct {
@@ -95,6 +95,13 @@ type (
 	}
 	testCleanedTracker struct {
 		numAddInvocations int
+	}
+	testGathererObservations struct {
+		listenInvoked, stopListenInvoked bool
+		updatesGathered                  []status.Update
+	}
+	testGatherer struct {
+		o *testGathererObservations
 	}
 )
 
@@ -416,7 +423,7 @@ func (c *testSingleCleaner) Clean(_ string) SingleCleanResult {
 
 }
 
-func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context.Context, g *status.Gatherer, _ string, _ []string) (BatchCleaner, string, error) {
+func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context.Context, g status.Gatherer, _ string, _ []string) (BatchCleaner, string, error) {
 
 	b.buildInvocations++
 	b.gathererPassedIn = g
@@ -480,6 +487,26 @@ func (t *testCleanedTracker) add(_ string, _ int) {
 
 	t.numAddInvocations++
 
+}
+
+func (g *testGatherer) AssembleStatusCopy() map[string]any {
+	return nil
+}
+
+func (g *testGatherer) Listen(_ chan struct{}) {
+	g.o.listenInvoked = true
+}
+
+func (g *testGatherer) StopListen() {
+	g.o.stopListenInvoked = true
+}
+
+func (g *testGatherer) ListeningStopped() bool {
+	return g.o.stopListenInvoked
+}
+
+func (g *testGatherer) Gather(u status.Update) {
+	g.o.updatesGathered = append(g.o.updatesGathered, u)
 }
 
 func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
@@ -4620,34 +4647,32 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 
 }
 
-func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+func TestBuildCleanerAndInvokeClean(t *testing.T) {
 
-	keyPath := cleanerKeyPath + ".enabled"
-	if cfg.enabled != expectedValues[keyPath].(bool) {
-		return false, keyPath
+	t.Log("given a batch cleaner builder and a status gatherer")
+	{
+		t.Log("\twhen build invocation is unsuccessful")
+		{
+			b := &testCleanerBuilder{behavior: &testCleanerBehavior{returnErrorUponBuild: true}}
+
+			g := &testGatherer{o: &testGathererObservations{}}
+			err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, cleanerBuildError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer listen must not have been started"
+			if !g.o.listenInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 	}
-
-	keyPath = cleanerKeyPath + ".prefix.enabled"
-	if cfg.usePrefix != expectedValues[keyPath].(bool) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".prefix.prefix"
-	if cfg.prefix != expectedValues[keyPath].(string) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".cleanAgainThreshold.enabled"
-	if cfg.useCleanAgainThreshold != expectedValues[keyPath].(bool) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".cleanAgainThreshold.thresholdMs"
-	if cfg.cleanAgainThresholdMs != uint64(expectedValues[keyPath].(int)) {
-		return false, keyPath
-	}
-
-	return true, ""
 
 }
 
@@ -4753,6 +4778,37 @@ func TestRunCleaners(t *testing.T) {
 
 }
 
+func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+
+	keyPath := cleanerKeyPath + ".enabled"
+	if cfg.enabled != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.enabled"
+	if cfg.usePrefix != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.prefix"
+	if cfg.prefix != expectedValues[keyPath].(string) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.enabled"
+	if cfg.useCleanAgainThreshold != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.thresholdMs"
+	if cfg.cleanAgainThresholdMs != uint64(expectedValues[keyPath].(int)) {
+		return false, keyPath
+	}
+
+	return true, ""
+
+}
+
 func createShouldCleanIndividualMapSetup(ms *testHzMapStore, numShouldBeCleaned int) map[string]bool {
 
 	keys := make([]string, 0, len(ms.maps))
@@ -4796,7 +4852,7 @@ func assembleTestConfig(basePath string) map[string]any {
 
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
+func waitForStatusGatheringDone(g *status.DefaultGatherer) {
 
 	for {
 		if done := g.ListeningStopped(); done {
