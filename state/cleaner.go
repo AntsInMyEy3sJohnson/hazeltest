@@ -667,7 +667,7 @@ func performParallelSingleCleans(
 		return results
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures)), hzService, log.TraceLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures)), hzService, log.InfoLevel)
 	cleanTasks := make(chan string, len(filteredDataStructures))
 	errorDuringProcessing := make(chan struct{})
 
