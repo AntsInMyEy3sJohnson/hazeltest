@@ -18,7 +18,7 @@ type (
 	}
 	runner interface {
 		getSourceName() string
-		runQueueTests(hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer, storeFunc initQueueStoreFunc)
+		runQueueTests(hzCluster string, hzMembers []string, gatherer status.Gatherer, storeFunc initQueueStoreFunc)
 	}
 	runnerConfig struct {
 		enabled                     bool

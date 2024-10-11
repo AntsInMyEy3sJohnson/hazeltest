@@ -4933,7 +4933,7 @@ func assembleTestConfig(basePath string) map[string]any {
 
 }
 
-func waitForStatusGatheringDone(g *status.DefaultGatherer) {
+func waitForStatusGatheringDone(g status.Gatherer) {
 
 	for {
 		if done := g.ListeningStopped(); done {

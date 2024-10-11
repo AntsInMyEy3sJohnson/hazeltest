@@ -260,7 +260,8 @@ func TestMapTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 					}
 
 					msg = "\t\t\tcorresponding update must have been sent to status gatherer"
-					update := <-ct.gatherer.Updates
+					g := ct.gatherer.(*status.DefaultGatherer)
+					update := <-g.Updates
 					if update.Key == string(v) && update.Value == uint64(1) {
 						t.Log(msg, checkMark, v)
 					} else {

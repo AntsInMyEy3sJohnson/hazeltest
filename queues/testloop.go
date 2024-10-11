@@ -16,20 +16,20 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	looper[t any]       interface {
-		init(lc *testLoopExecution[t], s sleeper, g *status.DefaultGatherer)
+		init(lc *testLoopExecution[t], s sleeper, g status.Gatherer)
 		run()
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation)
 	}
 	counterTracker interface {
-		init(gatherer *status.DefaultGatherer)
+		init(gatherer status.Gatherer)
 		increaseCounter(sk statusKey)
 	}
 	testLoop[t any] struct {
 		tle      *testLoopExecution[t]
 		s        sleeper
-		gatherer *status.DefaultGatherer
+		gatherer status.Gatherer
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
@@ -46,7 +46,7 @@ type (
 	queueTestLoopCountersTracker struct {
 		counters map[statusKey]int
 		l        sync.Mutex
-		gatherer *status.DefaultGatherer
+		gatherer status.Gatherer
 	}
 )
 
@@ -84,7 +84,7 @@ var (
 	counters = []statusKey{statusKeyNumFailedPuts, statusKeyNumFailedPolls, statusKeyNumNilPolls, statusKeyNumFailedCapacityChecks, statusKeyNumQueueFullEvents}
 )
 
-func (ct *queueTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
+func (ct *queueTestLoopCountersTracker) init(gatherer status.Gatherer) {
 	ct.gatherer = gatherer
 
 	ct.counters = make(map[statusKey]int)
@@ -92,7 +92,7 @@ func (ct *queueTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
 	initialCounterValue := 0
 	for _, v := range counters {
 		ct.counters[v] = initialCounterValue
-		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+		gatherer.Gather(status.Update{Key: string(v), Value: initialCounterValue})
 	}
 
 }
@@ -107,11 +107,11 @@ func (ct *queueTestLoopCountersTracker) increaseCounter(sk statusKey) {
 	}
 	ct.l.Unlock()
 
-	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+	ct.gatherer.Gather(status.Update{Key: string(sk), Value: newValue})
 
 }
 
-func (l *testLoop[t]) init(tle *testLoopExecution[t], s sleeper, g *status.DefaultGatherer) {
+func (l *testLoop[t]) init(tle *testLoopExecution[t], s sleeper, g status.Gatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = g
@@ -182,9 +182,9 @@ func (l *testLoop[t]) insertLoopWithInitialStatus() {
 	tle := l.tle
 
 	numQueues := tle.runnerConfig.numQueues
-	l.gatherer.Updates <- status.Update{Key: statusKeyNumQueues, Value: numQueues}
-	l.gatherer.Updates <- status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.putConfig)}
-	l.gatherer.Updates <- status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.pollConfig)}
+	l.gatherer.Gather(status.Update{Key: statusKeyNumQueues, Value: numQueues})
+	l.gatherer.Gather(status.Update{Key: string(put), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.putConfig)})
+	l.gatherer.Gather(status.Update{Key: string(poll), Value: assembleInitialOperationStatus(numQueues, tle.runnerConfig.pollConfig)})
 
 }
 

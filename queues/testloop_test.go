@@ -101,7 +101,8 @@ func TestQueueTestLoopCountersTrackerIncreaseCounter(t *testing.T) {
 					}
 
 					msg = "\t\t\tcorresponding update must have been sent to status gatherer"
-					update := <-ct.gatherer.Updates
+					g := ct.gatherer.(*status.DefaultGatherer)
+					update := <-g.Updates
 					if update.Key == string(v) && update.Value == 1 {
 						t.Log(msg, checkMark, v)
 					} else {
@@ -710,7 +711,7 @@ func operationConfigStatusContainsExpectedValues(status map[string]any, expected
 
 }
 
-func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig, g *status.DefaultGatherer) testLoop[string] {
+func assembleTestLoop(id uuid.UUID, source string, qs hazelcastwrapper.QueueStore, rc *runnerConfig, g status.Gatherer) testLoop[string] {
 
 	tlc := assembleTestLoopConfig(id, source, qs, rc)
 	tl := testLoop[string]{}

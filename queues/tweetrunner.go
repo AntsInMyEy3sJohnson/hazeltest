@@ -24,7 +24,7 @@ type (
 		hzClientHandler hazelcastwrapper.HzClientHandler
 		hzQueueStore    hazelcastwrapper.QueueStore
 		l               looper[tweet]
-		gatherer        *status.DefaultGatherer
+		gatherer        status.Gatherer
 	}
 	tweetCollection struct {
 		Tweets []tweet `json:"Tweets"`
@@ -57,7 +57,7 @@ func (r *tweetRunner) getSourceName() string {
 	return "tweetRunner"
 }
 
-func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer, storeFunc initQueueStoreFunc) {
+func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer status.Gatherer, storeFunc initQueueStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -110,7 +110,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 func (r *tweetRunner) appendState(s state) {
 	r.stateList = append(r.stateList, s)
 
-	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
+	r.gatherer.Gather(status.Update{Key: string(statusKeyCurrentState), Value: string(s)})
 }
 
 func parseTweets() (*tweetCollection, error) {

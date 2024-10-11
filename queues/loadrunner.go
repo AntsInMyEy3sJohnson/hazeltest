@@ -22,7 +22,7 @@ type (
 		hzClientHandler hazelcastwrapper.HzClientHandler
 		hzQueueStore    hazelcastwrapper.QueueStore
 		l               looper[loadElement]
-		gatherer        *status.DefaultGatherer
+		gatherer        status.Gatherer
 	}
 	loadElement struct {
 		Payload string
@@ -50,7 +50,7 @@ func (r *loadRunner) getSourceName() string {
 	return r.source
 }
 
-func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer, storeFunc initQueueStoreFunc) {
+func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gatherer status.Gatherer, storeFunc initQueueStoreFunc) {
 
 	r.gatherer = gatherer
 	r.appendState(start)
@@ -100,7 +100,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 func (r *loadRunner) appendState(s state) {
 
 	r.stateList = append(r.stateList, s)
-	r.gatherer.Updates <- status.Update{Key: string(statusKeyCurrentState), Value: string(s)}
+	r.gatherer.Gather(status.Update{Key: string(statusKeyCurrentState), Value: string(s)})
 
 }
 

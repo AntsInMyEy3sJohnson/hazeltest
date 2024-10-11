@@ -110,7 +110,7 @@ var (
 	testMapOperationLock     sync.Mutex
 )
 
-func waitForStatusGatheringDone(g *status.DefaultGatherer) {
+func waitForStatusGatheringDone(g status.Gatherer) {
 
 	for {
 		if done := g.ListeningStopped(); done {
@@ -120,7 +120,7 @@ func waitForStatusGatheringDone(g *status.DefaultGatherer) {
 
 }
 
-func latestStatePresentInGatherer(g *status.DefaultGatherer, desiredState runnerState) bool {
+func latestStatePresentInGatherer(g status.Gatherer, desiredState runnerState) bool {
 
 	if value, ok := g.AssembleStatusCopy()[string(statusKeyCurrentState)]; ok && value == string(desiredState) {
 		return true

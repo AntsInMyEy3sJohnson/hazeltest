@@ -9,7 +9,7 @@ import (
 
 type testPokedexTestLoop struct{}
 
-func (d testPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ *status.DefaultGatherer) {
+func (d testPokedexTestLoop) init(_ *testLoopExecution[pokemon], _ sleeper, _ status.Gatherer) {
 	// No-op
 }
 

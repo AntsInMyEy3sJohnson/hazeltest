@@ -21,7 +21,7 @@ type (
 	}
 )
 
-func (d *testLoadTestLoop) init(tle *testLoopExecution[loadElement], _ sleeper, _ *status.DefaultGatherer) {
+func (d *testLoadTestLoop) init(tle *testLoopExecution[loadElement], _ sleeper, _ status.Gatherer) {
 	d.observations.numInitLooperInvocations++
 	d.assignedTestLoopExecution = tle
 }

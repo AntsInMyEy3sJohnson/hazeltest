@@ -23,11 +23,11 @@ type (
 	getElementIdFunc         func(element any) string
 	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (any, error)
 	looper[t any]            interface {
-		init(lc *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer)
+		init(lc *testLoopExecution[t], s sleeper, gatherer status.Gatherer)
 		run()
 	}
 	counterTracker interface {
-		init(gatherer *status.DefaultGatherer)
+		init(gatherer status.Gatherer)
 		increaseCounter(sk statusKey)
 	}
 	sleeper interface {
@@ -39,7 +39,7 @@ type (
 type (
 	batchTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.DefaultGatherer
+		gatherer status.Gatherer
 		ct       counterTracker
 		s        sleeper
 	}
@@ -54,7 +54,7 @@ type (
 	}
 	boundaryTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.DefaultGatherer
+		gatherer status.Gatherer
 		s        sleeper
 		ct       counterTracker
 	}
@@ -74,7 +74,7 @@ type (
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]uint64
 		l        sync.Mutex
-		gatherer *status.DefaultGatherer
+		gatherer status.Gatherer
 	}
 )
 
@@ -124,7 +124,7 @@ var (
 	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves, statusKeyNumFailedKeyChecks}
 )
 
-func (ct *mapTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
+func (ct *mapTestLoopCountersTracker) init(gatherer status.Gatherer) {
 	ct.gatherer = gatherer
 
 	ct.counters = make(map[statusKey]uint64)
@@ -132,7 +132,7 @@ func (ct *mapTestLoopCountersTracker) init(gatherer *status.DefaultGatherer) {
 	initialCounterValue := uint64(0)
 	for _, v := range counters {
 		ct.counters[v] = initialCounterValue
-		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+		gatherer.Gather(status.Update{Key: string(v), Value: initialCounterValue})
 	}
 }
 
@@ -146,11 +146,11 @@ func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 	}
 	ct.l.Unlock()
 
-	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+	ct.gatherer.Gather(status.Update{Key: string(sk), Value: newValue})
 
 }
 
-func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer) {
+func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer status.Gatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -514,7 +514,7 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.DefaultGatherer) {
+func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer status.Gatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -526,12 +526,12 @@ func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *
 }
 
 func runWrapper[t any](tle *testLoopExecution[t],
-	gatherer *status.DefaultGatherer,
+	gatherer status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hazelcastwrapper.Map, string, uint16)) {
 
 	rc := tle.runnerConfig
-	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
+	insertInitialTestLoopStatus(gatherer, rc.numMaps, rc.numRuns)
 
 	var stateCleaner state.SingleCleaner
 	var hzService string
@@ -608,11 +608,11 @@ func (l *batchTestLoop[t]) run() {
 
 }
 
-func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
+func insertInitialTestLoopStatus(g status.Gatherer, numMaps uint16, numRuns uint32) {
 
-	c <- status.Update{Key: string(statusKeyNumMaps), Value: numMaps}
-	c <- status.Update{Key: string(statusKeyNumRuns), Value: numRuns}
-	c <- status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns}
+	g.Gather(status.Update{Key: string(statusKeyNumMaps), Value: numMaps})
+	g.Gather(status.Update{Key: string(statusKeyNumRuns), Value: numRuns})
+	g.Gather(status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns})
 
 }
 
