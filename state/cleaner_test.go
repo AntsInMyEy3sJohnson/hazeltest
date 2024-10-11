@@ -30,7 +30,8 @@ type (
 		returnErrorUponBuild, returnErrorUponClean bool
 	}
 	testBatchCleaner struct {
-		behavior *testCleanerBehavior
+		behavior         *testCleanerBehavior
+		gathererPassedIn status.Gatherer
 	}
 	testSingleCleaner struct {
 		behavior *testCleanerBehavior
@@ -404,6 +405,7 @@ func (c *testBatchCleaner) Clean() (int, error) {
 		return 0, batchCleanerCleanError
 	}
 
+	c.gathererPassedIn.Gather(status.Update{Key: "some-datastructure", Value: 42})
 	return cw.cleanAllInvocations, nil
 
 }
@@ -432,7 +434,7 @@ func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context
 		return nil, HzMapService, cleanerBuildError
 	}
 
-	return &testBatchCleaner{behavior: b.behavior}, HzMapService, nil
+	return &testBatchCleaner{behavior: b.behavior, gathererPassedIn: g}, HzMapService, nil
 
 }
 
@@ -4680,37 +4682,76 @@ func TestBuildCleanerAndInvokeClean(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
-
 		t.Log("\twhen build invocation was successful, but clean invocation was not")
 		{
-			b := &testCleanerBuilder{
-				behavior: &testCleanerBehavior{
-					returnErrorUponClean: true,
-				},
-			}
-			g := &testGatherer{o: &testGathererObservations{}}
-			err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+			runTestCaseAndResetState(func() {
+				b := &testCleanerBuilder{
+					behavior: &testCleanerBehavior{
+						returnErrorUponClean: true,
+					},
+				}
+				g := &testGatherer{o: &testGathererObservations{}}
+				err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
 
-			msg := "\t\terror must be returned"
-			if errors.Is(err, batchCleanerCleanError) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				msg := "\t\terror must be returned"
+				if errors.Is(err, batchCleanerCleanError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			msg = "\t\tstatus gatherer listen must have been invoked"
-			if g.o.listenInvoked {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				msg = "\t\tstatus gatherer listen must have been invoked"
+				if g.o.listenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			msg = "\t\tstatus gatherer stop listen must have been invoked"
-			if g.o.stopListenInvoked {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				msg = "\t\tstatus gatherer stop listen must have been invoked"
+				if g.o.stopListenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			})
+		}
+		t.Log("\twhen both build and clean invocation were successful")
+		{
+			runTestCaseAndResetState(func() {
+				b := &testCleanerBuilder{
+					behavior: emptyTestCleanerBehavior,
+				}
+				g := &testGatherer{o: &testGathererObservations{}}
+				err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer listen must have been invoked"
+				if g.o.listenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer stop listen must have been invoked"
+				if g.o.stopListenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer must have received updates"
+				if len(g.o.updatesGathered) > 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			})
 		}
 	}
 
