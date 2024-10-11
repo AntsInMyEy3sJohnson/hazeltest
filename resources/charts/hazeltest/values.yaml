@@ -5,7 +5,7 @@ image:
   organization: antsinmyey3sjohnson
   repository: hazeltest
   tag: 0.15.1
-  digest: c702f1f77d2a18915f3c87366e685bfa0342d73c3c606c6ba16644ccb4b15fd4
+  digest: ad97bd08556036fbe2fec7ce9da6e4b945cce24b8e520be798f5871f0b168240
   pullPolicy: IfNotPresent
 
 resources:
