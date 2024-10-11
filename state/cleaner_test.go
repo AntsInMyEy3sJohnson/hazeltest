@@ -21,7 +21,7 @@ type (
 	}
 	testCleanerBuilder struct {
 		behavior         *testCleanerBehavior
-		gathererPassedIn *status.Gatherer
+		gathererPassedIn status.Gatherer
 		buildInvocations int
 	}
 	testCleanerBehavior struct {
@@ -30,7 +30,8 @@ type (
 		returnErrorUponBuild, returnErrorUponClean bool
 	}
 	testBatchCleaner struct {
-		behavior *testCleanerBehavior
+		behavior         *testCleanerBehavior
+		gathererPassedIn status.Gatherer
 	}
 	testSingleCleaner struct {
 		behavior *testCleanerBehavior
@@ -95,6 +96,13 @@ type (
 	}
 	testCleanedTracker struct {
 		numAddInvocations int
+	}
+	testGathererObservations struct {
+		listenInvoked, stopListenInvoked bool
+		updatesGathered                  []status.Update
+	}
+	testGatherer struct {
+		o *testGathererObservations
 	}
 )
 
@@ -167,12 +175,13 @@ var (
 	cw             = cleanerWatcher{}
 	cleanerKeyPath = "stateCleaners.test"
 	testConfig     = map[string]any{
-		cleanerKeyPath + ".enabled":                         true,
-		cleanerKeyPath + ".prefix.enabled":                  true,
-		cleanerKeyPath + ".prefix.prefix":                   "awesome_prefix_",
-		cleanerKeyPath + ".cleanAgainThreshold.enabled":     true,
-		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs": 30_000,
-		cleanerKeyPath + ".errorBehavior":                   "ignore",
+		cleanerKeyPath + ".enabled":                               true,
+		cleanerKeyPath + ".prefix.enabled":                        true,
+		cleanerKeyPath + ".prefix.prefix":                         "awesome_prefix_",
+		cleanerKeyPath + ".parallelCleanNumDataStructuresDivisor": 10,
+		cleanerKeyPath + ".cleanAgainThreshold.enabled":           true,
+		cleanerKeyPath + ".cleanAgainThreshold.thresholdMs":       30_000,
+		cleanerKeyPath + ".errorBehavior":                         "ignore",
 	}
 	assignConfigPropertyError     = errors.New("something somewhere went terribly wrong during config property assignment")
 	cleanerBuildError             = errors.New("something went terribly wrong when attempting to build the cleaner")
@@ -396,11 +405,12 @@ func (c *testBatchCleaner) Clean() (int, error) {
 		return 0, batchCleanerCleanError
 	}
 
+	c.gathererPassedIn.Gather(status.Update{Key: "some-datastructure", Value: 42})
 	return cw.cleanAllInvocations, nil
 
 }
 
-func (c *testSingleCleaner) Clean(_ string) (int, error) {
+func (c *testSingleCleaner) Clean(_ string) SingleCleanResult {
 
 	cw.m.Lock()
 	defer cw.m.Unlock()
@@ -408,14 +418,14 @@ func (c *testSingleCleaner) Clean(_ string) (int, error) {
 	cw.cleanSingleInvocations++
 
 	if c.behavior.returnErrorUponClean && (c.behavior.returnCleanErrorAfterNoInvocations == 0 || cw.cleanSingleInvocations == c.behavior.returnCleanErrorAfterNoInvocations+1) {
-		return c.behavior.numItemsCleanedReturnValue, singleCleanerCleanError
+		return SingleCleanResult{c.behavior.numItemsCleanedReturnValue, singleCleanerCleanError}
 	}
 
-	return c.behavior.numItemsCleanedReturnValue, nil
+	return SingleCleanResult{c.behavior.numItemsCleanedReturnValue, nil}
 
 }
 
-func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context.Context, g *status.Gatherer, _ string, _ []string) (BatchCleaner, string, error) {
+func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context.Context, g status.Gatherer, _ string, _ []string) (BatchCleaner, string, error) {
 
 	b.buildInvocations++
 	b.gathererPassedIn = g
@@ -424,7 +434,7 @@ func (b *testCleanerBuilder) Build(_ hazelcastwrapper.HzClientHandler, _ context
 		return nil, HzMapService, cleanerBuildError
 	}
 
-	return &testBatchCleaner{behavior: b.behavior}, HzMapService, nil
+	return &testBatchCleaner{behavior: b.behavior, gathererPassedIn: g}, HzMapService, nil
 
 }
 
@@ -478,6 +488,294 @@ func (cih *testLastCleanedInfoHandler) update(_ mapLockInfo) error {
 func (t *testCleanedTracker) add(_ string, _ int) {
 
 	t.numAddInvocations++
+
+}
+
+func (g *testGatherer) AssembleStatusCopy() map[string]any {
+	return nil
+}
+
+func (g *testGatherer) Listen(ready chan struct{}) {
+	g.o.listenInvoked = true
+	ready <- struct{}{}
+}
+
+func (g *testGatherer) StopListen() {
+	g.o.stopListenInvoked = true
+}
+
+func (g *testGatherer) ListeningStopped() bool {
+	return g.o.stopListenInvoked
+}
+
+func (g *testGatherer) Gather(u status.Update) {
+	g.o.updatesGathered = append(g.o.updatesGathered, u)
+}
+
+func TestCalculateNumParallelSingleCleanWorkers(t *testing.T) {
+
+	t.Log("given the number of filtered data structures to be cleaned in total and a divisor to divide that number with")
+	{
+		t.Log("\twhen number of data structures is zero")
+		{
+			nw, err := calculateNumParallelSingleCleanWorkers(0, uint16(10))
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned number of workers must be zero"
+			if nw == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen divisor is zero")
+		{
+			nw, err := calculateNumParallelSingleCleanWorkers(10, uint16(0))
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned number of workers must be zero"
+			if nw == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen divisor is greater than number of filtered data structures")
+		{
+			nw, err := calculateNumParallelSingleCleanWorkers(1, 20)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tcalculated number of workers must be one"
+			if nw == uint16(1) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen greater-than-zero number of data structures is greater than or equal to divisor")
+		{
+			msgNoError := "\t\tno error must be returned"
+			msgNumWorkers := "\t\tcalculated number of workers must be result of dividing number of datastructures by divisor"
+
+			for i := 1; i < 100; i += 5 {
+				numWorkers := i * 10
+				divisor := i
+				nw, err := calculateNumParallelSingleCleanWorkers(numWorkers, uint16(divisor))
+
+				if err == nil {
+					t.Log(msgNoError, checkMark, numWorkers, divisor)
+				} else {
+					t.Fatal(msgNoError, ballotX, numWorkers, divisor, err)
+				}
+
+				if int(nw) == numWorkers/divisor {
+					t.Log(msgNumWorkers, checkMark, numWorkers, divisor)
+				} else {
+					t.Fatal(msgNumWorkers, ballotX, numWorkers, divisor, nw)
+				}
+			}
+
+		}
+	}
+
+}
+
+func TestPerformParallelSingleCleans(t *testing.T) {
+
+	t.Log("given a list of filtered data structures and a clean function to invoke on the list's elements")
+	{
+		t.Log("\twhen list contains varying numbers of elements to invoke clean function on")
+		{
+			numElementsList := []int{1, 10, 19, 58, 121}
+
+			for i := 0; i < len(numElementsList); i++ {
+				ois := populateTestObjectInfos(numElementsList[i], []string{"ht_"}, HzMapService)
+
+				var cleanInvokedTracker sync.Map
+
+				for j := 0; j < len(ois.objectInfos); j++ {
+					cleanInvokedTracker.Store(ois.objectInfos[j].GetName(), 0)
+				}
+
+				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
+					if v, ok := cleanInvokedTracker.Load(name); ok {
+						numInvoked := v.(int)
+						numInvoked++
+						cleanInvokedTracker.Store(name, numInvoked)
+					} else {
+						t.Fatal("test setup error: no match in clean invoked tracker for given data structure name", name)
+					}
+					return SingleCleanResult{42, nil}
+				}, HzMapService, 10)
+
+				numberOfResults := 0
+				for range results {
+					numberOfResults++
+				}
+
+				msg := "\t\tnumber of results must be equal to number of elements in filtered data structures list"
+				if numberOfResults == numElementsList[i] {
+					t.Log(msg, checkMark, numberOfResults)
+				} else {
+					t.Fatal(msg, ballotX, numberOfResults)
+				}
+
+				msg = "\t\tclean function must have been invoked exactly once on each data structure"
+				cleanInvokedTracker.Range(func(key, value any) bool {
+					dataStructureName := key.(string)
+					numCleanInvocations := value.(int)
+					if numCleanInvocations == 1 {
+						t.Log(msg, checkMark, dataStructureName)
+					} else {
+						t.Fatal(msg, ballotX, dataStructureName, numCleanInvocations)
+					}
+					return true
+				})
+
+			}
+		}
+		t.Log("\twhen list of elements is empty")
+		{
+			numCleanInvocations := 0
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
+				numCleanInvocations++
+				return SingleCleanResult{}
+			}, HzMapService, 10)
+
+			numResults := 0
+			for range results {
+				numResults++
+			}
+
+			msg := "\t\tzero results must be returned"
+			if numResults == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numResults)
+			}
+
+			msg = "\t\tthere must have been zero clean invocations"
+			if numCleanInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanInvocations)
+			}
+		}
+		t.Log("\twhen divisor to use to calculate number of workers to perform parallel cleans is zero")
+		{
+			numCleanInvocations := 0
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
+				numCleanInvocations++
+				return SingleCleanResult{}
+			}, HzMapService, 0)
+
+			numResults := 0
+			for range results {
+				numResults++
+			}
+			msg := "\t\tzero results must be returned"
+
+			if numResults == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numResults)
+			}
+
+			msg = "\t\tthere must have been zero single clean invocations"
+			if numCleanInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, numCleanInvocations)
+			}
+		}
+		t.Log("\twhen error occurs upon invocation of clean function on element in list")
+		{
+			t.Log("\t\twhen error behavior is ignore")
+			{
+				numElements := 21
+				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
+
+				numCleanInvocations := 0
+				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
+					numCleanInvocations++
+					return SingleCleanResult{Err: singleCleanerCleanError}
+				}, HzMapService, 10)
+
+				numResults := 0
+				for range results {
+					numResults++
+				}
+
+				msg := "\t\t\tnumber of results must be equal to number of elements in list of data structures"
+				if numResults == numElements {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numResults)
+				}
+
+				msg = "\t\t\tnumber of clean invocations must be equal to number of elements in list of data structures"
+				if numCleanInvocations == numElements {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleanInvocations)
+				}
+			}
+			t.Log("\t\twhen error behavior is fail")
+			{
+				// Choose number so number of workers will be 1
+				numElements := 9
+				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
+
+				numCleanInvocations := 0
+				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
+					numCleanInvocations++
+					return SingleCleanResult{Err: singleCleanerCleanError}
+				}, HzMapService, 10)
+
+				numResults := 0
+				for range results {
+					numResults++
+				}
+
+				msg := "\t\t\tnumber of results must be one"
+				if numResults == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numResults)
+				}
+
+				msg = "\t\t\tnumber of clean invocations must be one"
+				if numCleanInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, numCleanInvocations)
+				}
+
+			}
+		}
+	}
 
 }
 
@@ -1168,7 +1466,11 @@ func TestCleanedDataStructureTracker_add(t *testing.T) {
 		t.Log("\twhen status gatherer has been correctly populated")
 		{
 			g := status.NewGatherer()
-			go g.Listen()
+
+			listenReady := make(chan struct{})
+			go g.Listen(listenReady)
+
+			<-listenReady
 
 			tracker := &CleanedDataStructureTracker{g}
 
@@ -1517,20 +1819,20 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				}
 				qc, _ := b.Build(context.TODO(), populateTestQueueStore(0, []string{}, "", 0), ms, &testCleanedTracker{}, cih)
 
-				numItemsCleaned, err := qc.Clean("something")
+				scResult := qc.Clean("something")
 
 				msg := "\t\t\terror must be returned"
-				if err != nil {
+				if scResult.Err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be zero"
-				if numItemsCleaned == 0 {
+				if scResult.NumCleanedItems == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, numItemsCleaned)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 			}
 
@@ -1556,17 +1858,17 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				numItemsInQueues := 9
 				qc, _ := b.Build(context.TODO(), populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues), ms, tr, cih)
 
-				numItemsCleaned, err := qc.Clean(prefix + baseName + "-0")
+				scResult := qc.Clean(prefix + baseName + "-0")
 
 				msg := "\t\t\tno error must be returned"
-				if err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of items cleaned from queue must be equal to number of items previously held by queue"
-				if numItemsCleaned == numItemsInQueues {
+				if scResult.NumCleanedItems == numItemsInQueues {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1614,9 +1916,10 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				testQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
-					enabled:   true,
-					usePrefix: true,
-					prefix:    prefixToConsider,
+					enabled:                               true,
+					usePrefix:                             true,
+					prefix:                                prefixToConsider,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -1783,7 +2086,8 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				qs.queues[hzInternalQueueName] = &testHzQueue{}
 
 				c := &cleanerConfig{
-					enabled: true,
+					enabled:                               true,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -1935,7 +2239,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numPayloadQueueObjects := 9
 			prefixes := []string{"ht_"}
@@ -2010,7 +2316,9 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			qs.queues[erroneousClearQueueName].returnErrorUponClear = true
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 
 			tracker := &testCleanedTracker{}
@@ -2154,20 +2462,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 			}
 
 			payloadMapName := "ht_darthvader"
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
-			if errors.Is(err, lastCleanedInfoCheckError) {
+			if errors.Is(scResult.Err, lastCleanedInfoCheckError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tlast cleaned info check must have been invoked once"
@@ -2217,20 +2525,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 			mc, _ := b.Build(context.TODO(), ms, tr, cih)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
-			numItemsCleaned, err := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, HzMapService, dmc.retrieveAndClean)
+			scResult := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, HzMapService, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
-			if err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\ttry lock must have been invoked once on map cleaners sync map"
@@ -2279,20 +2587,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(err, getPayloadMapError) {
+			if errors.Is(scResult.Err, getPayloadMapError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2344,20 +2652,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := mc.Clean(payloadMapName)
+			scResult := mc.Clean(payloadMapName)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(err, mapSizeError) {
+			if errors.Is(scResult.Err, mapSizeError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of items cleaned must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tno last cleaned info update must have been performed"
@@ -2406,20 +2714,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(err, mapEvictAllError) {
+			if errors.Is(scResult.Err, mapEvictAllError) {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, err)
+				t.Fatal(msg, ballotX, scResult.Err)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tevict all must have been invoked once on payload map"
@@ -2472,20 +2780,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := mc.Clean(mapPrefix + "load-0")
+			scResult := mc.Clean(mapPrefix + "load-0")
 
 			msg := "\t\tno error must be returned"
-			if err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be zero"
-			if numItemsCleaned == 0 {
+			if scResult.NumCleanedItems == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tdata structure must not have been added to cleaned data structure tracker"
@@ -2533,20 +2841,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
-			if errors.Is(err, lastCleanedInfoUpdateError) {
+			if errors.Is(scResult.Err, lastCleanedInfoUpdateError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items previously held by payload map"
-			if numItemsCleaned == numItemsInPayloadMaps {
+			if scResult.NumCleanedItems == numItemsInPayloadMaps {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2594,20 +2902,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			numItemsCleaned, err := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
-			if err == nil {
+			if scResult.Err == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\treported number of cleaned items must be equal to number of items previously held by payload map"
-			if numItemsCleaned == numItemsInPayloadMaps {
+			if scResult.NumCleanedItems == numItemsInPayloadMaps {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, numItemsCleaned)
+				t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 			}
 
 			msg = "\t\tunlock must have been invoked once on map cleaners sync map"
@@ -2662,20 +2970,20 @@ func TestRunGenericSingleClean(t *testing.T) {
 
 				dmc := mc.(*DefaultSingleMapCleaner)
 
-				numCleanedItems, err := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", HzMapService, dmc.retrieveAndClean)
+				scResult := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", HzMapService, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
-				if err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\tnumber of cleaned items must be reported correctly anyway"
-				if numCleanedItems == numItemsInPayloadMaps {
+				if scResult.NumCleanedItems == numItemsInPayloadMaps {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, numCleanedItems)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 			}()
 
@@ -2768,7 +3076,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -2802,8 +3112,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 						numItemsCleanedReturnValue: 1,
 					},
 					cfg: &cleanerConfig{
-						usePrefix: true,
-						prefix:    prefixToConsider,
+						usePrefix:                             true,
+						prefix:                                prefixToConsider,
+						parallelCleanNumDataStructuresDivisor: 10,
 					},
 				}
 
@@ -2839,7 +3150,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 							returnErrorUponClean: true,
 						},
 						cfg: &cleanerConfig{
-							errorBehavior: Ignore,
+							parallelCleanNumDataStructuresDivisor: 10,
+							errorBehavior:                         Ignore,
 						},
 					}
 
@@ -2849,7 +3161,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, err)
 					}
 
 					msg = "\t\t\treported number of maps cleaned must be zero"
@@ -2880,7 +3192,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 							returnErrorUponClean:       true,
 						},
 						cfg: &cleanerConfig{
-							errorBehavior: Ignore,
+							parallelCleanNumDataStructuresDivisor: 10,
+							errorBehavior:                         Ignore,
 						},
 					}
 
@@ -2924,7 +3237,8 @@ func TestRunGenericBatchClean(t *testing.T) {
 						returnErrorUponClean:               true,
 					},
 					cfg: &cleanerConfig{
-						errorBehavior: Fail,
+						parallelCleanNumDataStructuresDivisor: 10,
+						errorBehavior:                         Fail,
 					},
 				}
 
@@ -2970,7 +3284,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 						// anyway to convey why we expect zero maps reported to be cleaned
 						numItemsCleanedReturnValue: 0,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3009,7 +3325,9 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{},
+					cfg: &cleanerConfig{
+						parallelCleanNumDataStructuresDivisor: 10,
+					},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3217,20 +3535,20 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				}
 				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
 
-				numItemsCleaned, err := mc.Clean(prefix + "load-0")
+				scResult := mc.Clean(prefix + "load-0")
 
 				msg := "\t\t\terror must be returned"
-				if err != nil {
+				if scResult.Err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be zero"
-				if numItemsCleaned == 0 {
+				if scResult.NumCleanedItems == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, numItemsCleaned)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 
 			}
@@ -3252,20 +3570,20 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				}
 				mc, _ := builder.Build(context.TODO(), ms, tr, cih)
 
-				numItemsCleaned, err := mc.Clean(prefix + "load-0")
+				scResult := mc.Clean(prefix + "load-0")
 
 				msg := "\t\t\tno error must be returned"
-				if err == nil {
+				if scResult.Err == nil {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, err)
+					t.Fatal(msg, ballotX, scResult.Err)
 				}
 
 				msg = "\t\t\treported number of cleaned items must be equal to number of items previously held by payload data structure"
-				if numItemsCleaned == numItemsInPayloadMaps {
+				if scResult.NumCleanedItems == numItemsInPayloadMaps {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, numItemsCleaned)
+					t.Fatal(msg, ballotX, scResult.NumCleanedItems)
 				}
 
 				msg = "\t\t\tinformation on one cleaned data structure must have been added to cleaned data structures tracker"
@@ -3309,9 +3627,10 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
-					enabled:   true,
-					usePrefix: true,
-					prefix:    prefixToConsider,
+					enabled:                               true,
+					usePrefix:                             true,
+					prefix:                                prefixToConsider,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 
@@ -3460,7 +3779,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				ms.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
 				c := &cleanerConfig{
-					enabled: true,
+					enabled:                               true,
+					parallelCleanNumDataStructuresDivisor: 10,
 				}
 				ch := &testHzClientHandler{}
 				tracker := &testCleanedTracker{}
@@ -3609,7 +3929,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3683,7 +4005,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 
 			cih := &testLastCleanedInfoHandler{
@@ -3746,7 +4070,8 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		{
 
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3797,7 +4122,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen should clean check fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -3841,7 +4168,9 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen update of last cleaned info fails")
 		{
 			c := &cleanerConfig{
-				enabled: true,
+				enabled:                               true,
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Fail,
 			}
 			numMapObjects := 9
 			prefixes := []string{"ht_"}
@@ -4321,34 +4650,110 @@ func TestDefaultBatchMapCleanerBuilder_Build(t *testing.T) {
 
 }
 
-func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+func TestBuildCleanerAndInvokeClean(t *testing.T) {
 
-	keyPath := cleanerKeyPath + ".enabled"
-	if cfg.enabled != expectedValues[keyPath].(bool) {
-		return false, keyPath
+	t.Log("given a batch cleaner builder and a status gatherer")
+	{
+		t.Log("\twhen build invocation was unsuccessful")
+		{
+			b := &testCleanerBuilder{behavior: &testCleanerBehavior{returnErrorUponBuild: true}}
+
+			g := &testGatherer{o: &testGathererObservations{}}
+			err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+			msg := "\t\terror must be returned"
+			if errors.Is(err, cleanerBuildError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tbuild must have been invoked with given status gatherer"
+			if b.gathererPassedIn == g {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer listen must not have been started"
+			if !g.o.listenInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen build invocation was successful, but clean invocation was not")
+		{
+			runTestCaseAndResetState(func() {
+				b := &testCleanerBuilder{
+					behavior: &testCleanerBehavior{
+						returnErrorUponClean: true,
+					},
+				}
+				g := &testGatherer{o: &testGathererObservations{}}
+				err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+				msg := "\t\terror must be returned"
+				if errors.Is(err, batchCleanerCleanError) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer listen must have been invoked"
+				if g.o.listenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer stop listen must have been invoked"
+				if g.o.stopListenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			})
+		}
+		t.Log("\twhen both build and clean invocation were successful")
+		{
+			runTestCaseAndResetState(func() {
+				b := &testCleanerBuilder{
+					behavior: emptyTestCleanerBehavior,
+				}
+				g := &testGatherer{o: &testGathererObservations{}}
+				err := buildCleanerAndInvokeClean(b, g, "awesome-cluster", []string{"awesome-member"})
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer listen must have been invoked"
+				if g.o.listenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer stop listen must have been invoked"
+				if g.o.stopListenInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tstatus gatherer must have received updates"
+				if len(g.o.updatesGathered) > 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			})
+		}
 	}
-
-	keyPath = cleanerKeyPath + ".prefix.enabled"
-	if cfg.usePrefix != expectedValues[keyPath].(bool) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".prefix.prefix"
-	if cfg.prefix != expectedValues[keyPath].(string) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".cleanAgainThreshold.enabled"
-	if cfg.useCleanAgainThreshold != expectedValues[keyPath].(bool) {
-		return false, keyPath
-	}
-
-	keyPath = cleanerKeyPath + ".cleanAgainThreshold.thresholdMs"
-	if cfg.cleanAgainThresholdMs != uint64(expectedValues[keyPath].(int)) {
-		return false, keyPath
-	}
-
-	return true, ""
 
 }
 
@@ -4454,6 +4859,37 @@ func TestRunCleaners(t *testing.T) {
 
 }
 
+func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+
+	keyPath := cleanerKeyPath + ".enabled"
+	if cfg.enabled != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.enabled"
+	if cfg.usePrefix != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".prefix.prefix"
+	if cfg.prefix != expectedValues[keyPath].(string) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.enabled"
+	if cfg.useCleanAgainThreshold != expectedValues[keyPath].(bool) {
+		return false, keyPath
+	}
+
+	keyPath = cleanerKeyPath + ".cleanAgainThreshold.thresholdMs"
+	if cfg.cleanAgainThresholdMs != uint64(expectedValues[keyPath].(int)) {
+		return false, keyPath
+	}
+
+	return true, ""
+
+}
+
 func createShouldCleanIndividualMapSetup(ms *testHzMapStore, numShouldBeCleaned int) map[string]bool {
 
 	keys := make([]string, 0, len(ms.maps))
@@ -4486,17 +4922,18 @@ func runTestCaseAndResetState(testFunc func()) {
 func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
-		basePath + ".enabled":                         true,
-		basePath + ".errorBehavior":                   "ignore",
-		basePath + ".prefix.enabled":                  true,
-		basePath + ".prefix.prefix":                   "ht_",
-		basePath + ".cleanAgainThreshold.enabled":     true,
-		basePath + ".cleanAgainThreshold.thresholdMs": 30_000,
+		basePath + ".enabled":                               true,
+		basePath + ".errorBehavior":                         "ignore",
+		basePath + ".prefix.enabled":                        true,
+		basePath + ".prefix.prefix":                         "ht_",
+		basePath + ".parallelCleanNumDataStructuresDivisor": 10,
+		basePath + ".cleanAgainThreshold.enabled":           true,
+		basePath + ".cleanAgainThreshold.thresholdMs":       30_000,
 	}
 
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
+func waitForStatusGatheringDone(g status.Gatherer) {
 
 	for {
 		if done := g.ListeningStopped(); done {

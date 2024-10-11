@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.15.0
-  digest: 9ed30d24519254d9da5575b029c538bc1207424f83a0c506cf212e109bfd4e2d
+  tag: 0.15.1
+  digest: ad97bd08556036fbe2fec7ce9da6e4b945cce24b8e520be798f5871f0b168240
   pullPolicy: IfNotPresent
 
 resources:
@@ -77,6 +77,7 @@ config:
       prefix:
         enabled: true
         prefix: "ht_"
+      parallelCleanNumDataStructuresDivisor: 10
       cleanAgainThreshold:
         enabled: true
         thresholdMs: 30000
@@ -86,6 +87,7 @@ config:
       prefix:
         enabled: true
         prefix: "ht_"
+      parallelCleanNumDataStructuresDivisor: 10
       cleanAgainThreshold:
         enabled: true
         thresholdMs: 30000

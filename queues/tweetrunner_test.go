@@ -8,7 +8,7 @@ import (
 
 type testTweetRunnerTestLoop struct{}
 
-func (d testTweetRunnerTestLoop) init(_ *testLoopExecution[tweet], _ sleeper, _ *status.Gatherer) {
+func (d testTweetRunnerTestLoop) init(_ *testLoopExecution[tweet], _ sleeper, _ status.Gatherer) {
 	// No-op
 }
 
@@ -30,7 +30,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			}
 			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
@@ -66,7 +66,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			}
 			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}}
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
@@ -99,7 +99,7 @@ func TestRunTweetQueueTests(t *testing.T) {
 			r := tweetRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testTweetRunnerTestLoop{}, hzClientHandler: ch}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			qs := &testHzQueueStore{observations: &testQueueStoreObservations{}}
 			r.runQueueTests(hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {

@@ -8,7 +8,7 @@ import (
 
 type testLoadRunnerTestLoop struct{}
 
-func (d testLoadRunnerTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ *status.Gatherer) {
+func (d testLoadRunnerTestLoop) init(_ *testLoopExecution[loadElement], _ sleeper, _ status.Gatherer) {
 	// No-op
 }
 
@@ -31,7 +31,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
@@ -69,7 +69,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}}
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			r.runQueueTests(hzCluster, hzMembers, gatherer, initTestQueueStore)
 			gatherer.StopListen()
@@ -100,7 +100,7 @@ func TestRunLoadQueueTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			r := loadRunner{assigner: assigner, stateList: []state{}, hzQueueStore: testHzQueueStore{}, l: testLoadRunnerTestLoop{}, hzClientHandler: ch}
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			go gatherer.Listen(make(chan struct{}, 1))
 
 			qs := &testHzQueueStore{observations: &testQueueStoreObservations{}}
 			r.runQueueTests(hzCluster, hzMembers, gatherer, func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {

@@ -10,7 +10,9 @@ import (
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/logging"
 	"hazeltest/status"
+	"math"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,7 +21,7 @@ type (
 		Clean() (int, error)
 	}
 	BatchCleanerBuilder interface {
-		Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error)
+		Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error)
 	}
 	DefaultBatchMapCleanerBuilder struct {
 		cfb cleanerConfigBuilder
@@ -54,11 +56,15 @@ type (
 		cih       LastCleanedInfoHandler
 		t         CleanedTracker
 	}
+	BatchCleanResult struct {
+		numCleanedDataStructures int
+		err                      error
+	}
 )
 
 type (
 	SingleCleaner interface {
-		Clean(name string) (int, error)
+		Clean(name string) SingleCleanResult
 	}
 	// SingleMapCleanerBuilder is an interface for encapsulating the capability of assembling map cleaners
 	// implementing the SingleCleaner interface. An interesting detail is perhaps that the Build methods for
@@ -101,6 +107,10 @@ type (
 		cih LastCleanedInfoHandler
 		t   CleanedTracker
 	}
+	SingleCleanResult struct {
+		NumCleanedItems int
+		Err             error
+	}
 )
 
 type (
@@ -140,15 +150,16 @@ type (
 		Cfg *LastCleanedInfoHandlerConfig
 	}
 	CleanedDataStructureTracker struct {
-		G *status.Gatherer
+		G status.Gatherer
 	}
 	cleanerConfig struct {
-		enabled                bool
-		usePrefix              bool
-		prefix                 string
-		useCleanAgainThreshold bool
-		cleanAgainThresholdMs  uint64
-		errorBehavior          ErrorDuringCleanBehavior
+		enabled                               bool
+		usePrefix                             bool
+		prefix                                string
+		parallelCleanNumDataStructuresDivisor uint16
+		useCleanAgainThreshold                bool
+		cleanAgainThresholdMs                 uint64
+		errorBehavior                         ErrorDuringCleanBehavior
 	}
 	cleanerConfigBuilder struct {
 		keyPath string
@@ -222,11 +233,11 @@ func register(cb BatchCleanerBuilder) {
 
 func (t *CleanedDataStructureTracker) add(name string, cleaned int) {
 
-	t.G.Updates <- status.Update{Key: name, Value: cleaned}
+	t.G.Gather(status.Update{Key: name, Value: cleaned})
 
 }
 
-func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -295,7 +306,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		return emptyMapLockInfo, false, err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.TraceLevel)
 	lockSucceeded, err := syncMap.TryLock(cih.Ctx, payloadDataStructureName)
 
 	if err != nil {
@@ -313,7 +324,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		key:     payloadDataStructureName,
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.TraceLevel)
 	if !cih.Cfg.UseCleanAgainThreshold {
 		// No need to check for the last cleaned timestamp if the cleaner was advised not to apply a clean again threshold
 		// (Caution: One might be tempted to check whether to apply a threshold right at the beginning of this method,
@@ -335,7 +346,7 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 	// Value will be nil if key (name of payload map) was not present in sync map
 	if v == nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.TraceLevel)
 		return lockInfo, true, nil
 	}
 
@@ -349,13 +360,13 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	}
 
 	cleanAgainThresholdMs := cih.Cfg.CleanAgainThresholdMs
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.TraceLevel)
 	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*time.Duration(cleanAgainThresholdMs) {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' milliseconds for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.TraceLevel)
 		return lockInfo, false, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' milliseconds for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' milliseconds for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.TraceLevel)
 	return lockInfo, true, nil
 
 }
@@ -385,17 +396,22 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	b := DefaultSingleMapCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.ms, c.t, c.cih)
 
-	return runGenericBatchClean(
+	start := time.Now()
+	numCleanedMaps, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
 		HzMapService,
 		c.cfg,
 		sc,
 	)
+	elapsed := time.Since(start).Milliseconds()
+	lp.LogTimingEvent("batch map clean", "N/A", int(elapsed), log.InfoLevel)
+
+	return numCleanedMaps, err
 
 }
 
-func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g *status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
+func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandler, ctx context.Context, g status.Gatherer, hzCluster string, hzMembers []string) (BatchCleaner, string, error) {
 
 	config, err := b.cfb.populateConfig()
 
@@ -448,7 +464,7 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.TraceLevel)
 	return nil
 
 }
@@ -470,7 +486,7 @@ func runGenericSingleClean(
 	t CleanedTracker,
 	syncMapName, payloadDataStructureName, hzService string,
 	retrieveAndCleanFunc func(payloadDataStructureName string) (int, error),
-) (int, error) {
+) SingleCleanResult {
 
 	lockInfo, shouldClean, err := cih.check(syncMapName, payloadDataStructureName, hzService)
 
@@ -484,34 +500,34 @@ func runGenericSingleClean(
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return 0, err
+		return SingleCleanResult{0, err}
 	}
 
 	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-		return 0, nil
+		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), hzService, log.TraceLevel)
+		return SingleCleanResult{0, nil}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), hzService, log.TraceLevel)
 	numItemsCleaned, err := retrieveAndCleanFunc(payloadDataStructureName)
 
 	if err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return 0, err
+		return SingleCleanResult{0, err}
 	}
 
 	if numItemsCleaned > 0 {
 		t.add(payloadDataStructureName, numItemsCleaned)
-		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), hzService, log.InfoLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), hzService, log.TraceLevel)
 	}
 
 	if err := cih.update(lockInfo); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to update last cleaned info for '%s': %v", payloadDataStructureName, err), hzService, log.ErrorLevel)
-		return numItemsCleaned, err
+		return SingleCleanResult{numItemsCleaned, err}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.InfoLevel)
-	return numItemsCleaned, nil
+	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), hzService, log.TraceLevel)
+	return SingleCleanResult{numItemsCleaned, err}
 
 }
 
@@ -538,11 +554,11 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.TraceLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.TraceLevel)
 
 	if err := mapToClean.EvictAll(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
@@ -552,7 +568,7 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 
 }
 
-func (c *DefaultSingleMapCleaner) Clean(name string) (int, error) {
+func (c *DefaultSingleMapCleaner) Clean(name string) SingleCleanResult {
 
 	return runGenericSingleClean(
 		c.ctx,
@@ -600,35 +616,110 @@ func runGenericBatchClean(
 	}
 
 	numCleanedDataStructures := 0
-	for _, v := range filteredDataStructures {
-		if numItemsCleaned, err := sc.Clean(v.GetName()); numItemsCleaned > 0 {
+
+	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean, hzService, cfg.parallelCleanNumDataStructuresDivisor)
+	for result := range cleanResults {
+		numItemsCleaned, err := result.NumCleanedItems, result.Err
+		if numItemsCleaned > 0 {
 			numCleanedDataStructures++
-			if err != nil {
-				if Ignore == cfg.errorBehavior {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been claned from paylod data structure "+
-						"'%s' and an error occured, but error behavior was configured as '%s' -- commencing batch clean after error: %v", numItemsCleaned, v.GetName(), Ignore, err), hzService, log.WarnLevel)
-				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d elements have been cleaned from payload data structure '%s', but an error occurred during cleaning: %v", numItemsCleaned, v.GetName(), err), hzService, log.ErrorLevel)
-					return numCleanedDataStructures, err
-				}
-			} else {
-				lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d elements from payload data structure '%s'; cleaned %d data structure/-s so far", numItemsCleaned, v.GetName(), numCleanedDataStructures), hzService, log.InfoLevel)
-			}
-		} else {
-			if err != nil {
-				if Ignore == cfg.errorBehavior {
-					lp.LogStateCleanerEvent(fmt.Sprintf("error occured upon attempt to clean payload data structure '%s', but error behavior was configured to be '%s', so error will be ignored: %v", v.GetName(), Ignore, err), hzService, log.WarnLevel)
-				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("unable to clean '%s' due to error: %v", v.GetName(), err), hzService, log.ErrorLevel)
-					return numCleanedDataStructures, err
-				}
-			} else {
-				lp.LogStateCleanerEvent(fmt.Sprintf("invocation of clean was successful on payload data structure '%s'; however, zero items were cleaned", v.GetName()), hzService, log.InfoLevel)
-			}
+		}
+		if Fail == cfg.errorBehavior && err != nil {
+			return numCleanedDataStructures, err
 		}
 	}
 
 	return numCleanedDataStructures, nil
+
+}
+
+func calculateNumParallelSingleCleanWorkers(numFilteredDataStructures int, parallelCleanNumDataStructuresDivisor uint16) (uint16, error) {
+
+	if numFilteredDataStructures == 0 {
+		return 0, errors.New("cannot calculate number of workers for zero filtered data structures")
+	}
+
+	if parallelCleanNumDataStructuresDivisor == 0 {
+		return 0, fmt.Errorf("cannot use zero as divisor in operation to calculate number of workers to perform parallel single clean on %d data structure/-s", numFilteredDataStructures)
+	}
+
+	return uint16(math.Max(1.0, math.Ceil(float64(numFilteredDataStructures/int(parallelCleanNumDataStructuresDivisor))))), nil
+
+}
+
+func performParallelSingleCleans(
+	filteredDataStructures []hazelcastwrapper.ObjectInfo,
+	b ErrorDuringCleanBehavior,
+	singleCleanFunc func(name string) SingleCleanResult,
+	hzService string,
+	parallelCleanNumDataStructuresDivisor uint16,
+) <-chan SingleCleanResult {
+
+	if len(filteredDataStructures) == 0 {
+		emptyChan := make(chan SingleCleanResult)
+		close(emptyChan)
+		return emptyChan
+	}
+
+	results := make(chan SingleCleanResult, len(filteredDataStructures))
+
+	numWorkers, err := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), parallelCleanNumDataStructuresDivisor)
+	if err != nil {
+		return results
+	}
+
+	lp.LogStateCleanerEvent(fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures)), hzService, log.InfoLevel)
+	cleanTasks := make(chan string, len(filteredDataStructures))
+	errorDuringProcessing := make(chan struct{})
+
+	var wg sync.WaitGroup
+	var once sync.Once
+
+	for i := uint16(0); i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range cleanTasks {
+				select {
+				case <-errorDuringProcessing:
+					if Fail == b {
+						return
+					}
+				default:
+				}
+				result := singleCleanFunc(task)
+				results <- result
+				if result.Err != nil {
+					if Fail == b {
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.Err), hzService, log.ErrorLevel)
+						once.Do(func() {
+							close(errorDuringProcessing)
+						})
+					} else {
+						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err), hzService, log.TraceLevel)
+					}
+				} else {
+					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task), hzService, log.TraceLevel)
+				}
+			}
+		}()
+	}
+
+	go func() {
+		for _, obj := range filteredDataStructures {
+			cleanTasks <- obj.GetName()
+		}
+		close(cleanTasks)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(results)
+		once.Do(func() {
+			close(errorDuringProcessing)
+		})
+	}()
+
+	return results
 
 }
 
@@ -667,11 +758,11 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.DebugLevel)
+		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.TraceLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.DebugLevel)
+	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.TraceLevel)
 
 	if err := queueToClean.Clear(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
@@ -682,7 +773,7 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 
 }
 
-func (c *DefaultSingleQueueCleaner) Clean(name string) (int, error) {
+func (c *DefaultSingleQueueCleaner) Clean(name string) SingleCleanResult {
 
 	return runGenericSingleClean(
 		c.ctx,
@@ -709,6 +800,8 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 
 	b := DefaultSingleQueueCleanerBuilder{}
 	sc, _ := b.Build(c.ctx, c.qs, c.ms, c.t, c.cih)
+
+	start := time.Now()
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
@@ -716,55 +809,71 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		c.cfg,
 		sc,
 	)
+	elapsed := time.Since(start).Milliseconds()
+	lp.LogTimingEvent("batch queue clean", "N/A", int(elapsed), log.InfoLevel)
 
 	return numCleaned, err
 
 }
 
+func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g status.Gatherer, hzCluster string, hzMembers []string) error {
+
+	c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, context.TODO(), g, hzCluster, hzMembers)
+	if err != nil {
+		lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
+		return err
+	}
+
+	listenReady := make(chan struct{})
+	go g.Listen(listenReady)
+	defer g.StopListen()
+
+	<-listenReady
+
+	if numCleanedDataStructures, err := c.Clean(); err != nil {
+		if numCleanedDataStructures > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
+		} else {
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
+		}
+		return err
+	} else {
+		if numCleanedDataStructures > 0 {
+			lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
+		} else {
+			lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
+		}
+	}
+
+	return nil
+
+}
+
 func RunCleaners(hzCluster string, hzMembers []string) error {
+
+	errorChan := make(chan error, len(builders))
+
+	var wg sync.WaitGroup
+	wg.Add(len(builders))
 
 	for _, b := range builders {
 
-		g := status.NewGatherer()
-		go g.Listen()
-
-		ctx, cancel := context.WithCancel(context.Background())
-		err := func() error {
-			defer func() {
-				cancel()
-				g.StopListen()
-			}()
-
-			c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, ctx, g, hzCluster, hzMembers)
-			if err != nil {
-				lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
-				return err
+		go func(b BatchCleanerBuilder) {
+			defer wg.Done()
+			if err := buildCleanerAndInvokeClean(b, status.NewGatherer(), hzCluster, hzMembers); err != nil {
+				errorChan <- err
 			}
+		}(b)
 
-			if numCleanedDataStructures, err := c.Clean(); err != nil {
-				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
-				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
-				}
-				return err
-			} else {
-				if numCleanedDataStructures > 0 {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
-				} else {
-					lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
-				}
-			}
+	}
 
-			return nil
-		}()
+	wg.Wait()
+	close(errorChan)
 
-		<-ctx.Done()
-
+	for err := range errorChan {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -796,6 +905,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
+	var parallelCleanNumDataStructuresDivisor uint16
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".parallelCleanNumDataStructuresDivisor", client.ValidateInt, func(a any) {
+			parallelCleanNumDataStructuresDivisor = uint16(a.(int))
+		})
+	})
+
 	var useCleanAgainThreshold bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.a.Assign(b.keyPath+".cleanAgainThreshold.enabled", client.ValidateBool, func(a any) {
@@ -824,12 +940,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 	}
 
 	return &cleanerConfig{
-		enabled:                enabled,
-		usePrefix:              usePrefix,
-		prefix:                 prefix,
-		useCleanAgainThreshold: useCleanAgainThreshold,
-		cleanAgainThresholdMs:  cleanAgainThresholdMs,
-		errorBehavior:          cleanErrorBehavior,
+		enabled:                               enabled,
+		usePrefix:                             usePrefix,
+		prefix:                                prefix,
+		parallelCleanNumDataStructuresDivisor: parallelCleanNumDataStructuresDivisor,
+		useCleanAgainThreshold:                useCleanAgainThreshold,
+		cleanAgainThresholdMs:                 cleanAgainThresholdMs,
+		errorBehavior:                         cleanErrorBehavior,
 	}, nil
 
 }

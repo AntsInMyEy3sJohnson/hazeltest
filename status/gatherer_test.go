@@ -82,7 +82,7 @@ func TestGatherer_ListeningStopped(t *testing.T) {
 			wg.add(1)
 			go func() {
 				defer wg.done()
-				g.Listen()
+				g.Listen(make(chan struct{}, 1))
 			}()
 
 			msg := "\t\tmethod must report listening has not stopped"
@@ -148,7 +148,7 @@ func TestGatherer_StopListen(t *testing.T) {
 			wg.add(1)
 			go func() {
 				defer wg.done()
-				g.Listen()
+				g.Listen(make(chan struct{}, 1))
 			}()
 
 			g.StopListen()
@@ -172,7 +172,7 @@ func TestGatherer_Listen(t *testing.T) {
 		t.Log("\twhen listener runs on goroutine")
 		{
 			l := &testLocker{}
-			g := &Gatherer{
+			g := &DefaultGatherer{
 				l:       l,
 				status:  map[string]any{},
 				Updates: make(chan Update),
@@ -185,7 +185,7 @@ func TestGatherer_Listen(t *testing.T) {
 			wg.add(1)
 			go func() {
 				defer wg.done()
-				g.Listen()
+				g.Listen(make(chan struct{}, 1))
 			}()
 
 			// Listen performs initial insertion of key in question synchronously, so we can wait for the insert
@@ -358,7 +358,7 @@ func TestGatherer_InsertSynchronously(t *testing.T) {
 			key := "someNumberKey"
 
 			l := &testLocker{}
-			g := &Gatherer{
+			g := &DefaultGatherer{
 				l:       l,
 				status:  map[string]any{},
 				Updates: make(chan Update),

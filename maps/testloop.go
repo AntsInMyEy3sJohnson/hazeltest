@@ -23,11 +23,11 @@ type (
 	getElementIdFunc         func(element any) string
 	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (any, error)
 	looper[t any]            interface {
-		init(lc *testLoopExecution[t], s sleeper, gatherer *status.Gatherer)
+		init(lc *testLoopExecution[t], s sleeper, gatherer status.Gatherer)
 		run()
 	}
 	counterTracker interface {
-		init(gatherer *status.Gatherer)
+		init(gatherer status.Gatherer)
 		increaseCounter(sk statusKey)
 	}
 	sleeper interface {
@@ -39,7 +39,7 @@ type (
 type (
 	batchTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.Gatherer
+		gatherer status.Gatherer
 		ct       counterTracker
 		s        sleeper
 	}
@@ -54,7 +54,7 @@ type (
 	}
 	boundaryTestLoop[t any] struct {
 		tle      *testLoopExecution[t]
-		gatherer *status.Gatherer
+		gatherer status.Gatherer
 		s        sleeper
 		ct       counterTracker
 	}
@@ -74,7 +74,7 @@ type (
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]uint64
 		l        sync.Mutex
-		gatherer *status.Gatherer
+		gatherer status.Gatherer
 	}
 )
 
@@ -124,7 +124,7 @@ var (
 	counters = []statusKey{statusKeyNumFailedInserts, statusKeyNumFailedReads, statusKeyNumNilReads, statusKeyNumFailedRemoves, statusKeyNumFailedKeyChecks}
 )
 
-func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
+func (ct *mapTestLoopCountersTracker) init(gatherer status.Gatherer) {
 	ct.gatherer = gatherer
 
 	ct.counters = make(map[statusKey]uint64)
@@ -132,7 +132,7 @@ func (ct *mapTestLoopCountersTracker) init(gatherer *status.Gatherer) {
 	initialCounterValue := uint64(0)
 	for _, v := range counters {
 		ct.counters[v] = initialCounterValue
-		gatherer.Updates <- status.Update{Key: string(v), Value: initialCounterValue}
+		gatherer.Gather(status.Update{Key: string(v), Value: initialCounterValue})
 	}
 }
 
@@ -146,11 +146,11 @@ func (ct *mapTestLoopCountersTracker) increaseCounter(sk statusKey) {
 	}
 	ct.l.Unlock()
 
-	ct.gatherer.Updates <- status.Update{Key: string(sk), Value: newValue}
+	ct.gatherer.Gather(status.Update{Key: string(sk), Value: newValue})
 
 }
 
-func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
+func (l *boundaryTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer status.Gatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -514,7 +514,7 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 
 }
 
-func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *status.Gatherer) {
+func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer status.Gatherer) {
 	l.tle = tle
 	l.s = s
 	l.gatherer = gatherer
@@ -526,12 +526,12 @@ func (l *batchTestLoop[t]) init(tle *testLoopExecution[t], s sleeper, gatherer *
 }
 
 func runWrapper[t any](tle *testLoopExecution[t],
-	gatherer *status.Gatherer,
+	gatherer status.Gatherer,
 	assembleMapNameFunc func(*runnerConfig, uint16) string,
 	runFunc func(hazelcastwrapper.Map, string, uint16)) {
 
 	rc := tle.runnerConfig
-	insertInitialTestLoopStatus(gatherer.Updates, rc.numMaps, rc.numRuns)
+	insertInitialTestLoopStatus(gatherer, rc.numMaps, rc.numRuns)
 
 	var stateCleaner state.SingleCleaner
 	var hzService string
@@ -576,7 +576,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
 					return
 				}
-				if numCleanedItems, err := stateCleaner.Clean(mapName); err != nil {
+				if scResult := stateCleaner.Clean(mapName); scResult.Err != nil {
 					configuredErrorBehavior := tle.runnerConfig.preRunClean.errorBehavior
 					if state.Ignore == tle.runnerConfig.preRunClean.errorBehavior {
 						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction, but error behavior is '%s', so test loop will commence: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.WarnLevel)
@@ -584,8 +584,8 @@ func runWrapper[t any](tle *testLoopExecution[t],
 						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction and error behavior is '%s' -- won't start test run for this map: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.ErrorLevel)
 						return
 					}
-				} else if numCleanedItems > 0 {
-					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", numCleanedItems, mapName), tle.runnerName, log.InfoLevel)
+				} else if scResult.NumCleanedItems > 0 {
+					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", scResult.NumCleanedItems, mapName), tle.runnerName, log.InfoLevel)
 				} else {
 					lp.LogMapRunnerEvent(fmt.Sprintf("payload map '%s' either didn't contain elements to be cleaned, or wasn't susceptible to cleaning yet", mapName), tle.runnerName, log.InfoLevel)
 				}
@@ -608,11 +608,11 @@ func (l *batchTestLoop[t]) run() {
 
 }
 
-func insertInitialTestLoopStatus(c chan status.Update, numMaps uint16, numRuns uint32) {
+func insertInitialTestLoopStatus(g status.Gatherer, numMaps uint16, numRuns uint32) {
 
-	c <- status.Update{Key: string(statusKeyNumMaps), Value: numMaps}
-	c <- status.Update{Key: string(statusKeyNumRuns), Value: numRuns}
-	c <- status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns}
+	g.Gather(status.Update{Key: string(statusKeyNumMaps), Value: numMaps})
+	g.Gather(status.Update{Key: string(statusKeyNumRuns), Value: numRuns})
+	g.Gather(status.Update{Key: string(statusKeyTotalNumRuns), Value: uint32(numMaps) * numRuns})
 
 }
 

@@ -18,7 +18,7 @@ type (
 	}
 	runner interface {
 		getSourceName() string
-		runQueueTests(hzCluster string, hzMembers []string, gatherer *status.Gatherer, storeFunc initQueueStoreFunc)
+		runQueueTests(hzCluster string, hzMembers []string, gatherer status.Gatherer, storeFunc initQueueStoreFunc)
 	}
 	runnerConfig struct {
 		enabled                     bool
@@ -266,7 +266,11 @@ func (t *QueueTester) TestQueues() {
 			defer wg.Done()
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			listenReady := make(chan struct{})
+
+			go gatherer.Listen(listenReady)
+			<-listenReady
+
 			defer gatherer.StopListen()
 
 			runner := runners[i]

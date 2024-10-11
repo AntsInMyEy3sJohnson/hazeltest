@@ -646,7 +646,7 @@ func TestPopulateConfig(t *testing.T) {
 
 }
 
-func waitForStatusGatheringDone(g *status.Gatherer) {
+func waitForStatusGatheringDone(g status.Gatherer) {
 
 	for {
 		if done := g.ListeningStopped(); done {

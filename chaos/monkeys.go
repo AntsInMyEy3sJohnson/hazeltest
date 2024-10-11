@@ -25,7 +25,7 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	monkey interface {
-		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g *status.Gatherer,
+		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g status.Gatherer,
 			readyFunc raiseReady, notReadyFunc raiseNotReady)
 		causeChaos()
 	}
@@ -38,7 +38,7 @@ type (
 		s                sleeper
 		chooser          hzMemberChooser
 		killer           hzMemberKiller
-		g                *status.Gatherer
+		g                status.Gatherer
 		readyFunc        raiseReady
 		notReadyFunc     raiseNotReady
 		numMembersKilled uint32
@@ -127,7 +127,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 }
 
 func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller,
-	g *status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
+	g status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
 
 	m.a = a
 	m.s = s
@@ -145,7 +145,11 @@ func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c 
 func (m *memberKillerMonkey) causeChaos() {
 
 	defer m.g.StopListen()
-	go m.g.Listen()
+
+	listenReady := make(chan struct{})
+	go m.g.Listen(listenReady)
+	<-listenReady
+
 	m.insertInitialStatus()
 
 	m.appendState(start)
@@ -156,7 +160,7 @@ func (m *memberKillerMonkey) causeChaos() {
 		return
 	}
 	m.appendState(populateConfigComplete)
-	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: mc.numRuns}
+	m.g.Gather(status.Update{Key: statusKeyNumRuns, Value: mc.numRuns})
 
 	if !mc.enabled {
 		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
@@ -211,14 +215,14 @@ func (m *memberKillerMonkey) causeChaos() {
 func (m *memberKillerMonkey) updateNumMembersKilled() {
 
 	m.numMembersKilled++
-	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: m.numMembersKilled}
+	m.g.Gather(status.Update{Key: statusKeyNumMembersKilled, Value: m.numMembersKilled})
 
 }
 
 func (m *memberKillerMonkey) insertInitialStatus() {
 
-	m.g.Updates <- status.Update{Key: statusKeyNumRuns, Value: uint32(0)}
-	m.g.Updates <- status.Update{Key: statusKeyNumMembersKilled, Value: uint32(0)}
+	m.g.Gather(status.Update{Key: statusKeyNumRuns, Value: uint32(0)})
+	m.g.Gather(status.Update{Key: statusKeyNumMembersKilled, Value: uint32(0)})
 
 }
 

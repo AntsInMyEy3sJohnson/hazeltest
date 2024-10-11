@@ -17,7 +17,7 @@ type (
 	runnerLoopType string
 	runner         interface {
 		getSourceName() string
-		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.Gatherer)
+		runMapTests(ctx context.Context, hzCluster string, hzMembers []string, gatherer *status.DefaultGatherer)
 	}
 	runnerConfig struct {
 		enabled                 bool
@@ -547,7 +547,10 @@ func (t *MapTester) TestMaps() {
 			defer wg.Done()
 
 			gatherer := status.NewGatherer()
-			go gatherer.Listen()
+			listenReady := make(chan struct{})
+			go gatherer.Listen(listenReady)
+			<-listenReady
+
 			defer gatherer.StopListen()
 
 			rn := runners[i]
