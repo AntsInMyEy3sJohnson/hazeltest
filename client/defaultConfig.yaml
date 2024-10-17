@@ -83,6 +83,14 @@ stateCleaners:
   maps:
     # Whether this state cleaner should be enabled.
     enabled: true
+    # Whether to merely evict all entries from a target data structure once its susceptibility to cleaning has been
+    # verified, or delete the entire data structure altogether.
+    # One of 'delete' or 'evict', where 'delete' is the default.
+    # Please keep in mind that keeping data structures around might entail metadata about them kept by Hazelcast
+    # to act as "hidden input" to the next load test iteration, potentially decreasing load test repeatability.
+    # Therefore -- specifically if you intend to have your load tests generate, and act on, lots of data structures --,
+    # it is recommended to use the default, 'delete'.
+    cleanMode: delete
     # What to do about an error that occurs upon attempt to clean any of the identified data structures.
     # Can be one of 'ignore' or 'fail', where the former is the default. Usually, when a state cleaner encounters
     # an error, the cause is that the state cleaner of another Hazeltest instance currently holds the lock in the
@@ -139,6 +147,7 @@ stateCleaners:
   # See 'stateCleaners.maps' for an explanation on these properties.
   queues:
     enabled: true
+    cleanMode: delete
     errorBehavior: ignore
     prefix:
       enabled: true
@@ -315,6 +324,14 @@ mapTests:
       # 10, this property will ensure the maps the runner's test loop will act upon are cleaned of all entries before
       # the test loop starts.
       enabled: false
+      # Whether to merely evict all entries from a target map once its susceptibility to cleaning has been
+      # verified, or delete the map altogether.
+      # One of 'delete' or 'evict', where 'delete' is the default.
+      # Please keep in mind that keeping data structures around might entail metadata about them kept by Hazelcast
+      # to act as "hidden input" to the next load test iteration, potentially decreasing load test repeatability.
+      # Therefore -- specifically if you intend to have your load tests generate, and act on, lots of data structures --,
+      # it is recommended to use the default, 'delete'.
+      cleanMode: delete
       # What to do when cleaning a target map fails. Can be either 'ignore' or 'fail'. Default is 'ignore'.
       # 'ignore': Treats the error as a warning. The warning will be logged, but the map runner will
       # nonetheless start with its test loop.
@@ -515,6 +532,7 @@ mapTests:
     numRuns: 10000
     performPreRunClean:
       enabled: false
+      cleanMode: delete
       errorBehavior: ignore
       cleanAgainThreshold:
         enabled: true
