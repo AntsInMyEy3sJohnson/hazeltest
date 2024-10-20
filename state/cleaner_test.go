@@ -176,6 +176,7 @@ var (
 	cleanerKeyPath = "stateCleaners.test"
 	testConfig     = map[string]any{
 		cleanerKeyPath + ".enabled":                               true,
+		cleanerKeyPath + ".cleanMode":                             "Delete",
 		cleanerKeyPath + ".prefix.enabled":                        true,
 		cleanerKeyPath + ".prefix.prefix":                         "awesome_prefix_",
 		cleanerKeyPath + ".parallelCleanNumDataStructuresDivisor": 10,
@@ -779,6 +780,47 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 
 }
 
+func TestValidateCleanMode(t *testing.T) {
+	t.Log("given a value to configure the mode for cleaning a target data structure")
+	{
+		keyPath := "throw.me.but.dont.tell.the.elf"
+		t.Log("\twhen given value is empty string")
+		{
+			err := ValidateCleanMode(keyPath, "")
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen value is string representing unknown cleaning mode")
+		{
+			err := ValidateCleanMode(keyPath, "A wizard is never late, nor is he early, he arrives precisely when he means to.")
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen value is string representing either of known cleaning modes")
+		{
+			msg := "no error must be returned"
+			for _, v := range []string{string(Delete), string(Evict)} {
+				err := ValidateCleanMode(keyPath, v)
+
+				if err == nil {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, v)
+				}
+			}
+		}
+	}
+}
+
 func TestValidateErrorDuringCleanBehavior(t *testing.T) {
 
 	t.Log("given a value to configure pre-run clean error behavior")
@@ -794,7 +836,6 @@ func TestValidateErrorDuringCleanBehavior(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
-
 		}
 
 		t.Log("\twhen value is string representing unknown behavior")

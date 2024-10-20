@@ -140,6 +140,7 @@ type (
 		add(name string, cleaned int)
 	}
 	ErrorDuringCleanBehavior     string
+	DataStructureCleanMode       string
 	LastCleanedInfoHandlerConfig struct {
 		UseCleanAgainThreshold bool
 		CleanAgainThresholdMs  uint64
@@ -159,6 +160,7 @@ type (
 		parallelCleanNumDataStructuresDivisor uint16
 		useCleanAgainThreshold                bool
 		cleanAgainThresholdMs                 uint64
+		cleanMode                             DataStructureCleanMode
 		errorBehavior                         ErrorDuringCleanBehavior
 	}
 	cleanerConfigBuilder struct {
@@ -173,6 +175,11 @@ type (
 		m            hazelcastwrapper.Map
 		mapName, key string
 	}
+)
+
+const (
+	Delete DataStructureCleanMode = "delete"
+	Evict  DataStructureCleanMode = "evict"
 )
 
 const (
@@ -891,6 +898,13 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		})
 	})
 
+	var cleanMode DataStructureCleanMode
+	assignmentOps = append(assignmentOps, func() error {
+		return b.a.Assign(b.keyPath+".cleanMode", client.ValidateString, func(a any) {
+			cleanMode = DataStructureCleanMode(a.(string))
+		})
+	})
+
 	var usePrefix bool
 	assignmentOps = append(assignmentOps, func() error {
 		return b.a.Assign(b.keyPath+".prefix.enabled", client.ValidateBool, func(a any) {
@@ -941,6 +955,7 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 
 	return &cleanerConfig{
 		enabled:                               enabled,
+		cleanMode:                             cleanMode,
 		usePrefix:                             usePrefix,
 		prefix:                                prefix,
 		parallelCleanNumDataStructuresDivisor: parallelCleanNumDataStructuresDivisor,
@@ -949,6 +964,19 @@ func (b cleanerConfigBuilder) populateConfig() (*cleanerConfig, error) {
 		errorBehavior:                         cleanErrorBehavior,
 	}, nil
 
+}
+
+func ValidateCleanMode(keyPath string, a any) error {
+	if err := client.ValidateString(keyPath, a); err != nil {
+		return err
+	}
+
+	switch a {
+	case string(Delete), string(Evict):
+		return nil
+	default:
+		return fmt.Errorf("expected clean mode to be one of '%s' or '%s', got %v", Delete, Evict, a)
+	}
 }
 
 func ValidateErrorDuringCleanBehavior(keyPath string, a any) error {
@@ -960,7 +988,7 @@ func ValidateErrorDuringCleanBehavior(keyPath string, a any) error {
 	case string(Ignore), string(Fail):
 		return nil
 	default:
-		return fmt.Errorf("pre-run error behavior to be either '%s' or '%s', got %v", Ignore, Fail, a)
+		return fmt.Errorf("exprected pre-run error behavior to be either '%s' or '%s', got %v", Ignore, Fail, a)
 	}
 
 }
