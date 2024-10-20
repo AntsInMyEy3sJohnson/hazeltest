@@ -176,7 +176,7 @@ var (
 	cleanerKeyPath = "stateCleaners.test"
 	testConfig     = map[string]any{
 		cleanerKeyPath + ".enabled":                               true,
-		cleanerKeyPath + ".cleanMode":                             "Delete",
+		cleanerKeyPath + ".cleanMode":                             string(Delete),
 		cleanerKeyPath + ".prefix.enabled":                        true,
 		cleanerKeyPath + ".prefix.prefix":                         "awesome_prefix_",
 		cleanerKeyPath + ".parallelCleanNumDataStructuresDivisor": 10,
@@ -4964,6 +4964,7 @@ func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
 		basePath + ".enabled":                               true,
+		basePath + ".cleanMode":                             string(Delete),
 		basePath + ".errorBehavior":                         "ignore",
 		basePath + ".prefix.enabled":                        true,
 		basePath + ".prefix.prefix":                         "ht_",
