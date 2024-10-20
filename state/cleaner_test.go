@@ -176,7 +176,7 @@ var (
 	cleanerKeyPath = "stateCleaners.test"
 	testConfig     = map[string]any{
 		cleanerKeyPath + ".enabled":                               true,
-		cleanerKeyPath + ".cleanMode":                             string(Delete),
+		cleanerKeyPath + ".cleanMode":                             string(Destroy),
 		cleanerKeyPath + ".prefix.enabled":                        true,
 		cleanerKeyPath + ".prefix.prefix":                         "awesome_prefix_",
 		cleanerKeyPath + ".parallelCleanNumDataStructuresDivisor": 10,
@@ -808,7 +808,7 @@ func TestValidateCleanMode(t *testing.T) {
 		t.Log("\twhen value is string representing either of known cleaning modes")
 		{
 			msg := "no error must be returned"
-			for _, v := range []string{string(Delete), string(Evict)} {
+			for _, v := range []string{string(Destroy), string(Evict)} {
 				err := ValidateCleanMode(keyPath, v)
 
 				if err == nil {
@@ -4964,7 +4964,7 @@ func assembleTestConfig(basePath string) map[string]any {
 
 	return map[string]any{
 		basePath + ".enabled":                               true,
-		basePath + ".cleanMode":                             string(Delete),
+		basePath + ".cleanMode":                             string(Destroy),
 		basePath + ".errorBehavior":                         "ignore",
 		basePath + ".prefix.enabled":                        true,
 		basePath + ".prefix.prefix":                         "ht_",

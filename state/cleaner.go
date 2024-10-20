@@ -178,8 +178,8 @@ type (
 )
 
 const (
-	Delete DataStructureCleanMode = "delete"
-	Evict  DataStructureCleanMode = "evict"
+	Destroy DataStructureCleanMode = "destroy"
+	Evict   DataStructureCleanMode = "evict"
 )
 
 const (
@@ -972,10 +972,10 @@ func ValidateCleanMode(keyPath string, a any) error {
 	}
 
 	switch a {
-	case string(Delete), string(Evict):
+	case string(Destroy), string(Evict):
 		return nil
 	default:
-		return fmt.Errorf("expected clean mode to be one of '%s' or '%s', got %v", Delete, Evict, a)
+		return fmt.Errorf("expected clean mode to be one of '%s' or '%s', got %v", Destroy, Evict, a)
 	}
 }
 
