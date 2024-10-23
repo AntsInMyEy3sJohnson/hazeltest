@@ -567,7 +567,7 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.TraceLevel)
 
-	if err := mapToClean.EvictAll(c.ctx); err != nil {
+	if err = mapToClean.EvictAll(c.ctx); err != nil {
 		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
 		return 0, err
 	}
@@ -624,7 +624,7 @@ func runGenericBatchClean(
 
 	numCleanedDataStructures := 0
 
-	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg.errorBehavior, sc.Clean, hzService, cfg.parallelCleanNumDataStructuresDivisor)
+	cleanResults := performParallelSingleCleans(filteredDataStructures, cfg, sc.Clean, hzService)
 	for result := range cleanResults {
 		numItemsCleaned, err := result.NumCleanedItems, result.Err
 		if numItemsCleaned > 0 {
@@ -655,10 +655,9 @@ func calculateNumParallelSingleCleanWorkers(numFilteredDataStructures int, paral
 
 func performParallelSingleCleans(
 	filteredDataStructures []hazelcastwrapper.ObjectInfo,
-	b ErrorDuringCleanBehavior,
+	cfg *cleanerConfig,
 	singleCleanFunc func(name string) SingleCleanResult,
 	hzService string,
-	parallelCleanNumDataStructuresDivisor uint16,
 ) <-chan SingleCleanResult {
 
 	if len(filteredDataStructures) == 0 {
@@ -669,7 +668,7 @@ func performParallelSingleCleans(
 
 	results := make(chan SingleCleanResult, len(filteredDataStructures))
 
-	numWorkers, err := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), parallelCleanNumDataStructuresDivisor)
+	numWorkers, err := calculateNumParallelSingleCleanWorkers(len(filteredDataStructures), cfg.parallelCleanNumDataStructuresDivisor)
 	if err != nil {
 		return results
 	}
@@ -688,7 +687,7 @@ func performParallelSingleCleans(
 			for task := range cleanTasks {
 				select {
 				case <-errorDuringProcessing:
-					if Fail == b {
+					if Fail == cfg.errorBehavior {
 						return
 					}
 				default:
@@ -696,7 +695,7 @@ func performParallelSingleCleans(
 				result := singleCleanFunc(task)
 				results <- result
 				if result.Err != nil {
-					if Fail == b {
+					if Fail == cfg.errorBehavior {
 						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.Err), hzService, log.ErrorLevel)
 						once.Do(func() {
 							close(errorDuringProcessing)
