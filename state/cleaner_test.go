@@ -35,7 +35,7 @@ type (
 	}
 	testSingleCleaner struct {
 		behavior *testCleanerBehavior
-		cfg      *cleanerConfig
+		cfg      *batchCleanerConfig
 	}
 	cleanerWatcher struct {
 		m                      sync.Mutex
@@ -931,7 +931,7 @@ func TestPopulateConfig(t *testing.T) {
 	{
 		t.Log("\twhen assignment operation yields error due to invalid configuration property")
 		{
-			b := &cleanerConfigBuilder{
+			b := &batchCleanerConfigBuilder{
 				keyPath: cleanerKeyPath,
 				a: &testConfigPropertyAssigner{
 					returnErrorUponAssignConfigValue: true,
@@ -957,7 +957,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen all assignment operations are successful")
 		{
-			b := &cleanerConfigBuilder{
+			b := &batchCleanerConfigBuilder{
 				keyPath: cleanerKeyPath,
 				a: &testConfigPropertyAssigner{
 					testConfig: testConfig,
@@ -1956,7 +1956,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
 				testQueueStore.queues[hzInternalQueueName] = &testHzQueue{}
 
-				c := &cleanerConfig{
+				c := &batchCleanerConfig{
 					enabled:                               true,
 					usePrefix:                             true,
 					prefix:                                prefixToConsider,
@@ -2126,7 +2126,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 				ois.objectInfos = append(ois.objectInfos, *newQueueObjectInfoFromName(hzInternalQueueName))
 				qs.queues[hzInternalQueueName] = &testHzQueue{}
 
-				c := &cleanerConfig{
+				c := &batchCleanerConfig{
 					enabled:                               true,
 					parallelCleanNumDataStructuresDivisor: 10,
 				}
@@ -2193,7 +2193,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen target hazelcast cluster does not contain any queues")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: true,
 			}
 			qs := &testHzQueueStore{queues: make(map[string]*testHzQueue)}
@@ -2241,7 +2241,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen retrieval of object info fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: true,
 			}
 			ois := &testHzObjectInfoStore{
@@ -2279,7 +2279,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get queue operation fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -2356,7 +2356,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 			erroneousClearQueueName := prefixes[0] + baseName + "-0"
 			qs.queues[erroneousClearQueueName].returnErrorUponClear = true
 
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -2426,7 +2426,7 @@ func TestDefaultBatchQueueCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: false,
 			}
 			qs := &testHzQueueStore{}
@@ -3044,7 +3044,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 				ois.returnErrorUponGetObjectInfos = true
 
 				sc := &testSingleCleaner{
-					cfg: &cleanerConfig{},
+					cfg: &batchCleanerConfig{},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3078,7 +3078,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 				ois := populateTestObjectInfos(0, []string{}, HzMapService)
 
 				sc := &testSingleCleaner{
-					cfg: &cleanerConfig{},
+					cfg: &batchCleanerConfig{},
 				}
 
 				numMapsCleaned, err := runGenericBatchClean(context.TODO(), ois, HzMapService, sc.cfg, sc)
@@ -3117,7 +3117,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{
+					cfg: &batchCleanerConfig{
 						parallelCleanNumDataStructuresDivisor: 10,
 					},
 				}
@@ -3152,7 +3152,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{
+					cfg: &batchCleanerConfig{
 						usePrefix:                             true,
 						prefix:                                prefixToConsider,
 						parallelCleanNumDataStructuresDivisor: 10,
@@ -3190,7 +3190,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 						behavior: &testCleanerBehavior{
 							returnErrorUponClean: true,
 						},
-						cfg: &cleanerConfig{
+						cfg: &batchCleanerConfig{
 							parallelCleanNumDataStructuresDivisor: 10,
 							errorBehavior:                         Ignore,
 						},
@@ -3232,7 +3232,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 							numItemsCleanedReturnValue: 9,
 							returnErrorUponClean:       true,
 						},
-						cfg: &cleanerConfig{
+						cfg: &batchCleanerConfig{
 							parallelCleanNumDataStructuresDivisor: 10,
 							errorBehavior:                         Ignore,
 						},
@@ -3277,7 +3277,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 						returnCleanErrorAfterNoInvocations: 3,
 						returnErrorUponClean:               true,
 					},
-					cfg: &cleanerConfig{
+					cfg: &batchCleanerConfig{
 						parallelCleanNumDataStructuresDivisor: 10,
 						errorBehavior:                         Fail,
 					},
@@ -3325,7 +3325,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 						// anyway to convey why we expect zero maps reported to be cleaned
 						numItemsCleanedReturnValue: 0,
 					},
-					cfg: &cleanerConfig{
+					cfg: &batchCleanerConfig{
 						parallelCleanNumDataStructuresDivisor: 10,
 					},
 				}
@@ -3366,7 +3366,7 @@ func TestRunGenericBatchClean(t *testing.T) {
 					behavior: &testCleanerBehavior{
 						numItemsCleanedReturnValue: 1,
 					},
-					cfg: &cleanerConfig{
+					cfg: &batchCleanerConfig{
 						parallelCleanNumDataStructuresDivisor: 10,
 					},
 				}
@@ -3507,45 +3507,65 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen get payload map is successful, retrieved map is non-nil, and evict does not yield error")
+		t.Log("\twhen get payload map is successful, retrieved map is non-nil")
 		{
+			t.Log("\t\twhen clean mode is evict")
+			{
+				t.Log("\t\t\twhen evict yields error")
+				{
+					t.Fatal("implement me")
+				}
+				t.Log("\t\t\twhen evict does not yield error")
+				{
+					prefix := "ht_"
+					numItemsInPayloadMaps := 9
+					ms := populateTestMapStore(1, []string{prefix}, numItemsInPayloadMaps)
 
-			prefix := "ht_"
-			numItemsInPayloadMaps := 9
-			ms := populateTestMapStore(1, []string{prefix}, numItemsInPayloadMaps)
+					mc := &DefaultSingleMapCleaner{
+						ctx: context.TODO(),
+						ms:  ms,
+						cih: nil,
+					}
 
-			mc := &DefaultSingleMapCleaner{
-				ctx: context.TODO(),
-				ms:  ms,
-				cih: nil,
+					payloadMapName := prefix + "load-0"
+					numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
+
+					msg := "\t\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+
+					payloadMap := ms.maps[payloadMapName]
+
+					msg = "\t\t\t\tevict all on payload map must have been attempted once"
+					if payloadMap.evictAllInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of cleaned items must be equal to number of items map previously held"
+					if numCleanedItems == numItemsInPayloadMaps {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+				}
 			}
 
-			payloadMapName := prefix + "load-0"
-			numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
+			t.Log("\t\twhen clean mode is destroy")
+			{
+				t.Log("\t\t\twhen destroy yields error")
+				{
+					t.Fatal("implement me")
+				}
+				t.Log("\t\t\twhen destroy does not yield error")
+				{
+					t.Fatal("implement me")
+				}
 			}
-
-			payloadMap := ms.maps[payloadMapName]
-
-			msg = "\t\tevict all on payload map must have been attempted once"
-			if payloadMap.evictAllInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\treported number of cleaned items must be equal to number of items map previously held"
-			if numCleanedItems == numItemsInPayloadMaps {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, numCleanedItems)
-			}
-
 		}
 
 	}
@@ -3667,7 +3687,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				testObjectInfoStore.objectInfos = append(testObjectInfoStore.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
 				testMapStore.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
-				c := &cleanerConfig{
+				c := &batchCleanerConfig{
 					enabled:                               true,
 					usePrefix:                             true,
 					prefix:                                prefixToConsider,
@@ -3819,7 +3839,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 				ois.objectInfos = append(ois.objectInfos, *newMapObjectInfoFromName(hzInternalMapName))
 				ms.maps[hzInternalMapName] = &testHzMap{data: make(map[string]any)}
 
-				c := &cleanerConfig{
+				c := &batchCleanerConfig{
 					enabled:                               true,
 					parallelCleanNumDataStructuresDivisor: 10,
 				}
@@ -3886,7 +3906,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen target hazelcast cluster does not contain any maps")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: true,
 			}
 			ms := &testHzMapStore{
@@ -3935,7 +3955,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen retrieval of object info fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: true,
 			}
 			ois := &testHzObjectInfoStore{
@@ -3969,7 +3989,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen retrieval of object info succeeds, but get map operation fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -4045,7 +4065,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 			erroneousEvictAllMapName := "ht_load-0"
 			ms.maps[erroneousEvictAllMapName].returnErrorUponEvictAll = true
 
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -4110,7 +4130,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		t.Log("\twhen should clean check yields true only for subset of data structures")
 		{
 
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 			}
@@ -4162,7 +4182,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen should clean check fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -4208,7 +4228,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen update of last cleaned info fails")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled:                               true,
 				parallelCleanNumDataStructuresDivisor: 10,
 				errorBehavior:                         Fail,
@@ -4249,7 +4269,7 @@ func TestDefaultBatchMapCleaner_Clean(t *testing.T) {
 		}
 		t.Log("\twhen cleaner has not been enabled")
 		{
-			c := &cleanerConfig{
+			c := &batchCleanerConfig{
 				enabled: false,
 			}
 			ms := &testHzMapStore{}
@@ -4900,7 +4920,7 @@ func TestRunCleaners(t *testing.T) {
 
 }
 
-func configValuesAsExpected(cfg *cleanerConfig, expectedValues map[string]any) (bool, string) {
+func configValuesAsExpected(cfg *batchCleanerConfig, expectedValues map[string]any) (bool, string) {
 
 	keyPath := cleanerKeyPath + ".enabled"
 	if cfg.enabled != expectedValues[keyPath].(bool) {
@@ -5068,7 +5088,7 @@ func resolveObjectKindForNameFromObjectInfoList(name string, objectInfos []hazel
 
 }
 
-func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchQueueCleaner {
+func assembleBatchQueueCleaner(c *batchCleanerConfig, qs *testHzQueueStore, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchQueueCleaner {
 
 	return &DefaultBatchQueueCleaner{
 		name:      queueCleanerName,
@@ -5086,7 +5106,7 @@ func assembleBatchQueueCleaner(c *cleanerConfig, qs *testHzQueueStore, ms *testH
 
 }
 
-func assembleBatchMapCleaner(c *cleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchMapCleaner {
+func assembleBatchMapCleaner(c *batchCleanerConfig, ms *testHzMapStore, ois *testHzObjectInfoStore, ch *testHzClientHandler, cih LastCleanedInfoHandler, t CleanedTracker) *DefaultBatchMapCleaner {
 
 	return &DefaultBatchMapCleaner{
 		name:      mapCleanerName,
