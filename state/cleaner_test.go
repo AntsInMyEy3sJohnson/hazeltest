@@ -3607,13 +3607,50 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen get payload map is successful, retrieved map is non-nil")
+		t.Log("\twhen get payload map is successful and retrieved map is non-nil")
 		{
 			t.Log("\t\twhen clean mode is evict")
 			{
 				t.Log("\t\t\twhen evict yields error")
 				{
-					t.Fatal("implement me")
+					prefix := "ht_"
+					ms := populateTestMapStore(15, []string{prefix}, 1)
+					payloadMapName := prefix + "load-0"
+					payloadMap := ms.maps[payloadMapName]
+					payloadMap.returnErrorUponEvictAll = true
+
+					mc := &DefaultSingleMapCleaner{
+						cfg: &singleCleanerConfig{
+							cleanMode:   Evict,
+							syncMapName: mapCleanersSyncMapName,
+							hzService:   HzMapService,
+						},
+						ctx: context.TODO(),
+						ms:  ms,
+					}
+
+					numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
+
+					msg := "\t\t\t\terror must be returned"
+					if errors.Is(err, mapEvictAllError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\tnumber of cleaned items must be reported to be zero"
+					if numCleanedItems == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\t\t\tthere must have been one attempt to perform a map eviction"
+					if payloadMap.evictAllInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
+					}
 				}
 				t.Log("\t\t\twhen evict does not yield error")
 				{
