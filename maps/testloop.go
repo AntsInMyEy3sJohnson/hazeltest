@@ -538,11 +538,11 @@ func runWrapper[t any](tle *testLoopExecution[t],
 	if tle.runnerConfig.preRunClean.enabled {
 		// TODO Add information collected by tracker to test loop status
 		// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/70
-		stateCleaner, hzService = tle.stateCleanerBuilder.Build(
-			tle.ctx,
-			tle.hzMapStore,
-			&state.CleanedDataStructureTracker{G: gatherer},
-			&state.DefaultLastCleanedInfoHandler{
+		bv := &state.SingleMapCleanerBuildValues{
+			Ctx: tle.ctx,
+			Ms:  tle.hzMapStore,
+			Tr:  &state.CleanedDataStructureTracker{G: gatherer},
+			Cih: &state.DefaultLastCleanedInfoHandler{
 				Ctx: tle.ctx,
 				Ms:  tle.hzMapStore,
 				Cfg: &state.LastCleanedInfoHandlerConfig{
@@ -550,7 +550,9 @@ func runWrapper[t any](tle *testLoopExecution[t],
 					CleanAgainThresholdMs:  tle.runnerConfig.preRunClean.cleanAgainThresholdMs,
 				},
 			},
-		)
+			Cm: rc.preRunClean.cleanMode,
+		}
+		stateCleaner, hzService = tle.stateCleanerBuilder.Build(bv)
 	}
 
 	var wg sync.WaitGroup
