@@ -3772,7 +3772,51 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				}
 				t.Log("\t\t\twhen destroy does not yield error")
 				{
-					t.Fatal("implement me")
+					prefix := "ht_"
+					numItemsInPayloadMaps := 6
+					ms := populateTestMapStore(18, []string{prefix}, 6)
+					payloadMapName := prefix + "load-0"
+					payloadMap := ms.maps[payloadMapName]
+
+					mc := &DefaultSingleMapCleaner{
+						cfg: &singleCleanerConfig{
+							cleanMode:   Destroy,
+							syncMapName: mapCleanersSyncMapName,
+							hzService:   HzMapService,
+						},
+						ctx: context.TODO(),
+						ms:  ms,
+					}
+
+					numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
+
+					msg := "\t\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of cleaned items must be equal to number of items previously held by payload map"
+					if numCleanedItems == numItemsInPayloadMaps {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\t\t\tthere must have been no attempts to perform a map eviction"
+					if payloadMap.evictAllInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
+					}
+
+					msg = "\t\t\t\tthere must have been one attempt to destroy the map"
+					if payloadMap.destroyInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.destroyInvocations)
+					}
 				}
 			}
 		}
