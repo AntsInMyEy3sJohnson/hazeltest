@@ -1930,7 +1930,7 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 					ctx:       context.TODO(),
 					qs:        populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues),
 					ms:        ms,
-					t:         &testCleanedTracker{},
+					t:         tr,
 					cih:       cih,
 					cleanMode: Destroy,
 				}
@@ -1956,7 +1956,7 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				if tr.numAddInvocations == numQueueObjects {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, tr.numAddInvocations)
 				}
 
 			}
@@ -2750,6 +2750,11 @@ func TestRunGenericSingleClean(t *testing.T) {
 				ms:  ms,
 				cih: cih,
 				t:   tr,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Destroy,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				},
 			}
 
 			scResult := mc.Clean(payloadMapName)
@@ -2812,14 +2817,14 @@ func TestRunGenericSingleClean(t *testing.T) {
 				ms:  ms,
 				cih: cih,
 				t:   tr,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Evict,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				},
 			}
 
-			cfg := &singleCleanerConfig{
-				cleanMode:   Destroy,
-				syncMapName: mapCleanersSyncMapName,
-				hzService:   HzMapService,
-			}
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, mc.cfg, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(scResult.Err, mapEvictAllError) {
@@ -2883,6 +2888,11 @@ func TestRunGenericSingleClean(t *testing.T) {
 				ms:  ms,
 				cih: cih,
 				t:   tr,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Destroy,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				},
 			}
 
 			scResult := mc.Clean(mapPrefix + "load-0")
@@ -2944,14 +2954,14 @@ func TestRunGenericSingleClean(t *testing.T) {
 				ms:  ms,
 				cih: cih,
 				t:   tr,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Destroy,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				},
 			}
 
-			cfg := &singleCleanerConfig{
-				cleanMode:   Destroy,
-				syncMapName: mapCleanersSyncMapName,
-				hzService:   HzMapService,
-			}
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, mc.cfg, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(scResult.Err, lastCleanedInfoUpdateError) {
@@ -3010,14 +3020,13 @@ func TestRunGenericSingleClean(t *testing.T) {
 				ms:  ms,
 				cih: cih,
 				t:   tr,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Destroy,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				},
 			}
-
-			cfg := &singleCleanerConfig{
-				cleanMode:   Destroy,
-				syncMapName: mapCleanersSyncMapName,
-				hzService:   HzMapService,
-			}
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, mc.cfg, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if scResult.Err == nil {
