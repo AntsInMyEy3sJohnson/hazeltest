@@ -620,7 +620,11 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 					cleanInvokedTracker.Store(ois.objectInfos[j].GetName(), 0)
 				}
 
-				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
+				cfg := &batchCleanerConfig{
+					parallelCleanNumDataStructuresDivisor: 10,
+					errorBehavior:                         Ignore,
+				}
+				results := performParallelSingleCleans(ois.objectInfos, cfg, func(name string) SingleCleanResult {
 					if v, ok := cleanInvokedTracker.Load(name); ok {
 						numInvoked := v.(int)
 						numInvoked++
@@ -629,7 +633,7 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 						t.Fatal("test setup error: no match in clean invoked tracker for given data structure name", name)
 					}
 					return SingleCleanResult{42, nil}
-				}, HzMapService, 10)
+				}, HzMapService)
 
 				numberOfResults := 0
 				for range results {
@@ -660,10 +664,14 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 		t.Log("\twhen list of elements is empty")
 		{
 			numCleanInvocations := 0
-			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
+			cfg := &batchCleanerConfig{
+				parallelCleanNumDataStructuresDivisor: 10,
+				errorBehavior:                         Ignore,
+			}
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, cfg, func(name string) SingleCleanResult {
 				numCleanInvocations++
 				return SingleCleanResult{}
-			}, HzMapService, 10)
+			}, HzMapService)
 
 			numResults := 0
 			for range results {
@@ -684,13 +692,17 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				t.Fatal(msg, ballotX, numCleanInvocations)
 			}
 		}
-		t.Log("\twhen divisor to use to calculate number of workers to perform parallel cleans is zero")
+		t.Log("\twhen divisor to use for calculating number of workers to perform parallel cleans is zero")
 		{
 			numCleanInvocations := 0
-			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, Ignore, func(name string) SingleCleanResult {
+			cfg := &batchCleanerConfig{
+				parallelCleanNumDataStructuresDivisor: 0,
+				errorBehavior:                         Ignore,
+			}
+			results := performParallelSingleCleans([]hazelcastwrapper.ObjectInfo{}, cfg, func(name string) SingleCleanResult {
 				numCleanInvocations++
 				return SingleCleanResult{}
-			}, HzMapService, 0)
+			}, HzMapService)
 
 			numResults := 0
 			for range results {
@@ -718,11 +730,15 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				numElements := 21
 				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
 
+				cfg := &batchCleanerConfig{
+					parallelCleanNumDataStructuresDivisor: 10,
+					errorBehavior:                         Ignore,
+				}
 				numCleanInvocations := 0
-				results := performParallelSingleCleans(ois.objectInfos, Ignore, func(name string) SingleCleanResult {
+				results := performParallelSingleCleans(ois.objectInfos, cfg, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{Err: singleCleanerCleanError}
-				}, HzMapService, 10)
+				}, HzMapService)
 
 				numResults := 0
 				for range results {
@@ -749,11 +765,15 @@ func TestPerformParallelSingleCleans(t *testing.T) {
 				numElements := 9
 				ois := populateTestObjectInfos(numElements, []string{"ht_"}, HzMapService)
 
+				cfg := &batchCleanerConfig{
+					parallelCleanNumDataStructuresDivisor: 10,
+					errorBehavior:                         Fail,
+				}
 				numCleanInvocations := 0
-				results := performParallelSingleCleans(ois.objectInfos, Fail, func(name string) SingleCleanResult {
+				results := performParallelSingleCleans(ois.objectInfos, cfg, func(name string) SingleCleanResult {
 					numCleanInvocations++
 					return SingleCleanResult{Err: singleCleanerCleanError}
-				}, HzMapService, 10)
+				}, HzMapService)
 
 				numResults := 0
 				for range results {
@@ -1858,7 +1878,16 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms: ms,
 				}
-				qc, _ := b.Build(context.TODO(), populateTestQueueStore(0, []string{}, "", 0), ms, &testCleanedTracker{}, cih)
+				qs := populateTestQueueStore(0, []string{}, "", 0)
+				bv := &SingleQueueCleanerBuildValues{
+					ctx:       context.TODO(),
+					qs:        qs,
+					ms:        ms,
+					t:         &testCleanedTracker{},
+					cih:       cih,
+					cleanMode: Destroy,
+				}
+				qc, _ := b.Build(bv)
 
 				scResult := qc.Clean("something")
 
@@ -1897,7 +1926,15 @@ func TestDefaultSingleQueueCleaner_Clean(t *testing.T) {
 					},
 				}
 				numItemsInQueues := 9
-				qc, _ := b.Build(context.TODO(), populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues), ms, tr, cih)
+				bv := &SingleQueueCleanerBuildValues{
+					ctx:       context.TODO(),
+					qs:        populateTestQueueStore(numQueueObjects, []string{prefix}, baseName, numItemsInQueues),
+					ms:        ms,
+					t:         &testCleanedTracker{},
+					cih:       cih,
+					cleanMode: Destroy,
+				}
+				qc, _ := b.Build(bv)
 
 				scResult := qc.Clean(prefix + baseName + "-0")
 
@@ -2503,7 +2540,12 @@ func TestRunGenericSingleClean(t *testing.T) {
 			}
 
 			payloadMapName := "ht_darthvader"
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   Destroy,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
 
 			msg := "\t\tcorrect error must be returned"
 			if errors.Is(scResult.Err, lastCleanedInfoCheckError) {
@@ -2563,10 +2605,22 @@ func TestRunGenericSingleClean(t *testing.T) {
 					CleanAgainThresholdMs:  30_000,
 				},
 			}
-			mc, _ := b.Build(context.TODO(), ms, tr, cih)
+			bv := &SingleMapCleanerBuildValues{
+				ctx:       context.TODO(),
+				ms:        ms,
+				t:         tr,
+				cih:       cih,
+				cleanMode: Destroy,
+			}
+			mc, _ := b.Build(bv)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
-			scResult := runGenericSingleClean(dmc.ctx, dmc.cih, tr, mapCleanersSyncMapName, payloadMapName, HzMapService, dmc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   bv.cleanMode,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(dmc.ctx, dmc.cih, tr, payloadMapName, cfg, dmc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if scResult.Err == nil {
@@ -2628,7 +2682,12 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   Destroy,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(scResult.Err, getPayloadMapError) {
@@ -2755,7 +2814,12 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   Destroy,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(scResult.Err, mapEvictAllError) {
@@ -2882,7 +2946,12 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   Destroy,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
 
 			msg := "\t\terror must be returned"
 			if errors.Is(scResult.Err, lastCleanedInfoUpdateError) {
@@ -2943,7 +3012,12 @@ func TestRunGenericSingleClean(t *testing.T) {
 				t:   tr,
 			}
 
-			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, mapCleanersSyncMapName, payloadMapName, HzMapService, mc.retrieveAndClean)
+			cfg := &singleCleanerConfig{
+				cleanMode:   Destroy,
+				syncMapName: mapCleanersSyncMapName,
+				hzService:   HzMapService,
+			}
+			scResult := runGenericSingleClean(mc.ctx, mc.cih, mc.t, payloadMapName, cfg, mc.retrieveAndClean)
 
 			msg := "\t\tno error must be returned"
 			if scResult.Err == nil {
@@ -3007,11 +3081,23 @@ func TestRunGenericSingleClean(t *testing.T) {
 					Ms:  ms,
 					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
-				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
+				bv := &SingleMapCleanerBuildValues{
+					ctx:       context.TODO(),
+					ms:        ms,
+					t:         &testCleanedTracker{},
+					cih:       cih,
+					cleanMode: Destroy,
+				}
+				mc, _ := builder.Build(bv)
 
 				dmc := mc.(*DefaultSingleMapCleaner)
 
-				scResult := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapCleanersSyncMapName, mapPrefix+"load-0", HzMapService, dmc.retrieveAndClean)
+				cfg := &singleCleanerConfig{
+					cleanMode:   Destroy,
+					syncMapName: mapCleanersSyncMapName,
+					hzService:   HzMapService,
+				}
+				scResult := runGenericSingleClean(dmc.ctx, dmc.cih, dmc.t, mapPrefix+"load-0", cfg, dmc.retrieveAndClean)
 
 				msg := "\t\tno error must be returned"
 				if scResult.Err == nil {
@@ -3594,7 +3680,14 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 				cih := &DefaultLastCleanedInfoHandler{
 					Ms: ms,
 				}
-				mc, _ := builder.Build(context.TODO(), ms, &testCleanedTracker{}, cih)
+				bv := &SingleMapCleanerBuildValues{
+					ctx:       context.TODO(),
+					ms:        ms,
+					t:         &testCleanedTracker{},
+					cih:       cih,
+					cleanMode: Destroy,
+				}
+				mc, _ := builder.Build(bv)
 
 				scResult := mc.Clean(prefix + "load-0")
 
@@ -3629,7 +3722,14 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 					Ms:  ms,
 					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
-				mc, _ := builder.Build(context.TODO(), ms, tr, cih)
+				bv := &SingleMapCleanerBuildValues{
+					ctx:       context.TODO(),
+					ms:        ms,
+					t:         tr,
+					cih:       cih,
+					cleanMode: Destroy,
+				}
+				mc, _ := builder.Build(bv)
 
 				scResult := mc.Clean(prefix + "load-0")
 
@@ -4339,7 +4439,15 @@ func TestDefaultSingleQueueCleanerBuilder_Build(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms: ms,
 			}
-			cleaner, hzService := builder.Build(ctx, qs, ms, tr, cih)
+			bv := &SingleQueueCleanerBuildValues{
+				ctx:       ctx,
+				qs:        qs,
+				ms:        ms,
+				t:         tr,
+				cih:       cih,
+				cleanMode: Destroy,
+			}
+			cleaner, hzService := builder.Build(bv)
 
 			msg := "\t\tcleaner must be built"
 			if cleaner != nil {
@@ -4535,7 +4643,14 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 			cih := &DefaultLastCleanedInfoHandler{
 				Ms: ms,
 			}
-			cleaner, hzService := builder.Build(ctx, ms, tr, cih)
+			bv := &SingleMapCleanerBuildValues{
+				ctx:       ctx,
+				ms:        ms,
+				t:         tr,
+				cih:       cih,
+				cleanMode: Destroy,
+			}
+			cleaner, hzService := builder.Build(bv)
 
 			msg := "\t\tcleaner must be built"
 			if cleaner != nil {
