@@ -3659,9 +3659,13 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 					ms := populateTestMapStore(1, []string{prefix}, numItemsInPayloadMaps)
 
 					mc := &DefaultSingleMapCleaner{
+						cfg: &singleCleanerConfig{
+							cleanMode:   Evict,
+							syncMapName: mapCleanersSyncMapName,
+							hzService:   HzMapService,
+						},
 						ctx: context.TODO(),
 						ms:  ms,
-						cih: nil,
 					}
 
 					payloadMapName := prefix + "load-0"
@@ -3674,20 +3678,19 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 						t.Fatal(msg, ballotX, err)
 					}
 
-					payloadMap := ms.maps[payloadMapName]
+					msg = "\t\t\t\treported number of cleaned items must be equal to number of items previously held by payload map"
+					if numCleanedItems == numItemsInPayloadMaps {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
 
+					payloadMap := ms.maps[payloadMapName]
 					msg = "\t\t\t\tevict all on payload map must have been attempted once"
 					if payloadMap.evictAllInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\treported number of cleaned items must be equal to number of items map previously held"
-					if numCleanedItems == numItemsInPayloadMaps {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, numCleanedItems)
 					}
 				}
 			}
