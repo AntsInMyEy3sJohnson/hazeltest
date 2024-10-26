@@ -36,6 +36,7 @@ type (
 	}
 	preRunCleanConfig struct {
 		enabled                  bool
+		cleanMode                state.DataStructureCleanMode
 		errorBehavior            state.ErrorDuringCleanBehavior
 		applyCleanAgainThreshold bool
 		cleanAgainThresholdMs    uint64
