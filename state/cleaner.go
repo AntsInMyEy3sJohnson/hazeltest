@@ -81,11 +81,11 @@ type (
 		Clean(name string) SingleCleanResult
 	}
 	SingleMapCleanerBuildValues struct {
-		ctx       context.Context
-		ms        hazelcastwrapper.MapStore
-		t         CleanedTracker
-		cih       LastCleanedInfoHandler
-		cleanMode DataStructureCleanMode
+		Ctx context.Context
+		Ms  hazelcastwrapper.MapStore
+		Tr  CleanedTracker
+		Cih LastCleanedInfoHandler
+		Cm  DataStructureCleanMode
 	}
 	// SingleMapCleanerBuilder is an interface for encapsulating the capability of assembling map cleaners
 	// implementing the SingleCleaner interface. An interesting detail is perhaps that the Build methods for
@@ -424,11 +424,11 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 
 	b := DefaultSingleMapCleanerBuilder{}
 	bv := &SingleMapCleanerBuildValues{
-		ctx:       c.ctx,
-		ms:        c.ms,
-		t:         c.t,
-		cih:       c.cih,
-		cleanMode: c.cfg.cleanMode,
+		Ctx: c.ctx,
+		Ms:  c.ms,
+		Tr:  c.t,
+		Cih: c.cih,
+		Cm:  c.cfg.cleanMode,
 	}
 	sc, _ := b.Build(bv)
 
@@ -508,16 +508,16 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 func (b *DefaultSingleMapCleanerBuilder) Build(bv *SingleMapCleanerBuildValues) (SingleCleaner, string) {
 
 	cfg := &singleCleanerConfig{
-		cleanMode:   bv.cleanMode,
+		cleanMode:   bv.Cm,
 		syncMapName: mapCleanersSyncMapName,
 		hzService:   HzMapService,
 	}
 	return &DefaultSingleMapCleaner{
 		cfg: cfg,
-		ctx: bv.ctx,
-		ms:  bv.ms,
-		cih: bv.cih,
-		t:   bv.t,
+		ctx: bv.Ctx,
+		ms:  bv.Ms,
+		cih: bv.Cih,
+		t:   bv.Tr,
 	}, HzMapService
 
 }

@@ -2606,17 +2606,17 @@ func TestRunGenericSingleClean(t *testing.T) {
 				},
 			}
 			bv := &SingleMapCleanerBuildValues{
-				ctx:       context.TODO(),
-				ms:        ms,
-				t:         tr,
-				cih:       cih,
-				cleanMode: Destroy,
+				Ctx: context.TODO(),
+				Ms:  ms,
+				Tr:  tr,
+				Cih: cih,
+				Cm:  Destroy,
 			}
 			mc, _ := b.Build(bv)
 			dmc := mc.(*DefaultSingleMapCleaner)
 
 			cfg := &singleCleanerConfig{
-				cleanMode:   bv.cleanMode,
+				cleanMode:   bv.Cm,
 				syncMapName: mapCleanersSyncMapName,
 				hzService:   HzMapService,
 			}
@@ -3091,11 +3091,11 @@ func TestRunGenericSingleClean(t *testing.T) {
 					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
 				bv := &SingleMapCleanerBuildValues{
-					ctx:       context.TODO(),
-					ms:        ms,
-					t:         &testCleanedTracker{},
-					cih:       cih,
-					cleanMode: Destroy,
+					Ctx: context.TODO(),
+					Ms:  ms,
+					Tr:  &testCleanedTracker{},
+					Cih: cih,
+					Cm:  Destroy,
 				}
 				mc, _ := builder.Build(bv)
 
@@ -3576,6 +3576,11 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 				ctx: context.TODO(),
 				ms:  ms,
 				cih: nil,
+				cfg: &singleCleanerConfig{
+					cleanMode:   Evict,
+					syncMapName: queueCleanersSyncMapName,
+					hzService:   HzQueueService,
+				},
 			}
 
 			numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
@@ -3690,11 +3695,11 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 					Ms: ms,
 				}
 				bv := &SingleMapCleanerBuildValues{
-					ctx:       context.TODO(),
-					ms:        ms,
-					t:         &testCleanedTracker{},
-					cih:       cih,
-					cleanMode: Destroy,
+					Ctx: context.TODO(),
+					Ms:  ms,
+					Tr:  &testCleanedTracker{},
+					Cih: cih,
+					Cm:  Destroy,
 				}
 				mc, _ := builder.Build(bv)
 
@@ -3732,11 +3737,11 @@ func TestDefaultSingleMapCleaner_Clean(t *testing.T) {
 					Cfg: &LastCleanedInfoHandlerConfig{},
 				}
 				bv := &SingleMapCleanerBuildValues{
-					ctx:       context.TODO(),
-					ms:        ms,
-					t:         tr,
-					cih:       cih,
-					cleanMode: Destroy,
+					Ctx: context.TODO(),
+					Ms:  ms,
+					Tr:  tr,
+					Cih: cih,
+					Cm:  Destroy,
 				}
 				mc, _ := builder.Build(bv)
 
@@ -4653,11 +4658,11 @@ func TestDefaultSingleMapCleanerBuilder_Build(t *testing.T) {
 				Ms: ms,
 			}
 			bv := &SingleMapCleanerBuildValues{
-				ctx:       ctx,
-				ms:        ms,
-				t:         tr,
-				cih:       cih,
-				cleanMode: Destroy,
+				Ctx: ctx,
+				Ms:  ms,
+				Tr:  tr,
+				Cih: cih,
+				Cm:  Destroy,
 			}
 			cleaner, hzService := builder.Build(bv)
 
