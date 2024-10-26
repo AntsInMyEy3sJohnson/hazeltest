@@ -66,6 +66,7 @@ type (
 	testHzMap struct {
 		data                                map[string]any
 		evictAllInvocations                 int
+		destroyInvocations                  int
 		sizeInvocations                     int
 		tryLockInvocations                  int
 		unlockInvocations                   int
@@ -73,6 +74,7 @@ type (
 		setInvocations                      int
 		setWithTTLAndMaxIdleInvocations     int
 		returnErrorUponEvictAll             bool
+		returnErrorUponDestroy              bool
 		returnErrorUponSize                 bool
 		returnErrorUponTryLock              bool
 		returnErrorUponUnlock               bool
@@ -155,7 +157,15 @@ func (m *testHzMap) Remove(_ context.Context, _ any) (any, error) {
 }
 
 func (m *testHzMap) Destroy(_ context.Context) error {
+
+	m.destroyInvocations++
+
+	if m.returnErrorUponDestroy {
+		return mapDestroyError
+	}
+
 	return nil
+
 }
 
 func (m *testHzMap) RemoveAll(_ context.Context, _ predicate.Predicate) error {
@@ -192,6 +202,7 @@ var (
 	getPayloadMapError            = errors.New("something somewhere went terribly wrong when attempting to get a payload map from the target hazelcast cluster")
 	getSyncMapError               = errors.New("something somewhere went terribly wrong when attempting to get a sync map from the target hazelcast cluster")
 	mapEvictAllError              = errors.New("something somewhere went terribly wrong upon attempt to perform evict all")
+	mapDestroyError               = errors.New("something somewhere went terribly wrong upon attempt to invoke destroy operation on map")
 	mapSizeError                  = errors.New("something somewhere went terribly wrong upon attempt to query the map's size")
 	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
 	queueClearError               = errors.New("something somewhere went terribly wrong upon attempt to perform clear operation on queue")
@@ -3651,6 +3662,13 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
 					}
+
+					msg = "\t\t\t\tthere must have been no attempt to perform a map eviction"
+					if payloadMap.destroyInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.destroyInvocations)
+					}
 				}
 				t.Log("\t\t\twhen evict does not yield error")
 				{
@@ -3692,6 +3710,13 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX)
 					}
+
+					msg = "\t\t\t\tthere must have been no attempt to perform a map eviction"
+					if payloadMap.destroyInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.destroyInvocations)
+					}
 				}
 			}
 
@@ -3699,7 +3724,51 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 			{
 				t.Log("\t\t\twhen destroy yields error")
 				{
-					t.Fatal("implement me")
+					prefix := "ht_"
+					ms := populateTestMapStore(18, []string{prefix}, 1)
+					payloadMapName := prefix + "load-0"
+					payloadMap := ms.maps[payloadMapName]
+					payloadMap.returnErrorUponDestroy = true
+
+					mc := &DefaultSingleMapCleaner{
+						cfg: &singleCleanerConfig{
+							cleanMode:   Destroy,
+							syncMapName: mapCleanersSyncMapName,
+							hzService:   HzMapService,
+						},
+						ctx: context.TODO(),
+						ms:  ms,
+					}
+
+					numCleanedItems, err := mc.retrieveAndClean(payloadMapName)
+
+					msg := "\t\t\t\terror must be returned"
+					if errors.Is(err, mapDestroyError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\tnumber of cleaned items must be reported to be zero"
+					if numCleanedItems == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\t\t\tthere must have been no attempts to perform a map eviction"
+					if payloadMap.evictAllInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
+					}
+
+					msg = "\t\t\t\tthere must have been one attempt to destroy the map"
+					if payloadMap.destroyInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadMap.destroyInvocations)
+					}
 				}
 				t.Log("\t\t\twhen destroy does not yield error")
 				{
