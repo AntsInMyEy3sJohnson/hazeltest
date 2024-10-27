@@ -3,6 +3,7 @@ package maps
 import (
 	"fmt"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/state"
 	"strings"
 	"testing"
 )
@@ -22,6 +23,7 @@ var (
 		testMapRunnerKeyPath + ".payload.variableSize.upperBoundaryBytes":                  2000000,
 		testMapRunnerKeyPath + ".payload.variableSize.evaluateNewSizeAfterNumWriteActions": 100,
 		testMapRunnerKeyPath + ".performPreRunClean.enabled":                               true,
+		testMapRunnerKeyPath + ".performPreRunClean.cleanMode":                             "destroy",
 		testMapRunnerKeyPath + ".performPreRunClean.errorBehavior":                         "ignore",
 		testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.enabled":           true,
 		testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.thresholdMs":       30000,
@@ -142,7 +144,7 @@ func TestPopulateConfig(t *testing.T) {
 	t.Log("given a map runner config containing properties for both a batch and a boundary test loop")
 	{
 		b := runnerConfigBuilder{runnerKeyPath: testMapRunnerKeyPath, mapBaseName: testMapBaseName}
-		t.Log("\twhen property assignment does not yield an error")
+		t.Log("\twhen property assignment does not yield error")
 		{
 			for _, lt := range []runnerLoopType{batch, boundary} {
 				t.Log(fmt.Sprintf("\t\ttest loop type: %s", lt))
@@ -151,21 +153,21 @@ func TestPopulateConfig(t *testing.T) {
 				b.assigner = assigner
 				rc, err := b.populateConfig()
 
-				msg := "\t\t\tno error should be returned"
+				msg := "\t\t\tno error must be returned"
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\t\tconfig should be returned"
+				msg = "\t\t\tconfig must be returned"
 				if rc != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\t\tconfig should contain expected values"
+				msg = "\t\t\tconfig must contain expected values"
 				if valid, detail := configValuesAsExpected(rc, testConfig); valid {
 					t.Log(msg, checkMark)
 				} else {
@@ -181,7 +183,7 @@ func TestPopulateConfig(t *testing.T) {
 			b.assigner = assigner
 			_, err := b.populateConfig()
 
-			msg := "\t\terror should be returned"
+			msg := "\t\terror must be returned"
 
 			if err != nil {
 				t.Log(msg, checkMark)
@@ -249,6 +251,31 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 
 	keyPath = testMapRunnerKeyPath + ".numRuns"
 	if rc.numRuns != uint32(expected[keyPath].(int)) {
+		return false, keyPath
+	}
+
+	keyPath = testMapRunnerKeyPath + ".performPreRunClean.enabled"
+	if rc.preRunClean.enabled != expected[keyPath] {
+		return false, keyPath
+	}
+
+	keyPath = testMapRunnerKeyPath + ".performPreRunClean.cleanMode"
+	if rc.preRunClean.cleanMode != state.DataStructureCleanMode(expected[keyPath].(string)) {
+		return false, keyPath
+	}
+
+	keyPath = testMapRunnerKeyPath + ".performPreRunClean.errorBehavior"
+	if rc.preRunClean.errorBehavior != state.ErrorDuringCleanBehavior(expected[keyPath].(string)) {
+		return false, keyPath
+	}
+
+	keyPath = testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.enabled"
+	if rc.preRunClean.applyCleanAgainThreshold != expected[keyPath] {
+		return false, keyPath
+	}
+
+	keyPath = testMapRunnerKeyPath + ".performPreRunClean.cleanAgainThreshold.thresholdMs"
+	if rc.preRunClean.cleanAgainThresholdMs != uint64(expected[keyPath].(int)) {
 		return false, keyPath
 	}
 
