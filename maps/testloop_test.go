@@ -83,7 +83,7 @@ var (
 	defaultTestMapNumber      = uint16(0)
 )
 
-func (b *testSingleMapCleanerBuilder) Build(_ context.Context, _ hazelcastwrapper.MapStore, _ state.CleanedTracker, _ state.LastCleanedInfoHandler) (state.SingleCleaner, string) {
+func (b *testSingleMapCleanerBuilder) Build(_ *state.SingleMapCleanerBuildValues) (state.SingleCleaner, string) {
 
 	return b.mapCleanerToReturn, "hz:impl:mapService"
 
