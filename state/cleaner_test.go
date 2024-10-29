@@ -1784,83 +1784,100 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			}
 
 		}
-		t.Log("\twhen retrieval of non-nil queue is successful, but queue clear operation yields error")
+		t.Log("\twhen retrieval of non-nil queue is successful")
 		{
-			prefix := "ht_"
-			baseName := "load"
-			qs := populateTestQueueStore(1, []string{prefix}, baseName, 1)
+			t.Log("\t\twhen clean mode is evict")
+			{
+				t.Log("\t\t\twhen evict yields error")
+				{
+					prefix := "ht_"
+					baseName := "load"
+					qs := populateTestQueueStore(1, []string{prefix}, baseName, 1)
 
-			payloadQueueName := prefix + baseName + "-0"
-			payloadQueue := qs.queues[payloadQueueName]
-			payloadQueue.returnErrorUponClear = true
+					payloadQueueName := prefix + baseName + "-0"
+					payloadQueue := qs.queues[payloadQueueName]
+					payloadQueue.returnErrorUponClear = true
 
-			qc := &DefaultSingleQueueCleaner{
-				ctx: context.TODO(),
-				qs:  qs,
+					qc := &DefaultSingleQueueCleaner{
+						ctx: context.TODO(),
+						qs:  qs,
+					}
+
+					numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
+
+					msg := "\t\terror must be returned"
+
+					if errors.Is(err, queueClearError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\treported number of cleaned items must be zero"
+					if numCleanedItems == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\tclear on payload queue must have been attempted once"
+					if payloadQueue.clearInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+					}
+				}
+
+				t.Log("\t\t\twhen evict does not yield error")
+				{
+					prefix := "ht_"
+					baseName := "load"
+					numItemsInQueues := 9
+					qs := populateTestQueueStore(1, []string{prefix}, baseName, numItemsInQueues)
+
+					qc := &DefaultSingleQueueCleaner{
+						ctx: context.TODO(),
+						ms:  nil,
+						qs:  qs,
+						cih: nil,
+					}
+
+					payloadQueueName := prefix + baseName + "-0"
+					numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
+
+					payloadQueue := qs.queues[payloadQueueName]
+
+					msg := "\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\treported number of cleaned items must be equal to number of items previously in queue"
+					if numCleanedItems == numItemsInQueues {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\tclear on payload queue must have been performed once"
+					if payloadQueue.clearInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+					}
+				}
 			}
+			t.Log("\t\twhen clean mode is destroy")
+			{
+				t.Log("\t\t\twhen destroy yields error")
+				{
+				}
 
-			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
-
-			msg := "\t\terror must be returned"
-
-			if errors.Is(err, queueClearError) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\treported number of cleaned items must be zero"
-			if numCleanedItems == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, numCleanedItems)
-			}
-
-			msg = "\t\tclear on payload queue must have been attempted once"
-			if payloadQueue.clearInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
-			}
-		}
-		t.Log("\twhen retrieval of non-nil queue is successful and queue clear operation does not yield error")
-		{
-			prefix := "ht_"
-			baseName := "load"
-			numItemsInQueues := 9
-			qs := populateTestQueueStore(1, []string{prefix}, baseName, numItemsInQueues)
-
-			qc := &DefaultSingleQueueCleaner{
-				ctx: context.TODO(),
-				ms:  nil,
-				qs:  qs,
-				cih: nil,
-			}
-
-			payloadQueueName := prefix + baseName + "-0"
-			numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
-
-			payloadQueue := qs.queues[payloadQueueName]
-
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\treported number of cleaned items must be equal to number of items previously in queue"
-			if numCleanedItems == numItemsInQueues {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, numCleanedItems)
-			}
-
-			msg = "\t\tclear on payload queue must have been performed once"
-			if payloadQueue.clearInvocations == 1 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+				t.Log("\t\t\twhen destroy does not yield error")
+				{
+				}
 			}
 		}
 	}
