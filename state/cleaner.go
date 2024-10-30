@@ -818,9 +818,17 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 
 	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.TraceLevel)
 
-	if err := queueToClean.Clear(c.ctx); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
-		return 0, err
+	if c.cfg.cleanMode == Destroy {
+		if err = queueToClean.Destroy(c.ctx); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon destroying '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
+			return 0, err
+		}
+	} else {
+		if err = queueToClean.Clear(c.ctx); err != nil {
+			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
+			return 0, err
+		}
+
 	}
 
 	return size, nil
