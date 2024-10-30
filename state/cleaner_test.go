@@ -84,11 +84,13 @@ type (
 		tryLockReturnValue                  bool
 	}
 	testHzQueue struct {
-		data                 chan string
-		clearInvocations     int
-		sizeInvocations      int
-		returnErrorUponClear bool
-		returnErrorUponSize  bool
+		data                   chan string
+		clearInvocations       int
+		destroyInvocations     int
+		sizeInvocations        int
+		returnErrorUponClear   bool
+		returnErrorUponDestroy bool
+		returnErrorUponSize    bool
 	}
 	testLastCleanedInfoHandler struct {
 		syncMap                                                     hazelcastwrapper.Map
@@ -145,7 +147,15 @@ func (q *testHzQueue) RemainingCapacity(_ context.Context) (int, error) {
 }
 
 func (q *testHzQueue) Destroy(_ context.Context) error {
+
+	q.destroyInvocations++
+
+	if q.returnErrorUponDestroy {
+		return queueDestroyError
+	}
+
 	return nil
+
 }
 
 func (m *testHzMap) ContainsKey(_ context.Context, _ any) (bool, error) {
@@ -206,6 +216,7 @@ var (
 	mapSizeError                  = errors.New("something somewhere went terribly wrong upon attempt to query the map's size")
 	getQueueError                 = errors.New("something somewhere went terribly wrong when attempting to get a queue from the target hazelcast cluster")
 	queueClearError               = errors.New("something somewhere went terribly wrong upon attempt to perform clear operation on queue")
+	queueDestroyError             = errors.New("something somewhere went terribly wrong upon attempt to perform destroy operation on queue")
 	queueSizeError                = errors.New("something somewhere went terribly wrong upon attempt to query the queue's size")
 	lastCleanedInfoCheckError     = errors.New("something somewhere went terribly wrong upon attempt to check last cleaned info")
 	lastCleanedInfoUpdateError    = errors.New("something somewhere went terribly wrong upon attempt to update last cleaned info")
@@ -1694,10 +1705,9 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			qs.returnErrorUponGetQueue = true
 
 			qc := &DefaultSingleQueueCleaner{
+				cfg: &singleCleanerConfig{cleanMode: Evict},
 				ctx: context.TODO(),
-				ms:  nil,
 				qs:  qs,
-				cih: nil,
 			}
 
 			numCleanedItems, err := qc.retrieveAndClean(prefix + baseName + "-0")
@@ -1730,10 +1740,9 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			qs := populateTestQueueStore(1, []string{prefix}, "load", 0)
 
 			qc := &DefaultSingleQueueCleaner{
+				cfg: &singleCleanerConfig{cleanMode: Evict},
 				ctx: context.TODO(),
-				ms:  nil,
 				qs:  qs,
-				cih: nil,
 			}
 
 			numCleanedItems, err := qc.retrieveAndClean("blubbo")
@@ -1763,6 +1772,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 			payloadQueue.returnErrorUponSize = true
 
 			qc := &DefaultSingleQueueCleaner{
+				cfg: &singleCleanerConfig{cleanMode: Evict},
 				ctx: context.TODO(),
 				qs:  qs,
 			}
@@ -1788,6 +1798,7 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 		{
 			t.Log("\t\twhen clean mode is evict")
 			{
+				cm := Evict
 				t.Log("\t\t\twhen evict yields error")
 				{
 					prefix := "ht_"
@@ -1799,13 +1810,14 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 					payloadQueue.returnErrorUponClear = true
 
 					qc := &DefaultSingleQueueCleaner{
+						cfg: &singleCleanerConfig{cleanMode: cm},
 						ctx: context.TODO(),
 						qs:  qs,
 					}
 
 					numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
 
-					msg := "\t\terror must be returned"
+					msg := "\t\t\t\terror must be returned"
 
 					if errors.Is(err, queueClearError) {
 						t.Log(msg, checkMark)
@@ -1813,18 +1825,25 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\treported number of cleaned items must be zero"
+					msg = "\t\t\t\treported number of cleaned items must be zero"
 					if numCleanedItems == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, numCleanedItems)
 					}
 
-					msg = "\t\tclear on payload queue must have been attempted once"
+					msg = "\t\t\t\tclear on payload queue must have been attempted once"
 					if payloadQueue.clearInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+					}
+
+					msg = "\t\t\t\tno destroy invocation must have been attempted on payload queue"
+					if payloadQueue.destroyInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.destroyInvocations)
 					}
 				}
 
@@ -1836,10 +1855,9 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 					qs := populateTestQueueStore(1, []string{prefix}, baseName, numItemsInQueues)
 
 					qc := &DefaultSingleQueueCleaner{
+						cfg: &singleCleanerConfig{cleanMode: cm},
 						ctx: context.TODO(),
-						ms:  nil,
 						qs:  qs,
-						cih: nil,
 					}
 
 					payloadQueueName := prefix + baseName + "-0"
@@ -1847,36 +1865,131 @@ func TestDefaultSingleQueueCleaner_retrieveAndClean(t *testing.T) {
 
 					payloadQueue := qs.queues[payloadQueueName]
 
-					msg := "\t\tno error must be returned"
+					msg := "\t\t\t\tno error must be returned"
 					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\treported number of cleaned items must be equal to number of items previously in queue"
+					msg = "\t\t\t\treported number of cleaned items must be equal to number of items previously in queue"
 					if numCleanedItems == numItemsInQueues {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, numCleanedItems)
 					}
 
-					msg = "\t\tclear on payload queue must have been performed once"
+					msg = "\t\t\t\tclear on payload queue must have been performed once"
 					if payloadQueue.clearInvocations == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
 					}
+
+					msg = "\t\t\t\tno destroy invocation must have been attempted on payload queue"
+					if payloadQueue.destroyInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.destroyInvocations)
+					}
 				}
 			}
 			t.Log("\t\twhen clean mode is destroy")
 			{
+				cm := Destroy
 				t.Log("\t\t\twhen destroy yields error")
 				{
+					prefix := "ht_"
+					baseName := "load"
+					qs := populateTestQueueStore(1, []string{prefix}, baseName, 1)
+
+					payloadQueueName := prefix + baseName + "-0"
+					payloadQueue := qs.queues[payloadQueueName]
+					payloadQueue.returnErrorUponDestroy = true
+
+					qc := &DefaultSingleQueueCleaner{
+						cfg: &singleCleanerConfig{cleanMode: cm},
+						ctx: context.TODO(),
+						qs:  qs,
+					}
+
+					numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
+
+					msg := "\t\t\t\terror must be returned"
+
+					if errors.Is(err, queueDestroyError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of cleaned items must be zero"
+					if numCleanedItems == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\t\t\tdestroy on payload queue must have been attempted once"
+					if payloadQueue.destroyInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.destroyInvocations)
+					}
+
+					msg = "\t\t\t\tno clear invocation must have been attempted on payload queue"
+					if payloadQueue.clearInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+					}
 				}
 
 				t.Log("\t\t\twhen destroy does not yield error")
 				{
+					prefix := "ht_"
+					baseName := "load"
+					numItemsInQueues := 42
+					qs := populateTestQueueStore(1, []string{prefix}, baseName, numItemsInQueues)
+
+					qc := &DefaultSingleQueueCleaner{
+						cfg: &singleCleanerConfig{cleanMode: cm},
+						ctx: context.TODO(),
+						qs:  qs,
+					}
+
+					payloadQueueName := prefix + baseName + "-0"
+					numCleanedItems, err := qc.retrieveAndClean(payloadQueueName)
+
+					payloadQueue := qs.queues[payloadQueueName]
+
+					msg := "\t\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of cleaned items must be equal to number of items previously in queue"
+					if numCleanedItems == numItemsInQueues {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, numCleanedItems)
+					}
+
+					msg = "\t\t\t\tdestroy on payload queue must have been performed once"
+					if payloadQueue.destroyInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.destroyInvocations)
+					}
+
+					msg = "\t\t\t\tno clear invocation must have been attempted on payload queue"
+					if payloadQueue.clearInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, payloadQueue.clearInvocations)
+					}
 				}
 			}
 		}
@@ -3680,7 +3793,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 						t.Fatal(msg, ballotX, payloadMap.evictAllInvocations)
 					}
 
-					msg = "\t\t\t\tthere must have been no attempt to perform a map eviction"
+					msg = "\t\t\t\tno destroy invocation must have been performed on payload map"
 					if payloadMap.destroyInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
@@ -3728,7 +3841,7 @@ func TestDefaultSingleMapCleaner_retrieveAndClean(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\tthere must have been no attempt to perform a map eviction"
+					msg = "\t\t\t\tno destroy invocation must have been attempted on payload map"
 					if payloadMap.destroyInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
