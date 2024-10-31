@@ -578,6 +578,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
 					return
 				}
+				lp.LogMapRunnerEvent(fmt.Sprintf("invoking single map cleaner for map '%s' using clean mode '%s'", mapName, tle.runnerConfig.preRunClean.cleanMode), tle.runnerName, log.InfoLevel)
 				if scResult := stateCleaner.Clean(mapName); scResult.Err != nil {
 					configuredErrorBehavior := tle.runnerConfig.preRunClean.errorBehavior
 					if state.Ignore == tle.runnerConfig.preRunClean.errorBehavior {
