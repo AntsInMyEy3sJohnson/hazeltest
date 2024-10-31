@@ -73,6 +73,7 @@ config:
   stateCleaners:
     maps:
       enabled: true
+      cleanMode: destroy
       errorBehavior: ignore
       prefix:
         enabled: true
@@ -83,6 +84,7 @@ config:
         thresholdMs: 30000
     queues:
       enabled: true
+      cleanMode: destroy
       errorBehavior: ignore
       prefix:
         enabled: true
@@ -187,6 +189,7 @@ config:
       numRuns: 10000
       performPreRunClean:
         enabled: false
+        cleanMode: destroy
         errorBehavior: ignore
         cleanAgainThreshold:
           enabled: true
@@ -254,6 +257,7 @@ config:
           evaluateNewSizeAfterNumWriteActions: 100
       performPreRunClean:
         enabled: false
+        cleanMode: destroy
         errorBehavior: ignore
         cleanAgainThreshold:
           enabled: true
