@@ -36,6 +36,7 @@ type (
 	}
 	preRunCleanConfig struct {
 		enabled                  bool
+		cleanMode                state.DataStructureCleanMode
 		errorBehavior            state.ErrorDuringCleanBehavior
 		applyCleanAgainThreshold bool
 		cleanAgainThresholdMs    uint64
@@ -416,6 +417,13 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		})
 	})
 
+	var cleanMode state.DataStructureCleanMode
+	assignmentOps = append(assignmentOps, func() error {
+		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.cleanMode", state.ValidateCleanMode, func(a any) {
+			cleanMode = state.DataStructureCleanMode(a.(string))
+		})
+	})
+
 	var errorDuringPreRunCleanBehavior state.ErrorDuringCleanBehavior
 	assignmentOps = append(assignmentOps, func() error {
 		return b.assigner.Assign(b.runnerKeyPath+".performPreRunClean.errorBehavior", state.ValidateErrorDuringCleanBehavior, func(a any) {
@@ -524,6 +532,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 		},
 		preRunClean: &preRunCleanConfig{
 			enabled:                  performPreRunClean,
+			cleanMode:                cleanMode,
 			errorBehavior:            errorDuringPreRunCleanBehavior,
 			applyCleanAgainThreshold: applyCleanAgainThreshold,
 			cleanAgainThresholdMs:    cleanAgainThresholdMs,
