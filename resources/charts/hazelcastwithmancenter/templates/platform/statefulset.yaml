@@ -48,18 +48,36 @@ spec:
               containerPort: {{ .Values.platform.cluster.members.ports.member }}
             - name: hzmetrics
               containerPort: {{ .Values.platform.cluster.members.ports.metrics }}
+          {{- if .Values.platform.cluster.members.probes.liveness.enabled }}
           livenessProbe:
+            {{- if eq .Values.platform.cluster.members.probes.liveness.type "http" }}
             httpGet:
               port: hzmember
               path: /hazelcast/health/node-state
-            initialDelaySeconds: {{ .Values.platform.cluster.members.liveness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.platform.cluster.members.liveness.periodSeconds }}
+            {{- else if eq .Values.platform.cluster.members.probes.liveness.type "tcp" }}
+            tcpSocket:
+              port: hzmember
+            {{- else }}
+              {{- fail (printf "Encountered unknown liveness probe type '%s'; expected either 'http' or 'tcp'" .Values.platform.cluster.members.probes.liveness.type) }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.platform.cluster.members.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.platform.cluster.members.probes.liveness.periodSeconds }}
+          {{- end }}
+          {{- if .Values.platform.cluster.members.probes.readiness.enabled }}
           readinessProbe:
+            {{- if eq .Values.platform.cluster.members.probes.readiness.type "http" }}
             httpGet:
               port: hzmember
               path: /hazelcast/health/ready
-            initialDelaySeconds: {{ .Values.platform.cluster.members.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.platform.cluster.members.readiness.periodSeconds }}
+            {{- else if eq .Values.platform.cluster.members.probes.readiness.type "tcp" }}
+            tcpSocket:
+              port: hzmember
+            {{- else }}
+              {{- fail (printf "Encountered unknown readiness probe type '%s'; expected either 'http' or 'tcp'" .Values.platform.cluster.members.probes.readiness.type) }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.platform.cluster.members.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.platform.cluster.members.probes.readiness.periodSeconds }}
+          {{- end }}
           env:
             - name: JAVA_OPTS
               value: "-Xmx{{ .Values.platform.cluster.members.jvmResources.xmx }} \

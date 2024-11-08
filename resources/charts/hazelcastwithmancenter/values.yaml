@@ -56,12 +56,19 @@ platform:
       jvmResources:
         xmx: 16000m
         xms: 16000m
-      liveness:
-        initialDelaySeconds: 15
-        periodSeconds: 10
-      readiness:
-        initialDelaySeconds: 30
-        periodSeconds: 10
+      probes:
+        liveness:
+          enabled: true
+          # One of 'tcp' or 'http'.
+          type: tcp
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readiness:
+          enabled: true
+          # One of 'tcp' or 'http'.
+          type: tcp
+          initialDelaySeconds: 10
+          periodSeconds: 10
   config:
     hazelcast:
       management-center:
