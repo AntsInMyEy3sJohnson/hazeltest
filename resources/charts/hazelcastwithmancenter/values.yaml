@@ -211,7 +211,7 @@ mancenter:
     resources:
       requests:
         cpu: "8"
-        memory: "6G"
+        memory: "20G"
       limits:
         cpu: "8"
-        memory: "6G"
+        memory: "20G"
