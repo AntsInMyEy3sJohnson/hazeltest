@@ -23,7 +23,7 @@ platform:
     members:
       edition:
         community:
-          image: hazelcast/hazelcast:5.4.0-jdk21
+          image: hazelcast/hazelcast:5.5.0-jdk21
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
@@ -32,7 +32,7 @@ platform:
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
           # Center down below, the image property appears only once).
-          image: hazelcast/hazelcast-enterprise:5.4.0-jdk21
+          image: hazelcast/hazelcast-enterprise:5.5.2-jdk21
           license:
             # The name of the Kubernetes Secret containing the license key for
             # the enterprise version of Hazelcast Platform.
@@ -168,7 +168,7 @@ mancenter:
       port: 8080
       hostName: hazelcastmanagementcenter.thelittlevmthatcould.local
   instance:
-    image: hazelcast/management-center:5.3.3
+    image: hazelcast/management-center:5.6.0
     # Enables injection of enterprise license.
     # Please note that, in case of the Management Center, there is no distinction between the community and the
     # enterprise edition as far as the image is concerned, hence there is no dedicated image property.
