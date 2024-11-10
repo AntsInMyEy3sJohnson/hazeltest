@@ -1,14 +1,14 @@
 prometheusServer:
-  image: quay.io/prometheus/prometheus:v2.48.0
+  image: quay.io/prometheus/prometheus:v2.55.1
   imagePullPolicy: IfNotPresent
   instance:
     resources:
       requests:
         cpu: 2
-        memory: 1Gi
+        memory: 3Gi
       limits:
         cpu: 4
-        memory: 2Gi
+        memory: 6Gi
     ports:
       web:
         name: web
@@ -63,7 +63,7 @@ prometheusServer:
               target_label: namespace
 
 prometheusConfigReloader:
-  image: quay.io/prometheus-operator/prometheus-config-reloader:v0.67.0
+  image: quay.io/prometheus-operator/prometheus-config-reloader:v0.78.1
   imagePullPolicy: IfNotPresent
   instance:
     resources:
