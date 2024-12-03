@@ -34,13 +34,13 @@ var (
 		testMapRunnerKeyPath + ".sleeps.betweenRuns.enableRandomness":                      true,
 	}
 	batchTestConfig = map[string]any{
-		testMapRunnerKeyPath + ".testLoop.type":                                               "batch",
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled":              true,
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs":           50,
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness":     false,
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled":          true,
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs":       2_000,
-		testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness": true,
+		testMapRunnerKeyPath + ".testLoop.type":                                           "batch",
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enabled":          true,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.durationMs":       50,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterBatchAction.enableRandomness": false,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.enabled":          true,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.durationMs":       2_000,
+		testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.enableRandomness": true,
 	}
 	boundaryTestConfig = map[string]any{
 		testMapRunnerKeyPath + ".testLoop.type":                                                    "boundary",
@@ -330,18 +330,18 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) (bool, st
 			return false, keyPath
 		}
 
-		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enabled"
-		if rc.batch.sleepBetweenActionBatches.enabled != expected[keyPath] {
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.enabled"
+		if rc.batch.sleepAfterActionBatch.enabled != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.durationMs"
-		if rc.batch.sleepBetweenActionBatches.durationMs != expected[keyPath] {
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.durationMs"
+		if rc.batch.sleepAfterActionBatch.durationMs != expected[keyPath] {
 			return false, keyPath
 		}
 
-		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.betweenActionBatches.enableRandomness"
-		if rc.batch.sleepBetweenActionBatches.enableRandomness != expected[keyPath] {
+		keyPath = testMapRunnerKeyPath + ".testLoop.batch.sleeps.afterActionBatch.enableRandomness"
+		if rc.batch.sleepAfterActionBatch.enableRandomness != expected[keyPath] {
 			return false, keyPath
 		}
 

@@ -11,36 +11,36 @@ import (
 
 var (
 	testConfig = map[string]any{
-		runnerKeyPath + ".enabled":                                                 true,
-		runnerKeyPath + ".numQueues":                                               5,
-		runnerKeyPath + ".appendQueueIndexToQueueName":                             true,
-		runnerKeyPath + ".appendClientIdToQueueName":                               false,
-		runnerKeyPath + ".queuePrefix.enabled":                                     true,
-		runnerKeyPath + ".queuePrefix.prefix":                                      queuePrefix,
-		runnerKeyPath + ".putConfig.enabled":                                       true,
-		runnerKeyPath + ".putConfig.numRuns":                                       500,
-		runnerKeyPath + ".putConfig.batchSize":                                     50,
-		runnerKeyPath + ".putConfig.sleeps.initialDelay.enabled":                   true,
-		runnerKeyPath + ".putConfig.sleeps.initialDelay.durationMs":                2000,
-		runnerKeyPath + ".putConfig.sleeps.initialDelay.enableRandomness":          true,
-		runnerKeyPath + ".putConfig.sleeps.betweenActionBatches.enabled":           true,
-		runnerKeyPath + ".putConfig.sleeps.betweenActionBatches.durationMs":        1000,
-		runnerKeyPath + ".putConfig.sleeps.betweenActionBatches.enableRandomness":  true,
-		runnerKeyPath + ".putConfig.sleeps.betweenRuns.enabled":                    true,
-		runnerKeyPath + ".putConfig.sleeps.betweenRuns.durationMs":                 2000,
-		runnerKeyPath + ".putConfig.sleeps.betweenRuns.enableRandomness":           true,
-		runnerKeyPath + ".pollConfig.enabled":                                      true,
-		runnerKeyPath + ".pollConfig.numRuns":                                      500,
-		runnerKeyPath + ".pollConfig.batchSize":                                    50,
-		runnerKeyPath + ".pollConfig.sleeps.initialDelay.enabled":                  true,
-		runnerKeyPath + ".pollConfig.sleeps.initialDelay.durationMs":               12500,
-		runnerKeyPath + ".pollConfig.sleeps.initialDelay.enableRandomness":         true,
-		runnerKeyPath + ".pollConfig.sleeps.betweenActionBatches.enabled":          true,
-		runnerKeyPath + ".pollConfig.sleeps.betweenActionBatches.durationMs":       1000,
-		runnerKeyPath + ".pollConfig.sleeps.betweenActionBatches.enableRandomness": true,
-		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enabled":                   true,
-		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.durationMs":                2000,
-		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enableRandomness":          true,
+		runnerKeyPath + ".enabled":                                             true,
+		runnerKeyPath + ".numQueues":                                           5,
+		runnerKeyPath + ".appendQueueIndexToQueueName":                         true,
+		runnerKeyPath + ".appendClientIdToQueueName":                           false,
+		runnerKeyPath + ".queuePrefix.enabled":                                 true,
+		runnerKeyPath + ".queuePrefix.prefix":                                  queuePrefix,
+		runnerKeyPath + ".putConfig.enabled":                                   true,
+		runnerKeyPath + ".putConfig.numRuns":                                   500,
+		runnerKeyPath + ".putConfig.batchSize":                                 50,
+		runnerKeyPath + ".putConfig.sleeps.initialDelay.enabled":               true,
+		runnerKeyPath + ".putConfig.sleeps.initialDelay.durationMs":            2000,
+		runnerKeyPath + ".putConfig.sleeps.initialDelay.enableRandomness":      true,
+		runnerKeyPath + ".putConfig.sleeps.afterActionBatch.enabled":           true,
+		runnerKeyPath + ".putConfig.sleeps.afterActionBatch.durationMs":        1000,
+		runnerKeyPath + ".putConfig.sleeps.afterActionBatch.enableRandomness":  true,
+		runnerKeyPath + ".putConfig.sleeps.betweenRuns.enabled":                true,
+		runnerKeyPath + ".putConfig.sleeps.betweenRuns.durationMs":             2000,
+		runnerKeyPath + ".putConfig.sleeps.betweenRuns.enableRandomness":       true,
+		runnerKeyPath + ".pollConfig.enabled":                                  true,
+		runnerKeyPath + ".pollConfig.numRuns":                                  500,
+		runnerKeyPath + ".pollConfig.batchSize":                                50,
+		runnerKeyPath + ".pollConfig.sleeps.initialDelay.enabled":              true,
+		runnerKeyPath + ".pollConfig.sleeps.initialDelay.durationMs":           12500,
+		runnerKeyPath + ".pollConfig.sleeps.initialDelay.enableRandomness":     true,
+		runnerKeyPath + ".pollConfig.sleeps.afterActionBatch.enabled":          true,
+		runnerKeyPath + ".pollConfig.sleeps.afterActionBatch.durationMs":       1000,
+		runnerKeyPath + ".pollConfig.sleeps.afterActionBatch.enableRandomness": true,
+		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enabled":               true,
+		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.durationMs":            2000,
+		runnerKeyPath + ".pollConfig.sleeps.betweenRuns.enableRandomness":      true,
 	}
 	initTestQueueStore initQueueStoreFunc = func(_ hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
 		return &testHzQueueStore{observations: &testQueueStoreObservations{}}
@@ -173,9 +173,9 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) bool {
 		rc.putConfig.initialDelay.enabled == expected[runnerKeyPath+".putConfig.sleeps.initialDelay.enabled"] &&
 		rc.putConfig.initialDelay.durationMs == expected[runnerKeyPath+".putConfig.sleeps.initialDelay.durationMs"] &&
 		rc.putConfig.initialDelay.enableRandomness == expected[runnerKeyPath+".putConfig.sleeps.initialDelay.enableRandomness"] &&
-		rc.putConfig.sleepBetweenActionBatches.enabled == expected[runnerKeyPath+".putConfig.sleeps.betweenActionBatches.enabled"] &&
-		rc.putConfig.sleepBetweenActionBatches.durationMs == expected[runnerKeyPath+".putConfig.sleeps.betweenActionBatches.durationMs"] &&
-		rc.putConfig.sleepBetweenActionBatches.enableRandomness == expected[runnerKeyPath+".putConfig.sleeps.betweenActionBatches.enableRandomness"] &&
+		rc.putConfig.sleepAfterActionBatch.enabled == expected[runnerKeyPath+".putConfig.sleeps.afterActionBatch.enabled"] &&
+		rc.putConfig.sleepAfterActionBatch.durationMs == expected[runnerKeyPath+".putConfig.sleeps.afterActionBatch.durationMs"] &&
+		rc.putConfig.sleepAfterActionBatch.enableRandomness == expected[runnerKeyPath+".putConfig.sleeps.afterActionBatch.enableRandomness"] &&
 		rc.putConfig.sleepBetweenRuns.enabled == expected[runnerKeyPath+".putConfig.sleeps.betweenRuns.enabled"] &&
 		rc.putConfig.sleepBetweenRuns.durationMs == expected[runnerKeyPath+".putConfig.sleeps.betweenRuns.durationMs"] &&
 		rc.putConfig.sleepBetweenRuns.enableRandomness == expected[runnerKeyPath+".putConfig.sleeps.betweenRuns.enableRandomness"] &&
@@ -185,9 +185,9 @@ func configValuesAsExpected(rc *runnerConfig, expected map[string]any) bool {
 		rc.pollConfig.initialDelay.enabled == expected[runnerKeyPath+".pollConfig.sleeps.initialDelay.enabled"] &&
 		rc.pollConfig.initialDelay.durationMs == expected[runnerKeyPath+".pollConfig.sleeps.initialDelay.durationMs"] &&
 		rc.pollConfig.initialDelay.enableRandomness == expected[runnerKeyPath+".pollConfig.sleeps.initialDelay.enableRandomness"] &&
-		rc.pollConfig.sleepBetweenActionBatches.enabled == expected[runnerKeyPath+".pollConfig.sleeps.betweenActionBatches.enabled"] &&
-		rc.pollConfig.sleepBetweenActionBatches.durationMs == expected[runnerKeyPath+".pollConfig.sleeps.betweenActionBatches.durationMs"] &&
-		rc.pollConfig.sleepBetweenActionBatches.enableRandomness == expected[runnerKeyPath+".pollConfig.sleeps.betweenActionBatches.enableRandomness"] &&
+		rc.pollConfig.sleepAfterActionBatch.enabled == expected[runnerKeyPath+".pollConfig.sleeps.afterActionBatch.enabled"] &&
+		rc.pollConfig.sleepAfterActionBatch.durationMs == expected[runnerKeyPath+".pollConfig.sleeps.afterActionBatch.durationMs"] &&
+		rc.pollConfig.sleepAfterActionBatch.enableRandomness == expected[runnerKeyPath+".pollConfig.sleeps.afterActionBatch.enableRandomness"] &&
 		rc.pollConfig.sleepBetweenRuns.enabled == expected[runnerKeyPath+".pollConfig.sleeps.betweenRuns.enabled"] &&
 		rc.pollConfig.sleepBetweenRuns.durationMs == expected[runnerKeyPath+".pollConfig.sleeps.betweenRuns.durationMs"] &&
 		rc.pollConfig.sleepBetweenRuns.enableRandomness == expected[runnerKeyPath+".pollConfig.sleeps.betweenRuns.enableRandomness"]
