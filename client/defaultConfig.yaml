@@ -218,7 +218,7 @@ queueTests:
           enableRandomness: false
         # Causes a put goroutine to sleep after performing one batch of put operations, where the batch size is
         # configured by means of the above '(...).putConfig.batchSize' property.
-        betweenActionBatches:
+        afterActionBatch:
           enabled: true
           durationMs: 1000
           enableRandomness: true
@@ -240,7 +240,7 @@ queueTests:
           enabled: true
           durationMs: 12500
           enableRandomness: false
-        betweenActionBatches:
+        afterActionBatch:
           enabled: true
           durationMs: 1000
           enableRandomness: true
@@ -274,7 +274,7 @@ queueTests:
           enabled: false
           durationMs: 2000
           enableRandomness: false
-        betweenActionBatches:
+        afterActionBatch:
           enabled: true
           durationMs: 200
           enableRandomness: true
@@ -291,7 +291,7 @@ queueTests:
           enabled: true
           durationMs: 20000
           enableRandomness: false
-        betweenActionBatches:
+        afterActionBatch:
           enabled: true
           durationMs: 200
           enableRandomness: true
@@ -371,14 +371,17 @@ mapTests:
       batch:
         sleeps:
           # If this is enabled, the test loop will wait for <durationMs> (or a duration in the interval [1, <durationMs]
-          # in case randomness has been enabled) after execution one action in a batch (e.g. one insert operation).
+          # in case randomness has been enabled) after executing one action in a batch (e.g. one insert operation).
+          # Mind the difference between 'afterBatchAction' (this property) and 'afterActionBatch' (the property
+          # below) -- whereas the former refers to what happens after a single action within a batch of actions, the
+          # latter is concerned with what happens after that batch of actions has concluded.
           afterBatchAction:
             enabled: true
             durationMs: 50
             enableRandomness: true
           # Can be enabled to make the batch test loop sleep for the given duration after one batch of actions (e.g.,
           # "ingest x elements") has finished, meaning the next action batch will start only after a sleep of <durationMs>
-          betweenActionBatches:
+          afterActionBatch:
             enabled: true
             durationMs: 5000
             enableRandomness: true
@@ -553,7 +556,7 @@ mapTests:
             enabled: true
             durationMs: 10
             enableRandomness: true
-          betweenActionBatches:
+          afterActionBatch:
             enabled: true
             durationMs: 2000
             enableRandomness: true
