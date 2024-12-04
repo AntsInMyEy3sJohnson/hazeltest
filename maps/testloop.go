@@ -647,6 +647,7 @@ func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, map
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
+		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 	}
 
 	lp.LogMapRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), l.tle.runnerName, log.InfoLevel)

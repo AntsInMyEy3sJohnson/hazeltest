@@ -3037,8 +3037,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\tnumber of sleeps between action batches must be equal to two times the number of runs"
-				if numInvocationsAfterActionBatch == 2*numRuns {
+				msg = "\t\tnumber of sleeps after action batch must three times the number of runs"
+				if numInvocationsAfterActionBatch == 3*numRuns {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
