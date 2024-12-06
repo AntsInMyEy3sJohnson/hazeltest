@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.16.1
-  digest: 0e0aeaff9261b4c834c0a6f6141eae66b4488133a9de80f90ae651742435ddb9
+  tag: 0.16.2
+  digest: 4b843a1854de4e577a4bfdd6ce0972d3f0ad398f08e43313dae8aa3219bb5adf
   pullPolicy: IfNotPresent
 
 resources:
