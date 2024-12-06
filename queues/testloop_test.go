@@ -737,20 +737,20 @@ func assembleTestLoopConfig(id uuid.UUID, source string, qs hazelcastwrapper.Que
 func assembleRunnerConfig(enablePut bool, numRunsPut int, enablePoll bool, numRunsPoll int, sleepConfigBetweenRunsPut *sleepConfig, sleepConfigBetweenRunsPoll *sleepConfig) runnerConfig {
 
 	putConfig := operationConfig{
-		enabled:                   enablePut,
-		numRuns:                   uint32(numRunsPut),
-		batchSize:                 1,
-		initialDelay:              sleepConfigDisabled,
-		sleepBetweenActionBatches: sleepConfigDisabled,
-		sleepBetweenRuns:          sleepConfigBetweenRunsPut,
+		enabled:               enablePut,
+		numRuns:               uint32(numRunsPut),
+		batchSize:             1,
+		initialDelay:          sleepConfigDisabled,
+		sleepAfterActionBatch: sleepConfigDisabled,
+		sleepBetweenRuns:      sleepConfigBetweenRunsPut,
 	}
 	pollConfig := operationConfig{
-		enabled:                   enablePoll,
-		numRuns:                   uint32(numRunsPoll),
-		batchSize:                 1,
-		initialDelay:              sleepConfigDisabled,
-		sleepBetweenActionBatches: sleepConfigDisabled,
-		sleepBetweenRuns:          sleepConfigBetweenRunsPoll,
+		enabled:               enablePoll,
+		numRuns:               uint32(numRunsPoll),
+		batchSize:             1,
+		initialDelay:          sleepConfigDisabled,
+		sleepAfterActionBatch: sleepConfigDisabled,
+		sleepBetweenRuns:      sleepConfigBetweenRunsPoll,
 	}
 	return runnerConfig{
 		enabled:                     true,

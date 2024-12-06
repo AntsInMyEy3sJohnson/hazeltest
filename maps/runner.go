@@ -62,8 +62,8 @@ type (
 
 type (
 	batchTestLoopConfig struct {
-		sleepAfterBatchAction     *sleepConfig
-		sleepBetweenActionBatches *sleepConfig
+		sleepAfterBatchAction *sleepConfig
+		sleepAfterActionBatch *sleepConfig
 	}
 )
 
@@ -144,24 +144,24 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 		})
 	})
 
-	var sleepBetweenActionBatchesEnabled bool
+	var sleepAfterActionBatchEnabled bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enabled", client.ValidateBool, func(a any) {
-			sleepBetweenActionBatchesEnabled = a.(bool)
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterActionBatch.enabled", client.ValidateBool, func(a any) {
+			sleepAfterActionBatchEnabled = a.(bool)
 		})
 	})
 
-	var sleepBetweenActionBatchesDurationMs int
+	var sleepAfterActionBatchDurationMs int
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.durationMs", client.ValidateInt, func(a any) {
-			sleepBetweenActionBatchesDurationMs = a.(int)
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterActionBatch.durationMs", client.ValidateInt, func(a any) {
+			sleepAfterActionBatchDurationMs = a.(int)
 		})
 	})
 
-	var sleepBetweenActionBatchesEnableRandomness bool
+	var sleepAfterActionBatchEnableRandomness bool
 	assignmentOps = append(assignmentOps, func() error {
-		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.betweenActionBatches.enableRandomness", client.ValidateBool, func(a any) {
-			sleepBetweenActionBatchesEnableRandomness = a.(bool)
+		return b.assigner.Assign(b.runnerKeyPath+".testLoop.batch.sleeps.afterActionBatch.enableRandomness", client.ValidateBool, func(a any) {
+			sleepAfterActionBatchEnableRandomness = a.(bool)
 		})
 	})
 
@@ -177,10 +177,10 @@ func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, e
 			durationMs:       sleepAfterBatchActionDurationMs,
 			enableRandomness: sleepAfterBatchActionEnableRandomness,
 		},
-		sleepBetweenActionBatches: &sleepConfig{
-			enabled:          sleepBetweenActionBatchesEnabled,
-			durationMs:       sleepBetweenActionBatchesDurationMs,
-			enableRandomness: sleepBetweenActionBatchesEnableRandomness,
+		sleepAfterActionBatch: &sleepConfig{
+			enabled:          sleepAfterActionBatchEnabled,
+			durationMs:       sleepAfterActionBatchDurationMs,
+			enableRandomness: sleepAfterActionBatchEnableRandomness,
 		},
 	}, nil
 

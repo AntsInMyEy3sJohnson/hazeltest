@@ -250,7 +250,7 @@ func (l *testLoop[t]) putElements(q hazelcastwrapper.Queue, queueName string) {
 			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {
-			l.s.sleep(putConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, l.tle.runnerName, "put")
+			l.s.sleep(putConfig.sleepAfterActionBatch, sleepTimeFunc, "afterActionBatch", queueName, l.tle.runnerName, "put")
 		}
 	}
 
@@ -272,7 +272,7 @@ func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 			lp.LogQueueRunnerEvent(fmt.Sprintf("successfully retrieved value from queue '%s'", queueName), l.tle.runnerName, log.TraceLevel)
 		}
 		if i > 0 && i%pollConfig.batchSize == 0 {
-			l.s.sleep(pollConfig.sleepBetweenActionBatches, sleepTimeFunc, "betweenActionBatches", queueName, l.tle.runnerName, "poll")
+			l.s.sleep(pollConfig.sleepAfterActionBatch, sleepTimeFunc, "afterActionBatch", queueName, l.tle.runnerName, "poll")
 		}
 	}
 

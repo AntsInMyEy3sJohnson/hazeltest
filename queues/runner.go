@@ -32,12 +32,12 @@ type (
 		pollConfig                  *operationConfig
 	}
 	operationConfig struct {
-		enabled                   bool
-		numRuns                   uint32
-		batchSize                 int
-		initialDelay              *sleepConfig
-		sleepBetweenActionBatches *sleepConfig
-		sleepBetweenRuns          *sleepConfig
+		enabled               bool
+		numRuns               uint32
+		batchSize             int
+		initialDelay          *sleepConfig
+		sleepAfterActionBatch *sleepConfig
+		sleepBetweenRuns      *sleepConfig
 	}
 	sleepConfig struct {
 		enabled          bool
@@ -196,7 +196,7 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) (*operati
 		return nil, err
 	}
 
-	sleepBetweenActionBatches, err := b.populateSleepConfig(c + ".sleeps.betweenActionBatches")
+	sleepAfterActionBatch, err := b.populateSleepConfig(c + ".sleeps.afterActionBatch")
 	if err != nil {
 		return nil, err
 	}
@@ -207,12 +207,12 @@ func (b runnerConfigBuilder) populateOperationConfig(operation string) (*operati
 	}
 
 	return &operationConfig{
-		enabled:                   enabled,
-		numRuns:                   numRuns,
-		batchSize:                 batchSizePoll,
-		initialDelay:              initialDelay,
-		sleepBetweenActionBatches: sleepBetweenActionBatches,
-		sleepBetweenRuns:          sleepBetweenRuns,
+		enabled:               enabled,
+		numRuns:               numRuns,
+		batchSize:             batchSizePoll,
+		initialDelay:          initialDelay,
+		sleepAfterActionBatch: sleepAfterActionBatch,
+		sleepBetweenRuns:      sleepBetweenRuns,
 	}, nil
 
 }

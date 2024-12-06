@@ -2955,7 +2955,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				defer resetGetOrAssemblePayloadTestSetup()
 
 				scBetweenRuns := &sleepConfig{}
-				scBetweenActionBatches := &sleepConfig{}
+				scAfterActionBatch := &sleepConfig{}
 				rc := assembleRunnerConfigForBatchTestLoop(
 					&runnerProperties{
 						numMaps:             1,
@@ -2964,17 +2964,17 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 						sleepBetweenRuns:    scBetweenRuns,
 					},
 					sleepConfigDisabled,
-					scBetweenActionBatches,
+					scAfterActionBatch,
 				)
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, assembleTestMapStore(&testMapStoreBehavior{}), rc)
 
 				numInvocationsBetweenRuns := 0
-				numInvocationsBetweenActionBatches := 0
+				numInvocationsAfterActionBatch := 0
 				sleepTimeFunc = func(sc *sleepConfig) int {
 					if sc == scBetweenRuns {
 						numInvocationsBetweenRuns++
-					} else if sc == scBetweenActionBatches {
-						numInvocationsBetweenActionBatches++
+					} else if sc == scAfterActionBatch {
+						numInvocationsAfterActionBatch++
 					}
 					return 0
 				}
@@ -2989,7 +2989,7 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				}
 
 				msg = "\t\tnumber of sleeps between action batches must be zero"
-				if numInvocationsBetweenActionBatches == 0 {
+				if numInvocationsAfterActionBatch == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -3018,12 +3018,12 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 				tl := assembleBatchTestLoop(uuid.New(), testSource, &testHzClientHandler{}, assembleTestMapStore(&testMapStoreBehavior{}), rc)
 
 				numInvocationsBetweenRuns := uint32(0)
-				numInvocationsBetweenActionBatches := uint32(0)
+				numInvocationsAfterActionBatch := uint32(0)
 				sleepTimeFunc = func(sc *sleepConfig) int {
 					if sc == scBetweenRuns {
 						numInvocationsBetweenRuns++
 					} else if sc == scBetweenActionsBatches {
-						numInvocationsBetweenActionBatches++
+						numInvocationsAfterActionBatch++
 					}
 					return 0
 				}
@@ -3037,8 +3037,8 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\tnumber of sleeps between action batches must be equal to two times the number of runs"
-				if numInvocationsBetweenActionBatches == 2*numRuns {
+				msg = "\t\tnumber of sleeps after action batch must three times the number of runs"
+				if numInvocationsAfterActionBatch == 3*numRuns {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -3885,11 +3885,11 @@ func assembleRunnerConfigForBoundaryTestLoop(
 func assembleRunnerConfigForBatchTestLoop(
 	rp *runnerProperties,
 	sleepAfterChainAction *sleepConfig,
-	sleepBetweenActionBatches *sleepConfig,
+	sleepAfterActionBatch *sleepConfig,
 ) *runnerConfig {
 
 	c := assembleBaseRunnerConfig(rp)
-	c.batch = &batchTestLoopConfig{sleepAfterChainAction, sleepBetweenActionBatches}
+	c.batch = &batchTestLoopConfig{sleepAfterChainAction, sleepAfterActionBatch}
 
 	return c
 

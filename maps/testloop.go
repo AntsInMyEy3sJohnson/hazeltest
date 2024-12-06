@@ -621,7 +621,7 @@ func insertInitialTestLoopStatus(g status.Gatherer, numMaps uint16, numRuns uint
 
 func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, mapNumber uint16) {
 
-	sleepBetweenActionBatchesConfig := l.tle.runnerConfig.batch.sleepBetweenActionBatches
+	sleepAfterActionBatchConfig := l.tle.runnerConfig.batch.sleepAfterActionBatch
 	sleepBetweenRunsConfig := l.tle.runnerConfig.sleepBetweenRuns
 
 	for i := uint32(0); i < l.tle.runnerConfig.numRuns; i++ {
@@ -635,18 +635,19 @@ func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, map
 			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
-		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc, l.tle.runnerName)
+		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
-		l.s.sleep(sleepBetweenActionBatchesConfig, sleepTimeFunc, l.tle.runnerName)
+		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
 			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
 			continue
 		}
+		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 	}
 
 	lp.LogMapRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
