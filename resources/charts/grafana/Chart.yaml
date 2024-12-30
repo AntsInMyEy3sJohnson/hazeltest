@@ -1,8 +1,12 @@
 apiVersion: v2
 name: grafana
-description: A Helm chart to deploy a basic instance of Grafana, pre-loaded with dashboards to monitor a Hazelcast cluster.
-
+version: 8.8.2
+appVersion: 11.4.0
+kubeVersion: "^1.8.0-0"
+description: A lightly modified version of the official Grafana Helm chart.
+home: https://grafana.com
+icon: https://artifacthub.io/image/b4fed1a7-6c8f-4945-b99d-096efa3e4116
+sources:
+  - https://github.com/grafana/grafana
+  - https://github.com/grafana/helm-charts
 type: application
-
-version: 1.0.0
-appVersion: "11.4.0"
