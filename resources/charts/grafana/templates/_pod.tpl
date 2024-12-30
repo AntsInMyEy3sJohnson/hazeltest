@@ -310,10 +310,6 @@ initContainers:
 {{- with .Values.extraInitContainers }}
   {{- tpl (toYaml .) $root | nindent 2 }}
 {{- end }}
-{{- if or .Values.image.pullSecrets .Values.global.imagePullSecrets }}
-imagePullSecrets:
-  {{- include "grafana.imagePullSecrets" (dict "root" $root "imagePullSecrets" .Values.image.pullSecrets) | nindent 2 }}
-{{- end }}
 {{- if not .Values.enableKubeBackwardCompatibility }}
 enableServiceLinks: {{ .Values.enableServiceLinks }}
 {{- end }}

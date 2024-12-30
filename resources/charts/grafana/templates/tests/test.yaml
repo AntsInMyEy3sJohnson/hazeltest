@@ -16,10 +16,6 @@ spec:
   securityContext:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- if or .Values.image.pullSecrets .Values.global.imagePullSecrets }}
-  imagePullSecrets:
-    {{- include "grafana.imagePullSecrets" (dict "root" $root "imagePullSecrets" .Values.image.pullSecrets) | nindent 4 }}
-  {{- end }}
   {{- with .Values.nodeSelector }}
   nodeSelector:
     {{- toYaml . | nindent 4 }}
