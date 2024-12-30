@@ -66,7 +66,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}-image-renderer
-          {{- $registry := .Values.global.imageRegistry | default .Values.imageRenderer.image.registry -}}
+          {{- $registry := .Values.imageRenderer.image.registry -}}
           {{- if .Values.imageRenderer.image.sha }}
           image: "{{ $registry }}/{{ .Values.imageRenderer.image.repository }}:{{ .Values.imageRenderer.image.tag }}@sha256:{{ .Values.imageRenderer.image.sha }}"
           {{- else }}
@@ -146,7 +146,7 @@ spec:
       {{- end }}
       volumes:
         - name: image-renderer-tmpfs
-          emptyDir: {}
+          emptyDir: { }
         {{- range .Values.imageRenderer.extraConfigmapMounts }}
         - name: {{ tpl .name $root }}
           configMap:
@@ -194,7 +194,7 @@ spec:
           emptyDir:
             {{- toYaml .emptyDir | nindent 12 }}
           {{- else }}
-          emptyDir: {}
+          emptyDir: { }
           {{- end }}
         {{- end }}
 {{- end }}

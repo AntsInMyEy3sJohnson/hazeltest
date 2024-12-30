@@ -1,7 +1,4 @@
 global:
-  # -- Overrides the Docker registry globally for all images
-  imageRegistry: null
-
   # To help compatibility with other charts which use global.imagePullSecrets.
   # Allow either an array of {name: pullSecret} maps (k8s-style), or an array of strings (more common helm-style).
   # Can be templated.
@@ -14,7 +11,7 @@ global:
   #   imagePullSecrets:
   #   - pullSecret1
   #   - pullSecret2
-  imagePullSecrets: []
+  imagePullSecrets: [ ]
 
 rbac:
   create: true
@@ -24,11 +21,11 @@ rbac:
   pspEnabled: false
   pspUseAppArmor: false
   namespaced: false
-  extraRoleRules: []
+  extraRoleRules: [ ]
   # - apiGroups: []
   #   resources: []
   #   verbs: []
-  extraClusterRoleRules: []
+  extraClusterRoleRules: [ ]
   # - apiGroups: []
   #   resources: []
   #   verbs: []
@@ -37,7 +34,7 @@ serviceAccount:
   name:
   nameTest:
   ## ServiceAccount labels.
-  labels: {}
+  labels: { }
   ## Service account annotations. Can be templated.
   #  annotations:
   #    eks.amazonaws.com/role-arn: arn:aws:iam::123456789000:role/iam-role-name-here
@@ -62,11 +59,11 @@ autoscaling:
   maxReplicas: 5
   targetCPU: "60"
   targetMemory: ""
-  behavior: {}
+  behavior: { }
 
 ## See `kubectl explain poddisruptionbudget.spec` for more
 ## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
-podDisruptionBudget: {}
+podDisruptionBudget: { }
 #  apiVersion: ""
 #  minAvailable: 1
 #  maxUnavailable: 1
@@ -109,7 +106,7 @@ image:
   ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   ## Can be templated.
   ##
-  pullSecrets: []
+  pullSecrets: [ ]
   #   - myRegistrKeySecretName
 
 testFramework:
@@ -124,8 +121,8 @@ testFramework:
     repository: bats/bats
     tag: "v1.4.1"
   imagePullPolicy: IfNotPresent
-  securityContext: {}
-  resources: {}
+  securityContext: { }
+  resources: { }
   #  limits:
   #    cpu: 100m
   #    memory: 128Mi
@@ -135,13 +132,13 @@ testFramework:
 
 # dns configuration for pod
 dnsPolicy: ~
-dnsConfig: {}
+dnsConfig: { }
   # nameservers:
   #   - 8.8.8.8
   #   options:
   #   - name: ndots
   #     value: "2"
-  #   - name: edns0
+#   - name: edns0
 
 securityContext:
   runAsNonRoot: true
@@ -153,7 +150,7 @@ containerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   seccompProfile:
     type: RuntimeDefault
 
@@ -162,22 +159,22 @@ createConfigmap: true
 
 # Extra configmaps to mount in grafana pods
 # Values are templated.
-extraConfigmapMounts: []
+extraConfigmapMounts: [ ]
   # - name: certs-configmap
   #   mountPath: /etc/grafana/ssl/
   #   subPath: certificates.crt # (optional)
   #   configMap: certs-configmap
   #   readOnly: true
-  #   optional: false
+#   optional: false
 
 
-extraEmptyDirMounts: []
+extraEmptyDirMounts: [ ]
   # - name: provisioning-notifiers
-  #   mountPath: /etc/grafana/provisioning/notifiers
+#   mountPath: /etc/grafana/provisioning/notifiers
 
 
 # Apply extra labels to common labels.
-extraLabels: {}
+extraLabels: { }
 
 ## Assign a PriorityClassName to pods if set
 # priorityClassName:
@@ -191,27 +188,27 @@ downloadDashboardsImage:
   pullPolicy: IfNotPresent
 
 downloadDashboards:
-  env: {}
+  env: { }
   envFromSecret: ""
-  resources: {}
+  resources: { }
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
     seccompProfile:
       type: RuntimeDefault
-  envValueFrom: {}
+  envValueFrom: { }
   #  ENV_NAME:
   #    configMapKeyRef:
   #      name: configmap-name
   #      key: value_key
 
-## Pod Annotations
-# podAnnotations: {}
+  ## Pod Annotations
+  # podAnnotations: {}
 
-## ConfigMap Annotations
-# configMapAnnotations: {}
+  ## ConfigMap Annotations
+  # configMapAnnotations: {}
   # argocd.argoproj.io/sync-options: Replace=true
 
 ## Pod Labels
@@ -232,16 +229,16 @@ service:
   # Set the ip family policy to configure dual-stack see [Configure dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services)
   ipFamilyPolicy: ""
   # Sets the families that should be supported and the order in which they should be applied to ClusterIP as well. Can be IPv4 and/or IPv6.
-  ipFamilies: []
+  ipFamilies: [ ]
   loadBalancerIP: ""
   loadBalancerClass: ""
-  loadBalancerSourceRanges: []
+  loadBalancerSourceRanges: [ ]
   port: 80
   targetPort: 3000
-    # targetPort: 4181 To be used with a proxy extraContainer
+  # targetPort: 4181 To be used with a proxy extraContainer
   ## Service annotations. Can be templated.
-  annotations: {}
-  labels: {}
+  annotations: { }
+  labels: { }
   portName: service
   # Adds the appProtocol field to the service. This allows to work with istio protocol selection. Ex: "http" or "tcp"
   appProtocol: ""
@@ -253,26 +250,26 @@ serviceMonitor:
   enabled: false
   path: /metrics
   #  namespace: monitoring  (defaults to use the namespace this chart is deployed to)
-  labels: {}
+  labels: { }
   interval: 30s
   scheme: http
-  tlsConfig: {}
+  tlsConfig: { }
   scrapeTimeout: 30s
-  relabelings: []
-  metricRelabelings: []
-  basicAuth: {}
-  targetLabels: []
+  relabelings: [ ]
+  metricRelabelings: [ ]
+  basicAuth: { }
+  targetLabels: [ ]
 
-extraExposePorts: []
- # - name: keycloak
- #   port: 8080
- #   targetPort: 8080
+extraExposePorts: [ ]
+  # - name: keycloak
+  #   port: 8080
+#   targetPort: 8080
 
 # overrides pod.spec.hostAliases in the grafana deployment's pods
-hostAliases: []
+hostAliases: [ ]
   # - ip: "1.2.3.4"
   #   hostnames:
-  #     - "my.host.com"
+#     - "my.host.com"
 
 ingress:
   enabled: false
@@ -280,10 +277,10 @@ ingress:
   # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   # ingressClassName: nginx
   # Values can be templated
-  annotations: {}
+  annotations: { }
     # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  labels: {}
+  # kubernetes.io/tls-acme: "true"
+  labels: { }
   path: /
 
   # pathType is only for k8s >= 1.1=
@@ -292,7 +289,7 @@ ingress:
   hosts:
     - chart-example.local
   ## Extra paths to prepend to every host configuration. This is useful when working with annotation based services.
-  extraPaths: []
+  extraPaths: [ ]
   # - path: /*
   #   backend:
   #     serviceName: ssl-redirect
@@ -307,7 +304,7 @@ ingress:
   #         name: use-annotation
 
 
-  tls: []
+  tls: [ ]
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
@@ -329,12 +326,12 @@ route:
     # Valid options are GRPCRoute, HTTPRoute, TCPRoute, TLSRoute, UDPRoute
     kind: HTTPRoute
 
-    annotations: {}
-    labels: {}
+    annotations: { }
+    labels: { }
 
-    hostnames: []
+    hostnames: [ ]
     # - my-filter.example.com
-    parentRefs: []
+    parentRefs: [ ]
     # - name: acme-gw
 
     matches:
@@ -343,12 +340,12 @@ route:
           value: /
 
     ## Filters define the filters that are applied to requests that match this rule.
-    filters: []
+    filters: [ ]
 
     ## Additional custom rules that can be added to the route
-    additionalRules: []
+    additionalRules: [ ]
 
-resources: {}
+resources: { }
 #  limits:
 #    cpu: 100m
 #    memory: 128Mi
@@ -359,27 +356,27 @@ resources: {}
 ## Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
 #
-nodeSelector: {}
+nodeSelector: { }
 
 ## Tolerations for pod assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 ##
-tolerations: []
+tolerations: [ ]
 
 ## Affinity for pod assignment (evaluated as template)
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 ##
-affinity: {}
+affinity: { }
 
 ## Topology Spread Constraints
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 ##
-topologySpreadConstraints: []
+topologySpreadConstraints: [ ]
 
 ## Additional init containers (evaluated as template)
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 ##
-extraInitContainers: []
+extraInitContainers: [ ]
 
 ## Enable an Specify container in extraContainers. This is meant to allow adding an authentication proxy to a grafana pod
 extraContainers: ""
@@ -400,7 +397,7 @@ extraContainers: ""
 #       containerPort: 4181
 
 ## Volumes that can be used in init containers that will not be mounted to deployment pods
-extraContainerVolumes: []
+extraContainerVolumes: [ ]
 #  - name: volume-from-secret
 #    secret:
 #      secretName: secret-to-mount
@@ -426,7 +423,7 @@ persistence:
   ## Name of an existing PVC. Can be templated.
   # existingClaim:
   ## Extra labels to apply to a PVC.
-  extraPvcLabels: {}
+  extraPvcLabels: { }
   disableWarning: false
 
   ## If persistence is not enabled, this allows to mount the
@@ -463,7 +460,7 @@ initChownData:
   ## initChownData resource requests and limits
   ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
   ##
-  resources: {}
+  resources: { }
   #  limits:
   #    cpu: 100m
   #    memory: 128Mi
@@ -527,7 +524,7 @@ admin:
 ## 6. uncomment the annotation section in the serviceAccount: above
 ## make sure to replace arn:aws:iam::123456789000:role/iam-role-name-here with your role arn
 
-env: {}
+env: { }
 
 ## "valueFrom" environment variable references that will be added to deployment pods. Name is templated.
 ## ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvarsource-v1-core
@@ -537,11 +534,11 @@ env: {}
 ##     - name: <key>
 ##       valueFrom:
 ##         <value rendered as YAML>
-envValueFrom: {}
+envValueFrom: { }
   #  ENV_NAME:
   #    configMapKeyRef:
   #      name: configmap-name
-  #      key: value_key
+#      key: value_key
 
 ## The name of a secret in the same kubernetes namespace which contain values to be added to the environment
 ## This can be useful for auth tokens, etc. Value is templated.
@@ -551,12 +548,12 @@ envFromSecret: ""
 ## This can be useful for auth tokens, etc.
 ## If the secret values contains "{{", they'll need to be properly escaped so that they are not interpreted by Helm
 ## ref: https://helm.sh/docs/howto/charts_tips_and_tricks/#using-the-tpl-function
-envRenderSecret: {}
+envRenderSecret: { }
 
 ## The names of secrets in the same kubernetes namespace which contain values to be added to the environment
 ## Each entry should contain a name key, and can optionally specify whether the secret must be defined with an optional key.
 ## Name is templated.
-envFromSecrets: []
+envFromSecrets: [ ]
 ## - name: secret-name
 ##   prefix: prefix
 ##   optional: true
@@ -565,7 +562,7 @@ envFromSecrets: []
 ## Each entry should contain a name key, and can optionally specify whether the configmap must be defined with an optional key.
 ## Name is templated.
 ## ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#configmapenvsource-v1-core
-envFromConfigMaps: []
+envFromConfigMaps: [ ]
 ## - name: configmap-name
 ##   prefix: prefix
 ##   optional: true
@@ -576,7 +573,7 @@ enableServiceLinks: true
 
 ## Additional grafana server secret mounts
 # Defines additional mounts with secrets. Secrets must be manually created in the namespace.
-extraSecretMounts: []
+extraSecretMounts: [ ]
   # - name: secret-files
   #   mountPath: /etc/secrets
   #   secretName: grafana-secret-files
@@ -606,11 +603,11 @@ extraSecretMounts: []
   #    volumeAttributes:
   #      secretProviderClass: "akv-grafana-spc"
   #    nodePublishSecretRef:                       # Only required when using service principal mode
-  #       name: grafana-akv-creds                  # Only required when using service principal mode
+#       name: grafana-akv-creds                  # Only required when using service principal mode
 
 ## Additional grafana server volume mounts
 # Defines additional volume mounts.
-extraVolumeMounts: []
+extraVolumeMounts: [ ]
   # - name: extra-volume-0
   #   mountPath: /mnt/volume0
   #   readOnly: true
@@ -618,10 +615,10 @@ extraVolumeMounts: []
   #   mountPath: /mnt/volume1
   #   readOnly: true
   # - name: grafana-secrets
-  #   mountPath: /mnt/volume2
+#   mountPath: /mnt/volume2
 
 ## Additional Grafana server volumes
-extraVolumes: []
+extraVolumes: [ ]
   # - name: extra-volume-0
   #   existingClaim: volume-claim
   # - name: extra-volume-1
@@ -633,27 +630,27 @@ extraVolumes: []
   #     driver: secrets-store.csi.k8s.io
   #     readOnly: true
   #     volumeAttributes:
-  #       secretProviderClass: "grafana-env-spc"
+#       secretProviderClass: "grafana-env-spc"
 
 ## Container Lifecycle Hooks. Execute a specific bash command or make an HTTP request
-lifecycleHooks: {}
+lifecycleHooks: { }
   # postStart:
   #   exec:
-  #     command: []
+#     command: []
 
 ## Pass the plugins you want installed as a list.
 ##
-plugins: []
+plugins: [ ]
   # - digrich-bubblechart-panel
   # - grafana-clock-panel
   ## You can also use other plugin download URL, as long as they are valid zip files,
   ## and specify the name of the plugin after the semicolon. Like this:
-  # - https://grafana.com/api/plugins/marcusolsson-json-datasource/versions/1.3.2/download;marcusolsson-json-datasource
+# - https://grafana.com/api/plugins/marcusolsson-json-datasource/versions/1.3.2/download;marcusolsson-json-datasource
 
 ## Configure grafana datasources
 ## ref: http://docs.grafana.org/administration/provisioning/#datasources
 ##
-datasources: {}
+datasources: { }
 #  datasources.yaml:
 #    apiVersion: 1
 #    datasources:
@@ -676,7 +673,7 @@ datasources: {}
 ## Configure grafana alerting (can be templated)
 ## ref: https://docs.grafana.com/alerting/set-up/provision-alerting-resources/file-provisioning/
 ##
-alerting: {}
+alerting: { }
   # policies.yaml:
   #   apiVersion: 1
   #   policies:
@@ -764,12 +761,12 @@ alerting: {}
   #     - orgId: 1
   #       name: mti_1
   #       # refer to https://prometheus.io/docs/alerting/latest/configuration/#time_interval-0
-  #       time_intervals: {}
+#       time_intervals: {}
 
 ## Configure notifiers
 ## ref: http://docs.grafana.org/administration/provisioning/#alert-notification-channels
 ##
-notifiers: {}
+notifiers: { }
 #  notifiers.yaml:
 #    notifiers:
 #    - name: email-notifier
@@ -789,7 +786,7 @@ notifiers: {}
 ##
 ## `path` must be /var/lib/grafana/dashboards/<provider_name>
 ##
-dashboardProviders: {}
+dashboardProviders: { }
 #  dashboardproviders.yaml:
 #    apiVersion: 1
 #    providers:
@@ -808,7 +805,7 @@ dashboardProviders: {}
 ##
 ## dashboards per provider, use provider name as key.
 ##
-dashboards: {}
+dashboards: { }
   # default:
   #   some-dashboard:
   #     json: |
@@ -835,7 +832,7 @@ dashboards: {}
   #   local-dashboard-azure:
   #     url: https://example.com/repository/test-azure.json
   #     basic: ''
-  #     acceptHeader: '*/*'
+#     acceptHeader: '*/*'
 
 ## Reference to external ConfigMap per provider. Use provider name as key and ConfigMap name as value.
 ## A provider dashboards must be defined either by external ConfigMaps or in values.yaml, not in both.
@@ -845,7 +842,7 @@ dashboards: {}
 ##   example-dashboard.json: |
 ##     RAW_JSON
 ##
-dashboardsConfigMaps: {}
+dashboardsConfigMaps: { }
 #  default: ""
 
 ## Grafana's primary configuration
@@ -866,24 +863,24 @@ grafana.ini:
     url: https://grafana.net
   server:
     domain: "{{ if (and .Values.ingress.enabled .Values.ingress.hosts) }}{{ tpl (.Values.ingress.hosts | first) . }}{{ else }}''{{ end }}"
-## grafana Authentication can be enabled with the following values on grafana.ini
- # server:
-      # The full public facing url you use in browser, used for redirects and emails
- #    root_url:
- # https://grafana.com/docs/grafana/latest/auth/github/#enable-github-in-grafana
- # auth.github:
- #    enabled: false
- #    allow_sign_up: false
- #    scopes: user:email,read:org
- #    auth_url: https://github.com/login/oauth/authorize
- #    token_url: https://github.com/login/oauth/access_token
- #    api_url: https://api.github.com/user
- #    team_ids:
- #    allowed_organizations:
- #    client_id:
- #    client_secret:
-## LDAP Authentication can be enabled with the following values on grafana.ini
-## NOTE: Grafana will fail to start if the value for ldap.toml is invalid
+      ## grafana Authentication can be enabled with the following values on grafana.ini
+      # server:
+    # The full public facing url you use in browser, used for redirects and emails
+  #    root_url:
+  # https://grafana.com/docs/grafana/latest/auth/github/#enable-github-in-grafana
+  # auth.github:
+  #    enabled: false
+  #    allow_sign_up: false
+  #    scopes: user:email,read:org
+  #    auth_url: https://github.com/login/oauth/authorize
+  #    token_url: https://github.com/login/oauth/access_token
+  #    api_url: https://api.github.com/user
+  #    team_ids:
+  #    allowed_organizations:
+  #    client_id:
+  #    client_secret:
+  ## LDAP Authentication can be enabled with the following values on grafana.ini
+  ## NOTE: Grafana will fail to start if the value for ldap.toml is invalid
   # auth.ldap:
   #   enabled: true
   #   allow_sign_up: true
@@ -932,31 +929,31 @@ sidecar:
     tag: 1.28.0
     sha: ""
   imagePullPolicy: IfNotPresent
-  resources: {}
-#   limits:
-#     cpu: 100m
-#     memory: 100Mi
-#   requests:
-#     cpu: 50m
-#     memory: 50Mi
+  resources: { }
+  #   limits:
+  #     cpu: 100m
+  #     memory: 100Mi
+  #   requests:
+  #     cpu: 50m
+  #     memory: 50Mi
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
     seccompProfile:
       type: RuntimeDefault
   # skipTlsVerify Set to true to skip tls verification for kube api calls
   # skipTlsVerify: true
   enableUniqueFilenames: false
-  readinessProbe: {}
-  livenessProbe: {}
+  readinessProbe: { }
+  livenessProbe: { }
   # Log level default for all sidecars. Can be one of: DEBUG, INFO, WARN, ERROR, CRITICAL. Defaults to INFO
   # logLevel: INFO
   alerts:
     enabled: false
     # Additional environment variables for the alerts sidecar
-    env: {}
+    env: { }
     # Do not reprocess already processed unchanged resources on k8s API reconnect.
     # ignoreAlreadyProcessed: true
     # label that the configmaps with alert are marked with
@@ -1009,13 +1006,13 @@ sidecar:
     # Deploy the alert sidecar as an initContainer.
     initAlerts: false
     # Additional alerts sidecar volume mounts
-    extraMounts: []
+    extraMounts: [ ]
     # Sets the size limit of the alert sidecar emptyDir volume
-    sizeLimit: {}
+    sizeLimit: { }
   dashboards:
     enabled: false
     # Additional environment variables for the dashboards sidecar
-    env: {}
+    env: { }
     ## "valueFrom" environment variable references that will be added to deployment pods. Name is templated.
     ## ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvarsource-v1-core
     ## Renders in container spec as:
@@ -1024,7 +1021,7 @@ sidecar:
     ##     - name: <key>
     ##       valueFrom:
     ##         <value rendered as YAML>
-    envValueFrom: {}
+    envValueFrom: { }
     #  ENV_NAME:
     #    configMapKeyRef:
     #      name: configmap-name
@@ -1105,13 +1102,13 @@ sidecar:
       # allow Grafana to replicate dashboard structure from filesystem
       foldersFromFilesStructure: false
     # Additional dashboards sidecar volume mounts
-    extraMounts: []
+    extraMounts: [ ]
     # Sets the size limit of the dashboard sidecar emptyDir volume
-    sizeLimit: {}
+    sizeLimit: { }
   datasources:
     enabled: false
     # Additional environment variables for the datasourcessidecar
-    env: {}
+    env: { }
     ## "valueFrom" environment variable references that will be added to deployment pods. Name is templated.
     ## ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#envvarsource-v1-core
     ## Renders in container spec as:
@@ -1120,7 +1117,7 @@ sidecar:
     ##     - name: <key>
     ##       valueFrom:
     ##         <value rendered as YAML>
-    envValueFrom: {}
+    envValueFrom: { }
     #  ENV_NAME:
     #    configMapKeyRef:
     #      name: configmap-name
@@ -1177,13 +1174,13 @@ sidecar:
     # Deploy the datasources sidecar as an initContainer.
     initDatasources: false
     # Additional datasources sidecar volume mounts
-    extraMounts: []
+    extraMounts: [ ]
     # Sets the size limit of the datasource sidecar emptyDir volume
-    sizeLimit: {}
+    sizeLimit: { }
   plugins:
     enabled: false
     # Additional environment variables for the plugins sidecar
-    env: {}
+    env: { }
     # Do not reprocess already processed unchanged resources on k8s API reconnect.
     # ignoreAlreadyProcessed: true
     # label that the configmaps with plugins are marked with
@@ -1236,13 +1233,13 @@ sidecar:
     # This is needed if skipReload is true, to load any plugins defined at startup time.
     initPlugins: false
     # Additional plugins sidecar volume mounts
-    extraMounts: []
+    extraMounts: [ ]
     # Sets the size limit of the plugin sidecar emptyDir volume
-    sizeLimit: {}
+    sizeLimit: { }
   notifiers:
     enabled: false
     # Additional environment variables for the notifierssidecar
-    env: {}
+    env: { }
     # Do not reprocess already processed unchanged resources on k8s API reconnect.
     # ignoreAlreadyProcessed: true
     # label that the configmaps with notifiers are marked with
@@ -1295,9 +1292,9 @@ sidecar:
     # This is needed if skipReload is true, to load any notifiers defined at startup time.
     initNotifiers: false
     # Additional notifiers sidecar volume mounts
-    extraMounts: []
+    extraMounts: [ ]
     # Sets the size limit of the notifier sidecar emptyDir volume
-    sizeLimit: {}
+    sizeLimit: { }
 
 ## Override the deployment namespace
 ##
@@ -1309,7 +1306,7 @@ revisionHistoryLimit: 10
 
 ## Add a seperate remote image renderer deployment/service
 imageRenderer:
-  deploymentStrategy: {}
+  deploymentStrategy: { }
   # Enable the image-renderer deployment & service
   enabled: false
   replicas: 1
@@ -1319,7 +1316,7 @@ imageRenderer:
     maxReplicas: 5
     targetCPU: "60"
     targetMemory: ""
-    behavior: {}
+    behavior: { }
   # The url of remote image renderer if it is not in the same namespace with the grafana instance
   serverURL: ""
   # The callback url of grafana instances if it is not in the same namespace with the remote image renderer
@@ -1353,29 +1350,29 @@ imageRenderer:
   ##     - name: <key>
   ##       valueFrom:
   ##         <value rendered as YAML>
-  envValueFrom: {}
+  envValueFrom: { }
     #  ENV_NAME:
     #    configMapKeyRef:
     #      name: configmap-name
-    #      key: value_key
+  #      key: value_key
 
   # image-renderer deployment serviceAccount
   serviceAccountName: ""
   automountServiceAccountToken: false
   # image-renderer deployment securityContext
-  securityContext: {}
+  securityContext: { }
   # image-renderer deployment container securityContext
   containerSecurityContext:
     seccompProfile:
       type: RuntimeDefault
     capabilities:
-      drop: ['ALL']
+      drop: [ 'ALL' ]
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
   ## image-renderer pod annotation
-  podAnnotations: {}
+  podAnnotations: { }
   # image-renderer deployment Host Aliases
-  hostAliases: []
+  hostAliases: [ ]
   # image-renderer deployment priority class
   priorityClassName: ''
   service:
@@ -1395,16 +1392,16 @@ imageRenderer:
     enabled: false
     path: /metrics
     #  namespace: monitoring  (defaults to use the namespace this chart is deployed to)
-    labels: {}
+    labels: { }
     interval: 1m
     scheme: http
-    tlsConfig: {}
+    tlsConfig: { }
     scrapeTimeout: 30s
-    relabelings: []
+    relabelings: [ ]
     # See: https://doc.crds.dev/github.com/prometheus-operator/kube-prometheus/monitoring.coreos.com/ServiceMonitor/v1@v0.11.0#spec-targetLabels
-    targetLabels: []
+    targetLabels: [ ]
       # - targetLabel1
-      # - targetLabel2
+    # - targetLabel2
   # If https is enabled in Grafana, this needs to be set as 'https' to correctly configure the callback used in Grafana
   grafanaProtocol: http
   # In case a sub_path is used this needs to be added to the image renderer callback
@@ -1419,28 +1416,28 @@ imageRenderer:
     # Enable a NetworkPolicy to limit outbound traffic to only the created grafana pods
     limitEgress: false
     # Allow additional services to access image-renderer (eg. Prometheus operator when ServiceMonitor is enabled)
-    extraIngressSelectors: []
-  resources: {}
-#   limits:
-#     cpu: 100m
-#     memory: 100Mi
-#   requests:
-#     cpu: 50m
-#     memory: 50Mi
+    extraIngressSelectors: [ ]
+  resources: { }
+  #   limits:
+  #     cpu: 100m
+  #     memory: 100Mi
+  #   requests:
+  #     cpu: 50m
+  #     memory: 50Mi
   ## Node labels for pod assignment
   ## ref: https://kubernetes.io/docs/user-guide/node-selection/
   #
-  nodeSelector: {}
+  nodeSelector: { }
 
   ## Tolerations for pod assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   ##
-  tolerations: []
+  tolerations: [ ]
 
   ## Affinity for pod assignment (evaluated as template)
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##
-  affinity: {}
+  affinity: { }
 
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
@@ -1448,16 +1445,16 @@ imageRenderer:
   # schedulerName: "default-scheduler"
 
   # Extra configmaps to mount in image-renderer pods
-  extraConfigmapMounts: []
+  extraConfigmapMounts: [ ]
 
   # Extra secrets to mount in image-renderer pods
-  extraSecretMounts: []
+  extraSecretMounts: [ ]
 
   # Extra volumes to mount in image-renderer pods
-  extraVolumeMounts: []
+  extraVolumeMounts: [ ]
 
   # Extra volumes for image-renderer pods
-  extraVolumes: []
+  extraVolumes: [ ]
 
 networkPolicy:
   ## @param networkPolicy.enabled Enable creation of NetworkPolicy resources. Only Ingress traffic is filtered for now.
@@ -1487,7 +1484,7 @@ networkPolicy:
   ##   matchExpressions:
   ##    - {key: role, operator: In, values: [frontend]}
   ##
-  explicitNamespacesSelector: {}
+  explicitNamespacesSelector: { }
   ##
   ##
   ##
@@ -1504,14 +1501,14 @@ networkPolicy:
     blockDNSResolution: false
     ##
     ## @param networkPolicy.egress.ports Add individual ports to be allowed by the egress
-    ports: []
+    ports: [ ]
     ## Add ports to the egress by specifying - port: <port number>
     ## E.X.
     ## - port: 80
     ## - port: 443
     ##
     ## @param networkPolicy.egress.to Allow egress traffic to specific destinations
-    to: []
+    to: [ ]
     ## Add destinations to the egress by specifying - ipBlock: <CIDR>
     ## E.X.
     ## to:
@@ -1528,7 +1525,7 @@ networkPolicy:
 enableKubeBackwardCompatibility: false
 useStatefulSet: false
 # Create a dynamic manifests via values:
-extraObjects: []
+extraObjects: [ ]
   # - apiVersion: "kubernetes-client.io/v1"
   #   kind: ExternalSecret
   #   metadata:
@@ -1537,7 +1534,7 @@ extraObjects: []
   #     backendType: gcpSecretsManager
   #     data:
   #       - key: grafana-admin-password
-  #         name: adminPassword
+#         name: adminPassword
 
 # assertNoLeakedSecrets is a helper function defined in _helpers.tpl that checks if secret
 # values are not exposed in the rendered grafana.ini configmap. It is enabled by default.
