@@ -1,0 +1,8 @@
+apiVersion: v2
+name: grafana
+description: A Helm chart to deploy a basic instance of Grafana, pre-loaded with dashboards to monitor a Hazelcast cluster.
+
+type: application
+
+version: 1.0.0
+appVersion: "11.4.0"
