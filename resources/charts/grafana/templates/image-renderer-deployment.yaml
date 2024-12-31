@@ -52,9 +52,6 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.imageRenderer.priorityClassName }}
-      priorityClassName: {{ . }}
-      {{- end }}
       containers:
         - name: {{ .Chart.Name }}-image-renderer
           {{- $registry := .Values.imageRenderer.image.registry -}}

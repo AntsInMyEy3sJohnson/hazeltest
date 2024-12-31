@@ -58,7 +58,6 @@ containerSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-# Enable creating the grafana configmap
 createConfigmap: true
 
 # Extra configmaps to mount in grafana pods
@@ -79,9 +78,6 @@ extraEmptyDirMounts: [ ]
 
 # Apply extra labels to common labels.
 extraLabels: { }
-
-## Assign a PriorityClassName to pods if set
-# priorityClassName:
 
 downloadDashboardsImage:
   # -- The Docker registry
@@ -494,7 +490,7 @@ extraSecretMounts: [ ]
   #     sources:
   #       - serviceAccountToken:
   #           audience: sts.amazonaws.com
-  #           expirationSeconds: 86400
+#           expirationSeconds: 86400
 #           path: token
 #
 # for CSI e.g. Azure Key Vault use the following
@@ -652,7 +648,7 @@ alerting: { }
   #   templates:
   #     - orgId: 1
   #       name: my_first_template
-  #       template: |
+#       template: |
 #         {{ `
 #         {{ define "my_first_template" }}
 #         Custom notification message
@@ -723,7 +719,7 @@ dashboards: { }
   #   local-dashboard:
   #     url: https://example.com/repository/test.json
   #     token: ''
-  #   local-dashboard-base64:
+#   local-dashboard-base64:
 #     url: https://example.com/repository/test-b64.json
 #     token: ''
 #     b64content: true
@@ -1277,8 +1273,6 @@ imageRenderer:
   podAnnotations: { }
   # image-renderer deployment Host Aliases
   hostAliases: [ ]
-  # image-renderer deployment priority class
-  priorityClassName: ''
   service:
     # Enable the image-renderer service
     enabled: true
