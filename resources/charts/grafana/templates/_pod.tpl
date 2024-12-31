@@ -7,37 +7,8 @@ automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
 securityContext:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- if ( or .Values.persistence.enabled .Values.dashboards (and .Values.sidecar.alerts.enabled .Values.sidecar.alerts.initAlerts) (and .Values.sidecar.datasources.enabled .Values.sidecar.datasources.initDatasources) (and .Values.sidecar.notifiers.enabled .Values.sidecar.notifiers.initNotifiers)) }}
+{{- if ( or .Values.dashboards (and .Values.sidecar.alerts.enabled .Values.sidecar.alerts.initAlerts) (and .Values.sidecar.datasources.enabled .Values.sidecar.datasources.initDatasources) (and .Values.sidecar.notifiers.enabled .Values.sidecar.notifiers.initNotifiers)) }}
 initContainers:
-{{- end }}
-{{- if ( and .Values.persistence.enabled .Values.initChownData.enabled ) }}
-  - name: init-chown-data
-    {{- $registry := .Values.initChownData.image.registry -}}
-    {{- if .Values.initChownData.image.sha }}
-    image: "{{ $registry }}/{{ .Values.initChownData.image.repository }}:{{ .Values.initChownData.image.tag }}@sha256:{{ .Values.initChownData.image.sha }}"
-    {{- else }}
-    image: "{{ $registry }}/{{ .Values.initChownData.image.repository }}:{{ .Values.initChownData.image.tag }}"
-    {{- end }}
-    imagePullPolicy: {{ .Values.initChownData.image.pullPolicy }}
-    {{- with .Values.initChownData.securityContext }}
-    securityContext:
-      {{- toYaml . | nindent 6 }}
-    {{- end }}
-    command:
-      - chown
-      - -R
-      - {{ .Values.securityContext.runAsUser }}:{{ .Values.securityContext.runAsGroup }}
-      - /var/lib/grafana
-    {{- with .Values.initChownData.resources }}
-    resources:
-      {{- toYaml . | nindent 6 }}
-    {{- end }}
-    volumeMounts:
-      - name: storage
-        mountPath: "/var/lib/grafana"
-        {{- with .Values.persistence.subPath }}
-        subPath: {{ tpl . $root }}
-        {{- end }}
 {{- end }}
 {{- if .Values.dashboards }}
   - name: download-dashboards
@@ -77,11 +48,6 @@ initContainers:
       - name: config
         mountPath: "/etc/grafana/download_dashboards.sh"
         subPath: download_dashboards.sh
-      - name: storage
-        mountPath: "/var/lib/grafana"
-        {{- with .Values.persistence.subPath }}
-        subPath: {{ tpl . $root }}
-        {{- end }}
       {{- range .Values.extraSecretMounts }}
       - name: {{ .name }}
         mountPath: {{ .mountPath }}
@@ -942,11 +908,6 @@ containers:
         subPath: {{ tpl (.subPath | default "") $root }}
         readOnly: {{ .readOnly }}
       {{- end }}
-      - name: storage
-        mountPath: "/var/lib/grafana"
-        {{- with .Values.persistence.subPath }}
-        subPath: {{ tpl . $root }}
-        {{- end }}
       {{- with .Values.dashboards }}
       {{- range $provider, $dashboards := . }}
       {{- range $key, $value := $dashboards }}
@@ -1226,24 +1187,6 @@ volumes:
       items:
         - key: ldap-toml
           path: ldap.toml
-  {{- end }}
-  {{- if and .Values.persistence.enabled (eq .Values.persistence.type "pvc") }}
-  - name: storage
-    persistentVolumeClaim:
-      claimName: {{ tpl (.Values.persistence.existingClaim | default (include "grafana.fullname" .)) . }}
-  {{- else if and .Values.persistence.enabled (has .Values.persistence.type $sts) }}
-  {{/* nothing */}}
-  {{- else }}
-  - name: storage
-    {{- if .Values.persistence.inMemory.enabled }}
-    emptyDir:
-      medium: Memory
-      {{- with .Values.persistence.inMemory.sizeLimit }}
-      sizeLimit: {{ . }}
-      {{- end }}
-    {{- else }}
-    emptyDir: {}
-    {{- end }}
   {{- end }}
   {{- if .Values.sidecar.alerts.enabled }}
   - name: sc-alerts-volume

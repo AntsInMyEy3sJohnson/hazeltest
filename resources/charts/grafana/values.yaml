@@ -146,78 +146,6 @@ resources:
     cpu: 1
     memory: 2G
 
-## Enable persistence using Persistent Volume Claims
-## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
-##
-persistence:
-  type: pvc
-  enabled: false
-  # storageClassName: default
-  accessModes:
-    - ReadWriteOnce
-  size: 10Gi
-  # annotations: {}
-  finalizers:
-    - kubernetes.io/pvc-protection
-  # selectorLabels: {}
-  ## Sub-directory of the PV to mount. Can be templated.
-  # subPath: ""
-  ## Name of an existing PVC. Can be templated.
-  # existingClaim:
-  ## Extra labels to apply to a PVC.
-  extraPvcLabels: { }
-  disableWarning: false
-
-  ## If persistence is not enabled, this allows to mount the
-  ## local storage in-memory to improve performance
-  ##
-  inMemory:
-    enabled: false
-    ## The maximum usage on memory medium EmptyDir would be
-    ## the minimum value between the SizeLimit specified
-    ## here and the sum of memory limits of all containers in a pod
-    ##
-    # sizeLimit: 300Mi
-
-  ## If 'lookupVolumeName' is set to true, Helm will attempt to retrieve
-  ## the current value of 'spec.volumeName' and incorporate it into the template.
-  lookupVolumeName: true
-
-initChownData:
-  ## If false, data ownership will not be reset at startup
-  ## This allows the grafana-server to be run with an arbitrary user
-  ##
-  enabled: true
-
-  ## initChownData container image
-  ##
-  image:
-    # -- The Docker registry
-    registry: docker.io
-    repository: library/busybox
-    tag: "1.31.1"
-    sha: ""
-    pullPolicy: IfNotPresent
-
-  ## initChownData resource requests and limits
-  ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  ##
-  resources: { }
-  #  limits:
-  #    cpu: 100m
-  #    memory: 128Mi
-  #  requests:
-  #    cpu: 100m
-  #    memory: 128Mi
-  securityContext:
-    runAsNonRoot: false
-    runAsUser: 0
-    seccompProfile:
-      type: RuntimeDefault
-    capabilities:
-      add:
-        - CHOWN
-
 # Administrator credentials when not using an existing secret (see below)
 adminUser: admin
 # adminPassword: strongpassword
@@ -471,7 +399,7 @@ alerting: { }
   #   secret:
   #     apiVersion: 1
   #     contactPoints:
-  #       - orgId: 1
+#       - orgId: 1
 #         name: cp_1
 #         receivers:
 #           - uid: first_uid
