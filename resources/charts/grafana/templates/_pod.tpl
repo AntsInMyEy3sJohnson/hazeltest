@@ -1179,9 +1179,6 @@ containers:
     resources:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-{{- with .Values.extraContainers }}
-  {{- tpl . $ | nindent 2 }}
-{{- end }}
 volumes:
   - name: config
     configMap:

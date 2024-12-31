@@ -107,8 +107,6 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 3000
-  # targetPort: 4181 To be used with a proxy extraContainer
-  ## Service annotations. Can be templated.
   annotations: { }
   labels: { }
   portName: service
@@ -147,24 +145,6 @@ resources:
   requests:
     cpu: 1
     memory: 2G
-
-## Enable an Specify container in extraContainers. This is meant to allow adding an authentication proxy to a grafana pod
-extraContainers: ""
-# extraContainers: |
-# - name: proxy
-#   image: quay.io/gambol99/keycloak-proxy:latest
-#   args:
-#   - -provider=github
-#   - -client-id=
-#   - -client-secret=
-#   - -github-org=<ORG_NAME>
-#   - -email-domain=*
-#   - -cookie-secret=
-#   - -http-address=http://0.0.0.0:4181
-#   - -upstream-url=http://127.0.0.1:3000
-#   ports:
-#     - name: proxy-web
-#       containerPort: 4181
 
 ## Volumes that can be used in init containers that will not be mounted to deployment pods
 extraContainerVolumes: [ ]
@@ -344,7 +324,7 @@ enableServiceLinks: true
 ## Additional grafana server secret mounts
 # Defines additional mounts with secrets. Secrets must be manually created in the namespace.
 extraSecretMounts: [ ]
-  # - name: secret-files
+# - name: secret-files
 #   mountPath: /etc/secrets
 #   secretName: grafana-secret-files
 #   readOnly: true
@@ -501,8 +481,8 @@ alerting: { }
   #     contactPoints:
   #       - orgId: 1
   #         name: cp_1
-  #         receivers:
-  #           - uid: first_uid
+#         receivers:
+#           - uid: first_uid
 #             type: pagerduty
 #             settings:
 #               integrationKey: XXX
