@@ -1343,7 +1343,4 @@ volumes:
   - name: {{ .name }}
     emptyDir: {}
   {{- end }}
-  {{- with .Values.extraContainerVolumes }}
-  {{- tpl (toYaml .) $root | nindent 2 }}
-  {{- end }}
 {{- end }}
