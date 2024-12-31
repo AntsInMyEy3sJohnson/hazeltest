@@ -11,13 +11,6 @@ replicas: 1
 
 automountServiceAccountToken: true
 
-## See `kubectl explain poddisruptionbudget.spec` for more
-## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
-podDisruptionBudget: { }
-#  apiVersion: ""
-#  minAvailable: 1
-#  maxUnavailable: 1
-
 ## See `kubectl explain deployment.spec.strategy` for more
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 deploymentStrategy:
@@ -537,7 +530,7 @@ extraSecretMounts: [ ]
   #
   # for CSI e.g. Azure Key Vault use the following
   # - name: secrets-store-inline
-  #  mountPath: /run/secrets
+#  mountPath: /run/secrets
 #  readOnly: true
 #  csi:
 #    driver: secrets-store.csi.k8s.io
@@ -564,7 +557,7 @@ extraVolumes: [ ]
   # - name: extra-volume-0
   #   existingClaim: volume-claim
   # - name: extra-volume-1
-  #   hostPath:
+#   hostPath:
 #     path: /usr/shared/
 #     type: ""
 # - name: grafana-secrets
@@ -695,7 +688,7 @@ alerting: { }
   #         {{ define "my_first_template" }}
   #         Custom notification message
   #         {{ end }}
-  #         ` }}
+#         ` }}
 #
 # mutetimes.yaml
 #   apiVersion: 1
@@ -766,7 +759,7 @@ dashboards: { }
   #     token: ''
   #     b64content: true
   #   local-dashboard-gitlab:
-  #     url: https://example.com/repository/test-gitlab.json
+#     url: https://example.com/repository/test-gitlab.json
 #     gitlabToken: ''
 #   local-dashboard-bitbucket:
 #     url: https://example.com/repository/test-bitbucket.json
@@ -1468,7 +1461,7 @@ enableKubeBackwardCompatibility: false
 useStatefulSet: false
 # Create a dynamic manifests via values:
 extraObjects: [ ]
-  # - apiVersion: "kubernetes-client.io/v1"
+# - apiVersion: "kubernetes-client.io/v1"
 #   kind: ExternalSecret
 #   metadata:
 #     name: grafana-secrets
