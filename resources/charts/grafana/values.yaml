@@ -148,11 +148,6 @@ resources:
     cpu: 1
     memory: 2G
 
-## Node labels for pod assignment
-## ref: https://kubernetes.io/docs/user-guide/node-selection/
-#
-nodeSelector: { }
-
 ## Tolerations for pod assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 ##
@@ -373,7 +368,7 @@ extraSecretMounts: [ ]
   #   mountPath: /etc/secrets
   #   secretName: grafana-secret-files
   #   readOnly: true
-  #   optional: false
+#   optional: false
 #   subPath: ""
 #
 # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
@@ -531,7 +526,7 @@ alerting: { }
   #             type: pagerduty
   #             settings:
   #               integrationKey: XXX
-  #               severity: critical
+#               severity: critical
 #               class: ping failure
 #               component: Grafana
 #               group: app-stack
@@ -602,7 +597,7 @@ dashboardProviders: { }
 ##
 dashboards: { }
   # default:
-  #   some-dashboard:
+#   some-dashboard:
 #     json: |
 #       $RAW_JSON
 #   custom-dashboard:
@@ -1213,10 +1208,6 @@ imageRenderer:
   #   requests:
   #     cpu: 50m
   #     memory: 50Mi
-  ## Node labels for pod assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
-  nodeSelector: { }
 
   ## Tolerations for pod assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/

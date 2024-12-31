@@ -116,10 +116,6 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.imageRenderer.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       {{- with .Values.imageRenderer.affinity }}
       affinity:
         {{- tpl (toYaml .) $root | nindent 8 }}
