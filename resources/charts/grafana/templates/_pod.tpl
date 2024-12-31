@@ -1,9 +1,6 @@
 {{- define "grafana.pod" -}}
 {{- $sts := list "sts" "StatefulSet" "statefulset" -}}
 {{- $root := . -}}
-{{- with .Values.schedulerName }}
-schedulerName: "{{ . }}"
-{{- end }}
 serviceAccountName: {{ include "grafana.serviceAccountName" . }}
 automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
 {{- with .Values.securityContext }}

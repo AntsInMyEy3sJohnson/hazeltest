@@ -11,10 +11,8 @@ replicas: 1
 
 automountServiceAccountToken: true
 
-## See `kubectl explain deployment.spec.strategy` for more
-## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 deploymentStrategy:
-  type: RollingUpdate
+  type: Recreate
 
 readinessProbe:
   httpGet:
@@ -28,11 +26,6 @@ livenessProbe:
   initialDelaySeconds: 60
   timeoutSeconds: 30
   failureThreshold: 10
-
-## Use an alternate scheduler, e.g. "stork".
-## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
-##
-# schedulerName: "default-scheduler"
 
 image:
   # -- The Docker registry
@@ -529,7 +522,7 @@ extraSecretMounts: [ ]
   #           path: token
   #
   # for CSI e.g. Azure Key Vault use the following
-  # - name: secrets-store-inline
+# - name: secrets-store-inline
 #  mountPath: /run/secrets
 #  readOnly: true
 #  csi:
@@ -556,7 +549,7 @@ extraVolumeMounts: [ ]
 extraVolumes: [ ]
   # - name: extra-volume-0
   #   existingClaim: volume-claim
-  # - name: extra-volume-1
+# - name: extra-volume-1
 #   hostPath:
 #     path: /usr/shared/
 #     type: ""
@@ -687,7 +680,7 @@ alerting: { }
   #         {{ `
   #         {{ define "my_first_template" }}
   #         Custom notification message
-  #         {{ end }}
+#         {{ end }}
 #         ` }}
 #
 # mutetimes.yaml
@@ -758,7 +751,7 @@ dashboards: { }
   #     url: https://example.com/repository/test-b64.json
   #     token: ''
   #     b64content: true
-  #   local-dashboard-gitlab:
+#   local-dashboard-gitlab:
 #     url: https://example.com/repository/test-gitlab.json
 #     gitlabToken: ''
 #   local-dashboard-bitbucket:
