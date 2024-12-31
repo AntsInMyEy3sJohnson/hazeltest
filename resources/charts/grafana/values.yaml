@@ -148,11 +148,6 @@ resources:
     cpu: 1
     memory: 2G
 
-## Topology Spread Constraints
-## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-##
-topologySpreadConstraints: [ ]
-
 ## Additional init containers (evaluated as template)
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 ##
@@ -356,7 +351,7 @@ enableServiceLinks: true
 extraSecretMounts: [ ]
   # - name: secret-files
   #   mountPath: /etc/secrets
-  #   secretName: grafana-secret-files
+#   secretName: grafana-secret-files
 #   readOnly: true
 #   optional: false
 #   subPath: ""
@@ -514,7 +509,7 @@ alerting: { }
   #         receivers:
   #           - uid: first_uid
   #             type: pagerduty
-  #             settings:
+#             settings:
 #               integrationKey: XXX
 #               severity: critical
 #               class: ping failure

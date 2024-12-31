@@ -1185,10 +1185,6 @@ containers:
 {{- with .Values.extraContainers }}
   {{- tpl . $ | nindent 2 }}
 {{- end }}
-{{- with .Values.topologySpreadConstraints }}
-topologySpreadConstraints:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
 volumes:
   - name: config
     configMap:
