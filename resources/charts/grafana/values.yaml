@@ -140,13 +140,13 @@ ingress:
   #       port:
   #         name: use-annotation
 
-resources: { }
-#  limits:
-#    cpu: 100m
-#    memory: 128Mi
-#  requests:
-#    cpu: 100m
-#    memory: 128Mi
+resources:
+  limits:
+    cpu: 2
+    memory: 4G
+  requests:
+    cpu: 1
+    memory: 2G
 
 ## Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -374,7 +374,7 @@ extraSecretMounts: [ ]
   #   secretName: grafana-secret-files
   #   readOnly: true
   #   optional: false
-  #   subPath: ""
+#   subPath: ""
 #
 # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
 # - name: aws-iam-token
@@ -532,7 +532,7 @@ alerting: { }
   #             settings:
   #               integrationKey: XXX
   #               severity: critical
-  #               class: ping failure
+#               class: ping failure
 #               component: Grafana
 #               group: app-stack
 #               summary: |
@@ -603,7 +603,7 @@ dashboardProviders: { }
 dashboards: { }
   # default:
   #   some-dashboard:
-  #     json: |
+#     json: |
 #       $RAW_JSON
 #   custom-dashboard:
 #     file: dashboards/custom-dashboard.json
