@@ -140,42 +140,6 @@ ingress:
   #       port:
   #         name: use-annotation
 
-# -- BETA: Configure the gateway routes for the chart here.
-# More routes can be added by adding a dictionary key like the 'main' route.
-# Be aware that this is an early beta of this feature,
-# kube-prometheus-stack does not guarantee this works and is subject to change.
-# Being BETA this can/will change in the future without notice, do not use unless you want to take that risk
-# [[ref]](https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1alpha2)
-route:
-  main:
-    # -- Enables or disables the route
-    enabled: false
-
-    # -- Set the route apiVersion, e.g. gateway.networking.k8s.io/v1 or gateway.networking.k8s.io/v1alpha2
-    apiVersion: gateway.networking.k8s.io/v1
-    # -- Set the route kind
-    # Valid options are GRPCRoute, HTTPRoute, TCPRoute, TLSRoute, UDPRoute
-    kind: HTTPRoute
-
-    annotations: { }
-    labels: { }
-
-    hostnames: [ ]
-    # - my-filter.example.com
-    parentRefs: [ ]
-    # - name: acme-gw
-
-    matches:
-      - path:
-          type: PathPrefix
-          value: /
-
-    ## Filters define the filters that are applied to requests that match this rule.
-    filters: [ ]
-
-    ## Additional custom rules that can be added to the route
-    additionalRules: [ ]
-
 resources: { }
 #  limits:
 #    cpu: 100m
@@ -411,7 +375,7 @@ extraSecretMounts: [ ]
   #   readOnly: true
   #   optional: false
   #   subPath: ""
-  #
+#
 # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
 # - name: aws-iam-token
 #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
@@ -569,7 +533,7 @@ alerting: { }
   #               integrationKey: XXX
   #               severity: critical
   #               class: ping failure
-  #               component: Grafana
+#               component: Grafana
 #               group: app-stack
 #               summary: |
 #                 {{ `{{ include "default.message" . }}` }}
@@ -640,7 +604,7 @@ dashboards: { }
   # default:
   #   some-dashboard:
   #     json: |
-  #       $RAW_JSON
+#       $RAW_JSON
 #   custom-dashboard:
 #     file: dashboards/custom-dashboard.json
 #   prometheus-stats:
