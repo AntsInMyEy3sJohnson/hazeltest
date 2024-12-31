@@ -1,10 +1,5 @@
 rbac:
   create: true
-  ## Use an existing ClusterRole/Role (depending on rbac.namespaced false/true)
-  # useExistingRole: name-of-some-role
-  # useExistingClusterRole: name-of-some-clusterRole
-  pspUseAppArmor: false
-  namespaced: false
   extraRoleRules: [ ]
   # - apiGroups: []
   #   resources: []
@@ -109,8 +104,8 @@ testFramework:
 # dns configuration for pod
 dnsPolicy: ~
 dnsConfig: { }
-  # nameservers:
-  #   - 8.8.8.8
+# nameservers:
+#   - 8.8.8.8
 #   options:
 #   - name: ndots
 #     value: "2"
@@ -136,8 +131,8 @@ createConfigmap: true
 # Extra configmaps to mount in grafana pods
 # Values are templated.
 extraConfigmapMounts: [ ]
-  # - name: certs-configmap
-  #   mountPath: /etc/grafana/ssl/
+# - name: certs-configmap
+#   mountPath: /etc/grafana/ssl/
 #   subPath: certificates.crt # (optional)
 #   configMap: certs-configmap
 #   readOnly: true
@@ -574,8 +569,8 @@ extraSecretMounts: [ ]
   #  mountPath: /run/secrets
   #  readOnly: true
   #  csi:
-  #    driver: secrets-store.csi.k8s.io
-  #    readOnly: true
+#    driver: secrets-store.csi.k8s.io
+#    readOnly: true
 #    volumeAttributes:
 #      secretProviderClass: "akv-grafana-spc"
 #    nodePublishSecretRef:                       # Only required when using service principal mode
@@ -586,8 +581,8 @@ extraSecretMounts: [ ]
 extraVolumeMounts: [ ]
   # - name: extra-volume-0
   #   mountPath: /mnt/volume0
-  #   readOnly: true
-  # - name: extra-volume-1
+#   readOnly: true
+# - name: extra-volume-1
 #   mountPath: /mnt/volume1
 #   readOnly: true
 # - name: grafana-secrets
@@ -601,8 +596,8 @@ extraVolumes: [ ]
   #   hostPath:
   #     path: /usr/shared/
   #     type: ""
-  # - name: grafana-secrets
-  #   csi:
+# - name: grafana-secrets
+#   csi:
 #     driver: secrets-store.csi.k8s.io
 #     readOnly: true
 #     volumeAttributes:
@@ -617,7 +612,7 @@ lifecycleHooks: { }
 ## Pass the plugins you want installed as a list.
 ##
 plugins: [ ]
-  # - digrich-bubblechart-panel
+# - digrich-bubblechart-panel
 # - grafana-clock-panel
 ## You can also use other plugin download URL, as long as they are valid zip files,
 ## and specify the name of the plugin after the semicolon. Like this:
@@ -732,8 +727,8 @@ alerting: { }
   #         ` }}
   #
   # mutetimes.yaml
-  #   apiVersion: 1
-  #   muteTimes:
+#   apiVersion: 1
+#   muteTimes:
 #     - orgId: 1
 #       name: mti_1
 #       # refer to https://prometheus.io/docs/alerting/latest/configuration/#time_interval-0
@@ -803,8 +798,8 @@ dashboards: { }
   #     url: https://example.com/repository/test-gitlab.json
   #     gitlabToken: ''
   #   local-dashboard-bitbucket:
-  #     url: https://example.com/repository/test-bitbucket.json
-  #     bearerToken: ''
+#     url: https://example.com/repository/test-bitbucket.json
+#     bearerToken: ''
 #   local-dashboard-azure:
 #     url: https://example.com/repository/test-azure.json
 #     basic: ''
@@ -1505,8 +1500,8 @@ extraObjects: [ ]
   # - apiVersion: "kubernetes-client.io/v1"
   #   kind: ExternalSecret
   #   metadata:
-  #     name: grafana-secrets
-  #   spec:
+#     name: grafana-secrets
+#   spec:
 #     backendType: gcpSecretsManager
 #     data:
 #       - key: grafana-admin-password
