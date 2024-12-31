@@ -1,25 +1,10 @@
 rbac:
   create: true
-  extraRoleRules: [ ]
-  # - apiGroups: []
-  #   resources: []
-  #   verbs: []
-  extraClusterRoleRules: [ ]
-  # - apiGroups: []
-  #   resources: []
-  #   verbs: []
 serviceAccount:
   create: true
-  name:
-  nameTest:
-  ## ServiceAccount labels.
+  name: grafana-sa
+  nameTest: grafana-test-sa
   labels: { }
-  ## Service account annotations. Can be templated.
-  #  annotations:
-  #    eks.amazonaws.com/role-arn: arn:aws:iam::123456789000:role/iam-role-name-here
-
-  ## autoMount is deprecated in favor of automountServiceAccountToken
-  # autoMount: false
   automountServiceAccountToken: false
 
 replicas: 1
@@ -568,7 +553,7 @@ extraSecretMounts: [ ]
   # - name: secrets-store-inline
   #  mountPath: /run/secrets
   #  readOnly: true
-  #  csi:
+#  csi:
 #    driver: secrets-store.csi.k8s.io
 #    readOnly: true
 #    volumeAttributes:
@@ -580,7 +565,7 @@ extraSecretMounts: [ ]
 # Defines additional volume mounts.
 extraVolumeMounts: [ ]
   # - name: extra-volume-0
-  #   mountPath: /mnt/volume0
+#   mountPath: /mnt/volume0
 #   readOnly: true
 # - name: extra-volume-1
 #   mountPath: /mnt/volume1
@@ -595,7 +580,7 @@ extraVolumes: [ ]
   # - name: extra-volume-1
   #   hostPath:
   #     path: /usr/shared/
-  #     type: ""
+#     type: ""
 # - name: grafana-secrets
 #   csi:
 #     driver: secrets-store.csi.k8s.io
@@ -726,7 +711,7 @@ alerting: { }
   #         {{ end }}
   #         ` }}
   #
-  # mutetimes.yaml
+# mutetimes.yaml
 #   apiVersion: 1
 #   muteTimes:
 #     - orgId: 1
@@ -797,7 +782,7 @@ dashboards: { }
   #   local-dashboard-gitlab:
   #     url: https://example.com/repository/test-gitlab.json
   #     gitlabToken: ''
-  #   local-dashboard-bitbucket:
+#   local-dashboard-bitbucket:
 #     url: https://example.com/repository/test-bitbucket.json
 #     bearerToken: ''
 #   local-dashboard-azure:
@@ -1499,7 +1484,7 @@ useStatefulSet: false
 extraObjects: [ ]
   # - apiVersion: "kubernetes-client.io/v1"
   #   kind: ExternalSecret
-  #   metadata:
+#   metadata:
 #     name: grafana-secrets
 #   spec:
 #     backendType: gcpSecretsManager
