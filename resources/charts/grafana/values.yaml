@@ -99,25 +99,9 @@ downloadDashboards:
   #      name: configmap-name
   #      key: value_key
 
-  ## Pod Annotations
-  # podAnnotations: {}
-
-  ## ConfigMap Annotations
-  # configMapAnnotations: {}
-  # argocd.argoproj.io/sync-options: Replace=true
-
-## Pod Labels
-# podLabels: {}
-
 podPortName: grafana
 gossipPortName: gossip
-## Deployment annotations
-# annotations: {}
 
-## Expose the grafana service to be accessed from outside the cluster (LoadBalancer service).
-## or access it from within the cluster (ClusterIP service). Set the service type and the port to serve it.
-## ref: http://kubernetes.io/docs/user-guide/services/
-##
 service:
   enabled: true
   type: ClusterIP
@@ -483,7 +467,7 @@ extraSecretMounts: [ ]
   #   projected:
   #     defaultMode: 420
   #     sources:
-  #       - serviceAccountToken:
+#       - serviceAccountToken:
 #           audience: sts.amazonaws.com
 #           expirationSeconds: 86400
 #           path: token
@@ -641,7 +625,7 @@ alerting: { }
   # templates.yaml:
   #   apiVersion: 1
   #   templates:
-  #     - orgId: 1
+#     - orgId: 1
 #       name: my_first_template
 #       template: |
 #         {{ `
@@ -712,7 +696,7 @@ dashboards: { }
   #     revision: 2
   #     datasource: Prometheus
   #   local-dashboard:
-  #     url: https://example.com/repository/test.json
+#     url: https://example.com/repository/test.json
 #     token: ''
 #   local-dashboard-base64:
 #     url: https://example.com/repository/test-b64.json
