@@ -28,45 +28,21 @@ livenessProbe:
   failureThreshold: 10
 
 image:
-  # -- The Docker registry
   registry: docker.io
-  # -- Docker image repository
   repository: grafana/grafana
-  # Overrides the Grafana image tag whose default is the chart appVersion
   tag: ""
   sha: ""
   pullPolicy: IfNotPresent
 
 testFramework:
   enabled: true
-  ## The type of Helm hook used to run this test. Defaults to test.
-  ## ref: https://helm.sh/docs/topics/charts_hooks/#the-available-hooks
-  ##
-  # hookType: test
   image:
-    # -- The Docker registry
     registry: docker.io
     repository: bats/bats
     tag: "v1.4.1"
   imagePullPolicy: IfNotPresent
   securityContext: { }
   resources: { }
-  #  limits:
-  #    cpu: 100m
-  #    memory: 128Mi
-  #  requests:
-  #    cpu: 100m
-  #    memory: 128Mi
-
-# dns configuration for pod
-dnsPolicy: ~
-dnsConfig: { }
-# nameservers:
-#   - 8.8.8.8
-#   options:
-#   - name: ndots
-#     value: "2"
-#   - name: edns0
 
 securityContext:
   runAsNonRoot: true
@@ -519,9 +495,9 @@ extraSecretMounts: [ ]
   #       - serviceAccountToken:
   #           audience: sts.amazonaws.com
   #           expirationSeconds: 86400
-  #           path: token
-  #
-  # for CSI e.g. Azure Key Vault use the following
+#           path: token
+#
+# for CSI e.g. Azure Key Vault use the following
 # - name: secrets-store-inline
 #  mountPath: /run/secrets
 #  readOnly: true
@@ -547,8 +523,8 @@ extraVolumeMounts: [ ]
 
 ## Additional Grafana server volumes
 extraVolumes: [ ]
-  # - name: extra-volume-0
-  #   existingClaim: volume-claim
+# - name: extra-volume-0
+#   existingClaim: volume-claim
 # - name: extra-volume-1
 #   hostPath:
 #     path: /usr/shared/
@@ -677,9 +653,9 @@ alerting: { }
   #     - orgId: 1
   #       name: my_first_template
   #       template: |
-  #         {{ `
-  #         {{ define "my_first_template" }}
-  #         Custom notification message
+#         {{ `
+#         {{ define "my_first_template" }}
+#         Custom notification message
 #         {{ end }}
 #         ` }}
 #
@@ -748,9 +724,9 @@ dashboards: { }
   #     url: https://example.com/repository/test.json
   #     token: ''
   #   local-dashboard-base64:
-  #     url: https://example.com/repository/test-b64.json
-  #     token: ''
-  #     b64content: true
+#     url: https://example.com/repository/test-b64.json
+#     token: ''
+#     b64content: true
 #   local-dashboard-gitlab:
 #     url: https://example.com/repository/test-gitlab.json
 #     gitlabToken: ''

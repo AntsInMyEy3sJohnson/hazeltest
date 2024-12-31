@@ -11,13 +11,6 @@ securityContext:
 hostAliases:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- if .Values.dnsPolicy }}
-dnsPolicy: {{ .Values.dnsPolicy }}
-{{- end }}
-{{- with .Values.dnsConfig }}
-dnsConfig:
-  {{- toYaml . | nindent 2 }}
-{{- end }}
 {{- with .Values.priorityClassName }}
 priorityClassName: {{ . }}
 {{- end }}
