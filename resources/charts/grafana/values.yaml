@@ -148,16 +148,6 @@ resources:
     cpu: 1
     memory: 2G
 
-## Tolerations for pod assignment
-## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-##
-tolerations: [ ]
-
-## Affinity for pod assignment (evaluated as template)
-## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-##
-affinity: { }
-
 ## Topology Spread Constraints
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 ##
@@ -367,7 +357,7 @@ extraSecretMounts: [ ]
   # - name: secret-files
   #   mountPath: /etc/secrets
   #   secretName: grafana-secret-files
-  #   readOnly: true
+#   readOnly: true
 #   optional: false
 #   subPath: ""
 #
@@ -525,7 +515,7 @@ alerting: { }
   #           - uid: first_uid
   #             type: pagerduty
   #             settings:
-  #               integrationKey: XXX
+#               integrationKey: XXX
 #               severity: critical
 #               class: ping failure
 #               component: Grafana
@@ -596,7 +586,7 @@ dashboardProviders: { }
 ## dashboards per provider, use provider name as key.
 ##
 dashboards: { }
-  # default:
+# default:
 #   some-dashboard:
 #     json: |
 #       $RAW_JSON
@@ -1208,16 +1198,6 @@ imageRenderer:
   #   requests:
   #     cpu: 50m
   #     memory: 50Mi
-
-  ## Tolerations for pod assignment
-  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-  ##
-  tolerations: [ ]
-
-  ## Affinity for pod assignment (evaluated as template)
-  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-  ##
-  affinity: { }
 
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
