@@ -113,28 +113,6 @@ service:
   labels: { }
   portName: service
 
-serviceMonitor:
-  ## If true, a ServiceMonitor CR is created for a prometheus operator
-  ## https://github.com/coreos/prometheus-operator
-  ##
-  enabled: false
-  path: /metrics
-  #  namespace: monitoring  (defaults to use the namespace this chart is deployed to)
-  labels: { }
-  interval: 30s
-  scheme: http
-  tlsConfig: { }
-  scrapeTimeout: 30s
-  relabelings: [ ]
-  metricRelabelings: [ ]
-  basicAuth: { }
-  targetLabels: [ ]
-
-extraExposePorts: [ ]
-# - name: keycloak
-#   port: 8080
-#   targetPort: 8080
-
 # overrides pod.spec.hostAliases in the grafana deployment's pods
 hostAliases: [ ]
 # - ip: "1.2.3.4"
@@ -454,7 +432,7 @@ extraSecretMounts: [ ]
   # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
   # - name: aws-iam-token
   #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
-  #   readOnly: true
+#   readOnly: true
 #   projected:
 #     defaultMode: 420
 #     sources:
@@ -612,7 +590,7 @@ alerting: { }
   #               group: app-stack
   #               summary: |
   #                 {{ `{{ include "default.message" . }}` }}
-  #
+#
 # templates.yaml:
 #   apiVersion: 1
 #   templates:
@@ -683,7 +661,7 @@ dashboards: { }
   #   custom-dashboard:
   #     file: dashboards/custom-dashboard.json
   #   prometheus-stats:
-  #     gnetId: 2
+#     gnetId: 2
 #     revision: 2
 #     datasource: Prometheus
 #   local-dashboard:
