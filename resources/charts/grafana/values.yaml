@@ -75,12 +75,7 @@ extraEmptyDirMounts: [ ]
 # - name: provisioning-notifiers
 #   mountPath: /etc/grafana/provisioning/notifiers
 
-
-# Apply extra labels to common labels.
-extraLabels: { }
-
 downloadDashboardsImage:
-  # -- The Docker registry
   registry: docker.io
   repository: curlimages/curl
   tag: 7.85.0
@@ -489,7 +484,7 @@ extraSecretMounts: [ ]
   #     defaultMode: 420
   #     sources:
   #       - serviceAccountToken:
-  #           audience: sts.amazonaws.com
+#           audience: sts.amazonaws.com
 #           expirationSeconds: 86400
 #           path: token
 #
@@ -647,7 +642,7 @@ alerting: { }
   #   apiVersion: 1
   #   templates:
   #     - orgId: 1
-  #       name: my_first_template
+#       name: my_first_template
 #       template: |
 #         {{ `
 #         {{ define "my_first_template" }}
@@ -718,7 +713,7 @@ dashboards: { }
   #     datasource: Prometheus
   #   local-dashboard:
   #     url: https://example.com/repository/test.json
-  #     token: ''
+#     token: ''
 #   local-dashboard-base64:
 #     url: https://example.com/repository/test-b64.json
 #     token: ''
