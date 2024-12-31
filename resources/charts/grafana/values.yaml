@@ -112,8 +112,6 @@ service:
   annotations: { }
   labels: { }
   portName: service
-  # Adds the appProtocol field to the service. This allows to work with istio protocol selection. Ex: "http" or "tcp"
-  appProtocol: ""
 
 serviceMonitor:
   ## If true, a ServiceMonitor CR is created for a prometheus operator
@@ -457,7 +455,7 @@ extraSecretMounts: [ ]
   # - name: aws-iam-token
   #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
   #   readOnly: true
-  #   projected:
+#   projected:
 #     defaultMode: 420
 #     sources:
 #       - serviceAccountToken:
@@ -615,7 +613,7 @@ alerting: { }
   #               summary: |
   #                 {{ `{{ include "default.message" . }}` }}
   #
-  # templates.yaml:
+# templates.yaml:
 #   apiVersion: 1
 #   templates:
 #     - orgId: 1
@@ -686,7 +684,7 @@ dashboards: { }
   #     file: dashboards/custom-dashboard.json
   #   prometheus-stats:
   #     gnetId: 2
-  #     revision: 2
+#     revision: 2
 #     datasource: Prometheus
 #   local-dashboard:
 #     url: https://example.com/repository/test.json
@@ -1253,8 +1251,6 @@ imageRenderer:
     # image-renderer service port used by both service and deployment
     port: 8081
     targetPort: 8081
-    # Adds the appProtocol field to the image-renderer service. This allows to work with istio protocol selection. Ex: "http" or "tcp"
-    appProtocol: ""
   serviceMonitor:
     ## If true, a ServiceMonitor CRD is created for a prometheus operator
     ## https://github.com/coreos/prometheus-operator
