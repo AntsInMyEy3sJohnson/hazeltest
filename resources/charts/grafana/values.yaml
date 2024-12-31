@@ -148,11 +148,6 @@ resources:
     cpu: 1
     memory: 2G
 
-## Additional init containers (evaluated as template)
-## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
-##
-extraInitContainers: [ ]
-
 ## Enable an Specify container in extraContainers. This is meant to allow adding an authentication proxy to a grafana pod
 extraContainers: ""
 # extraContainers: |
@@ -350,7 +345,7 @@ enableServiceLinks: true
 # Defines additional mounts with secrets. Secrets must be manually created in the namespace.
 extraSecretMounts: [ ]
   # - name: secret-files
-  #   mountPath: /etc/secrets
+#   mountPath: /etc/secrets
 #   secretName: grafana-secret-files
 #   readOnly: true
 #   optional: false
@@ -508,7 +503,7 @@ alerting: { }
   #         name: cp_1
   #         receivers:
   #           - uid: first_uid
-  #             type: pagerduty
+#             type: pagerduty
 #             settings:
 #               integrationKey: XXX
 #               severity: critical
