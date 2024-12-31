@@ -113,12 +113,6 @@ service:
   labels: { }
   portName: service
 
-# overrides pod.spec.hostAliases in the grafana deployment's pods
-hostAliases: [ ]
-# - ip: "1.2.3.4"
-#   hostnames:
-#     - "my.host.com"
-
 ingress:
   enabled: false
   # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
@@ -431,7 +425,7 @@ extraSecretMounts: [ ]
   #
   # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
   # - name: aws-iam-token
-  #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+#   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
 #   readOnly: true
 #   projected:
 #     defaultMode: 420
@@ -589,7 +583,7 @@ alerting: { }
   #               component: Grafana
   #               group: app-stack
   #               summary: |
-  #                 {{ `{{ include "default.message" . }}` }}
+#                 {{ `{{ include "default.message" . }}` }}
 #
 # templates.yaml:
 #   apiVersion: 1
@@ -660,7 +654,7 @@ dashboards: { }
   #       $RAW_JSON
   #   custom-dashboard:
   #     file: dashboards/custom-dashboard.json
-  #   prometheus-stats:
+#   prometheus-stats:
 #     gnetId: 2
 #     revision: 2
 #     datasource: Prometheus
@@ -1219,8 +1213,6 @@ imageRenderer:
     readOnlyRootFilesystem: true
   ## image-renderer pod annotation
   podAnnotations: { }
-  # image-renderer deployment Host Aliases
-  hostAliases: [ ]
   service:
     # Enable the image-renderer service
     enabled: true
