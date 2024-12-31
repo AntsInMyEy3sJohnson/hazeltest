@@ -115,8 +115,6 @@ service:
 
 ingress:
   enabled: false
-  # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
-  # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   # ingressClassName: nginx
   # Values can be templated
   annotations: { }
@@ -124,10 +122,7 @@ ingress:
   # kubernetes.io/tls-acme: "true"
   labels: { }
   path: /
-
-  # pathType is only for k8s >= 1.1=
   pathType: Prefix
-
   hosts:
     - chart-example.local
   ## Extra paths to prepend to every host configuration. This is useful when working with annotation based services.
@@ -144,12 +139,6 @@ ingress:
   #       name: ssl-redirect
   #       port:
   #         name: use-annotation
-
-
-  tls: [ ]
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
 
 # -- BETA: Configure the gateway routes for the chart here.
 # More routes can be added by adding a dictionary key like the 'main' route.
@@ -423,8 +412,8 @@ extraSecretMounts: [ ]
   #   optional: false
   #   subPath: ""
   #
-  # for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
-  # - name: aws-iam-token
+# for AWS EKS (cloudwatch) use the following (see also instruction in env: above)
+# - name: aws-iam-token
 #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
 #   readOnly: true
 #   projected:
@@ -581,8 +570,8 @@ alerting: { }
   #               severity: critical
   #               class: ping failure
   #               component: Grafana
-  #               group: app-stack
-  #               summary: |
+#               group: app-stack
+#               summary: |
 #                 {{ `{{ include "default.message" . }}` }}
 #
 # templates.yaml:
@@ -652,8 +641,8 @@ dashboards: { }
   #   some-dashboard:
   #     json: |
   #       $RAW_JSON
-  #   custom-dashboard:
-  #     file: dashboards/custom-dashboard.json
+#   custom-dashboard:
+#     file: dashboards/custom-dashboard.json
 #   prometheus-stats:
 #     gnetId: 2
 #     revision: 2
