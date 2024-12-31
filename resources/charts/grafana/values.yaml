@@ -9,21 +9,7 @@ serviceAccount:
 
 replicas: 1
 
-## Create a headless service for the deployment
-headlessService: false
-
-## Should the service account be auto mounted on the pod
 automountServiceAccountToken: true
-
-## Create HorizontalPodAutoscaler object for deployment type
-#
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 5
-  targetCPU: "60"
-  targetMemory: ""
-  behavior: { }
 
 ## See `kubectl explain poddisruptionbudget.spec` for more
 ## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
@@ -552,7 +538,7 @@ extraSecretMounts: [ ]
   # for CSI e.g. Azure Key Vault use the following
   # - name: secrets-store-inline
   #  mountPath: /run/secrets
-  #  readOnly: true
+#  readOnly: true
 #  csi:
 #    driver: secrets-store.csi.k8s.io
 #    readOnly: true
@@ -564,7 +550,7 @@ extraSecretMounts: [ ]
 ## Additional grafana server volume mounts
 # Defines additional volume mounts.
 extraVolumeMounts: [ ]
-  # - name: extra-volume-0
+# - name: extra-volume-0
 #   mountPath: /mnt/volume0
 #   readOnly: true
 # - name: extra-volume-1
@@ -579,7 +565,7 @@ extraVolumes: [ ]
   #   existingClaim: volume-claim
   # - name: extra-volume-1
   #   hostPath:
-  #     path: /usr/shared/
+#     path: /usr/shared/
 #     type: ""
 # - name: grafana-secrets
 #   csi:
@@ -710,7 +696,7 @@ alerting: { }
   #         Custom notification message
   #         {{ end }}
   #         ` }}
-  #
+#
 # mutetimes.yaml
 #   apiVersion: 1
 #   muteTimes:
@@ -781,7 +767,7 @@ dashboards: { }
   #     b64content: true
   #   local-dashboard-gitlab:
   #     url: https://example.com/repository/test-gitlab.json
-  #     gitlabToken: ''
+#     gitlabToken: ''
 #   local-dashboard-bitbucket:
 #     url: https://example.com/repository/test-bitbucket.json
 #     bearerToken: ''
@@ -1483,7 +1469,7 @@ useStatefulSet: false
 # Create a dynamic manifests via values:
 extraObjects: [ ]
   # - apiVersion: "kubernetes-client.io/v1"
-  #   kind: ExternalSecret
+#   kind: ExternalSecret
 #   metadata:
 #     name: grafana-secrets
 #   spec:
