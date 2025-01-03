@@ -152,8 +152,6 @@ adminUser: admin
 
 # Use an existing secret for the admin user.
 admin:
-  ## Name of the secret. Can be templated.
-  existingSecret: ""
   userKey: admin-user
   passwordKey: admin-password
 
@@ -398,7 +396,7 @@ alerting: { }
   # contactpoints.yaml:
   #   secret:
   #     apiVersion: 1
-  #     contactPoints:
+#     contactPoints:
 #       - orgId: 1
 #         name: cp_1
 #         receivers:
@@ -563,9 +561,6 @@ grafana.ini:
 ## ref: http://docs.grafana.org/installation/ldap/#configuration
 ldap:
   enabled: false
-  # `existingSecret` is a reference to an existing secret containing the ldap configuration
-  # for Grafana in a key `ldap-toml`.
-  existingSecret: ""
   # `config` is the content of `ldap.toml` that will be stored in the created secret
   config: ""
   # config: |-
@@ -583,9 +578,6 @@ ldap:
 ## NOTE: To enable, grafana.ini must be configured with smtp.enabled
 ## ref: http://docs.grafana.org/installation/configuration/#smtp
 smtp:
-  # `existingSecret` is a reference to an existing secret containing the smtp configuration
-  # for Grafana.
-  existingSecret: ""
   userKey: "user"
   passwordKey: "password"
 
