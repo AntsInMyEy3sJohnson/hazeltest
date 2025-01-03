@@ -39,11 +39,6 @@ initContainers:
     securityContext:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-    {{- with .Values.downloadDashboards.envFromSecret }}
-    envFrom:
-      - secretRef:
-          name: {{ tpl . $root }}
-    {{- end }}
     volumeMounts:
       - name: config
         mountPath: "/etc/grafana/download_dashboards.sh"
@@ -1073,23 +1068,11 @@ containers:
       - name: "{{ tpl $key $ }}"
         value: "{{ tpl (print $value) $ }}"
       {{- end }}
-    {{- if or .Values.envFromSecret (or .Values.envRenderSecret .Values.envFromSecrets) .Values.envFromConfigMaps }}
+    {{- if or .Values.envRenderSecret .Values.envFromConfigMaps }}
     envFrom:
-      {{- if .Values.envFromSecret }}
-      - secretRef:
-          name: {{ tpl .Values.envFromSecret . }}
-      {{- end }}
       {{- if .Values.envRenderSecret }}
       - secretRef:
           name: {{ include "grafana.fullname" . }}-env
-      {{- end }}
-      {{- range .Values.envFromSecrets }}
-      - secretRef:
-          name: {{ tpl .name $ }}
-          optional: {{ .optional | default false }}
-        {{- if .prefix }}
-        prefix: {{ tpl .prefix $ }}
-        {{- end }}
       {{- end }}
       {{- range .Values.envFromConfigMaps }}
       - configMapRef:
