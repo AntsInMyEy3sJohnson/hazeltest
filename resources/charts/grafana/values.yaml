@@ -155,21 +155,6 @@ admin:
   userKey: admin-user
   passwordKey: admin-password
 
-## Define command to be executed at startup by grafana container
-## Needed if using `vault-env` to manage secrets (ref: https://banzaicloud.com/blog/inject-secrets-into-pods-vault/)
-## Default is "run.sh" as defined in grafana's Dockerfile
-# command:
-# - "sh"
-# - "/run.sh"
-
-## Optionally define args if command is used
-## Needed if using `hashicorp/envconsul` to manage secrets
-## By default no arguments are set
-# args:
-# - "-secret"
-# - "secret/grafana"
-# - "./grafana"
-
 ## Extra environment variables that will be pass onto deployment pods
 ##
 ## to provide grafana with access to CloudWatch on AWS EKS:
@@ -395,7 +380,7 @@ alerting: { }
   #
   # contactpoints.yaml:
   #   secret:
-  #     apiVersion: 1
+#     apiVersion: 1
 #     contactPoints:
 #       - orgId: 1
 #         name: cp_1

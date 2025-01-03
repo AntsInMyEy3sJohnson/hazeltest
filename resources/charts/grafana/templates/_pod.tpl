@@ -877,18 +877,6 @@ containers:
     image: "{{ $registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
     {{- end }}
     imagePullPolicy: {{ .Values.image.pullPolicy }}
-    {{- if .Values.command }}
-    command:
-    {{- range .Values.command }}
-      - {{ . | quote }}
-    {{- end }}
-    {{- end }}
-    {{- if .Values.args }}
-    args:
-    {{- range .Values.args }}
-      - {{ . | quote }}
-    {{- end }}
-    {{- end }}
     {{- with .Values.containerSecurityContext }}
     securityContext:
       {{- toYaml . | nindent 6 }}
