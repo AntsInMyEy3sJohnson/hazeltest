@@ -42,41 +42,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
           "thresholds": {
@@ -91,7 +57,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -101,24 +68,26 @@
         "x": 0,
         "y": 1
       },
-      "id": 7,
+      "id": 12,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
       },
       "pluginVersion": "11.4.0",
       "targets": [
         {
           "editorMode": "code",
-          "exemplar": false,
           "expr": "max(com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"})",
           "legendFormat": "{{label_name}}",
           "range": true,
@@ -126,7 +95,7 @@
         }
       ],
       "title": "Max System CPU Load",
-      "type": "timeseries"
+      "type": "gauge"
     },
     {
       "datasource": {
@@ -230,6 +199,18 @@
           "legendFormat": "free",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "sum(com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "hide": false,
+          "legendFormat": "committed",
+          "range": true,
+          "refId": "D"
         },
         {
           "datasource": {
@@ -450,6 +431,18 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
+          "expr": "sum(com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "hide": false,
+          "legendFormat": "free",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
           "expr": "sum(com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
           "hide": false,
           "instant": false,
@@ -471,7 +464,7 @@
           "refId": "C"
         }
       ],
-      "title": "Memory Usage (Native): Used, Committed, Max",
+      "title": "Memory Usage (Native): Used, Free, Committed, Max",
       "type": "timeseries"
     },
     {
@@ -860,6 +853,126 @@
       ],
       "title": "System CPU Load",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 9,
+        "y": 15
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Heap)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 7,
+        "x": 17,
+        "y": 15
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Native)",
+      "type": "piechart"
     }
   ],
   "preload": false,
