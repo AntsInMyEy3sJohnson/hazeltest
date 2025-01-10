@@ -70,6 +70,9 @@ helm.sh/chart: {{ include "grafana.chart" . }}
 {{- if or .Chart.AppVersion .Values.image.tag }}
 app.kubernetes.io/version: {{ mustRegexReplaceAllLiteral "@sha.*" .Values.image.tag "" | default .Chart.AppVersion | trunc 63 | trimSuffix "-" | quote }}
 {{- end }}
+{{- with .Values.extraLabels }}
+{{ toYaml . }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -148,6 +151,19 @@ Return the appropriate apiVersion for Horizontal Pod Autoscaler.
 {{- end }}
 
 {{/*
+Return the appropriate apiVersion for podDisruptionBudget.
+*/}}
+{{- define "grafana.podDisruptionBudget.apiVersion" -}}
+{{- if $.Values.podDisruptionBudget.apiVersion }}
+{{- print $.Values.podDisruptionBudget.apiVersion }}
+{{- else if $.Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
+{{- print "policy/v1" }}
+{{- else }}
+{{- print "policy/v1beta1" }}
+{{- end }}
+{{- end }}
+
+{{/*
 Return if ingress is stable.
 */}}
 {{- define "grafana.ingress.isStable" -}}
@@ -167,6 +183,21 @@ Return if ingress supports pathType.
 {{- define "grafana.ingress.supportsPathType" -}}
 {{- or (eq (include "grafana.ingress.isStable" .) "true") (and (eq (include "grafana.ingress.apiVersion" .) "networking.k8s.io/v1beta1") (semverCompare ">= 1.18-0" .Capabilities.KubeVersion.Version)) }}
 {{- end }}
+
+{{/*
+Formats imagePullSecrets. Input is (dict "root" . "imagePullSecrets" .{specific imagePullSecrets})
+*/}}
+{{- define "grafana.imagePullSecrets" -}}
+{{- $root := .root }}
+{{- range (concat .root.Values.global.imagePullSecrets .imagePullSecrets) }}
+{{- if eq (typeOf .) "map[string]interface {}" }}
+- {{ toYaml (dict "name" (tpl .name $root)) | trim }}
+{{- else }}
+- name: {{ tpl . $root }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 
 {{/*
  Checks whether or not the configSecret secret has to be created

@@ -27,6 +27,10 @@ spec:
   {{- if and $ingressSupportsIngressClassName .Values.ingress.ingressClassName }}
   ingressClassName: {{ .Values.ingress.ingressClassName }}
   {{- end -}}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
   rules:
   {{- if .Values.ingress.hosts  }}
   {{- range .Values.ingress.hosts }}

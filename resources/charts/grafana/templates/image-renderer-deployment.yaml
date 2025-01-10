@@ -40,6 +40,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- with .Values.imageRenderer.schedulerName }}
+      schedulerName: "{{ . }}"
+      {{- end }}
       {{- with .Values.imageRenderer.serviceAccountName }}
       serviceAccountName: "{{ . }}"
       {{- end }}
@@ -48,9 +51,22 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.imageRenderer.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imageRenderer.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imageRenderer.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ tpl . $root }}
+        {{- end}}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}-image-renderer
-          {{- $registry := .Values.imageRenderer.image.registry -}}
+          {{- $registry := .Values.global.imageRegistry | default .Values.imageRenderer.image.registry -}}
           {{- if .Values.imageRenderer.image.sha }}
           image: "{{ $registry }}/{{ .Values.imageRenderer.image.repository }}:{{ .Values.imageRenderer.image.tag }}@sha256:{{ .Values.imageRenderer.image.sha }}"
           {{- else }}
@@ -116,9 +132,21 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      {{- with .Values.imageRenderer.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imageRenderer.affinity }}
+      affinity:
+        {{- tpl (toYaml .) $root | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imageRenderer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: image-renderer-tmpfs
-          emptyDir: { }
+          emptyDir: {}
         {{- range .Values.imageRenderer.extraConfigmapMounts }}
         - name: {{ tpl .name $root }}
           configMap:
@@ -166,7 +194,7 @@ spec:
           emptyDir:
             {{- toYaml .emptyDir | nindent 12 }}
           {{- else }}
-          emptyDir: { }
+          emptyDir: {}
           {{- end }}
         {{- end }}
 {{- end }}

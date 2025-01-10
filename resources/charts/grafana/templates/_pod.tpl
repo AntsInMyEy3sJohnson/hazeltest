@@ -1,18 +1,64 @@
 {{- define "grafana.pod" -}}
 {{- $sts := list "sts" "StatefulSet" "statefulset" -}}
 {{- $root := . -}}
+{{- with .Values.schedulerName }}
+schedulerName: "{{ . }}"
+{{- end }}
 serviceAccountName: {{ include "grafana.serviceAccountName" . }}
 automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
 {{- with .Values.securityContext }}
 securityContext:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- if ( or .Values.dashboards (and .Values.sidecar.alerts.enabled .Values.sidecar.alerts.initAlerts) (and .Values.sidecar.datasources.enabled .Values.sidecar.datasources.initDatasources) (and .Values.sidecar.notifiers.enabled .Values.sidecar.notifiers.initNotifiers)) }}
+{{- with .Values.hostAliases }}
+hostAliases:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- if .Values.dnsPolicy }}
+dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
+{{- with .Values.dnsConfig }}
+dnsConfig:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.priorityClassName }}
+priorityClassName: {{ . }}
+{{- end }}
+{{- if ( or .Values.persistence.enabled .Values.dashboards .Values.extraInitContainers (and .Values.sidecar.alerts.enabled .Values.sidecar.alerts.initAlerts) (and .Values.sidecar.datasources.enabled .Values.sidecar.datasources.initDatasources) (and .Values.sidecar.notifiers.enabled .Values.sidecar.notifiers.initNotifiers)) }}
 initContainers:
+{{- end }}
+{{- if ( and .Values.persistence.enabled .Values.initChownData.enabled ) }}
+  - name: init-chown-data
+    {{- $registry := .Values.global.imageRegistry | default .Values.initChownData.image.registry -}}
+    {{- if .Values.initChownData.image.sha }}
+    image: "{{ $registry }}/{{ .Values.initChownData.image.repository }}:{{ .Values.initChownData.image.tag }}@sha256:{{ .Values.initChownData.image.sha }}"
+    {{- else }}
+    image: "{{ $registry }}/{{ .Values.initChownData.image.repository }}:{{ .Values.initChownData.image.tag }}"
+    {{- end }}
+    imagePullPolicy: {{ .Values.initChownData.image.pullPolicy }}
+    {{- with .Values.initChownData.securityContext }}
+    securityContext:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    command:
+      - chown
+      - -R
+      - {{ .Values.securityContext.runAsUser }}:{{ .Values.securityContext.runAsGroup }}
+      - /var/lib/grafana
+    {{- with .Values.initChownData.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    volumeMounts:
+      - name: storage
+        mountPath: "/var/lib/grafana"
+        {{- with .Values.persistence.subPath }}
+        subPath: {{ tpl . $root }}
+        {{- end }}
 {{- end }}
 {{- if .Values.dashboards }}
   - name: download-dashboards
-    {{- $registry := .Values.downloadDashboardsImage.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.downloadDashboardsImage.registry -}}
     {{- if .Values.downloadDashboardsImage.sha }}
     image: "{{ $registry }}/{{ .Values.downloadDashboardsImage.repository }}:{{ .Values.downloadDashboardsImage.tag }}@sha256:{{ .Values.downloadDashboardsImage.sha }}"
     {{- else }}
@@ -39,10 +85,20 @@ initContainers:
     securityContext:
       {{- toYaml . | nindent 6 }}
     {{- end }}
+    {{- with .Values.downloadDashboards.envFromSecret }}
+    envFrom:
+      - secretRef:
+          name: {{ tpl . $root }}
+    {{- end }}
     volumeMounts:
       - name: config
         mountPath: "/etc/grafana/download_dashboards.sh"
         subPath: download_dashboards.sh
+      - name: storage
+        mountPath: "/var/lib/grafana"
+        {{- with .Values.persistence.subPath }}
+        subPath: {{ tpl . $root }}
+        {{- end }}
       {{- range .Values.extraSecretMounts }}
       - name: {{ .name }}
         mountPath: {{ .mountPath }}
@@ -51,7 +107,7 @@ initContainers:
 {{- end }}
 {{- if and .Values.sidecar.alerts.enabled .Values.sidecar.alerts.initAlerts }}
   - name: {{ include "grafana.name" . }}-init-sc-alerts
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -124,7 +180,7 @@ initContainers:
 {{- end }}
 {{- if and .Values.sidecar.datasources.enabled .Values.sidecar.datasources.initDatasources }}
   - name: {{ include "grafana.name" . }}-init-sc-datasources
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -187,7 +243,7 @@ initContainers:
 {{- end }}
 {{- if and .Values.sidecar.notifiers.enabled .Values.sidecar.notifiers.initNotifiers }}
   - name: {{ include "grafana.name" . }}-init-sc-notifiers
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -251,13 +307,20 @@ initContainers:
       - name: sc-notifiers-volume
         mountPath: "/etc/grafana/provisioning/notifiers"
 {{- end}}
+{{- with .Values.extraInitContainers }}
+  {{- tpl (toYaml .) $root | nindent 2 }}
+{{- end }}
+{{- if or .Values.image.pullSecrets .Values.global.imagePullSecrets }}
+imagePullSecrets:
+  {{- include "grafana.imagePullSecrets" (dict "root" $root "imagePullSecrets" .Values.image.pullSecrets) | nindent 2 }}
+{{- end }}
 {{- if not .Values.enableKubeBackwardCompatibility }}
 enableServiceLinks: {{ .Values.enableServiceLinks }}
 {{- end }}
 containers:
 {{- if and .Values.sidecar.alerts.enabled (not .Values.sidecar.alerts.initAlerts) }}
   - name: {{ include "grafana.name" . }}-sc-alerts
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -309,14 +372,14 @@ containers:
       - name: REQ_USERNAME
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: REQ_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       {{- if not .Values.sidecar.alerts.skipReload }}
@@ -376,7 +439,7 @@ containers:
 {{- end}}
 {{- if .Values.sidecar.dashboards.enabled }}
   - name: {{ include "grafana.name" . }}-sc-dashboard
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -438,14 +501,14 @@ containers:
       - name: REQ_USERNAME
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: REQ_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       - name: REQ_URL
@@ -504,7 +567,7 @@ containers:
 {{- end}}
 {{- if and .Values.sidecar.datasources.enabled (not .Values.sidecar.datasources.initDatasources) }}
   - name: {{ include "grafana.name" . }}-sc-datasources
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -561,14 +624,14 @@ containers:
       - name: REQ_USERNAME
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: REQ_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       {{- if not .Values.sidecar.datasources.skipReload }}
@@ -628,7 +691,7 @@ containers:
 {{- end}}
 {{- if .Values.sidecar.notifiers.enabled }}
   - name: {{ include "grafana.name" . }}-sc-notifiers
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -680,14 +743,14 @@ containers:
       - name: REQ_USERNAME
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: REQ_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       {{- if not .Values.sidecar.notifiers.skipReload }}
@@ -747,7 +810,7 @@ containers:
 {{- end}}
 {{- if .Values.sidecar.plugins.enabled }}
   - name: {{ include "grafana.name" . }}-sc-plugins
-    {{- $registry := .Values.sidecar.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.sidecar.image.registry -}}
     {{- if .Values.sidecar.image.sha }}
     image: "{{ $registry }}/{{ .Values.sidecar.image.repository }}:{{ .Values.sidecar.image.tag }}@sha256:{{ .Values.sidecar.image.sha }}"
     {{- else }}
@@ -799,14 +862,14 @@ containers:
       - name: REQ_USERNAME
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: REQ_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       {{- if not .Values.sidecar.plugins.skipReload }}
@@ -865,13 +928,25 @@ containers:
       {{- end }}
 {{- end}}
   - name: {{ .Chart.Name }}
-    {{- $registry := .Values.image.registry -}}
+    {{- $registry := .Values.global.imageRegistry | default .Values.image.registry -}}
     {{- if .Values.image.sha }}
     image: "{{ $registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}@sha256:{{ .Values.image.sha }}"
     {{- else }}
     image: "{{ $registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
     {{- end }}
     imagePullPolicy: {{ .Values.image.pullPolicy }}
+    {{- if .Values.command }}
+    command:
+    {{- range .Values.command }}
+      - {{ . | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.args }}
+    args:
+    {{- range .Values.args }}
+      - {{ . | quote }}
+    {{- end }}
+    {{- end }}
     {{- with .Values.containerSecurityContext }}
     securityContext:
       {{- toYaml . | nindent 6 }}
@@ -891,6 +966,11 @@ containers:
         subPath: {{ tpl (.subPath | default "") $root }}
         readOnly: {{ .readOnly }}
       {{- end }}
+      - name: storage
+        mountPath: "/var/lib/grafana"
+        {{- with .Values.persistence.subPath }}
+        subPath: {{ tpl . $root }}
+        {{- end }}
       {{- with .Values.dashboards }}
       {{- range $provider, $dashboards := . }}
       {{- range $key, $value := $dashboards }}
@@ -1020,14 +1100,14 @@ containers:
       - name: GF_SECURITY_ADMIN_USER
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.userKey | default "admin-user" }}
       {{- end }}
       {{- if and (not .Values.env.GF_SECURITY_ADMIN_PASSWORD) (not .Values.env.GF_SECURITY_ADMIN_PASSWORD__FILE) (not .Values.env.GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION) }}
       - name: GF_SECURITY_ADMIN_PASSWORD
         valueFrom:
           secretKeyRef:
-            name: {{ include "grafana.fullname" . }}
+            name: {{ (tpl .Values.admin.existingSecret .) | default (include "grafana.fullname" .) }}
             key: {{ .Values.admin.passwordKey | default "admin-password" }}
       {{- end }}
       {{- if .Values.plugins }}
@@ -1036,6 +1116,18 @@ containers:
           configMapKeyRef:
             name: {{ include "grafana.fullname" . }}
             key: plugins
+      {{- end }}
+      {{- if .Values.smtp.existingSecret }}
+      - name: GF_SMTP_USER
+        valueFrom:
+          secretKeyRef:
+            name: {{ .Values.smtp.existingSecret }}
+            key: {{ .Values.smtp.userKey | default "user" }}
+      - name: GF_SMTP_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ .Values.smtp.existingSecret }}
+            key: {{ .Values.smtp.passwordKey | default "password" }}
       {{- end }}
       {{- if .Values.imageRenderer.enabled }}
       - name: GF_RENDERING_SERVER_URL
@@ -1068,11 +1160,23 @@ containers:
       - name: "{{ tpl $key $ }}"
         value: "{{ tpl (print $value) $ }}"
       {{- end }}
-    {{- if or .Values.envRenderSecret .Values.envFromConfigMaps }}
+    {{- if or .Values.envFromSecret (or .Values.envRenderSecret .Values.envFromSecrets) .Values.envFromConfigMaps }}
     envFrom:
+      {{- if .Values.envFromSecret }}
+      - secretRef:
+          name: {{ tpl .Values.envFromSecret . }}
+      {{- end }}
       {{- if .Values.envRenderSecret }}
       - secretRef:
           name: {{ include "grafana.fullname" . }}-env
+      {{- end }}
+      {{- range .Values.envFromSecrets }}
+      - secretRef:
+          name: {{ tpl .name $ }}
+          optional: {{ .optional | default false }}
+        {{- if .prefix }}
+        prefix: {{ tpl .prefix $ }}
+        {{- end }}
       {{- end }}
       {{- range .Values.envFromConfigMaps }}
       - configMapRef:
@@ -1099,6 +1203,25 @@ containers:
     resources:
       {{- toYaml . | nindent 6 }}
     {{- end }}
+{{- with .Values.extraContainers }}
+  {{- tpl . $ | nindent 2 }}
+{{- end }}
+{{- with .Values.nodeSelector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.affinity }}
+affinity:
+  {{- tpl (toYaml .) $root | nindent 2 }}
+{{- end }}
+{{- with .Values.topologySpreadConstraints }}
+topologySpreadConstraints:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 volumes:
   - name: config
     configMap:
@@ -1138,10 +1261,32 @@ volumes:
   {{- if .Values.ldap.enabled }}
   - name: ldap
     secret:
+      {{- if .Values.ldap.existingSecret }}
+      secretName: {{ .Values.ldap.existingSecret }}
+      {{- else }}
       secretName: {{ include "grafana.fullname" . }}
+      {{- end }}
       items:
         - key: ldap-toml
           path: ldap.toml
+  {{- end }}
+  {{- if and .Values.persistence.enabled (eq .Values.persistence.type "pvc") }}
+  - name: storage
+    persistentVolumeClaim:
+      claimName: {{ tpl (.Values.persistence.existingClaim | default (include "grafana.fullname" .)) . }}
+  {{- else if and .Values.persistence.enabled (has .Values.persistence.type $sts) }}
+  {{/* nothing */}}
+  {{- else }}
+  - name: storage
+    {{- if .Values.persistence.inMemory.enabled }}
+    emptyDir:
+      medium: Memory
+      {{- with .Values.persistence.inMemory.sizeLimit }}
+      sizeLimit: {{ . }}
+      {{- end }}
+    {{- else }}
+    emptyDir: {}
+    {{- end }}
   {{- end }}
   {{- if .Values.sidecar.alerts.enabled }}
   - name: sc-alerts-volume
@@ -1240,5 +1385,8 @@ volumes:
   {{- range .Values.extraEmptyDirMounts }}
   - name: {{ .name }}
     emptyDir: {}
+  {{- end }}
+  {{- with .Values.extraContainerVolumes }}
+  {{- tpl (toYaml .) $root | nindent 2 }}
   {{- end }}
 {{- end }}

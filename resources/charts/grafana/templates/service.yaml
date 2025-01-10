@@ -22,8 +22,24 @@ spec:
   {{- end }}
   {{- else if eq .Values.service.type "LoadBalancer" }}
   type: LoadBalancer
+  {{- with .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerClass }}
+  loadBalancerClass: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- else }}
   type: {{ .Values.service.type }}
+  {{- end }}
+  {{- if .Values.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.service.ipFamilies }}
+  ipFamilies: {{ .Values.service.ipFamilies | toYaml | nindent 2 }}
   {{- end }}
   {{- with .Values.service.externalIPs }}
   externalIPs:
@@ -37,8 +53,14 @@ spec:
       port: {{ .Values.service.port }}
       protocol: TCP
       targetPort: {{ .Values.service.targetPort }}
+      {{- with .Values.service.appProtocol }}
+      appProtocol: {{ . }}
+      {{- end }}
       {{- if (and (eq .Values.service.type "NodePort") (not (empty .Values.service.nodePort))) }}
       nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+      {{- with .Values.extraExposePorts }}
+      {{- tpl (toYaml . | nindent 4) $root }}
       {{- end }}
   selector:
     {{- include "grafana.selectorLabels" . | nindent 4 }}
