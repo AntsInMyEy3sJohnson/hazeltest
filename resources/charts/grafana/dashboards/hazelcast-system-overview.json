@@ -826,7 +826,7 @@
             "h": 8,
             "w": 9,
             "x": 0,
-            "y": 15
+            "y": 114
           },
           "id": 1,
           "options": {
@@ -884,7 +884,7 @@
             "h": 8,
             "w": 8,
             "x": 9,
-            "y": 15
+            "y": 114
           },
           "id": 11,
           "options": {
@@ -945,7 +945,7 @@
             "h": 8,
             "w": 7,
             "x": 17,
-            "y": 15
+            "y": 114
           },
           "id": 13,
           "options": {
@@ -1046,7 +1046,7 @@
             "h": 6,
             "w": 9,
             "x": 0,
-            "y": 23
+            "y": 122
           },
           "id": 14,
           "options": {
@@ -1178,7 +1178,7 @@
             "h": 6,
             "w": 8,
             "x": 9,
-            "y": 23
+            "y": 122
           },
           "id": 15,
           "options": {
@@ -1284,7 +1284,7 @@
             "h": 6,
             "w": 7,
             "x": 17,
-            "y": 23
+            "y": 122
           },
           "id": 16,
           "options": {
@@ -3224,7 +3224,7 @@
               }
             ]
           },
-          "unit": "none"
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -3234,7 +3234,7 @@
         "x": 6,
         "y": 50
       },
-      "id": 38,
+      "id": 41,
       "options": {
         "legend": {
           "calcs": [],
@@ -3251,13 +3251,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (tag0)(topk(100, rate(com_hazelcast_Metrics_putCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
+          "expr": "avg by (tag0)(rate(com_hazelcast_Metrics_totalPutLatency{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval]) / on(tag0, pod_name) rate(com_hazelcast_Metrics_PutCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval]))",
           "legendFormat": "{{ tag0 }}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Map Put Count By Map, Top 100",
+      "title": "Average Put Latency",
       "type": "timeseries"
     },
     {
