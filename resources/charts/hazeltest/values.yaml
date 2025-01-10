@@ -47,7 +47,7 @@ config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
   chaosMonkeys:
     memberKiller:
-      enabled: true
+      enabled: false
       numRuns: 100
       chaosProbability: 0.5
       memberAccess:
