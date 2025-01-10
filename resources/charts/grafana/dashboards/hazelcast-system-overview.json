@@ -752,7 +752,7 @@
       "type": "timeseries"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -760,599 +760,598 @@
         "y": 14
       },
       "id": 6,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 9,
-            "x": 0,
-            "y": 114
-          },
-          "id": 1,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "System CPU Load",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "mappings": [],
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 9,
-            "y": 114
-          },
-          "id": 11,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Free Memory (Heap)",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "mappings": [],
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 7,
-            "x": 17,
-            "y": 114
-          },
-          "id": 13,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Free Memory (Native)",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 9,
-            "x": 0,
-            "y": 122
-          },
-          "id": 14,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "legendFormat": "{{pod_name}} used",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} free",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "legendFormat": "{{pod_name}} committed",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} max",
-              "range": true,
-              "refId": "C"
-            }
-          ],
-          "title": "Memory Usage (Heap): Used, Free, Max",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 8,
-            "x": 9,
-            "y": 122
-          },
-          "id": 15,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
-              "legendFormat": "{{pod_name}} minor",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
-              "hide": false,
-              "legendFormat": "{{pod_name}} major",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Garbage Collections (Major, Minor)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 7,
-            "x": 17,
-            "y": 122
-          },
-          "id": 16,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "legendFormat": "{{pod_name}} used",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "legendFormat": "{{pod_name}} free",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} committed",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} max",
-              "range": true,
-              "refId": "C"
-            }
-          ],
-          "title": "Memory Usage (Native): Used, Free, Committed, Max",
-          "type": "timeseries"
-        }
-      ],
+      "panels": [],
       "title": "Per-Member System Statistics",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 0,
+        "y": 15
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "System CPU Load",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 9,
+        "y": 15
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Heap)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 17,
+        "y": 15
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Native)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 0,
+        "y": 23
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "legendFormat": "{{pod_name}} used",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} free",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "legendFormat": "{{pod_name}} committed",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} max",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Memory Usage (Heap): Used, Free, Max",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 9,
+        "y": 23
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
+          "legendFormat": "{{pod_name}} minor",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
+          "hide": false,
+          "legendFormat": "{{pod_name}} major",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Garbage Collections (Major, Minor)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 7,
+        "x": 17,
+        "y": 23
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "legendFormat": "{{pod_name}} used",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "legendFormat": "{{pod_name}} free",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} committed",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} max",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Memory Usage (Native): Used, Free, Committed, Max",
+      "type": "timeseries"
     },
     {
       "collapsed": false,
@@ -1360,7 +1359,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 29
       },
       "id": 17,
       "panels": [],
@@ -1433,7 +1432,7 @@
         "h": 6,
         "w": 7,
         "x": 0,
-        "y": 16
+        "y": 30
       },
       "id": 18,
       "options": {
@@ -1453,7 +1452,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(com_hazelcast_Metrics_ownedEntryCount{kubernetes_namespace=\"$kubernetes_namespace\"}))+sum(sum by (tag0)(com_hazelcast_Metrics_backupEntryCount{kubernetes_namespace=\"$kubernetes_namespace\"}))",
-          "legendFormat": "Number Of Map Entries",
+          "legendFormat": "number of map entries",
           "range": true,
           "refId": "A"
         }
@@ -1527,7 +1526,7 @@
         "h": 6,
         "w": 8,
         "x": 7,
-        "y": 16
+        "y": 30
       },
       "id": 19,
       "options": {
@@ -1621,7 +1620,7 @@
         "h": 6,
         "w": 9,
         "x": 15,
-        "y": 16
+        "y": 30
       },
       "id": 20,
       "options": {
@@ -1715,7 +1714,7 @@
         "h": 6,
         "w": 7,
         "x": 0,
-        "y": 22
+        "y": 36
       },
       "id": 21,
       "options": {
@@ -1735,7 +1734,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(com_hazelcast_Metrics_ownedEntryMemoryCost{kubernetes_namespace=\"$kubernetes_namespace\"}))+sum(sum by (tag0)(com_hazelcast_Metrics_backupEntryMemoryCost{kubernetes_namespace=\"$kubernetes_namespace\"}))",
-          "legendFormat": "Memory Cost",
+          "legendFormat": "memory cost",
           "range": true,
           "refId": "A"
         }
@@ -1809,7 +1808,7 @@
         "h": 6,
         "w": 8,
         "x": 7,
-        "y": 22
+        "y": 36
       },
       "id": 22,
       "options": {
@@ -1903,7 +1902,7 @@
         "h": 6,
         "w": 9,
         "x": 15,
-        "y": 22
+        "y": 36
       },
       "id": 23,
       "options": {
@@ -1997,7 +1996,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 28
+        "y": 42
       },
       "id": 25,
       "options": {
@@ -2091,7 +2090,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 28
+        "y": 42
       },
       "id": 24,
       "options": {
@@ -2185,7 +2184,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 28
+        "y": 42
       },
       "id": 26,
       "options": {
@@ -2279,7 +2278,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 28
+        "y": 42
       },
       "id": 27,
       "options": {
@@ -2373,7 +2372,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 34
+        "y": 48
       },
       "id": 29,
       "options": {
@@ -2393,7 +2392,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(rate(com_hazelcast_Metrics_setCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
-          "legendFormat": "Set Count",
+          "legendFormat": "set count",
           "range": true,
           "refId": "A"
         }
@@ -2467,7 +2466,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 34
+        "y": 48
       },
       "id": 30,
       "options": {
@@ -2487,7 +2486,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(rate(com_hazelcast_Metrics_putCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
-          "legendFormat": "Put Count",
+          "legendFormat": "put count",
           "range": true,
           "refId": "A"
         }
@@ -2561,7 +2560,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 34
+        "y": 48
       },
       "id": 31,
       "options": {
@@ -2581,7 +2580,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(rate(com_hazelcast_Metrics_getCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
-          "legendFormat": "Get Count",
+          "legendFormat": "get count",
           "range": true,
           "refId": "A"
         }
@@ -2655,7 +2654,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 34
+        "y": 48
       },
       "id": 32,
       "options": {
@@ -2675,7 +2674,7 @@
         {
           "editorMode": "code",
           "expr": "sum(sum by (tag0)(rate(com_hazelcast_Metrics_removeCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
-          "legendFormat": "Remove Count",
+          "legendFormat": "remove count",
           "range": true,
           "refId": "A"
         }
@@ -2689,7 +2688,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 55
       },
       "id": 28,
       "panels": [],
@@ -2762,7 +2761,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 42
+        "y": 56
       },
       "id": 33,
       "options": {
@@ -2856,7 +2855,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 42
+        "y": 56
       },
       "id": 35,
       "options": {
@@ -2950,7 +2949,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 42
+        "y": 56
       },
       "id": 37,
       "options": {
@@ -3044,7 +3043,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 42
+        "y": 56
       },
       "id": 39,
       "options": {
@@ -3138,7 +3137,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 50
+        "y": 64
       },
       "id": 34,
       "options": {
@@ -3232,7 +3231,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 50
+        "y": 64
       },
       "id": 41,
       "options": {
@@ -3326,7 +3325,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 50
+        "y": 64
       },
       "id": 36,
       "options": {
@@ -3420,7 +3419,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 50
+        "y": 64
       },
       "id": 40,
       "options": {
@@ -3446,6 +3445,113 @@
         }
       ],
       "title": "Average Remove Latency",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "id": 42,
+      "panels": [],
+      "title": "Queues Overview",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(sum by (tag0)(com_hazelcast_Metrics_ownedItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))",
+          "legendFormat": "number of owned items",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Total Owned Items",
       "type": "timeseries"
     }
   ],
