@@ -109,7 +109,7 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"hazelcastplatform\"}",
+          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
           "legendFormat": "{{pod_name}}",
           "range": true,
           "refId": "A"
@@ -123,7 +123,26 @@
   "schemaVersion": 40,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "text": "hazelcastplatform",
+          "value": "hazelcastplatform"
+        },
+        "definition": "label_values(kubernetes_namespace)",
+        "label": "kubernetes_namespace",
+        "name": "kubernetes_namespace",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(kubernetes_namespace)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-15m",
