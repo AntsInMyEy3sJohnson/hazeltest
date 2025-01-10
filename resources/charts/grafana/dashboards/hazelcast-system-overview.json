@@ -44,6 +44,9 @@
           "color": {
             "mode": "thresholds"
           },
+          "custom": {
+            "neutral": 4
+          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -51,6 +54,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 60
               },
               {
                 "color": "red",
@@ -72,7 +79,7 @@
       "options": {
         "minVizHeight": 75,
         "minVizWidth": 75,
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -80,7 +87,7 @@
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
+        "showThresholdLabels": true,
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
@@ -754,7 +761,7 @@
       },
       "id": 6,
       "panels": [],
-      "title": "Per-Member Statistics",
+      "title": "Per-Member System Statistics",
       "type": "row"
     },
     {
@@ -871,7 +878,8 @@
               "viz": false
             }
           },
-          "mappings": []
+          "mappings": [],
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -931,7 +939,8 @@
               "viz": false
             }
           },
-          "mappings": []
+          "mappings": [],
+          "unit": "bytes"
         },
         "overrides": []
       },
