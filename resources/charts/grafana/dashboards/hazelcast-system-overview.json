@@ -109,8 +109,8 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_systemCpuLoad{namespace=\"hazelcastplatform\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"hazelcastplatform\"}",
+          "legendFormat": "{{pod_name}}",
           "range": true,
           "refId": "A"
         }
@@ -133,6 +133,6 @@
   "timezone": "browser",
   "title": "Hazelcast",
   "uid": "ce9jtnbodkk5cc",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
