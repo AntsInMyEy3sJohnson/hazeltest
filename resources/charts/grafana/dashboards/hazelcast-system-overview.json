@@ -810,8 +810,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -826,7 +825,7 @@
             "h": 8,
             "w": 9,
             "x": 0,
-            "y": 236
+            "y": 268
           },
           "id": 1,
           "options": {
@@ -884,7 +883,7 @@
             "h": 8,
             "w": 8,
             "x": 9,
-            "y": 236
+            "y": 268
           },
           "id": 11,
           "options": {
@@ -945,7 +944,7 @@
             "h": 8,
             "w": 7,
             "x": 17,
-            "y": 236
+            "y": 268
           },
           "id": 13,
           "options": {
@@ -1029,8 +1028,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1046,7 +1044,7 @@
             "h": 6,
             "w": 9,
             "x": 0,
-            "y": 244
+            "y": 276
           },
           "id": 14,
           "options": {
@@ -1161,8 +1159,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1178,7 +1175,7 @@
             "h": 6,
             "w": 8,
             "x": 9,
-            "y": 244
+            "y": 276
           },
           "id": 15,
           "options": {
@@ -1267,8 +1264,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1284,7 +1280,7 @@
             "h": 6,
             "w": 7,
             "x": 17,
-            "y": 244
+            "y": 276
           },
           "id": 16,
           "options": {
@@ -2684,7 +2680,7 @@
       "type": "timeseries"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -2760,7 +2756,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 6,
         "x": 0,
         "y": 42
       },
@@ -2782,12 +2778,106 @@
         {
           "editorMode": "code",
           "expr": "sum by (tag0)(topk(100, rate(com_hazelcast_Metrics_setCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval])))",
-          "legendFormat": "tag0",
+          "legendFormat": "{{ tag0 }}",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "Map Set Count By Map, Top 100",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 50
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "avg by (tag0)(rate(com_hazelcast_Metrics_totalSetLatency{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval]) / on(tag0, pod_name) rate(com_hazelcast_Metrics_setCount{kubernetes_namespace=\"$kubernetes_namespace\", tag0!~\"\\\"name=__sql.*\", tag0!~\"\\\"name=__jet.*\"}[$__rate_interval]))",
+          "legendFormat": "{{ tag0 }}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Average Set Latency",
       "type": "timeseries"
     }
   ],
