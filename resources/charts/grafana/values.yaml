@@ -139,7 +139,7 @@ dnsConfig: { }
   # nameservers:
   #   - 8.8.8.8
   #   options:
-  #   - name: ndots
+#   - name: ndots
 #     value: "2"
 #   - name: edns0
 
@@ -166,7 +166,7 @@ extraConfigmapMounts: [ ]
   # - name: certs-configmap
   #   mountPath: /etc/grafana/ssl/
   #   subPath: certificates.crt # (optional)
-  #   configMap: certs-configmap
+#   configMap: certs-configmap
 #   readOnly: true
 #   optional: false
 
@@ -264,13 +264,13 @@ serviceMonitor:
   targetLabels: [ ]
 
 extraExposePorts: [ ]
-  # - name: keycloak
+# - name: keycloak
 #   port: 8080
 #   targetPort: 8080
 
 # overrides pod.spec.hostAliases in the grafana deployment's pods
 hostAliases: [ ]
-  # - ip: "1.2.3.4"
+# - ip: "1.2.3.4"
 #   hostnames:
 #     - "my.host.com"
 
@@ -348,13 +348,13 @@ route:
     ## Additional custom rules that can be added to the route
     additionalRules: [ ]
 
-resources: { }
-#  limits:
-#    cpu: 100m
-#    memory: 128Mi
-#  requests:
-#    cpu: 100m
-#    memory: 128Mi
+resources:
+  limits:
+    cpu: 8
+    memory: 16Gi
+  requests:
+    cpu: 4
+    memory: 10Gi
 
 ## Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -539,7 +539,7 @@ env: { }
 ##         <value rendered as YAML>
 envValueFrom: { }
   #  ENV_NAME:
-  #    configMapKeyRef:
+#    configMapKeyRef:
 #      name: configmap-name
 #      key: value_key
 
@@ -604,7 +604,7 @@ extraSecretMounts: [ ]
   #    driver: secrets-store.csi.k8s.io
   #    readOnly: true
   #    volumeAttributes:
-  #      secretProviderClass: "akv-grafana-spc"
+#      secretProviderClass: "akv-grafana-spc"
 #    nodePublishSecretRef:                       # Only required when using service principal mode
 #       name: grafana-akv-creds                  # Only required when using service principal mode
 
@@ -616,7 +616,7 @@ extraVolumeMounts: [ ]
   #   readOnly: true
   # - name: extra-volume-1
   #   mountPath: /mnt/volume1
-  #   readOnly: true
+#   readOnly: true
 # - name: grafana-secrets
 #   mountPath: /mnt/volume2
 
@@ -631,13 +631,13 @@ extraVolumes: [ ]
   # - name: grafana-secrets
   #   csi:
   #     driver: secrets-store.csi.k8s.io
-  #     readOnly: true
+#     readOnly: true
 #     volumeAttributes:
 #       secretProviderClass: "grafana-env-spc"
 
 ## Container Lifecycle Hooks. Execute a specific bash command or make an HTTP request
 lifecycleHooks: { }
-  # postStart:
+# postStart:
 #   exec:
 #     command: []
 
@@ -646,7 +646,7 @@ lifecycleHooks: { }
 plugins: [ ]
   # - digrich-bubblechart-panel
   # - grafana-clock-panel
-  ## You can also use other plugin download URL, as long as they are valid zip files,
+## You can also use other plugin download URL, as long as they are valid zip files,
 ## and specify the name of the plugin after the semicolon. Like this:
 # - https://grafana.com/api/plugins/marcusolsson-json-datasource/versions/1.3.2/download;marcusolsson-json-datasource
 
@@ -763,7 +763,7 @@ alerting: { }
   #   apiVersion: 1
   #   muteTimes:
   #     - orgId: 1
-  #       name: mti_1
+#       name: mti_1
 #       # refer to https://prometheus.io/docs/alerting/latest/configuration/#time_interval-0
 #       time_intervals: {}
 
@@ -870,7 +870,7 @@ grafana.ini:
     url: https://grafana.net
   server:
     domain: "{{ if (and .Values.ingress.enabled .Values.ingress.hosts) }}{{ tpl (.Values.ingress.hosts | first) . }}{{ else }}''{{ end }}"
-      ## grafana Authentication can be enabled with the following values on grafana.ini
+    ## grafana Authentication can be enabled with the following values on grafana.ini
     # server:
     # The full public facing url you use in browser, used for redirects and emails
   #    root_url:
@@ -1359,7 +1359,7 @@ imageRenderer:
   ##         <value rendered as YAML>
   envValueFrom: { }
     #  ENV_NAME:
-    #    configMapKeyRef:
+  #    configMapKeyRef:
   #      name: configmap-name
   #      key: value_key
 
@@ -1539,7 +1539,7 @@ extraObjects: [ ]
   #     name: grafana-secrets
   #   spec:
   #     backendType: gcpSecretsManager
-  #     data:
+#     data:
 #       - key: grafana-admin-password
 #         name: adminPassword
 
