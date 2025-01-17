@@ -48,31 +48,19 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
+            "axisLabel": "Number Of Items",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -97,40 +85,48 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 11,
+        "h": 5,
         "w": 8,
         "x": 0,
         "y": 1
       },
-      "id": 1,
+      "id": 25,
       "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom",
+          "placement": "right",
           "showLegend": true
         },
+        "orientation": "auto",
+        "showValue": "always",
+        "stacking": "none",
         "tooltip": {
           "mode": "single",
           "sort": "none"
-        }
+        },
+        "xField": "Time",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "11.4.0",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
           "editorMode": "code",
-          "expr": "sum(sum by (tag0)(com_hazelcast_Metrics_ownedItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))+sum(sum by (tag0)(com_hazelcast_Metrics_backupItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))",
-          "legendFormat": "number of owned items",
-          "range": true,
+          "exemplar": false,
+          "expr": "sum by (tag0)(topk(100, com_hazelcast_Metrics_ownedItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))",
+          "instant": true,
+          "legendFormat": "{{tag0}}",
+          "range": false,
           "refId": "A"
         }
       ],
-      "title": "Owned Items (Total; Primary+Backup)",
-      "type": "timeseries"
+      "title": "Number Of Owned Items By Queue (Snapshot)",
+      "type": "barchart"
     },
     {
       "datasource": {
@@ -318,6 +314,104 @@
         }
       ],
       "title": "Backup Items (Per Queue, Top 100)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "sum(sum by (tag0)(com_hazelcast_Metrics_ownedItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))+sum(sum by (tag0)(com_hazelcast_Metrics_backupItemCount{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"queue\"}))",
+          "legendFormat": "number of owned items",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Owned Items (Total; Primary+Backup)",
       "type": "timeseries"
     },
     {
@@ -593,13 +687,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_averageAge{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "expr": "avg by (tag0)(com_hazelcast_Metrics_averageAge{kubernetes_namespace=\"$kubernetes_namespace\"})",
           "legendFormat": "{{tag0}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Average Age Of Items Per Queue",
+      "title": "Average Age Of Items By Queue",
       "type": "timeseries"
     },
     {
@@ -693,7 +787,7 @@
           "refId": "A"
         }
       ],
-      "title": "Average Age Of Items Per Queue By Member",
+      "title": "Average Age Of Items By Member",
       "type": "timeseries"
     },
     {
