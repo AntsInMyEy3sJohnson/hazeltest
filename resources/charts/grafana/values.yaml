@@ -598,7 +598,7 @@ extraSecretMounts: [ ]
   #
   # for CSI e.g. Azure Key Vault use the following
   # - name: secrets-store-inline
-  #  mountPath: /run/secrets
+#  mountPath: /run/secrets
 #  readOnly: true
 #  csi:
 #    driver: secrets-store.csi.k8s.io
@@ -625,7 +625,7 @@ extraVolumes: [ ]
   # - name: extra-volume-0
   #   existingClaim: volume-claim
   # - name: extra-volume-1
-  #   hostPath:
+#   hostPath:
 #     path: /usr/shared/
 #     type: ""
 # - name: grafana-secrets
@@ -757,7 +757,7 @@ alerting: { }
   #         {{ define "my_first_template" }}
   #         Custom notification message
   #         {{ end }}
-  #         ` }}
+#         ` }}
 #
 # mutetimes.yaml
 #   apiVersion: 1
@@ -815,6 +815,8 @@ dashboards:
       file: dashboards/hazelcast-system-overview.json
     hazelcast-maps:
       file: dashboards/hazelcast-maps.json
+    hazelcast-queues:
+      file: dashboards/hazelcast-queues.json
 
 ## Reference to external ConfigMap per provider. Use provider name as key and ConfigMap name as value.
 ## A provider dashboards must be defined either by external ConfigMaps or in values.yaml, not in both.
@@ -1508,7 +1510,7 @@ enableKubeBackwardCompatibility: false
 useStatefulSet: false
 # Create a dynamic manifests via values:
 extraObjects: [ ]
-  # - apiVersion: "kubernetes-client.io/v1"
+# - apiVersion: "kubernetes-client.io/v1"
 #   kind: ExternalSecret
 #   metadata:
 #     name: grafana-secrets
