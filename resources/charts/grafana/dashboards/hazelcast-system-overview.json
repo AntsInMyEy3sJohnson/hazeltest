@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 3,
   "links": [],
   "panels": [
     {
@@ -70,7 +70,7 @@
             "h": 7,
             "w": 6,
             "x": 0,
-            "y": 2
+            "y": 9
           },
           "id": 12,
           "options": {
@@ -167,7 +167,7 @@
             "h": 7,
             "w": 6,
             "x": 6,
-            "y": 2
+            "y": 9
           },
           "id": 8,
           "options": {
@@ -299,7 +299,7 @@
             "h": 7,
             "w": 6,
             "x": 12,
-            "y": 2
+            "y": 9
           },
           "id": 10,
           "options": {
@@ -405,7 +405,7 @@
             "h": 7,
             "w": 6,
             "x": 18,
-            "y": 2
+            "y": 9
           },
           "id": 9,
           "options": {
@@ -535,7 +535,7 @@
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 41
+            "y": 62
           },
           "id": 4,
           "options": {
@@ -628,7 +628,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 41
+            "y": 62
           },
           "id": 2,
           "options": {
@@ -720,7 +720,7 @@
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 41
+            "y": 62
           },
           "id": 3,
           "options": {
@@ -753,7 +753,7 @@
       "type": "row"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -761,599 +761,692 @@
         "y": 1
       },
       "id": 6,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 9,
-            "x": 0,
-            "y": 3
-          },
-          "id": 1,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "System CPU Load",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "mappings": [],
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 9,
-            "y": 3
-          },
-          "id": 11,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Free Memory (Heap)",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "mappings": [],
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 7,
-            "x": 17,
-            "y": 3
-          },
-          "id": 13,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
-              "legendFormat": "{{pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Free Memory (Native)",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 9,
-            "x": 0,
-            "y": 43
-          },
-          "id": 14,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "legendFormat": "{{pod_name}} used",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} free",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "legendFormat": "{{pod_name}} committed",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} max",
-              "range": true,
-              "refId": "C"
-            }
-          ],
-          "title": "Memory Usage (Heap): Used, Free, Max",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 8,
-            "x": 9,
-            "y": 43
-          },
-          "id": 15,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
-              "legendFormat": "{{pod_name}} minor",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
-              "hide": false,
-              "legendFormat": "{{pod_name}} major",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Garbage Collections (Major, Minor)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "axisSoftMin": 0,
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 6,
-            "w": 7,
-            "x": 17,
-            "y": 43
-          },
-          "id": 16,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.4.0",
-          "targets": [
-            {
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "legendFormat": "{{pod_name}} used",
-              "range": true,
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "legendFormat": "{{pod_name}} free",
-              "range": true,
-              "refId": "D"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} committed",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ae9jtcxfo88aoc"
-              },
-              "editorMode": "code",
-              "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-              "hide": false,
-              "instant": false,
-              "legendFormat": "{{pod_name}} max",
-              "range": true,
-              "refId": "C"
-            }
-          ],
-          "title": "Memory Usage (Native): Used, Free, Committed, Max",
-          "type": "timeseries"
-        }
-      ],
+      "panels": [],
       "title": "Per-Member System Statistics",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 0,
+        "y": 2
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "System CPU Load",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 9,
+        "y": 2
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Heap)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 17,
+        "y": 2
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Free Memory (Native)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 9,
+        "x": 0,
+        "y": 10
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "legendFormat": "{{pod_name}} used",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} free",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "legendFormat": "{{pod_name}} committed",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} max",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Memory Usage (Heap): Used, Free, Max",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 15,
+        "x": 9,
+        "y": 10
+      },
+      "id": 62,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "process_virtual_memory_bytes{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Virtual Memory Used",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 9,
+        "y": 14
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
+          "legendFormat": "{{pod_name}} minor",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
+          "hide": false,
+          "legendFormat": "{{pod_name}} major",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Garbage Collections (Major, Minor)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 7,
+        "x": 17,
+        "y": 14
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "legendFormat": "{{pod_name}} used",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "legendFormat": "{{pod_name}} free",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} committed",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{pod_name}} max",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Memory Usage (Native): Used, Free, Committed, Max",
+      "type": "timeseries"
     },
     {
       "collapsed": true,
@@ -1361,7 +1454,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 2
+        "y": 20
       },
       "id": 17,
       "panels": [
@@ -1414,8 +1507,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1431,7 +1523,7 @@
             "h": 6,
             "w": 7,
             "x": 0,
-            "y": 4
+            "y": 95
           },
           "id": 18,
           "options": {
@@ -1508,8 +1600,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1525,7 +1616,7 @@
             "h": 6,
             "w": 8,
             "x": 7,
-            "y": 4
+            "y": 95
           },
           "id": 19,
           "options": {
@@ -1602,8 +1693,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1619,7 +1709,7 @@
             "h": 6,
             "w": 9,
             "x": 15,
-            "y": 4
+            "y": 95
           },
           "id": 20,
           "options": {
@@ -1696,8 +1786,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1713,7 +1802,7 @@
             "h": 6,
             "w": 7,
             "x": 0,
-            "y": 42
+            "y": 133
           },
           "id": 21,
           "options": {
@@ -1790,8 +1879,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1807,7 +1895,7 @@
             "h": 6,
             "w": 8,
             "x": 7,
-            "y": 42
+            "y": 133
           },
           "id": 22,
           "options": {
@@ -1884,8 +1972,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1901,7 +1988,7 @@
             "h": 6,
             "w": 9,
             "x": 15,
-            "y": 42
+            "y": 133
           },
           "id": 23,
           "options": {
@@ -1978,8 +2065,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1995,7 +2081,7 @@
             "h": 6,
             "w": 6,
             "x": 0,
-            "y": 48
+            "y": 139
           },
           "id": 25,
           "options": {
@@ -2072,8 +2158,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2089,7 +2174,7 @@
             "h": 6,
             "w": 6,
             "x": 6,
-            "y": 48
+            "y": 139
           },
           "id": 24,
           "options": {
@@ -2166,8 +2251,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2183,7 +2267,7 @@
             "h": 6,
             "w": 6,
             "x": 12,
-            "y": 48
+            "y": 139
           },
           "id": 26,
           "options": {
@@ -2260,8 +2344,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2277,7 +2360,7 @@
             "h": 6,
             "w": 6,
             "x": 18,
-            "y": 48
+            "y": 139
           },
           "id": 27,
           "options": {
@@ -2354,8 +2437,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2371,7 +2453,7 @@
             "h": 7,
             "w": 6,
             "x": 0,
-            "y": 54
+            "y": 145
           },
           "id": 29,
           "options": {
@@ -2448,8 +2530,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2465,7 +2546,7 @@
             "h": 7,
             "w": 6,
             "x": 6,
-            "y": 54
+            "y": 145
           },
           "id": 30,
           "options": {
@@ -2542,8 +2623,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2559,7 +2639,7 @@
             "h": 7,
             "w": 6,
             "x": 12,
-            "y": 54
+            "y": 145
           },
           "id": 31,
           "options": {
@@ -2636,8 +2716,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2653,7 +2732,7 @@
             "h": 7,
             "w": 6,
             "x": 18,
-            "y": 54
+            "y": 145
           },
           "id": 32,
           "options": {
@@ -2691,7 +2770,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 21
       },
       "id": 28,
       "panels": [
@@ -2744,8 +2823,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2761,7 +2839,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 37
+            "y": 128
           },
           "id": 33,
           "options": {
@@ -2838,8 +2916,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2855,7 +2932,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 37
+            "y": 128
           },
           "id": 35,
           "options": {
@@ -2932,8 +3009,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2949,7 +3025,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 37
+            "y": 128
           },
           "id": 37,
           "options": {
@@ -3026,8 +3102,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3043,7 +3118,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 37
+            "y": 128
           },
           "id": 39,
           "options": {
@@ -3120,8 +3195,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3137,7 +3211,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 45
+            "y": 136
           },
           "id": 34,
           "options": {
@@ -3214,8 +3288,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3231,7 +3304,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 45
+            "y": 136
           },
           "id": 41,
           "options": {
@@ -3308,8 +3381,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3325,7 +3397,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 45
+            "y": 136
           },
           "id": 36,
           "options": {
@@ -3402,8 +3474,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3419,7 +3490,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 45
+            "y": 136
           },
           "id": 40,
           "options": {
@@ -3457,7 +3528,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 22
       },
       "id": 42,
       "panels": [],
@@ -3530,7 +3601,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 5
+        "y": 23
       },
       "id": 43,
       "options": {
@@ -3624,7 +3695,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 5
+        "y": 23
       },
       "id": 44,
       "options": {
@@ -3718,7 +3789,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 5
+        "y": 23
       },
       "id": 45,
       "options": {
@@ -3812,7 +3883,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 11
+        "y": 29
       },
       "id": 46,
       "options": {
@@ -3906,7 +3977,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 11
+        "y": 29
       },
       "id": 47,
       "options": {
@@ -4000,7 +4071,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 11
+        "y": 29
       },
       "id": 48,
       "options": {
@@ -4034,7 +4105,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 35
       },
       "id": 49,
       "panels": [],
@@ -4107,7 +4178,7 @@
         "h": 8,
         "w": 4,
         "x": 0,
-        "y": 18
+        "y": 36
       },
       "id": 50,
       "options": {
@@ -4201,7 +4272,7 @@
         "h": 8,
         "w": 4,
         "x": 4,
-        "y": 18
+        "y": 36
       },
       "id": 51,
       "options": {
@@ -4295,7 +4366,7 @@
         "h": 8,
         "w": 4,
         "x": 8,
-        "y": 18
+        "y": 36
       },
       "id": 52,
       "options": {
@@ -4389,7 +4460,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 18
+        "y": 36
       },
       "id": 53,
       "options": {
@@ -4483,7 +4554,7 @@
         "h": 8,
         "w": 4,
         "x": 16,
-        "y": 18
+        "y": 36
       },
       "id": 54,
       "options": {
@@ -4577,7 +4648,7 @@
         "h": 8,
         "w": 4,
         "x": 20,
-        "y": 18
+        "y": 36
       },
       "id": 55,
       "options": {
@@ -4654,8 +4725,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4671,7 +4741,7 @@
         "h": 8,
         "w": 4,
         "x": 0,
-        "y": 26
+        "y": 44
       },
       "id": 56,
       "options": {
@@ -4748,8 +4818,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4765,7 +4834,7 @@
         "h": 8,
         "w": 4,
         "x": 4,
-        "y": 26
+        "y": 44
       },
       "id": 57,
       "options": {
@@ -4842,8 +4911,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4859,7 +4927,7 @@
         "h": 8,
         "w": 4,
         "x": 8,
-        "y": 26
+        "y": 44
       },
       "id": 58,
       "options": {
@@ -4936,8 +5004,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -4953,7 +5020,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 26
+        "y": 44
       },
       "id": 59,
       "options": {
@@ -5030,8 +5097,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -5047,7 +5113,7 @@
         "h": 8,
         "w": 4,
         "x": 16,
-        "y": 26
+        "y": 44
       },
       "id": 60,
       "options": {
@@ -5124,8 +5190,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -5141,7 +5206,7 @@
         "h": 8,
         "w": 4,
         "x": 20,
-        "y": 26
+        "y": 44
       },
       "id": 61,
       "options": {
