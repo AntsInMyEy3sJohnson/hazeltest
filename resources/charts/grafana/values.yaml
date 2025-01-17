@@ -597,7 +597,7 @@ extraSecretMounts: [ ]
   #           path: token
   #
   # for CSI e.g. Azure Key Vault use the following
-  # - name: secrets-store-inline
+# - name: secrets-store-inline
 #  mountPath: /run/secrets
 #  readOnly: true
 #  csi:
@@ -624,7 +624,7 @@ extraVolumeMounts: [ ]
 extraVolumes: [ ]
   # - name: extra-volume-0
   #   existingClaim: volume-claim
-  # - name: extra-volume-1
+# - name: extra-volume-1
 #   hostPath:
 #     path: /usr/shared/
 #     type: ""
@@ -756,7 +756,7 @@ alerting: { }
   #         {{ `
   #         {{ define "my_first_template" }}
   #         Custom notification message
-  #         {{ end }}
+#         {{ end }}
 #         ` }}
 #
 # mutetimes.yaml
@@ -811,6 +811,8 @@ dashboardProviders:
 ##
 dashboards:
   hazelcast:
+    hazelcast-system-overview-2:
+      file: dashboards/hazelcast-system-overview-2.json
     hazelcast-system-overview:
       file: dashboards/hazelcast-system-overview.json
     hazelcast-maps:
