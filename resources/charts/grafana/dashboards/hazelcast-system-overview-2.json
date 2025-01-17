@@ -166,17 +166,17 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 9,
+        "h": 7,
+        "w": 5,
         "x": 6,
         "y": 1
       },
-      "id": 3,
+      "id": 5,
       "options": {
         "legend": {
           "calcs": [],
@@ -193,52 +193,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "legendFormat": "used",
+          "expr": "com_hazelcast_Metrics_size{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
           "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "free",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "committed",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "max",
-          "range": true,
-          "refId": "D"
         }
       ],
-      "title": "Memory Usage (Heap): Used, Free, Committed, Max",
+      "title": "Cluster Size",
       "type": "timeseries"
     },
     {
@@ -299,17 +260,17 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 9,
-        "x": 15,
+        "h": 7,
+        "w": 5,
+        "x": 11,
         "y": 1
       },
-      "id": 4,
+      "id": 7,
       "options": {
         "legend": {
           "calcs": [],
@@ -326,52 +287,201 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "legendFormat": "used",
+          "expr": "sum(com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"})",
+          "legendFormat": "cluster-wide client count",
           "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "free",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "committed",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "max",
-          "range": true,
-          "refId": "D"
         }
       ],
-      "title": "Memory Usage (Native): Used, Free, Committed, Max",
+      "title": "Client Count (Total)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Client Count (By Member)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ae9jtcxfo88aoc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "com_hazelcast_Metrics_pending{kubernetes_namespace=\"$kubernetes_namespace\"}",
+          "legendFormat": "{{pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Number Of Pending Invocations",
       "type": "timeseries"
     },
     {
@@ -438,9 +548,9 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 9,
-        "x": 6,
-        "y": 5
+        "w": 12,
+        "x": 0,
+        "y": 8
       },
       "id": 9,
       "options": {
@@ -539,628 +649,17 @@
               }
             ]
           },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 0,
-        "y": 8
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"})",
-          "legendFormat": "cluster-wide client count",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Client Count (Total)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 9
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Client Count (By Member)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 12,
-        "y": 9
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_size{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Cluster Size",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 18,
-        "y": 9
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_pending{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Number Of Pending Invocations",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 15
-      },
-      "id": 10,
-      "panels": [],
-      "title": "Per-Member Statistics",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 11,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "CPU Load",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
         "x": 12,
-        "y": 16
+        "y": 8
       },
-      "id": 12,
-      "options": {
-        "displayLabels": [
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Free Memory (Heap)",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": [],
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 16
-      },
-      "id": 13,
-      "options": {
-        "displayLabels": [
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{pod_name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Free Memory (Native)",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 24
-      },
-      "id": 14,
+      "id": 4,
       "options": {
         "legend": {
           "calcs": [],
@@ -1177,8 +676,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-          "legendFormat": "{{ pod_name }} used",
+          "expr": "sum(com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "legendFormat": "used",
           "range": true,
           "refId": "A"
         },
@@ -1188,10 +687,10 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "expr": "sum(com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{ pod_name }} free",
+          "legendFormat": "free",
           "range": true,
           "refId": "B"
         },
@@ -1201,10 +700,10 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "expr": "sum(com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{ pod_name }} committed",
+          "legendFormat": "committed",
           "range": true,
           "refId": "C"
         },
@@ -1214,143 +713,10 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+          "expr": "sum(com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{ pod_name }} max",
-          "range": true,
-          "refId": "D"
-        }
-      ],
-      "title": "Memory Usage (Heap): Used, Free, Committed, Max",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ae9jtcxfo88aoc"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 24
-      },
-      "id": 17,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.4.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-          "legendFormat": "{{ pod_name }} used",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{ pod_name }} free",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{ pod_name }} committed",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ae9jtcxfo88aoc"
-          },
-          "editorMode": "code",
-          "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{ pod_name }} max",
+          "legendFormat": "max",
           "range": true,
           "refId": "D"
         }
@@ -1375,33 +741,22 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
             }
           },
+          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1409,43 +764,51 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "none"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 8,
+        "h": 4,
+        "w": 12,
         "x": 0,
-        "y": 32
+        "y": 12
       },
-      "id": 16,
+      "id": 3,
       "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom",
+          "placement": "right",
           "showLegend": true
         },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "normal",
         "tooltip": {
           "mode": "single",
           "sort": "none"
-        }
+        },
+        "xField": "Time",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "11.4.0",
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
-          "legendFormat": "{{ pod_name }} minor",
-          "range": true,
+          "exemplar": false,
+          "expr": "sum(com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "instant": true,
+          "legendFormat": "used",
+          "range": false,
           "refId": "A"
         },
         {
@@ -1454,16 +817,17 @@
             "uid": "ae9jtcxfo88aoc"
           },
           "editorMode": "code",
-          "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
+          "exemplar": false,
+          "expr": "sum(com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
           "hide": false,
-          "instant": false,
-          "legendFormat": " {{ pod_name }} major",
-          "range": true,
+          "instant": true,
+          "legendFormat": "free",
+          "range": false,
           "refId": "B"
         }
       ],
-      "title": "Garbage Collections",
-      "type": "timeseries"
+      "title": "Memory Usage (Heap): Used, Free, Committed, Max (Snapshot)",
+      "type": "barchart"
     },
     {
       "datasource": {
@@ -1528,12 +892,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 16,
-        "x": 8,
-        "y": 32
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 16
       },
-      "id": 15,
+      "id": 18,
       "options": {
         "legend": {
           "calcs": [],
@@ -1550,14 +914,756 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "process_virtual_memory_bytes{kubernetes_namespace=\"$kubernetes_namespace\"}",
-          "legendFormat": "{{ pod_name }}",
+          "expr": "sum(com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "legendFormat": "used",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "sum(com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "free",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "sum(com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "committed",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "editorMode": "code",
+          "expr": "sum(com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "max",
+          "range": true,
+          "refId": "D"
         }
       ],
-      "title": "Virtual Memory Used",
+      "title": "Memory Usage (Heap): Used, Free, Committed, Max",
       "type": "timeseries"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 10,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 17
+          },
+          "id": 11,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_systemCpuLoad{kubernetes_namespace=\"$kubernetes_namespace\"}",
+              "legendFormat": "{{pod_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "CPU Load",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": [],
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 12,
+            "y": 17
+          },
+          "id": 12,
+          "options": {
+            "displayLabels": [
+              "percent"
+            ],
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\"}",
+              "legendFormat": "{{pod_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Free Memory (Heap)",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": [],
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 18,
+            "y": 17
+          },
+          "id": 13,
+          "options": {
+            "displayLabels": [
+              "percent"
+            ],
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\"}",
+              "legendFormat": "{{pod_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Free Memory (Native)",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 25
+          },
+          "id": 14,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_usedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "legendFormat": "{{ pod_name }} used",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_freeHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} free",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_committedHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} committed",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_maxHeap{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} max",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Memory Usage (Heap): Used, Free, Committed, Max",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 25
+          },
+          "id": 17,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_usedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "legendFormat": "{{ pod_name }} used",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_freeNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} free",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_committedNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} committed",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "com_hazelcast_Metrics_maxNative{kubernetes_namespace=\"$kubernetes_namespace\", prefix=\"memory\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{ pod_name }} max",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Memory Usage (Native): Used, Free, Committed, Max",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 0,
+            "y": 33
+          },
+          "id": 16,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Young Generation\"}[$__rate_interval])",
+              "legendFormat": "{{ pod_name }} minor",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "ae9jtcxfo88aoc"
+              },
+              "editorMode": "code",
+              "expr": "rate(jvm_gc_collection_seconds_count{kubernetes_namespace=\"hazelcastplatform\", gc=~\".+Old Generation\"}[$__rate_interval])",
+              "hide": false,
+              "instant": false,
+              "legendFormat": " {{ pod_name }} major",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Garbage Collections",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ae9jtcxfo88aoc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "axisSoftMin": 0,
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 16,
+            "x": 8,
+            "y": 33
+          },
+          "id": 15,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "process_virtual_memory_bytes{kubernetes_namespace=\"$kubernetes_namespace\"}",
+              "legendFormat": "{{ pod_name }}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Virtual Memory Used",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Per-Member Statistics",
+      "type": "row"
     }
   ],
   "preload": false,
