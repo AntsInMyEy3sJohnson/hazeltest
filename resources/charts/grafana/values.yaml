@@ -596,7 +596,7 @@ extraSecretMounts: [ ]
   #           expirationSeconds: 86400
   #           path: token
   #
-  # for CSI e.g. Azure Key Vault use the following
+# for CSI e.g. Azure Key Vault use the following
 # - name: secrets-store-inline
 #  mountPath: /run/secrets
 #  readOnly: true
@@ -623,7 +623,7 @@ extraVolumeMounts: [ ]
 ## Additional Grafana server volumes
 extraVolumes: [ ]
   # - name: extra-volume-0
-  #   existingClaim: volume-claim
+#   existingClaim: volume-claim
 # - name: extra-volume-1
 #   hostPath:
 #     path: /usr/shared/
@@ -755,7 +755,7 @@ alerting: { }
   #       template: |
   #         {{ `
   #         {{ define "my_first_template" }}
-  #         Custom notification message
+#         Custom notification message
 #         {{ end }}
 #         ` }}
 #
@@ -811,8 +811,6 @@ dashboardProviders:
 ##
 dashboards:
   hazelcast:
-    hazelcast-system-overview-2:
-      file: dashboards/hazelcast-system-overview-2.json
     hazelcast-system-overview:
       file: dashboards/hazelcast-system-overview.json
     hazelcast-maps:
