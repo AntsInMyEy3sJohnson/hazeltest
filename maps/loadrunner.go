@@ -160,7 +160,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		elements:             loadElements,
 		ctx:                  ctx,
 		getElementID:         getLoadElementID,
-		getOrAssemblePayload: getOrAssemblePayload,
+		getOrAssemblePayload: getOrAssemblePayloadWrapper,
 	}
 
 	r.l.init(tle, &defaultSleeper{}, r.gatherer)
@@ -211,17 +211,21 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 }
 
-func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (any, error) {
+func getOrAssemblePayloadWrapper(mapName string, mapNumber uint16, element any) (any, error) {
+	return getOrAssemblePayload(mapName, mapNumber, element)
+}
+
+func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (*string, error) {
 
 	if useFixedPayload && useVariablePayload {
-		return "", errors.New("instructions unclear: both fixed-size and variable-size payloads enabled")
+		return nil, errors.New("instructions unclear: both fixed-size and variable-size payloads enabled")
 	}
 
 	l := element.(loadElement)
 
 	if useFixedPayload {
-		if len(*l.Payload) == 0 {
-			return "", errors.New("fixed-size payloads have been enabled, but no payload of fixed size was provided in load element")
+		if l.Payload == nil || len(*l.Payload) == 0 {
+			return nil, errors.New("fixed-size payloads have been enabled, but no payload of fixed size was provided in load element")
 		}
 		return l.Payload, nil
 	}
@@ -232,7 +236,7 @@ func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (any, e
 		)
 	}
 
-	return "", errors.New("instructions unclear: neither fixed-size nor variable-size payloads enabled")
+	return nil, errors.New("instructions unclear: neither fixed-size nor variable-size payloads enabled")
 
 }
 
