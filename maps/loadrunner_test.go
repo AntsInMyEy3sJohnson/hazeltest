@@ -53,7 +53,7 @@ func TestPopulateLoadElementKeys(t *testing.T) {
 				}
 
 				for _, l := range loadElementOnlyKeys {
-					if l.Payload == "" {
+					if l.Payload == nil {
 						t.Log(msgEmptyPayload, checkMark, l.Key, numKeys)
 					} else {
 						t.Fatal(msgEmptyPayload, ballotX, l.Key, numKeys)
@@ -83,7 +83,7 @@ func TestPopulateLoadElements(t *testing.T) {
 				}
 
 				for _, l := range loadElements {
-					if len(l.Payload) == payloadSize {
+					if len(*l.Payload) == payloadSize {
 						t.Log(msgPayloadSize, checkMark, numEntries, payloadSize)
 					} else {
 						t.Fatal(msgPayloadSize, ballotX, numEntries, payloadSize)
@@ -469,7 +469,7 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			msg = "\t\tboth key and payload must have been populated on each generated load element"
 			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && len(v.Payload) == fixedPayloadSizeBytes {
+				if v.Key == strconv.Itoa(i) && len(*v.Payload) == fixedPayloadSizeBytes {
 					t.Log(msg, checkMark, v.Key)
 				} else {
 					t.Fatal(msg, ballotX, v.Key)
@@ -585,7 +585,7 @@ func TestRunLoadMapTests(t *testing.T) {
 
 			msg = "\t\tonly keys of load elements must have been populated"
 			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && v.Payload == "" {
+				if v.Key == strconv.Itoa(i) && v.Payload == nil {
 					t.Log(msg, checkMark, v.Key)
 				} else {
 					t.Fatal(msg, ballotX, v.Key)
@@ -721,9 +721,10 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			{
 				useFixedPayload = true
 
+				s := "awesome-value"
 				le := loadElement{
 					Key:     "awesome-key",
-					Payload: "awesome-value",
+					Payload: &s,
 				}
 				p, err := getOrAssemblePayload("awesome-map-name", uint16(0), le)
 
