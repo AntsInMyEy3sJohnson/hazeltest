@@ -3814,13 +3814,14 @@ func assembleTestLoopExecution(id uuid.UUID, source string, elements []string, r
 
 }
 
-func returnFellowshipMemberName(_ string, _ uint16, element any) (any, error) {
+func returnFellowshipMemberName(_ string, _ uint16, element any) (*string, error) {
 	getOrAssembleObservations.numInvocations++
 
 	if getOrAssembleBehavior.returnError {
-		return "", getOrAssemblePayloadError
+		return nil, getOrAssemblePayloadError
 	}
-	return element, nil
+	s := element.(string)
+	return &s, nil
 }
 
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
