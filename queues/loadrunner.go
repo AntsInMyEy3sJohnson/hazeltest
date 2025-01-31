@@ -25,7 +25,7 @@ type (
 		gatherer        status.Gatherer
 	}
 	loadElement struct {
-		Payload string
+		Payload *string
 	}
 )
 
