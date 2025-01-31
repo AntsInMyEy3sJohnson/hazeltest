@@ -47,14 +47,14 @@ func RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerat
 
 }
 
-func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string, error) {
+func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (*string, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating payload for actor '%s'", actorName), log.TraceLevel)
 	r, err := ActorTracker.FindMatchingPayloadGenerationRequirement(actorName)
 
 	if err != nil {
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("cannot generate payload for actor '%s' because attempt to identify payload generation requirement resulted in error: %v", actorName, err), log.ErrorLevel)
-		return "", err
+		return nil, err
 	}
 
 	freshlyInserted := false
@@ -89,7 +89,7 @@ func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (string,
 // GenerateRandomStringPayload generates a random string payload having a size of n bytes.
 // Copied from: https://stackoverflow.com/a/31832326
 // May I just add that StackOverflow is such a highly fascinating place.
-func GenerateRandomStringPayload(n int) string {
+func GenerateRandomStringPayload(n int) *string {
 
 	src := rand.NewSource(time.Now().UnixNano())
 
@@ -107,7 +107,8 @@ func GenerateRandomStringPayload(n int) string {
 		remain--
 	}
 
-	return string(b)
+	s := string(b)
+	return &s
 
 }
 
