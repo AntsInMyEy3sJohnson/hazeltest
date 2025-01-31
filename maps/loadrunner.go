@@ -2,7 +2,6 @@ package maps
 
 import (
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -66,7 +65,6 @@ func init() {
 			loadElementTestLoop newLoadElementTestLoopFunc
 		}{mapStore: newDefaultMapStore, loadElementTestLoop: newLoadElementTestLoop},
 	})
-	gob.Register(loadElement{})
 }
 
 func newLoadElementTestLoop(rc *runnerConfig) (looper[loadElement], error) {

@@ -3,7 +3,6 @@ package maps
 import (
 	"context"
 	"embed"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -75,7 +74,6 @@ func init() {
 			pokemonTestLoop newPokemonTestLoopFunc
 		}{mapStore: newDefaultMapStore, pokemonTestLoop: initPokedexTestLoop},
 	})
-	gob.Register(pokemon{})
 }
 
 func initPokedexTestLoop(rc *runnerConfig) (looper[pokemon], error) {
