@@ -175,9 +175,15 @@ func (r *pokedexRunner) appendState(s runnerState) {
 
 func returnPokemonPayload(_ string, _ uint16, element any) (*string, error) {
 
-	// TODO Update tests
+	if _, ok := element.(pokemon); !ok {
+		return nil, fmt.Errorf("given element is not a pokemon: %v", element)
+	}
+
 	pJson, err := json.Marshal(element)
 	if err != nil {
+		// Effectively can't happen -- once we've made sure
+		// the given element is a pokemon, the marshal operation
+		// must be successful. But keep check in place just in case...
 		return nil, err
 	}
 	pString := string(pJson)
