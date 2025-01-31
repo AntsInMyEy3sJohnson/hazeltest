@@ -26,7 +26,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 			}
 
 			msg = "\t\tempty string must be returned"
-			if p == "" {
+			if p == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -61,7 +61,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				}
 
 				msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
-				if len(p) >= registeredRequirement.LowerBoundaryBytes && len(p) <= registeredRequirement.UpperBoundaryBytes {
+				if len(*p) >= registeredRequirement.LowerBoundaryBytes && len(*p) <= registeredRequirement.UpperBoundaryBytes {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -84,7 +84,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				}
 
 				msg = "\t\t\tpayload generation info must contain size of generated payload"
-				if insertedInfo.payloadSize == len(p) {
+				if insertedInfo.payloadSize == len(*p) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -138,7 +138,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 
 					if i == 0 {
 						msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
-						if len(p) > registeredRequirement.LowerBoundaryBytes && len(p) <= registeredRequirement.UpperBoundaryBytes {
+						if len(*p) > registeredRequirement.LowerBoundaryBytes && len(*p) <= registeredRequirement.UpperBoundaryBytes {
 							t.Log(msg, checkMark, i)
 						} else {
 							t.Fatal(msg, ballotX, i)
@@ -147,7 +147,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 						t.Log("\t\t\twhen number of invocations is within same size step boundary")
 						{
 							msg = "\t\t\t\tpayload's size must be equal to previous generated payload's size"
-							if len(p) == len(previouslyGeneratedPayload) {
+							if len(*p) == len(previouslyGeneratedPayload) {
 								t.Log(msg, checkMark, i)
 							} else {
 								t.Fatal(msg, ballotX, i)
@@ -157,7 +157,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 						t.Log("\t\t\twhen number of invocations exceeds same size step boundary")
 						{
 							msg = "\t\t\t\tpayload's size must differ from previously generated payload's size"
-							if len(p) != len(previouslyGeneratedPayload) {
+							if len(*p) != len(previouslyGeneratedPayload) {
 								t.Log(msg, checkMark, i)
 							} else {
 								t.Fatal(msg, ballotX, i)
@@ -165,7 +165,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 						}
 					}
 
-					previouslyGeneratedPayload = p
+					previouslyGeneratedPayload = *p
 				}
 
 			}
