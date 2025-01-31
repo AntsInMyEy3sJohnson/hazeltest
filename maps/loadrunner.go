@@ -160,7 +160,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		elements:             loadElements,
 		ctx:                  ctx,
 		getElementID:         getLoadElementID,
-		getOrAssemblePayload: getOrAssemblePayloadWrapper,
+		getOrAssemblePayload: getOrAssemblePayload,
 	}
 
 	r.l.init(tle, &defaultSleeper{}, r.gatherer)
@@ -196,7 +196,7 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 	elements := make([]loadElement, numElementsToPopulate)
 	// Depending on the value of 'payloadSizeBytes', this string can get very large, and to generate one
-	// unique string for each map entry will result in high memory consumption of this Hazeltest client.
+	// unique string for each map entry would result in high memory consumption of this Hazeltest client.
 	// Thus, we use one random string for each map and reference that string in each load element
 	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
@@ -209,10 +209,6 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 	return elements
 
-}
-
-func getOrAssemblePayloadWrapper(mapName string, mapNumber uint16, element any) (any, error) {
-	return getOrAssemblePayload(mapName, mapNumber, element)
 }
 
 func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (*string, error) {
