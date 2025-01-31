@@ -53,9 +53,10 @@ platform:
         limits:
           cpu: "8"
           memory: "20G"
+      # Increase JVM's heap size if native memory is disabled.
       jvmResources:
-        xmx: 16000m
-        xms: 16000m
+        xmx: 6000m
+        xms: 6000m
       probes:
         liveness:
           enabled: true
