@@ -173,14 +173,21 @@ func (r *pokedexRunner) appendState(s runnerState) {
 
 }
 
-func returnPokemonPayload(_ string, _ uint16, element any) (any, error) {
-	return element, nil
+func returnPokemonPayload(_ string, _ uint16, element any) (*string, error) {
+
+	// TODO Update tests
+	pJson, err := json.Marshal(element)
+	if err != nil {
+		return nil, err
+	}
+	pString := string(pJson)
+	return &pString, nil
 }
 
 func getPokemonID(element any) string {
 
-	pokemon := element.(pokemon)
-	return fmt.Sprintf("%d", pokemon.ID)
+	p := element.(pokemon)
+	return fmt.Sprintf("%d", p.ID)
 
 }
 
