@@ -21,7 +21,7 @@ data:
         {{- toYaml .Values.platform.config.jet | nindent 8 }}
       {{- if .Values.platform.config.nativeMemory.enabled }}
       native-memory:
-        {{- toYaml .Values.platform.config.nativeMemory.properties | nindent 8 }}
+        {{- toYaml .Values.platform.config.nativeMemory | nindent 8 }}
       {{- end }}
       network:
         {{- toYaml .Values.platform.config.network | nindent 8 }}
