@@ -700,7 +700,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 
 				le := loadElement{}
 
-				v, err := getOrAssemblePayload("some-map-name", uint16(0), le)
+				p, err := getOrAssemblePayload("some-map-name", uint16(0), le)
 
 				msg := "\t\terror must be returned"
 				if err != nil {
@@ -709,9 +709,8 @@ func TestGetOrAssemblePayload(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				payload := v.(string)
-				msg = "\t\tempty payload must be returned"
-				if len(payload) == 0 {
+				msg = "\t\tempty payload pointer must be returned"
+				if p == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -753,7 +752,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			{
 				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
 
-				v, err := getOrAssemblePayload("map-name", uint16(6), loadElement{})
+				p, err := getOrAssemblePayload("map-name", uint16(6), loadElement{})
 
 				msg := "\t\terror must be returned"
 				if err != nil {
@@ -762,9 +761,8 @@ func TestGetOrAssemblePayload(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				payload := v.(string)
-				msg = "\t\tempty payload must be returned"
-				if len(payload) == 0 {
+				msg = "\t\tempty payload pointer must be returned"
+				if p == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -787,7 +785,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 					SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
 				})
 
-				v, err := getOrAssemblePayload("ht_load", uint16(0), loadElement{})
+				p, err := getOrAssemblePayload("ht_load", uint16(0), loadElement{})
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -796,7 +794,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 					t.Fatal(msg, ballotX, err)
 				}
 
-				payload := v.(string)
+				payload := *p
 				msg = "\t\t\tpayload must be generated within the specified boundaries"
 				if len(payload) >= variablePayloadSizeLowerBoundaryBytes && len(payload) <= variablePayloadSizeUpperBoundaryBytes {
 					t.Log(msg, checkMark)
@@ -810,7 +808,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			useFixedPayload = false
 			useVariablePayload = false
 
-			v, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+			p, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -819,9 +817,8 @@ func TestGetOrAssemblePayload(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			payload := v.(string)
-			msg = "\t\tempty payload must be returned"
-			if len(payload) == 0 {
+			msg = "\t\tempty payload pointer must be returned"
+			if p == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -832,7 +829,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			useFixedPayload = true
 			useVariablePayload = true
 
-			v, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+			p, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -841,9 +838,8 @@ func TestGetOrAssemblePayload(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			payload := v.(string)
-			msg = "\t\tempty payload must be returned"
-			if len(payload) == 0 {
+			msg = "\t\tempty payload pointer must be returned"
+			if p == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
