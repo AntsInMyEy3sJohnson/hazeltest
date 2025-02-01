@@ -4,10 +4,10 @@ description: A Helm chart for deploying a simple Hazelcast cluster on Kubernetes
 
 type: application
 
-version: 2.1.0-5.4.0
+version: 2.2.0
 
 # Version of Hazelcast Platform used in this chart
-appVersion: "5.4.0"
+appVersion: "5.5.2"
 
 # Useful commands: 
 # helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace

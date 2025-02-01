@@ -10,7 +10,7 @@ metadata:
 data:
   hazelcast-client.yaml: |-
     hazelcast-client:
-      cluster-name: {{ index .Values.platform.config.hazelcast "cluster-name" }}
+      cluster-name: {{ .Values.platform.config.clusterName }}
       network:
         kubernetes:
           enabled: true

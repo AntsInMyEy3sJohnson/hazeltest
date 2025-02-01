@@ -9,5 +9,26 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   hazelcast.yaml: |-
-{{ toYaml .Values.platform.config | indent 4 }}
-{{- end -}}
+    hazelcast:
+      cluster-name: {{ .Values.platform.config.clusterName }}
+      properties:
+        {{- toYaml .Values.platform.config.properties | nindent 8 }}
+      management-center:
+        {{- toYaml .Values.platform.config.managementCenter | nindent 8 }}
+      metrics:
+        {{- toYaml .Values.platform.config.metrics | nindent 8 }}
+      jet:
+        {{- toYaml .Values.platform.config.jet | nindent 8 }}
+      {{- if .Values.platform.config.nativeMemory.enabled }}
+      native-memory:
+        {{- toYaml .Values.platform.config.nativeMemory | nindent 8 }}
+      {{- end }}
+      network:
+        {{- toYaml .Values.platform.config.network | nindent 8 }}
+      data-connection:
+        {{- toYaml .Values.platform.config.dataConnection | nindent 8 }}
+      map:
+        {{- toYaml .Values.platform.config.map | nindent 8 }}
+      queue:
+        {{- toYaml .Values.platform.config.queue | nindent 8 }}
+    {{- end -}}

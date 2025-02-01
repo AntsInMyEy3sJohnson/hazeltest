@@ -27,7 +27,7 @@ platform:
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
-          enable: false
+          enable: true
           # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
@@ -36,8 +36,8 @@ platform:
           license:
             # The name of the Kubernetes Secret containing the license key for
             # the enterprise version of Hazelcast Platform.
-            secretName: hazelcast-enterprise-license
-            # The name of the property beneath the Secret's 'data' element that holds the license key.
+            secretName: hazelcast-license-key-secret
+            # The name of the property beneath the Secret's 'data' or 'stringData' element that holds the license key.
             keyPath: licenseKey
       imagePullPolicy: IfNotPresent
       count: 3
@@ -53,9 +53,10 @@ platform:
         limits:
           cpu: "8"
           memory: "20G"
+      # Increase JVM's heap size if native memory is disabled.
       jvmResources:
-        xmx: 16000m
-        xms: 16000m
+        xmx: 6000m
+        xms: 6000m
       probes:
         liveness:
           enabled: true
@@ -70,94 +71,114 @@ platform:
           initialDelaySeconds: 10
           periodSeconds: 10
   config:
-    hazelcast:
-      management-center:
-        # Enabling scripting requires jar file of desired scripting engine to reside on classpath
-        scripting-enabled: false
-        console-enabled: false
-      metrics:
+    clusterName: "hazelcastplatform"
+    properties:
+      hazelcast.heartbeat.interval.seconds: 10
+      hazelcast.jmx: true
+      hazelcast.logging.type: log4j2
+    managementCenter:
+      # Enabling scripting requires jar file of desired scripting engine to reside on classpath
+      scripting-enabled: false
+      console-enabled: false
+    metrics:
+      enabled: true
+      # Default is 5 -- by setting this to a higher value, one can decrease load on the Management Center
+      # because it will receive fewer data points to work with
+      collection-frequency-seconds: 5
+    jet:
+      enabled: true
+    # Properties beneath 'nativeMemory' get templated into place directly,
+    # so use property names that Hazelcast expects
+    nativeMemory:
+      # Set this to false if you run the community edition of Hazelcast
+      enabled: true
+      size:
+        unit: GIGABYTES
+        value: 12
+      min-block-size: 16
+      # Default value is 2^22 (4.194.304 bytes, roughly 4 MB)
+      # Current value equals 2^14, which is about 16 MB
+      page-size: 16777216
+      metadata-space-percentage: 12.5
+    network:
+      rest-api:
         enabled: true
-        # Default is 5 -- by setting this to a higher value, one can decrease load on the Management Center
-        # because it will receive fewer data points to work with
-        collection-frequency-seconds: 5
-      jet:
-        enabled: true
-      cluster-name: "hazelcastplatform"
-      properties:
-        hazelcast.heartbeat.interval.seconds: 10
-        hazelcast.jmx: true
-        hazelcast.logging.type: log4j2
-      network:
-        rest-api:
+        endpoint-groups:
+          HEALTH_CHECK:
+            enabled: true
+      join:
+        multicast:
+          enabled: false
+        kubernetes:
           enabled: true
-          endpoint-groups:
-            HEALTH_CHECK:
-              enabled: true
-        join:
-          multicast:
-            enabled: false
-          kubernetes:
-            enabled: true
-            service-port: 5701
-      data-connection:
-        hz-persistence-layer:
-          type: JDBC
-          shared: true
+          service-port: 5701
+    dataConnection:
+      hz-persistence-layer:
+        type: JDBC
+        shared: true
+        properties:
+          jdbcUrl: jdbc:mysql://supersimplemysql:3306/hzpersistence
+          user: hazman
+          password: also-super-secret
+    # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
+    map:
+      # Create very restrictive config for all map names not corresponding to one of
+      # the other patterns such as to protect cluster from potentially misbehaving clients
+      default:
+        backup-count: 0
+        max-idle-seconds: 5
+        # Caution: Native memory is an enterprise-only feature -- set this to 'BINARY' if you're running
+        # the community edition.
+        # in-memory-format: BINARY
+        in-memory-format: NATIVE
+        eviction:
+          eviction-policy: LRU
+          # max-size-policy: FREE_HEAP_PERCENTAGE
+          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          size: 50
+      # Config for the Hazeltest maps
+      ht_*:
+        backup-count: 1
+        # Keep entries around for ten minutes
+        max-idle-seconds: 600
+        # in-memory-format: BINARY
+        in-memory-format: NATIVE
+        eviction:
+          eviction-policy: LRU
+          # max-size-policy: FREE_HEAP_PERCENTAGE
+          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          size: 15
+      htp_*:
+        backup-count: 1
+        max-idle-seconds: 600
+        # in-memory-format: BINARY
+        in-memory-format: NATIVE
+        eviction:
+          eviction-policy: LRU
+          # max-size-policy: FREE_HEAP_PERCENTAGE
+          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          size: 15
+        map-store:
+          enabled: true
+          class-name: com.hazelcast.mapstore.GenericMapStore
+          initial-mode: LAZY
+          offload: true
+          write-delay-seconds: 0
+          write-batch-size: 1
+          write-coalescing: true
           properties:
-            jdbcUrl: jdbc:mysql://supersimplemysql:3306/hzpersistence
-            user: hazman
-            password: also-super-secret
-      # https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-full-example.yaml
-      map:
-        # Create very restrictive config for all map names not corresponding to one of
-        # the other patterns such as to protect cluster from potentially misbehaving clients
-        default:
-          backup-count: 0
-          max-idle-seconds: 5
-          in-memory-format: BINARY
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 50
-        # Config for the Hazeltest maps
-        ht_*:
-          backup-count: 1
-          # Keep entries around for ten minutes
-          max-idle-seconds: 600
-          in-memory-format: BINARY
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 15
-        htp_*:
-          backup-count: 1
-          max-idle-seconds: 600
-          in-memory-format: BINARY
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: FREE_HEAP_PERCENTAGE
-            size: 15
-          map-store:
-            enabled: true
-            class-name: com.hazelcast.mapstore.GenericMapStore
-            initial-mode: LAZY
-            offload: true
-            write-delay-seconds: 0
-            write-batch-size: 1
-            write-coalescing: true
-            properties:
-              data-connection-ref: hz-persistence-layer
-      queue:
-        # Restrictive default
-        default:
-          max-size: 10
-          backup-count: 0
-          empty-queue-ttl: 10
-        # Config for Hazeltest queues
-        ht_*:
-          max-size: 10000
-          backup-count: 1
-          empty-queue-ttl: 120
+            data-connection-ref: hz-persistence-layer
+    queue:
+      # Restrictive default
+      default:
+        max-size: 10
+        backup-count: 0
+        empty-queue-ttl: 10
+      # Config for Hazeltest queues
+      ht_*:
+        max-size: 10000
+        backup-count: 1
+        empty-queue-ttl: 120
 
 mancenter:
   deploy: true
@@ -173,7 +194,7 @@ mancenter:
     ingress:
       deploy: true
       port: 8080
-      hostName: hazelcastmanagementcenter.thelittlevmthatcould.local
+      hostName: hazelcastmanagementcenter.awesomeserver1.local
   instance:
     image: hazelcast/management-center:5.6.0
     # Enables injection of enterprise license.
