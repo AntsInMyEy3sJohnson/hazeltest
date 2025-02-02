@@ -119,8 +119,8 @@ func BenchmarkRunOperationChain(b *testing.B) {
 
 	mc := &modeCache{}
 	ac := &actionCache{}
-	elementsInserted := make(map[string]string)
-	elementsAvailableForInsertion := make(map[string]string)
+	elementsInserted := make(map[string]struct{})
+	elementsAvailableForInsertion := make(map[string]struct{})
 
 	for i := 0; i < b.N; i++ {
 		err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map-name", 0, elementsInserted, elementsAvailableForInsertion)
@@ -149,7 +149,7 @@ func TestPopulateElementsAvailableForInsertion(t *testing.T) {
 
 			mapName := "awesome-map"
 			mapNumber := uint16(0)
-			availableForInsertion := tl.populateElementsAvailableForInsertion(mapName, mapNumber)
+			availableForInsertion := tl.populateElementsAvailableForInsertion()
 
 			msg := "\t\telements available for insertion must have been populated"
 			if len(availableForInsertion) == len(theFellowship) {
@@ -176,7 +176,7 @@ func TestPopulateElementsAvailableForInsertion(t *testing.T) {
 				},
 			}
 
-			availableForInsertion := tl.populateElementsAvailableForInsertion("awesome-map", 0)
+			availableForInsertion := tl.populateElementsAvailableForInsertion()
 
 			msg := "\t\treturned map must be empty"
 			if len(availableForInsertion) == 0 {
@@ -321,26 +321,26 @@ func TestChooseNextMapElement(t *testing.T) {
 					},
 				}
 
-				elementsInserted := make(map[string]string, len(theFellowship)-1)
+				elementsInserted := make(map[string]struct{}, len(theFellowship)-1)
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
 				for i := 0; i < len(theFellowship)-1; i++ {
 					key := assembleMapKey(mapName, mapNumber, theFellowship[i])
-					elementsInserted[key] = theFellowship[i]
+					elementsInserted[key] = struct{}{}
 				}
 
 				elementNotInserted := theFellowship[len(theFellowship)-1]
 				keyOfNotInsertedElement := assembleMapKey(mapName, mapNumber, elementNotInserted)
-				elementsAvailableForInsertion := map[string]string{
-					keyOfNotInsertedElement: elementNotInserted,
+				elementsAvailableForInsertion := map[string]struct{}{
+					keyOfNotInsertedElement: {},
 				}
-				selectedElement, err := tl.chooseNextMapElement(insert, elementsInserted, elementsAvailableForInsertion)
+				selectedElementKey, err := tl.chooseNextMapElementKey(insert, elementsInserted, elementsAvailableForInsertion)
 
-				msg := "\t\t\tselected element must be only element not yet stored in cache"
-				if selectedElement == elementsAvailableForInsertion[keyOfNotInsertedElement] {
+				msg := "\t\t\tselected element key must be only element not yet stored in cache"
+				if selectedElementKey == keyOfNotInsertedElement {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementsAvailableForInsertion))
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElementKey, elementsAvailableForInsertion))
 				}
 
 				msg = "\t\t\tno error must be returned"
@@ -370,11 +370,11 @@ func TestChooseNextMapElement(t *testing.T) {
 				// precisely this element
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
-				cache := map[string]string{
-					assembleMapKey(mapName, mapNumber, theFellowship[0]): theFellowship[0],
+				cache := map[string]struct{}{
+					assembleMapKey(mapName, mapNumber, theFellowship[0]): {},
 				}
 
-				selectedElement, err := tl.chooseNextMapElement(insert, cache, make(map[string]string))
+				selectedElement, err := tl.chooseNextMapElementKey(insert, cache, make(map[string]struct{}))
 
 				msg := "\t\t\tselected element must be equal to only element in source data"
 				if selectedElement == theFellowship[0] {
@@ -408,15 +408,15 @@ func TestChooseNextMapElement(t *testing.T) {
 
 					// When the cache of keys written to the target Hazelcast map, then that means
 					// all elements from the source data must be available for insertion
-					availableForInsertion := make(map[string]string, len(theFellowship))
+					availableForInsertion := make(map[string]struct{}, len(theFellowship))
 					mapName := "awesome-map"
 					mapNumber := uint16(42)
 					for i := 0; i < len(theFellowship); i++ {
 						element := theFellowship[i]
 						key := assembleMapKey(mapName, mapNumber, element)
-						availableForInsertion[key] = element
+						availableForInsertion[key] = struct{}{}
 					}
-					selectedElement, err := tl.chooseNextMapElement(action, map[string]string{}, availableForInsertion)
+					selectedElement, err := tl.chooseNextMapElementKey(action, make(map[string]struct{}), availableForInsertion)
 
 					msg := "\t\t\terror must be returned"
 					if err != nil {
@@ -450,18 +450,18 @@ func TestChooseNextMapElement(t *testing.T) {
 
 					mapName := "awesome-map"
 					mapNumber := uint16(0)
-					cache := map[string]string{
-						assembleMapKey(mapName, mapNumber, elementInSourceData): elementInSourceData,
+					cache := map[string]struct{}{
+						assembleMapKey(mapName, mapNumber, elementInSourceData): {},
 					}
 
-					elementsAvailableForInsertion := make(map[string]string, len(theFellowship)-1)
+					elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship)-1)
 					for i := 1; i < len(theFellowship); i++ {
 						element := theFellowship[i]
 						key := assembleMapKey(mapName, mapNumber, element)
-						elementsAvailableForInsertion[key] = element
+						elementsAvailableForInsertion[key] = struct{}{}
 					}
 
-					selectedElement, err := tl.chooseNextMapElement(action, cache, elementsAvailableForInsertion)
+					selectedElement, err := tl.chooseNextMapElementKey(action, cache, elementsAvailableForInsertion)
 
 					msg := "\t\t\tselected element must be equal to element stored in cache"
 					if selectedElement == elementInSourceData {
@@ -488,7 +488,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				},
 			}
 
-			selectedElement, err := tl.chooseNextMapElement("awesomeNonExistingMapAction", map[string]string{}, map[string]string{})
+			selectedElement, err := tl.chooseNextMapElementKey("awesomeNonExistingMapAction", make(map[string]struct{}), make(map[string]struct{}))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1931,12 +1931,12 @@ func TestResetAfterOperationChain(t *testing.T) {
 
 				mc := &modeCache{current: fill, forceActionTowardsMode: true}
 				ac := &actionCache{last: insert, next: read}
-				keysCache := map[string]string{}
+				keysCache := make(map[string]struct{})
 				ms.m.data.Range(func(key, value any) bool {
-					keysCache[key.(string)] = value.(string)
+					keysCache[key.(string)] = struct{}{}
 					return true
 				})
-				elementsAvailableForInsertion := make(map[string]string, len(theFellowship))
+				elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship))
 				tl.resetAfterOperationChain(ms.m, defaultTestMapName, defaultTestMapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
 
 				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
@@ -1997,14 +1997,14 @@ func TestResetAfterOperationChain(t *testing.T) {
 				ms := assembleTestMapStore(&testMapStoreBehavior{returnErrorUponRemoveAll: true})
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
-				keysCache := map[string]string{}
+				keysCache := make(map[string]struct{})
 				ms.m.data.Range(func(key, value any) bool {
-					keysCache[key.(string)] = value.(string)
+					keysCache[key.(string)] = struct{}{}
 					return true
 				})
 				mc := &modeCache{current: fill}
 				ac := &actionCache{last: insert, next: read}
-				elementsAvailableForInsertion := make(map[string]string, len(theFellowship))
+				elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship))
 				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
 
 				msg := "\t\t\tlocal mode cache for given map number must be cleared anyway"
@@ -2244,8 +2244,8 @@ func TestRunOperationChain(t *testing.T) {
 
 			mc := &modeCache{}
 			ac := &actionCache{}
-			keysCache := map[string]string{}
-			availableForInsertion := map[string]string{}
+			keysCache := make(map[string]struct{})
+			availableForInsertion := make(map[string]struct{})
 
 			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, availableForInsertion)
 
@@ -2319,7 +2319,7 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
-				keysCache := map[string]string{}
+				keysCache := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
@@ -2401,7 +2401,7 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
-				keysCache := map[string]string{}
+				keysCache := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
@@ -2450,7 +2450,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, map[string]string{}, map[string]string{})
+			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, make(map[string]struct{}), make(map[string]struct{}))
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2479,7 +2479,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, map[string]string{}, map[string]string{})
+			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, make(map[string]struct{}), make(map[string]struct{}))
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2513,7 +2513,7 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]string{}
+				kc := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(12)
@@ -2576,7 +2576,7 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]string{}
+				kc := make(map[string]struct{})
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 
 				mapName := "awesome-map"
@@ -2644,14 +2644,14 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
-				kc := map[string]string{}
+				kc := make(map[string]struct{})
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 
-				availableForInsertion := make(map[string]string, len(theFellowship))
+				availableForInsertion := make(map[string]struct{}, len(theFellowship))
 				for i := 0; i < len(theFellowship); i++ {
 					element := theFellowship[i]
 					key := assembleMapKey(defaultTestMapName, defaultTestMapNumber, element)
-					availableForInsertion[key] = element
+					availableForInsertion[key] = struct{}{}
 				}
 
 				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, defaultTestMapName, defaultTestMapNumber, kc, availableForInsertion)
@@ -3814,14 +3814,13 @@ func assembleTestLoopExecution(id uuid.UUID, source string, elements []string, r
 
 }
 
-func returnFellowshipMemberName(_ string, _ uint16, element any) (*string, error) {
+func returnFellowshipMemberName(_ string, _ uint16, element string) (*string, error) {
 	getOrAssembleObservations.numInvocations++
 
 	if getOrAssembleBehavior.returnError {
 		return nil, getOrAssemblePayloadError
 	}
-	s := element.(string)
-	return &s, nil
+	return &element, nil
 }
 
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
@@ -3902,14 +3901,14 @@ func fellowshipMemberName(element any) string {
 
 }
 
-func populateElementsAvailableForInsertion(mapName string, mapNumber uint16, sourceData []string) map[string]string {
+func populateElementsAvailableForInsertion(mapName string, mapNumber uint16, sourceData []string) map[string]struct{} {
 
-	result := make(map[string]string, len(sourceData))
+	result := make(map[string]struct{}, len(sourceData))
 
 	for i := 0; i < len(sourceData); i++ {
 		element := sourceData[i]
 		key := assembleMapKey(mapName, mapNumber, element)
-		result[key] = element
+		result[key] = struct{}{}
 	}
 
 	return result
