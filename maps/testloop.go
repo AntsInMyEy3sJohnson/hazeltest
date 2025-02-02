@@ -21,7 +21,7 @@ import (
 type (
 	evaluateTimeToSleep      func(sc *sleepConfig) int
 	getElementIdFunc         func(element any) string
-	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, element any) (*string, error)
+	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, elementID string) (*string, error)
 	looper[t any]            interface {
 		init(lc *testLoopExecution[t], s sleeper, gatherer status.Gatherer)
 		run()
@@ -172,35 +172,35 @@ func (l *boundaryTestLoop[t]) run() {
 
 }
 
-func (l *boundaryTestLoop[t]) chooseNextMapElement(action mapAction, elementsInserted, elementsAvailableForInsertion map[string]t) (t, error) {
+func (l *boundaryTestLoop[t]) chooseNextMapElementKey(action mapAction, elementsInserted, elementsAvailableForInsertion map[string]struct{}) (string, error) {
 
 	switch action {
 	case insert:
-		// Maps do not preserve order in Go, but that's totally fine -- just whatever element from those available
+		// Maps do not preserve order in Go, but that's totally fine -- just use whatever element from those available
 		// for insertion happens to be the first one right now
-		for _, v := range elementsAvailableForInsertion {
-			return v, nil
+		for k := range elementsAvailableForInsertion {
+			return k, nil
 		}
 		// Getting to this point means that the 'insert' action was chosen elsewhere despite the fact
 		// that all elements have already been stored in cache. This case should not occur,
 		// but when it does nonetheless, it is not sufficiently severe to report an error
 		// and abort execution. So, in this case, we simply choose an element from the source data randomly.
 		lp.LogMapRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- using first element from runner source data", l.tle.runnerName, log.WarnLevel)
-		return l.tle.elements[0], nil
+		return l.tle.getElementID(l.tle.elements[0]), nil
 	case read, remove:
 		if len(elementsInserted) == 0 {
-			return l.tle.elements[0], errors.New("no elements have been previously inserted, so cannot choose element to read or remove")
+			return "", errors.New("no elements have been previously inserted, so cannot choose element to read or remove")
 		}
 		// Similar to above, the fact that maps do not preserve order doesn't concern us
-		for _, v := range elementsInserted {
-			return v, nil
+		for k := range elementsInserted {
+			return k, nil
 		}
 		// This case cannot occur
-		return l.tle.elements[0], nil
+		return "", nil
 	default:
 		msg := fmt.Sprintf("no such map action: %s", action)
 		lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
-		return l.tle.elements[0], errors.New(msg)
+		return "", errors.New(msg)
 	}
 
 }
@@ -217,8 +217,8 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 
 	mc := &modeCache{}
 	ac := &actionCache{}
-	elementsInserted := make(map[string]t)
-	elementsAvailableForInsertion := l.populateElementsAvailableForInsertion(mapName, mapNumber)
+	elementsInserted := make(map[string]struct{})
+	elementsAvailableForInsertion := l.populateElementsAvailableForInsertion()
 
 	for i := uint32(0); i < l.tle.runnerConfig.numRuns; i++ {
 
@@ -245,7 +245,7 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 
 }
 
-func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, elementsInserted, elementsAvailableForInsertion *map[string]t, mc *modeCache, ac *actionCache) {
+func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, elementsInserted, elementsAvailableForInsertion *map[string]struct{}, mc *modeCache, ac *actionCache) {
 
 	lp.LogMapRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), l.tle.runnerName, log.TraceLevel)
 
@@ -258,8 +258,8 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, m
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
 	} else {
-		*elementsInserted = make(map[string]t)
-		*elementsAvailableForInsertion = l.populateElementsAvailableForInsertion(mapName, mapNumber)
+		*elementsInserted = make(map[string]struct{})
+		*elementsAvailableForInsertion = l.populateElementsAvailableForInsertion()
 	}
 
 }
@@ -291,8 +291,8 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	actions *actionCache,
 	mapName string,
 	mapNumber uint16,
-	elementsInserted map[string]t,
-	elementsAvailableForInsertion map[string]t,
+	elementsInserted map[string]struct{},
+	elementsAvailableForInsertion map[string]struct{},
 ) error {
 
 	chainLength := l.tle.runnerConfig.boundary.chainLength
@@ -336,7 +336,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			j--
 		}
 
-		nextMapElement, err := l.chooseNextMapElement(actions.next, elementsInserted, elementsAvailableForInsertion)
+		nextMapElementKey, err := l.chooseNextMapElementKey(actions.next, elementsInserted, elementsAvailableForInsertion)
 
 		if err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), l.tle.runnerName, log.ErrorLevel)
@@ -345,7 +345,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		lp.LogMapRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), l.tle.runnerName, log.TraceLevel)
 
-		err = l.executeMapAction(m, mapName, mapNumber, nextMapElement, actions.next)
+		err = l.executeMapAction(m, mapName, mapNumber, nextMapElementKey, actions.next)
 		actions.last = actions.next
 		actions.next = ""
 
@@ -353,8 +353,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
 		} else {
 			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName), l.tle.runnerName, log.TraceLevel)
-			key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(nextMapElement))
-			l.updateKeysCache(nextMapElement, actions.last, elementsInserted, elementsAvailableForInsertion, key, l.tle.runnerName)
+			updateKeysCache(nextMapElementKey, actions.last, elementsInserted, elementsAvailableForInsertion, l.tle.runnerName)
 		}
 
 		l.s.sleep(l.tle.runnerConfig.boundary.sleepAfterChainAction, sleepTimeFunc, l.tle.runnerName)
@@ -365,27 +364,27 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 }
 
-func (l *boundaryTestLoop[t]) populateElementsAvailableForInsertion(mapName string, mapNumber uint16) map[string]t {
+func (l *boundaryTestLoop[t]) populateElementsAvailableForInsertion() map[string]struct{} {
 
-	notYetInserted := make(map[string]t, len(l.tle.elements))
+	notYetInserted := make(map[string]struct{}, len(l.tle.elements))
 	for _, v := range l.tle.elements {
-		notYetInserted[assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))] = v
+		notYetInserted[l.tle.getElementID(v)] = struct{}{}
 	}
 
 	return notYetInserted
 
 }
 
-func (l *boundaryTestLoop[t]) updateKeysCache(element t, lastSuccessfulAction mapAction, elementsInserted, elementsAvailableForInsertion map[string]t, key, runnerName string) {
+func updateKeysCache(elementID string, lastSuccessfulAction mapAction, elementsInserted, elementsAvailableForInsertion map[string]struct{}, runnerName string) {
 
 	switch lastSuccessfulAction {
 	case insert, remove:
 		if lastSuccessfulAction == insert {
-			elementsInserted[key] = element
-			delete(elementsAvailableForInsertion, key)
+			elementsInserted[elementID] = struct{}{}
+			delete(elementsAvailableForInsertion, elementID)
 		} else {
-			delete(elementsInserted, key)
-			elementsAvailableForInsertion[key] = element
+			delete(elementsInserted, elementID)
+			elementsAvailableForInsertion[elementID] = struct{}{}
 		}
 		lp.LogMapRunnerEvent(fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(elementsInserted)), runnerName, log.TraceLevel)
 	default:
@@ -394,15 +393,13 @@ func (l *boundaryTestLoop[t]) updateKeysCache(element t, lastSuccessfulAction ma
 
 }
 
-func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName string, mapNumber uint16, element t, action mapAction) error {
-
-	elementID := l.tle.getElementID(element)
+func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName string, mapNumber uint16, elementID string, action mapAction) error {
 
 	key := assembleMapKey(mapName, mapNumber, elementID)
 
 	switch action {
 	case insert:
-		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, element)
+		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
 		if err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
 			return err
@@ -658,7 +655,8 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 
 	numNewlyIngested := 0
 	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))
+		elementID := l.tle.getElementID(v)
+		key := assembleMapKey(mapName, mapNumber, elementID)
 		containsKey, err := m.ContainsKey(l.tle.ctx, key)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
@@ -667,7 +665,7 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 		if containsKey {
 			continue
 		}
-		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, v)
+		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
 		if err != nil {
 			return err
 		}
