@@ -12,6 +12,7 @@ import (
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/state"
 	"hazeltest/status"
+	"strconv"
 )
 
 type (
@@ -59,7 +60,8 @@ type (
 
 var (
 	//go:embed pokedex.json
-	pokedexFile embed.FS
+	pokedexFile    embed.FS
+	pokemonEntries = make(map[string]*pokemon)
 )
 
 func init() {
@@ -113,11 +115,13 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 
 	api.RaiseNotReady()
 
-	p, err := parsePokedexFile(r.name)
+	pd, err := parsePokedexFile(r.name)
 
 	if err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
+
+	initializePokemonElements(pd)
 
 	l, err := r.providerFuncs.pokemonTestLoop(config)
 	if err != nil {
@@ -148,7 +152,7 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 		hzMapStore:           r.hzMapStore,
 		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
 		runnerConfig:         config,
-		elements:             p.Pokemon,
+		elements:             pd.Pokemon,
 		ctx:                  ctx,
 		getElementID:         getPokemonID,
 		getOrAssemblePayload: returnPokemonPayload,
@@ -171,13 +175,14 @@ func (r *pokedexRunner) appendState(s runnerState) {
 
 }
 
-func returnPokemonPayload(_ string, _ uint16, element any) (*string, error) {
+func returnPokemonPayload(_ string, _ uint16, elementID string) (*string, error) {
 
-	if _, ok := element.(pokemon); !ok {
-		return nil, fmt.Errorf("given element is not a pokemon: %v", element)
+	p, ok := pokemonEntries[elementID]
+	if !ok {
+		return nil, fmt.Errorf("unable to find pokemon with ID '%s' in given pokedex", elementID)
 	}
 
-	pJson, err := json.Marshal(element)
+	pJson, err := json.Marshal(p)
 	if err != nil {
 		// Effectively can't happen -- once we've made sure
 		// the given element is a pokemon, the marshal operation
@@ -232,5 +237,13 @@ func parsePokedexFile(runnerName string) (*pokedex, error) {
 	lp.LogMapRunnerEvent("parsed pokedex file", runnerName, log.TraceLevel)
 
 	return &pokedex, nil
+
+}
+
+func initializePokemonElements(pd *pokedex) {
+
+	for _, v := range pd.Pokemon {
+		pokemonEntries[strconv.Itoa(v.ID)] = &v
+	}
 
 }
