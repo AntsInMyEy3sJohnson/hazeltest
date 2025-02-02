@@ -16,13 +16,16 @@ type (
 	PayloadConsumingActorTracker struct {
 		actors sync.Map
 	}
-	PayloadGenerationRequirement struct {
+	VariablePayloadGenerationRequirement struct {
 		LowerBoundaryBytes, UpperBoundaryBytes int
 		SameSizeStepsLimit                     int
 	}
-	PayloadGenerationInfo struct {
+	VariablePayloadGenerationInfo struct {
 		numGeneratePayloadInvocations int
 		payloadSize                   int
+	}
+	FixedPayloadGenerationRequirement struct {
+		SizeBytes int
 	}
 )
 
@@ -38,11 +41,48 @@ var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
 	ActorTracker           = PayloadConsumingActorTracker{}
 	payloadConsumingActors sync.Map
+	fixedPayloads          sync.Map
 )
 
-func RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
+func InitializeFixedPayload(actorBaseName string, r FixedPayloadGenerationRequirement) error {
 
-	lp.LogPayloadGeneratorEvent(fmt.Sprintf("registering payload generation requirement for actor '%s': %v", actorBaseName, r), log.TraceLevel)
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("initializing fixed payload of %d bytes for actor with base name '%s'", r.SizeBytes, actorBaseName), log.TraceLevel)
+	payload := GenerateRandomStringPayload(r.SizeBytes)
+
+	fixedPayloads.Store(actorBaseName, payload)
+	return nil
+
+}
+
+func RetrieveInitializedFixedSizePayload(actorName string) (*string, error) {
+
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("retrieving fixed-size payload for actor '%s'", actorName), log.TraceLevel)
+
+	var payload *string
+	foundMatch := false
+	fixedPayloads.Range(func(key, value any) bool {
+		if strings.HasPrefix(actorName, key.(string)) {
+			payload = value.(*string)
+			foundMatch = true
+			return false
+		}
+		return true
+	})
+
+	if foundMatch {
+		lp.LogPayloadGeneratorEvent(fmt.Sprintf("successfully identified previously initialized fixed-size payload of %d bytes for actor with name '%s'", len(*payload), actorName), log.TraceLevel)
+		return payload, nil
+	}
+
+	msg := fmt.Sprintf("no previously initialized fixed-size payload for actor with name '%s'", actorName)
+	lp.LogPayloadGeneratorEvent(msg, log.ErrorLevel)
+	return nil, errors.New(msg)
+
+}
+
+func RegisterVariablePayloadGenerationRequirement(actorBaseName string, r VariablePayloadGenerationRequirement) {
+
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("registering variable payload generation requirement for actor '%s': %v", actorBaseName, r), log.TraceLevel)
 	ActorTracker.actors.Store(actorBaseName, r)
 
 }
@@ -61,13 +101,13 @@ func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (*string
 	if _, ok := payloadConsumingActors.Load(actorName); !ok {
 		freshlyInserted = true
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("creating new payload generation info for actor '%s'", actorName), log.InfoLevel)
-		payloadConsumingActors.Store(actorName, PayloadGenerationInfo{})
+		payloadConsumingActors.Store(actorName, VariablePayloadGenerationInfo{})
 	}
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("loading payload generation info for actor '%s'", actorName), log.TraceLevel)
 	v, _ := payloadConsumingActors.Load(actorName)
 
-	info := v.(PayloadGenerationInfo)
+	info := v.(VariablePayloadGenerationInfo)
 
 	steps, lower, upper := r.SameSizeStepsLimit, r.LowerBoundaryBytes, r.UpperBoundaryBytes
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
@@ -112,16 +152,16 @@ func GenerateRandomStringPayload(n int) *string {
 
 }
 
-func (tr *PayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (PayloadGenerationRequirement, error) {
+func (tr *PayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (VariablePayloadGenerationRequirement, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName), log.TraceLevel)
 
-	var r PayloadGenerationRequirement
+	var r VariablePayloadGenerationRequirement
 	foundMatch := false
 	tr.actors.Range(func(key, value any) bool {
 		if strings.HasPrefix(actorName, key.(string)) {
 			foundMatch = true
-			r = value.(PayloadGenerationRequirement)
+			r = value.(VariablePayloadGenerationRequirement)
 			return false
 		}
 		return true
