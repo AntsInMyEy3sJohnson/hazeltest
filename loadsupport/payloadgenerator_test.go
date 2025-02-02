@@ -42,14 +42,14 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				actorBaseName := "mapLoadRunner"
 				actorExtendedName := "mapLoadRunner-ht_load-0"
 
-				ActorTracker = PayloadConsumingActorTracker{}
+				ActorTracker = VariablePayloadConsumingActorTracker{}
 
-				registeredRequirement := PayloadGenerationRequirement{
+				registeredRequirement := VariablePayloadGenerationRequirement{
 					LowerBoundaryBytes: 0,
 					UpperBoundaryBytes: 10,
 					SameSizeStepsLimit: 5,
 				}
-				RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
+				RegisterVariablePayloadGenerationRequirement(actorBaseName, registeredRequirement)
 
 				p, err := GenerateTrackedRandomStringPayloadWithinBoundary(actorExtendedName)
 
@@ -76,7 +76,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				}
 
 				msg = "\t\t\tnumber of invocations must have been updated in payload generation info for this actor"
-				insertedInfo := v.(PayloadGenerationInfo)
+				insertedInfo := v.(VariablePayloadGenerationInfo)
 				if insertedInfo.numGeneratePayloadInvocations == 1 {
 					t.Log(msg, checkMark)
 				} else {
@@ -98,14 +98,14 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				actorBaseName := "mapLoadRunner"
 				actorExtendedName := "mapLoadRunner-ht_load-0"
 
-				ActorTracker = PayloadConsumingActorTracker{}
+				ActorTracker = VariablePayloadConsumingActorTracker{}
 
-				registeredRequirement := PayloadGenerationRequirement{
+				registeredRequirement := VariablePayloadGenerationRequirement{
 					LowerBoundaryBytes: 0,
 					UpperBoundaryBytes: 5001,
 					SameSizeStepsLimit: 6,
 				}
-				RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
+				RegisterVariablePayloadGenerationRequirement(actorBaseName, registeredRequirement)
 
 				previouslyGeneratedPayload := ""
 				for i := 0; i < registeredRequirement.SameSizeStepsLimit+1; i++ {
@@ -121,7 +121,7 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 					msg = "\t\t\tnumber of invocations must have been updated in payload generation info for this actor"
 					v, _ := payloadConsumingActors.Load(actorExtendedName)
 
-					payloadGenerationInfo := v.(PayloadGenerationInfo)
+					payloadGenerationInfo := v.(VariablePayloadGenerationInfo)
 
 					var expectedTrackedNumberOfInvocations int
 					if i < registeredRequirement.SameSizeStepsLimit {
@@ -181,10 +181,10 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 	{
 		t.Log("\twhen no actor with corresponding base name has previously registered")
 		{
-			ActorTracker = PayloadConsumingActorTracker{}
+			ActorTracker = VariablePayloadConsumingActorTracker{}
 			// Register a couple of dummy actors
 			for _, a := range []string{"aragorn", "gimli", "legolas"} {
-				RegisterPayloadGenerationRequirement(a, PayloadGenerationRequirement{LowerBoundaryBytes: len(a)})
+				RegisterVariablePayloadGenerationRequirement(a, VariablePayloadGenerationRequirement{LowerBoundaryBytes: len(a)})
 			}
 
 			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("super-awesome-actor-name")
@@ -197,7 +197,7 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 			}
 
 			msg = "\t\treturned requirements value must represent empty requirement"
-			emptyRequirement := PayloadGenerationRequirement{}
+			emptyRequirement := VariablePayloadGenerationRequirement{}
 			if r == emptyRequirement {
 				t.Log(msg, checkMark)
 			} else {
@@ -207,17 +207,17 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 		t.Log("\twhen actor with corresponding base name has previously registered")
 		{
-			ActorTracker = PayloadConsumingActorTracker{}
+			ActorTracker = VariablePayloadConsumingActorTracker{}
 
 			actorBaseName := "mapLoadRunner"
-			registeredRequirement := PayloadGenerationRequirement{
+			registeredRequirement := VariablePayloadGenerationRequirement{
 				LowerBoundaryBytes: 500,
 				UpperBoundaryBytes: 2000,
 				SameSizeStepsLimit: 250,
 			}
-			RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
+			RegisterVariablePayloadGenerationRequirement(actorBaseName, registeredRequirement)
 
-			RegisterPayloadGenerationRequirement("mapPokedexRunner", PayloadGenerationRequirement{})
+			RegisterVariablePayloadGenerationRequirement("mapPokedexRunner", VariablePayloadGenerationRequirement{})
 
 			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("mapLoadRunner-ht_load-0")
 
@@ -247,9 +247,9 @@ func TestRegisterPayloadGenerationRequirement(t *testing.T) {
 		t.Log("\twhen actor invokes registration")
 		{
 			actorBaseName := "mapLoadRunner"
-			r := PayloadGenerationRequirement{}
+			r := VariablePayloadGenerationRequirement{}
 
-			RegisterPayloadGenerationRequirement(actorBaseName, r)
+			RegisterVariablePayloadGenerationRequirement(actorBaseName, r)
 
 			registered, ok := ActorTracker.actors.Load(actorBaseName)
 			msg := "\t\tactor must have been registered"

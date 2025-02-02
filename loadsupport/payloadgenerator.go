@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	PayloadConsumingActorTracker struct {
+	VariablePayloadConsumingActorTracker struct {
 		actors sync.Map
 	}
 	VariablePayloadGenerationRequirement struct {
@@ -24,6 +24,9 @@ type (
 		numGeneratePayloadInvocations int
 		payloadSize                   int
 	}
+)
+
+type (
 	FixedPayloadGenerationRequirement struct {
 		SizeBytes int
 	}
@@ -39,7 +42,7 @@ const (
 
 var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
-	ActorTracker           = PayloadConsumingActorTracker{}
+	ActorTracker           = VariablePayloadConsumingActorTracker{}
 	payloadConsumingActors sync.Map
 	fixedPayloads          sync.Map
 )
@@ -152,7 +155,7 @@ func GenerateRandomStringPayload(n int) *string {
 
 }
 
-func (tr *PayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (VariablePayloadGenerationRequirement, error) {
+func (tr *VariablePayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (VariablePayloadGenerationRequirement, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName), log.TraceLevel)
 
