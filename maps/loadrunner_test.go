@@ -2,6 +2,7 @@ package maps
 
 import (
 	"context"
+	"fmt"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
@@ -411,7 +412,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		}
 		t.Log("\twhen usage of fixed-size load elements was enabled")
 		{
-			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+			loadsupport.ActorTracker = loadsupport.VariablePayloadConsumingActorTracker{}
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                      true,
 				"mapTests.load.testLoop.type":                string(batch),
@@ -492,7 +493,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			msg = "\t\tempty payload generation requirement must be returned"
-			emptyPgr := loadsupport.PayloadGenerationRequirement{}
+			emptyPgr := loadsupport.VariablePayloadGenerationRequirement{}
 			if pgr == emptyPgr {
 				t.Log(msg, checkMark)
 			} else {
@@ -501,7 +502,7 @@ func TestRunLoadMapTests(t *testing.T) {
 		}
 		t.Log("\twhen usage of variable-size load elements was enabled")
 		{
-			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+			loadsupport.ActorTracker = loadsupport.VariablePayloadConsumingActorTracker{}
 
 			lowerBoundaryBytes := 6
 			upperBoundaryBytes := 1200
@@ -677,7 +678,7 @@ func TestRunLoadMapTests(t *testing.T) {
 			}
 
 			msg = "\t\tempty payload generation requirement must be returned"
-			emptyPgr := loadsupport.PayloadGenerationRequirement{}
+			emptyPgr := loadsupport.VariablePayloadGenerationRequirement{}
 			if pgr == emptyPgr {
 				t.Log(msg, checkMark)
 			} else {
@@ -694,53 +695,54 @@ func TestGetOrAssemblePayload(t *testing.T) {
 	{
 		t.Log("\twhen usage of fixed-size payloads was enabled")
 		{
-			t.Log("\t\twhen load element has empty payload")
+			t.Log("\t\twhen payload is uninitialized")
 			{
 				useFixedPayload = true
 
-				le := loadElement{}
+				p, err := getOrAssemblePayload("awesome-map", uint16(0), "")
 
-				p, err := getOrAssemblePayload("some-map-name", uint16(0), le)
+				msg := "\t\t\terror must be returned"
 
-				msg := "\t\terror must be returned"
 				if err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\tempty payload pointer must be returned"
+				msg = "\t\t\tempty payload pointer must be returned"
 				if p == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 			}
-			t.Log("\t\twhen load element has populated payload")
+			t.Log("\t\twhen payload was previously initialized")
 			{
 				useFixedPayload = true
 
-				s := "awesome-value"
-				le := loadElement{
-					Key:     "awesome-key",
-					Payload: &s,
-				}
-				p, err := getOrAssemblePayload("awesome-map-name", uint16(0), le)
+				mapName := "awesome-map-name"
+				mapNumber := uint16(0)
+				p, err := getOrAssemblePayload(mapName, mapNumber, "")
 
 				msg := "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, err)
-				}
 
-				msg = "\t\t\tpayload of given load element must be returned without modification"
-				if p == le.Payload {
+				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
+				msg = "\t\t\tpreviously initialized fixed-size payload must be returned"
+
+				_ = loadsupport.InitializeFixedPayload(mapLoadRunnerName, loadsupport.FixedPayloadGenerationRequirement{SizeBytes: 42})
+				actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
+				initializedPayload, _ := loadsupport.RetrieveInitializedFixedSizePayload(actorName)
+
+				if *p == *initializedPayload {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 		}
 		t.Log("\twhen usage of variable-size payloads was enabled")
@@ -748,20 +750,20 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			useFixedPayload = false
 			useVariablePayload = true
 
-			t.Log("\t\twhen no payload-consuming actor has registered")
+			t.Log("\t\twhen no variable-size payload-consuming actor has registered")
 			{
-				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+				loadsupport.ActorTracker = loadsupport.VariablePayloadConsumingActorTracker{}
 
-				p, err := getOrAssemblePayload("map-name", uint16(6), loadElement{})
+				p, err := getOrAssemblePayload("map-name", uint16(6), "")
 
-				msg := "\t\terror must be returned"
+				msg := "\t\t\terror must be returned"
 				if err != nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\tempty payload pointer must be returned"
+				msg = "\t\t\tempty payload pointer must be returned"
 				if p == nil {
 					t.Log(msg, checkMark)
 				} else {
@@ -769,9 +771,9 @@ func TestGetOrAssemblePayload(t *testing.T) {
 				}
 			}
 
-			t.Log("\t\twhen payload-consuming actor has previously registered payload generation requirement")
+			t.Log("\t\twhen variable-size payload-consuming actor has previously registered payload generation requirement")
 			{
-				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+				loadsupport.ActorTracker = loadsupport.VariablePayloadConsumingActorTracker{}
 
 				actorBaseName := mapLoadRunnerName
 
@@ -779,13 +781,13 @@ func TestGetOrAssemblePayload(t *testing.T) {
 				variablePayloadSizeUpperBoundaryBytes = 111
 				variablePayloadEvaluateNewSizeAfterNumWriteActions = 100
 
-				loadsupport.RegisterPayloadGenerationRequirement(actorBaseName, loadsupport.PayloadGenerationRequirement{
+				loadsupport.RegisterVariablePayloadGenerationRequirement(actorBaseName, loadsupport.VariablePayloadGenerationRequirement{
 					LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
 					UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
 					SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
 				})
 
-				p, err := getOrAssemblePayload("ht_load", uint16(0), loadElement{})
+				p, err := getOrAssemblePayload("ht_load", uint16(0), "")
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -808,7 +810,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			useFixedPayload = false
 			useVariablePayload = false
 
-			p, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+			p, err := getOrAssemblePayload("some-map-name", uint16(0), "")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -829,7 +831,7 @@ func TestGetOrAssemblePayload(t *testing.T) {
 			useFixedPayload = true
 			useVariablePayload = true
 
-			p, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
+			p, err := getOrAssemblePayload("some-map-name", uint16(0), "")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
