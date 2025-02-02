@@ -213,25 +213,19 @@ func populateLoadElements(numElementsToPopulate int, payloadSizeBytes int) []loa
 
 }
 
-func getOrAssemblePayload(mapName string, mapNumber uint16, element any) (*string, error) {
+func getOrAssemblePayload(mapName string, mapNumber uint16, _ string) (*string, error) {
 
 	if useFixedPayload && useVariablePayload {
 		return nil, errors.New("instructions unclear: both fixed-size and variable-size payloads enabled")
 	}
 
-	l := element.(loadElement)
-
+	actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
 	if useFixedPayload {
-		if l.Payload == nil || len(*l.Payload) == 0 {
-			return nil, errors.New("fixed-size payloads have been enabled, but no payload of fixed size was provided in load element")
-		}
-		return l.Payload, nil
+		return loadsupport.RetrieveInitializedFixedSizePayload(actorName)
 	}
 
 	if useVariablePayload {
-		return loadsupport.GenerateTrackedRandomStringPayloadWithinBoundary(
-			fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber),
-		)
+		return loadsupport.GenerateTrackedRandomStringPayloadWithinBoundary(actorName)
 	}
 
 	return nil, errors.New("instructions unclear: neither fixed-size nor variable-size payloads enabled")
