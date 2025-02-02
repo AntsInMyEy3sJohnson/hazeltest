@@ -124,13 +124,17 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	var loadElements []loadElement
 	if useFixedPayload {
 		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.TraceLevel)
-		loadElements = populateLoadElements(numEntriesPerMap, fixedPayloadSizeBytes)
+		loadElements = populateLoadElementKeys(numEntriesPerMap)
+		if err := loadsupport.InitializeFixedPayload(mapLoadRunnerName, loadsupport.FixedPayloadGenerationRequirement{SizeBytes: fixedPayloadSizeBytes}); err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to initialize fixed-size payload: %s", err.Error()), r.name, log.ErrorLevel)
+			return
+		}
 	} else if useVariablePayload {
 		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.TraceLevel)
 		// If the user wants variable-sized payloads to be generated, we only generate they keys here, and
 		// let the payload be generated on demand by downstream functionality
 		loadElements = populateLoadElementKeys(numEntriesPerMap)
-		loadsupport.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
+		loadsupport.RegisterVariablePayloadGenerationRequirement(mapLoadRunnerName, loadsupport.VariablePayloadGenerationRequirement{
 			LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
 			UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
 			SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
