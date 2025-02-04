@@ -187,7 +187,7 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 				RegisterVariablePayloadGenerationRequirement(a, VariablePayloadGenerationRequirement{LowerBoundaryBytes: len(a)})
 			}
 
-			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("super-awesome-actor-name")
+			r, err := ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement("super-awesome-actor-name")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -219,7 +219,7 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 			RegisterVariablePayloadGenerationRequirement("mapPokedexRunner", VariablePayloadGenerationRequirement{})
 
-			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("mapLoadRunner-ht_load-0")
+			r, err := ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement("mapLoadRunner-ht_load-0")
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
