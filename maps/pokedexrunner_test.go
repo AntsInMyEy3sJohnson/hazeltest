@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
+	"strconv"
 	"testing"
 )
 
@@ -25,18 +26,20 @@ func TestReturnPokemonPayload(t *testing.T) {
 		t.Log("\twhen given element is not a pokemon")
 		{
 			digimon := struct {
+				id                            int
 				digimonsProbablyAlsoHaveAName string
 				andPerhapsAColor              string
 				andAnAge                      int
 				andMaybeAWeight               int
 			}{
+				42,
 				"Dave-imon",
 				"orange",
 				153,
 				21,
 			}
 
-			sp, err := returnPokemonPayload("", 0, digimon)
+			sp, err := returnPokemonPayload("", 0, strconv.Itoa(digimon.id))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -52,54 +55,81 @@ func TestReturnPokemonPayload(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
-		t.Log("\twhen given element is pokemon")
+		t.Log("\twhen pokedex entries map contains given pokemon id")
 		{
-			pokemonElement := pokemon{
-				ID:          1,
-				Num:         "001",
-				Name:        "Bulbasaur",
-				Img:         "bulbasaur.png",
-				ElementType: []string{"Grass", "Poison"},
-				Height:      "0.71 m",
-				Weight:      "6.9 kg",
-				Candy:       "Bulbasaur Candy",
-				CandyCount:  25,
-				EggDistance: "2 km",
-				SpawnChance: 0.69,
-				AvgSpawns:   69.0,
-				SpawnTime:   "20:00",
-				Multipliers: []float32{1.58},
-				Weaknesses:  []string{"Fire", "Ice", "Flying", "Psychic"},
-				NextEvolution: []nextEvolution{
-					{Num: "002", Name: "Ivysaur"},
-					{Num: "003", Name: "Venusaur"},
-				},
+			t.Log("\t\twhen pokemon id points to non-nil pokemon entry")
+			{
+				pokemonElement := pokemon{
+					ID:          1,
+					Num:         "001",
+					Name:        "Bulbasaur",
+					Img:         "bulbasaur.png",
+					ElementType: []string{"Grass", "Poison"},
+					Height:      "0.71 m",
+					Weight:      "6.9 kg",
+					Candy:       "Bulbasaur Candy",
+					CandyCount:  25,
+					EggDistance: "2 km",
+					SpawnChance: 0.69,
+					AvgSpawns:   69.0,
+					SpawnTime:   "20:00",
+					Multipliers: []float32{1.58},
+					Weaknesses:  []string{"Fire", "Ice", "Flying", "Psychic"},
+					NextEvolution: []nextEvolution{
+						{Num: "002", Name: "Ivysaur"},
+						{Num: "003", Name: "Venusaur"},
+					},
+				}
+				pokemonEntries[strconv.Itoa(pokemonElement.ID)] = &pokemonElement
+
+				sp, err := returnPokemonPayload("", 0, strconv.Itoa(pokemonElement.ID))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				unmarshalledPokemonElement := &pokemon{}
+				err = json.Unmarshal([]byte(*sp), unmarshalledPokemonElement)
+
+				msg = "\t\t\tno error must be returned upon attempt to unmarshal pokemon"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tpointer to string representation of pokemon must be returned"
+				if unmarshalledPokemonElement.ID == pokemonElement.ID {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 			}
+			t.Log("\t\twhen pokemon id points to nil entry")
+			{
+				pokemonID := "42"
 
-			sp, err := returnPokemonPayload("", 0, pokemonElement)
+				pokemonEntries[pokemonID] = nil
 
-			msg := "\t\tno error must be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
+				sp, err := returnPokemonPayload("", uint16(9), pokemonID)
 
-			unmarshalledPokemonElement := &pokemon{}
-			err = json.Unmarshal([]byte(*sp), unmarshalledPokemonElement)
+				msg := "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			msg = "\t\tno error must be returned upon attempt to unmarshal pokemon"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tpointer to string representation of pokemon must be returned"
-			if unmarshalledPokemonElement.ID == pokemonElement.ID {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				msg = "\t\t\tnil pointer must be returned"
+				if sp == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 		}
 	}
