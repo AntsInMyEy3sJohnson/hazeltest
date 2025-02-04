@@ -147,8 +147,6 @@ func TestPopulateElementsAvailableForInsertion(t *testing.T) {
 				},
 			}
 
-			mapName := "awesome-map"
-			mapNumber := uint16(0)
 			availableForInsertion := tl.populateElementsAvailableForInsertion()
 
 			msg := "\t\telements available for insertion must have been populated"
@@ -160,7 +158,7 @@ func TestPopulateElementsAvailableForInsertion(t *testing.T) {
 
 			msg = "\t\telements available for insertion must contain all elements from source data"
 			for _, v := range theFellowship {
-				key := assembleMapKey(mapName, mapNumber, v)
+				key := fellowshipMemberName(v)
 				if _, ok := availableForInsertion[key]; ok {
 					t.Log(msg, checkMark, v)
 				} else {
@@ -322,33 +320,31 @@ func TestChooseNextMapElement(t *testing.T) {
 				}
 
 				elementsInserted := make(map[string]struct{}, len(theFellowship)-1)
-				mapName := "awesome-map"
-				mapNumber := uint16(0)
 				for i := 0; i < len(theFellowship)-1; i++ {
-					key := assembleMapKey(mapName, mapNumber, theFellowship[i])
-					elementsInserted[key] = struct{}{}
+					elementsInserted[fellowshipMemberName(theFellowship[i])] = struct{}{}
 				}
 
 				elementNotInserted := theFellowship[len(theFellowship)-1]
-				keyOfNotInsertedElement := assembleMapKey(mapName, mapNumber, elementNotInserted)
+				keyOfNotInsertedElement := fellowshipMemberName(elementNotInserted)
 				elementsAvailableForInsertion := map[string]struct{}{
 					keyOfNotInsertedElement: {},
 				}
-				selectedElementKey, err := tl.chooseNextMapElementKey(insert, elementsInserted, elementsAvailableForInsertion)
+				chosenKey, err := tl.chooseNextMapElementKey(insert, elementsInserted, elementsAvailableForInsertion)
 
-				msg := "\t\t\tselected element key must be only element not yet stored in cache"
-				if selectedElementKey == keyOfNotInsertedElement {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElementKey, elementsAvailableForInsertion))
-				}
-
-				msg = "\t\t\tno error must be returned"
+				msg := "\t\t\tno error must be returned"
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, err)
 				}
+
+				msg = "\t\t\tchosen key must be only one not yet stored in cache"
+				if chosenKey == keyOfNotInsertedElement {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", chosenKey, elementsAvailableForInsertion))
+				}
+
 			}
 
 			t.Log("\t\twhen all elements of source data have been stored in cache")
@@ -368,26 +364,24 @@ func TestChooseNextMapElement(t *testing.T) {
 				// --> Has same effect in loop, but easier this way to test whether random selection was
 				// invoked because with only one element in source data, random selection must yield
 				// precisely this element
-				mapName := "awesome-map"
-				mapNumber := uint16(0)
 				cache := map[string]struct{}{
-					assembleMapKey(mapName, mapNumber, theFellowship[0]): {},
+					fellowshipMemberName(theFellowship[0]): {},
 				}
 
-				selectedElement, err := tl.chooseNextMapElementKey(insert, cache, make(map[string]struct{}))
+				chosenKey, err := tl.chooseNextMapElementKey(insert, cache, make(map[string]struct{}))
 
-				msg := "\t\t\tselected element must be equal to only element in source data"
-				if selectedElement == theFellowship[0] {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, theFellowship[0]))
-				}
-
-				msg = "\t\t\tno error must be returned"
+				msg := "\t\t\tno error must be returned"
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, err)
+				}
+
+				msg = "\t\t\tchosen key must be equal to only one available in source data"
+				if chosenKey == theFellowship[0] {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", chosenKey, theFellowship[0]))
 				}
 			}
 		}
@@ -406,17 +400,15 @@ func TestChooseNextMapElement(t *testing.T) {
 						},
 					}
 
-					// When the cache of keys written to the target Hazelcast map, then that means
-					// all elements from the source data must be available for insertion
+					// When the cache of keys representing the values that have been written to the
+					// target Hazelcast map is empty, then that means all keys (and their associated values)
+					// must be available for insertion.
 					availableForInsertion := make(map[string]struct{}, len(theFellowship))
-					mapName := "awesome-map"
-					mapNumber := uint16(42)
 					for i := 0; i < len(theFellowship); i++ {
-						element := theFellowship[i]
-						key := assembleMapKey(mapName, mapNumber, element)
+						key := fellowshipMemberName(theFellowship[i])
 						availableForInsertion[key] = struct{}{}
 					}
-					selectedElement, err := tl.chooseNextMapElementKey(action, make(map[string]struct{}), availableForInsertion)
+					chosenKey, err := tl.chooseNextMapElementKey(action, make(map[string]struct{}), availableForInsertion)
 
 					msg := "\t\t\terror must be returned"
 					if err != nil {
@@ -425,12 +417,11 @@ func TestChooseNextMapElement(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					// Can't simply return nil as t
-					msg = "\t\t\treturned element must be first element from source data"
-					if selectedElement == elementInSourceData {
+					msg = "\t\t\tchosen key element must be empty string"
+					if chosenKey == "" {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
+						t.Fatal(msg, ballotX)
 					}
 				}
 
@@ -448,34 +439,32 @@ func TestChooseNextMapElement(t *testing.T) {
 						},
 					}
 
-					mapName := "awesome-map"
-					mapNumber := uint16(0)
 					cache := map[string]struct{}{
-						assembleMapKey(mapName, mapNumber, elementInSourceData): {},
+						fellowshipMemberName(elementInSourceData): {},
 					}
 
 					elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship)-1)
 					for i := 1; i < len(theFellowship); i++ {
-						element := theFellowship[i]
-						key := assembleMapKey(mapName, mapNumber, element)
+						key := fellowshipMemberName(elementInSourceData)
 						elementsAvailableForInsertion[key] = struct{}{}
 					}
 
-					selectedElement, err := tl.chooseNextMapElementKey(action, cache, elementsAvailableForInsertion)
+					chosenKey, err := tl.chooseNextMapElementKey(action, cache, elementsAvailableForInsertion)
 
-					msg := "\t\t\tselected element must be equal to element stored in cache"
-					if selectedElement == elementInSourceData {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, elementInSourceData))
-					}
-
-					msg = "\t\t\tno error must be returned"
+					msg := "\t\t\tno error must be returned"
 					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, err)
 					}
+
+					msg = "\t\t\tchosen key must be equal to key stored in cache"
+					if chosenKey == elementInSourceData {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", chosenKey, elementInSourceData))
+					}
+
 				}
 			}
 		}
@@ -488,7 +477,7 @@ func TestChooseNextMapElement(t *testing.T) {
 				},
 			}
 
-			selectedElement, err := tl.chooseNextMapElementKey("awesomeNonExistingMapAction", make(map[string]struct{}), make(map[string]struct{}))
+			chosenKey, err := tl.chooseNextMapElementKey("awesomeNonExistingMapAction", make(map[string]struct{}), make(map[string]struct{}))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -497,11 +486,11 @@ func TestChooseNextMapElement(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tselected element must be first element of source data"
-			if selectedElement == theFellowship[0] {
+			msg = "\t\tchosen key must be empty string"
+			if chosenKey == "" {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", selectedElement, theFellowship[0]))
+				t.Fatal(msg, ballotX)
 			}
 		}
 	}
