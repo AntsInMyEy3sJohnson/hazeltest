@@ -182,11 +182,12 @@ func returnPokemonPayload(_ string, _ uint16, elementID string) (*string, error)
 		return nil, fmt.Errorf("unable to find pokemon with ID '%s' in given pokedex", elementID)
 	}
 
+	if p == nil {
+		return nil, fmt.Errorf("pokemon with ID '%s' was associated with nil entry in given pokedex", elementID)
+	}
+
 	pJson, err := json.Marshal(p)
 	if err != nil {
-		// Effectively can't happen -- once we've made sure
-		// the given element is a pokemon, the marshal operation
-		// must be successful. But keep check in place just in case...
 		return nil, err
 	}
 	pString := string(pJson)
