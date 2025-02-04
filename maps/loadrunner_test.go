@@ -468,13 +468,29 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, len(elements))
 			}
 
-			msg = "\t\tboth key and payload must have been populated on each generated load element"
+			msg = "\t\tkeys must have been populated on load elements"
 			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && len(*v.Payload) == fixedPayloadSizeBytes {
+				if v.Key == strconv.Itoa(i) {
 					t.Log(msg, checkMark, v.Key)
 				} else {
 					t.Fatal(msg, ballotX, v.Key)
 				}
+			}
+
+			msg = "\t\tall load elements must carry nil Payload"
+			for _, v := range elements {
+				if v.Payload == nil {
+					t.Log(msg, checkMark, v.Key)
+				} else {
+					t.Fatal(msg, ballotX, v.Key, v.Payload)
+				}
+			}
+
+			msg = "\t\tfixed-size payload must have been initialized"
+			if p, err := loadsupport.RetrieveInitializedFixedSizePayload(mapLoadRunnerName); err == nil && len(*p) == fixedPayloadSizeBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\ttest loop must have been run once"
@@ -484,15 +500,15 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
 			}
 
-			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
-			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
+			pgr, err := loadsupport.ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement(r.name)
+			msg = "\t\tno variable-size payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty payload generation requirement must be returned"
+			msg = "\t\tempty variable-size payload generation requirement must have been returned"
 			emptyPgr := loadsupport.VariablePayloadGenerationRequirement{}
 			if pgr == emptyPgr {
 				t.Log(msg, checkMark)
@@ -551,7 +567,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
 			}
 
-			registeredRequirement, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
+			registeredRequirement, err := loadsupport.ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement(r.name)
 
 			msg = "\t\tno error must be returned upon attempt to find matching payload generation requirement"
 			if err == nil {
@@ -669,7 +685,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
+			pgr, err := loadsupport.ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement(r.name)
 			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
 			if err != nil {
 				t.Log(msg, checkMark)
