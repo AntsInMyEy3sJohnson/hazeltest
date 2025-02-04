@@ -93,7 +93,7 @@ func RegisterVariablePayloadGenerationRequirement(actorBaseName string, r Variab
 func GenerateTrackedRandomStringPayloadWithinBoundary(actorName string) (*string, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating payload for actor '%s'", actorName), log.TraceLevel)
-	r, err := ActorTracker.FindMatchingPayloadGenerationRequirement(actorName)
+	r, err := ActorTracker.FindMatchingVariableSizePayloadGenerationRequirement(actorName)
 
 	if err != nil {
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("cannot generate payload for actor '%s' because attempt to identify payload generation requirement resulted in error: %v", actorName, err), log.ErrorLevel)
@@ -155,7 +155,7 @@ func GenerateRandomStringPayload(n int) *string {
 
 }
 
-func (tr *VariablePayloadConsumingActorTracker) FindMatchingPayloadGenerationRequirement(actorName string) (VariablePayloadGenerationRequirement, error) {
+func (tr *VariablePayloadConsumingActorTracker) FindMatchingVariableSizePayloadGenerationRequirement(actorName string) (VariablePayloadGenerationRequirement, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName), log.TraceLevel)
 
