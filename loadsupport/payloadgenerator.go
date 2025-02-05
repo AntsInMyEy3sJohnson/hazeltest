@@ -14,16 +14,16 @@ import (
 
 type (
 	PayloadProvider interface {
-		RegisterPayloadGenerationRequirement(actorBaseName string)
+		RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement)
 		RetrievePayload(fullActorName string) (*string, error)
 	}
 	DefaultPayloadProvider struct {
 		actorRequirements sync.Map
 	}
 	PayloadGenerationRequirement struct {
-		useFixedSize, useVariableSize bool
-		fixedSize                     FixedSizePayloadDefinition
-		variableSize                  VariableSizePayloadDefinition
+		UseFixedSize, UseVariableSize bool
+		FixedSize                     FixedSizePayloadDefinition
+		VariableSize                  VariableSizePayloadDefinition
 	}
 	FixedSizePayloadDefinition struct {
 		SizeBytes int
@@ -75,13 +75,13 @@ func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*string, err
 		return nil, errors.New(msg)
 	}
 
-	if r.useVariableSize && r.useFixedSize {
+	if r.UseVariableSize && r.UseFixedSize {
 		msg := fmt.Sprintf("instructions unclear: both variable-size and fixed-size payload enabled for actor '%s'", actorName)
 		lp.LogPayloadGeneratorEvent(msg, log.ErrorLevel)
 		return nil, errors.New(msg)
 	}
 
-	if r.useVariableSize {
+	if r.UseVariableSize {
 		return generateTrackedRandomStringPayloadWithinBoundary(actorName, r)
 	} else {
 		return initializeAndReturnFixedSizePayload(actorName, r)
@@ -145,8 +145,8 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("retrieving fixed-size payload for actor '%s'", actorName), log.TraceLevel)
 
-	sizeBytes := r.fixedSize.SizeBytes
-	if _, ok := fixedSizePayloads.Load(r.fixedSize.SizeBytes); !ok {
+	sizeBytes := r.FixedSize.SizeBytes
+	if _, ok := fixedSizePayloads.Load(r.FixedSize.SizeBytes); !ok {
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("performing first-time initialization of fixed-size payload of %d bytes", sizeBytes), log.InfoLevel)
 		payload := GenerateRandomStringPayload(sizeBytes)
 		fixedSizePayloads.Store(sizeBytes, payload)
@@ -173,7 +173,7 @@ func generateTrackedRandomStringPayloadWithinBoundary(actorName string, r Payloa
 
 	info := v.(VariablePayloadGenerationInfo)
 
-	steps, lower, upper := r.variableSize.SameSizeStepsLimit, r.variableSize.LowerBoundaryBytes, r.variableSize.UpperBoundaryBytes
+	steps, lower, upper := r.VariableSize.SameSizeStepsLimit, r.VariableSize.LowerBoundaryBytes, r.VariableSize.UpperBoundaryBytes
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
 		payloadSize := lower + rand.Intn(upper-lower+1)
 		if !freshlyInserted {
