@@ -53,7 +53,6 @@ const (
 
 var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
-	DefaultProvider        = DefaultPayloadProvider{}
 	payloadConsumingActors sync.Map
 	fixedSizePayloads      sync.Map
 )
@@ -82,7 +81,7 @@ func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*string, err
 	}
 
 	if r.UseVariableSize {
-		return generateTrackedRandomStringPayloadWithinBoundary(actorName, r)
+		return generateRandomStringPayloadWithinBoundary(actorName, r)
 	} else {
 		return initializeAndReturnFixedSizePayload(actorName, r)
 	}
@@ -159,7 +158,7 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 
 }
 
-func generateTrackedRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*string, error) {
+func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*string, error) {
 
 	freshlyInserted := false
 	if _, ok := payloadConsumingActors.Load(actorName); !ok {
