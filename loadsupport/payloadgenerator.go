@@ -66,6 +66,8 @@ func (p *DefaultPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseN
 
 func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*string, error) {
 
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("retrieving payload for actor '%s'", actorName), log.TraceLevel)
+
 	r, err := p.findMatchingPayloadGenerationRequirement(actorName)
 
 	if err != nil {
@@ -119,6 +121,8 @@ func (p *DefaultPayloadProvider) findMatchingPayloadGenerationRequirement(actorN
 // May I just add that StackOverflow is such a highly fascinating place.
 func GenerateRandomStringPayload(n int) *string {
 
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating random string payload having size of %d byte/-s", n), log.TraceLevel)
+
 	src := rand.NewSource(time.Now().UnixNano())
 
 	b := make([]byte, n)
@@ -142,7 +146,7 @@ func GenerateRandomStringPayload(n int) *string {
 
 func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRequirement) (*string, error) {
 
-	lp.LogPayloadGeneratorEvent(fmt.Sprintf("retrieving fixed-size payload for actor '%s'", actorName), log.TraceLevel)
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("initializing fixed-size payload for actor '%s'", actorName), log.TraceLevel)
 
 	sizeBytes := r.FixedSize.SizeBytes
 	if _, ok := fixedSizePayloads.Load(r.FixedSize.SizeBytes); !ok {
@@ -159,6 +163,8 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 }
 
 func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*string, error) {
+
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating random string payload for actor '%s' according to payload generation requirement: %v", actorName, r), log.TraceLevel)
 
 	freshlyInserted := false
 	if _, ok := payloadConsumingActors.Load(actorName); !ok {
