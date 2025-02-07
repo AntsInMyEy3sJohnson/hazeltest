@@ -255,7 +255,7 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
 		}
-		t.Log("\twhen test loop has executed")
+		t.Log("\twhen test loop was executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
@@ -270,7 +270,11 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
 			l := newTestLoadTestLoop()
-
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
+			}
 			r := loadRunner{
 				assigner:        assigner,
 				stateList:       []runnerState{},
@@ -284,7 +288,9 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 						l.observations.numNewLooperInvocations++
 						return l, nil
 					},
-					payloads: nil,
+					payloads: func() loadsupport.PayloadProvider {
+						return tp
+					},
 				},
 			}
 
@@ -358,6 +364,20 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tgeneration requirement for variable-size payloads must have been correctly registered"
+			registeredRequirements := tp.observations.requirementRegistrations
+			registeredForActor, ok := registeredRequirements[mapLoadRunnerName]
+			if len(registeredRequirements) == 1 && ok &&
+				!registeredForActor.UseFixedSize &&
+				registeredForActor.UseVariableSize &&
+				registeredForActor.VariableSize.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
+				registeredForActor.VariableSize.LowerBoundaryBytes == variablePayloadSizeLowerBoundaryBytes &&
+				registeredForActor.VariableSize.UpperBoundaryBytes == variablePayloadSizeUpperBoundaryBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 		t.Log("\twhen test loop cannot be initialized")
 		{
@@ -420,7 +440,9 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
 			tp := &testPayloadProvider{
-				observations: &testPayloadProviderObservations{},
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
 			}
 			r := loadRunner{
 				assigner:        a,
@@ -533,7 +555,9 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
 			tp := &testPayloadProvider{
-				observations: &testPayloadProviderObservations{},
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
 			}
 			r := loadRunner{
 				assigner:        a,
@@ -632,7 +656,9 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
 			tp := &testPayloadProvider{
-				observations: &testPayloadProviderObservations{},
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
 			}
 			r := loadRunner{
 				assigner:        a,
