@@ -350,7 +350,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 			}
 
 			msg = "\t\tnumber of invocations must have been updated in payload generation info for this actor"
-			insertedInfo := v.(VariablePayloadGenerationInfo)
+			insertedInfo := v.(variablePayloadGenerationInfo)
 			if insertedInfo.numGeneratePayloadInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
@@ -394,7 +394,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 				msg = "\t\tnumber of invocations must have been updated in payload generation info for this actor"
 				v, _ := payloadConsumingActors.Load(actorExtendedName)
 
-				payloadGenerationInfo := v.(VariablePayloadGenerationInfo)
+				payloadGenerationInfo := v.(variablePayloadGenerationInfo)
 
 				var expectedTrackedNumberOfInvocations int
 				if i < r.VariableSize.SameSizeStepsLimit {

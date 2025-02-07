@@ -31,15 +31,9 @@ type (
 	VariableSizePayloadDefinition struct {
 		LowerBoundaryBytes, UpperBoundaryBytes, SameSizeStepsLimit int
 	}
-	VariablePayloadGenerationInfo struct {
+	variablePayloadGenerationInfo struct {
 		numGeneratePayloadInvocations int
 		payloadSize                   int
-	}
-)
-
-type (
-	FixedPayloadGenerationRequirement struct {
-		SizeBytes int
 	}
 )
 
@@ -170,13 +164,13 @@ func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenera
 	if _, ok := payloadConsumingActors.Load(actorName); !ok {
 		freshlyInserted = true
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("creating new payload generation info for actor '%s'", actorName), log.InfoLevel)
-		payloadConsumingActors.Store(actorName, VariablePayloadGenerationInfo{})
+		payloadConsumingActors.Store(actorName, variablePayloadGenerationInfo{})
 	}
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("loading payload generation info for actor '%s'", actorName), log.TraceLevel)
 	v, _ := payloadConsumingActors.Load(actorName)
 
-	info := v.(VariablePayloadGenerationInfo)
+	info := v.(variablePayloadGenerationInfo)
 
 	steps, lower, upper := r.VariableSize.SameSizeStepsLimit, r.VariableSize.LowerBoundaryBytes, r.VariableSize.UpperBoundaryBytes
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
