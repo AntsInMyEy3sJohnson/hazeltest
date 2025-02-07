@@ -53,7 +53,7 @@ var (
 
 func (p *DefaultPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
 
-	lp.LogPayloadGeneratorEvent(fmt.Sprintf("registering variable payload generation requirement for actor '%s': %v", actorBaseName, r), log.TraceLevel)
+	lp.LogPayloadGeneratorEvent(fmt.Sprintf("registering variable payload generation requirement for actor with base name '%s': %v", actorBaseName, r), log.TraceLevel)
 	p.actorRequirements.Store(actorBaseName, r)
 
 }
