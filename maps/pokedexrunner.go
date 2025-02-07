@@ -122,6 +122,8 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	}
 
 	initializePokemonElements(pd)
+	// TODO In tests, verify property gets set
+	config.numEntriesPerMap = uint32(len(pokemonEntries))
 
 	l, err := r.providerFuncs.pokemonTestLoop(config)
 	if err != nil {

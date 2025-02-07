@@ -12,7 +12,6 @@ import (
 	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
-	"strconv"
 )
 
 type (
@@ -48,7 +47,6 @@ const (
 )
 
 var (
-	numEntriesPerMap                                   int
 	useFixedPayload                                    bool
 	fixedPayloadSizeBytes                              int
 	useVariablePayload                                 bool
@@ -161,7 +159,6 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
-	loadElements := populateLoadElementKeys(numEntriesPerMap)
 	tle := &testLoopExecution[loadElement]{
 		id:                   uuid.New(),
 		runnerName:           r.name,
@@ -170,7 +167,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		hzMapStore:           r.hzMapStore,
 		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
 		runnerConfig:         config,
-		elements:             loadElements,
+		elements:             make([]loadElement, 0),
 		ctx:                  ctx,
 		getElementID:         getLoadElementID,
 		getOrAssemblePayload: r.getOrAssemblePayload,
@@ -190,18 +187,6 @@ func (r *loadRunner) appendState(s runnerState) {
 
 	r.stateList = append(r.stateList, s)
 	r.gatherer.Gather(status.Update{Key: string(statusKeyCurrentState), Value: string(s)})
-
-}
-
-func populateLoadElementKeys(numKeysToPopulate int) []loadElement {
-
-	elements := make([]loadElement, numKeysToPopulate)
-
-	for i := 0; i < numKeysToPopulate; i++ {
-		elements[i] = loadElement{Key: strconv.Itoa(i)}
-	}
-
-	return elements
 
 }
 
@@ -247,9 +232,10 @@ func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.Confi
 
 	var assignmentOps []func() error
 
+	var numEntriesPerMap uint32
 	assignmentOps = append(assignmentOps, func() error {
 		return a.Assign(runnerKeyPath+".numEntriesPerMap", client.ValidateInt, func(a any) {
-			numEntriesPerMap = a.(int)
+			numEntriesPerMap = uint32(a.(int))
 		})
 	})
 
@@ -320,6 +306,9 @@ func populateLoadConfig(runnerKeyPath string, mapBaseName string, a client.Confi
 			}
 		}
 	}
+
+	// TODO Update test
+	cfg.numEntriesPerMap = numEntriesPerMap
 
 	return cfg, nil
 
