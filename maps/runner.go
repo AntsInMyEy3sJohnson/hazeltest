@@ -23,6 +23,7 @@ type (
 		enabled                 bool
 		numMaps                 uint16
 		numRuns                 uint32
+		numEntriesPerMap        uint32
 		mapBaseName             string
 		useMapPrefix            bool
 		mapPrefix               string
