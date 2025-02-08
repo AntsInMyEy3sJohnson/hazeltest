@@ -160,17 +160,18 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
 
 	tle := &testLoopExecution[loadElement]{
-		id:                   uuid.New(),
-		runnerName:           r.name,
-		source:               r.source,
-		hzClientHandler:      r.hzClientHandler,
-		hzMapStore:           r.hzMapStore,
-		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:         config,
-		elements:             make([]loadElement, 0),
-		ctx:                  ctx,
-		getElementID:         getLoadElementID,
-		getOrAssemblePayload: r.getOrAssemblePayload,
+		id:                        uuid.New(),
+		runnerName:                r.name,
+		source:                    r.source,
+		hzClientHandler:           r.hzClientHandler,
+		hzMapStore:                r.hzMapStore,
+		stateCleanerBuilder:       &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:              config,
+		elements:                  make([]loadElement, 0),
+		usePreInitializedElements: false,
+		ctx:                       ctx,
+		getElementID:              getLoadElementID,
+		getOrAssemblePayload:      r.getOrAssemblePayload,
 	}
 
 	r.l.init(tle, &defaultSleeper{}, r.gatherer)

@@ -328,8 +328,6 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 	availableElements *availableElementsWrapper,
 ) error {
 
-	useLocalKeysCache := len(availableElements.pool) > 0
-
 	chainLength := uint32(l.tle.runnerConfig.boundary.chainLength)
 
 	lp.LogMapRunnerEvent(fmt.Sprintf("starting operation chain of length %d for map '%s' on goroutine %d", chainLength, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
@@ -365,7 +363,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 		var nextMapElementKey string
 		var err error
-		if useLocalKeysCache {
+		if l.tle.usePreInitializedElements {
 			nextMapElementKey, err = l.chooseNextMapElementKey(actions.next, elementsInserted, availableElements.pool)
 		} else {
 			nextMapElementKey, err = evaluateNextMapElementIndex(l.tle.runnerName, actions.next, index.current)
@@ -386,7 +384,7 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
 		} else {
 			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName), l.tle.runnerName, log.TraceLevel)
-			if useLocalKeysCache {
+			if l.tle.usePreInitializedElements {
 				updateKeysCache(nextMapElementKey, actions.last, elementsInserted, availableElements.pool, l.tle.runnerName)
 			}
 			if actions.last == insert {
