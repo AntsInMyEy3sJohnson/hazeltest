@@ -147,17 +147,18 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	lp.LogMapRunnerEvent("starting pokedex test loop for maps", r.name, log.InfoLevel)
 
 	le := &testLoopExecution[pokemon]{
-		id:                   uuid.New(),
-		runnerName:           r.name,
-		source:               r.source,
-		hzClientHandler:      r.hzClientHandler,
-		hzMapStore:           r.hzMapStore,
-		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:         config,
-		elements:             pd.Pokemon,
-		ctx:                  ctx,
-		getElementID:         getPokemonID,
-		getOrAssemblePayload: returnPokemonPayload,
+		id:                        uuid.New(),
+		runnerName:                r.name,
+		source:                    r.source,
+		hzClientHandler:           r.hzClientHandler,
+		hzMapStore:                r.hzMapStore,
+		stateCleanerBuilder:       &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:              config,
+		elements:                  pd.Pokemon,
+		usePreInitializedElements: true,
+		ctx:                       ctx,
+		getElementID:              getPokemonID,
+		getOrAssemblePayload:      returnPokemonPayload,
 	}
 
 	r.l.init(le, &defaultSleeper{}, r.gatherer)
