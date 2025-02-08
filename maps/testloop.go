@@ -63,17 +63,18 @@ type (
 		ct       counterTracker
 	}
 	testLoopExecution[t any] struct {
-		id                   uuid.UUID
-		runnerName           string
-		source               string
-		hzClientHandler      hazelcastwrapper.HzClientHandler
-		hzMapStore           hazelcastwrapper.MapStore
-		stateCleanerBuilder  state.SingleMapCleanerBuilder
-		runnerConfig         *runnerConfig
-		elements             []t
-		ctx                  context.Context
-		getElementID         getElementIdFunc
-		getOrAssemblePayload getOrAssemblePayloadFunc
+		id                        uuid.UUID
+		runnerName                string
+		source                    string
+		hzClientHandler           hazelcastwrapper.HzClientHandler
+		hzMapStore                hazelcastwrapper.MapStore
+		stateCleanerBuilder       state.SingleMapCleanerBuilder
+		runnerConfig              *runnerConfig
+		elements                  []t
+		usePreInitializedElements bool
+		ctx                       context.Context
+		getElementID              getElementIdFunc
+		getOrAssemblePayload      getOrAssemblePayloadFunc
 	}
 	mapTestLoopCountersTracker struct {
 		counters map[statusKey]uint64
@@ -688,33 +689,68 @@ func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, map
 
 }
 
-func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
+func (l *batchTestLoop[t]) evaluateMaxIndex() uint32 {
 
-	numNewlyIngested := 0
-	for _, v := range l.tle.elements {
-		elementID := l.tle.getElementID(v)
-		key := assembleMapKey(mapName, mapNumber, elementID)
-		containsKey, err := m.ContainsKey(l.tle.ctx, key)
-		if err != nil {
-			l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
-			return err
-		}
-		if containsKey {
-			continue
-		}
-		value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
-		if err != nil {
-			return err
-		}
-		if err = m.Set(l.tle.ctx, key, toValue(value)); err != nil {
-			l.ct.increaseCounter(statusKeyNumFailedInserts)
-			return err
-		}
-		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
-		numNewlyIngested++
+	if l.tle.usePreInitializedElements {
+		return uint32(len(l.tle.elements))
+	} else {
+		return l.tle.runnerConfig.numEntriesPerMap
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("stored %d items in hazelcast map '%s'", numNewlyIngested, mapName), l.tle.runnerName, log.TraceLevel)
+}
+
+func (l *batchTestLoop[t]) evaluateElementID(currentIndex uint32) string {
+
+	if l.tle.usePreInitializedElements {
+		return l.tle.getElementID(l.tle.elements[currentIndex])
+	} else {
+		return strconv.Itoa(int(currentIndex))
+	}
+
+}
+
+func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
+
+	numSuccessfullyIngested := uint32(0)
+	maxIndex := l.evaluateMaxIndex()
+	for i := uint32(0); i < maxIndex; i++ {
+		elementID := l.evaluateElementID(i)
+		if err := l.performSingleIngest(m, elementID, mapName, mapNumber); err != nil {
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to ingest map element with ID '%s' into map '%s' after having ingested %d element/-s: %v", elementID, mapName, numSuccessfullyIngested, err), l.tle.runnerName, log.ErrorLevel)
+			return err
+		} else {
+			numSuccessfullyIngested++
+		}
+	}
+
+	lp.LogMapRunnerEvent(fmt.Sprintf("stored %d items in hazelcast map '%s'", numSuccessfullyIngested, mapName), l.tle.runnerName, log.TraceLevel)
+	return nil
+
+}
+
+func (l *batchTestLoop[t]) performSingleIngest(m hazelcastwrapper.Map, elementID, mapName string, mapNumber uint16) error {
+
+	defer func() {
+		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
+	}()
+
+	key := assembleMapKey(mapName, mapNumber, elementID)
+	containsKey, err := m.ContainsKey(l.tle.ctx, key)
+	if err != nil {
+		l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
+		return err
+	}
+	if containsKey {
+		return nil
+	}
+	value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
+	if err != nil {
+		return err
+	}
+	if err = m.Set(l.tle.ctx, key, toValue(value)); err != nil {
+		l.ct.increaseCounter(statusKeyNumFailedInserts)
+		return err
+	}
 
 	return nil
 
@@ -722,21 +758,40 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 
 func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
-	for _, v := range l.tle.elements {
-		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(v))
-		valueFromHZ, err := m.Get(l.tle.ctx, key)
-		if err != nil {
-			l.ct.increaseCounter(statusKeyNumFailedReads)
-			return err
+	maxIndex := l.evaluateMaxIndex()
+	numSuccessfulReads := uint32(0)
+	for i := uint32(0); i < maxIndex; i++ {
+		elementID := l.evaluateElementID(i)
+		if err := l.performSingleRead(m, elementID, mapName, mapNumber); err != nil {
+			// An error encountered during a read isn't as severe as one encountered upon set because the value could
+			// have simply expired or been simply evicted. Therefore, only log warning and continue.
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to read element with ID '%s' from map '%s': %v", elementID, mapName, err), l.tle.runnerName, log.WarnLevel)
+		} else {
+			numSuccessfulReads++
 		}
-		if valueFromHZ == nil {
-			l.ct.increaseCounter(statusKeyNumNilReads)
-			return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
-		}
-		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("retrieved %d items from hazelcast map '%s'", len(l.tle.elements), mapName), l.tle.runnerName, log.TraceLevel)
+	lp.LogMapRunnerEvent(fmt.Sprintf("successfully read %d items from hazelcast map '%s'", len(l.tle.elements), mapName), l.tle.runnerName, log.TraceLevel)
+	return nil
+
+}
+
+func (l *batchTestLoop[t]) performSingleRead(m hazelcastwrapper.Map, elementID, mapName string, mapNumber uint16) error {
+
+	defer func() {
+		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
+	}()
+
+	key := assembleMapKey(mapName, mapNumber, elementID)
+	valueFromHZ, err := m.Get(l.tle.ctx, key)
+	if err != nil {
+		l.ct.increaseCounter(statusKeyNumFailedReads)
+		return err
+	}
+	if valueFromHZ == nil {
+		l.ct.increaseCounter(statusKeyNumNilReads)
+		return fmt.Errorf("value retrieved from hazelcast for key '%s' was nil", key)
+	}
 
 	return nil
 
@@ -744,30 +799,45 @@ func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNu
 
 func (l *batchTestLoop[t]) removeSome(m hazelcastwrapper.Map, mapName string, mapNumber uint16) error {
 
-	numElementsToDelete := rand.Intn(len(l.tle.elements)) + 1
-	removed := 0
+	maxIndex := l.evaluateMaxIndex()
+	numElementsToDelete := uint32(rand.Intn(int(maxIndex)) + 1)
+	numSuccessfullyRemoved := 0
 
-	elements := l.tle.elements
-
-	for i := 0; i < numElementsToDelete; i++ {
-		key := assembleMapKey(mapName, mapNumber, l.tle.getElementID(elements[i]))
-		containsKey, err := m.ContainsKey(l.tle.ctx, key)
-		if err != nil {
-			return err
+	for i := uint32(0); i < numElementsToDelete; i++ {
+		elementID := l.evaluateElementID(i)
+		if err := l.performSingleRemove(m, elementID, mapName, mapNumber); err != nil {
+			// Error upon removal less severe than for ingestion (value to be removed could have expired or been
+			// evicted), so merely log warning and continue
+			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to remove element with ID '%s' from map '%s': %v", elementID, mapName, err), l.tle.runnerName, log.WarnLevel)
+		} else {
+			numSuccessfullyRemoved++
 		}
-		if !containsKey {
-			continue
-		}
-		_, err = m.Remove(l.tle.ctx, key)
-		if err != nil {
-			l.ct.increaseCounter(statusKeyNumFailedRemoves)
-			return err
-		}
-		removed++
-		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", removed, mapName), l.tle.runnerName, log.TraceLevel)
+	lp.LogMapRunnerEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", numSuccessfullyRemoved, mapName), l.tle.runnerName, log.TraceLevel)
+	return nil
+
+}
+
+func (l *batchTestLoop[t]) performSingleRemove(m hazelcastwrapper.Map, elementID, mapName string, mapNumber uint16) error {
+
+	defer func() {
+		l.s.sleep(l.tle.runnerConfig.batch.sleepAfterBatchAction, sleepTimeFunc, l.tle.runnerName)
+	}()
+
+	key := assembleMapKey(mapName, mapNumber, elementID)
+	containsKey, err := m.ContainsKey(l.tle.ctx, key)
+	if err != nil {
+		return err
+	}
+	if !containsKey {
+		return nil
+	}
+	_, err = m.Remove(l.tle.ctx, key)
+	if err != nil {
+		l.ct.increaseCounter(statusKeyNumFailedRemoves)
+		return err
+	}
 
 	return nil
 
