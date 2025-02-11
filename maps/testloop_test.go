@@ -1917,11 +1917,13 @@ func TestResetAfterOperationChain(t *testing.T) {
 			{
 				tl := boundaryTestLoop[string]{
 					tle: &testLoopExecution[string]{
-						ctx:      context.TODO(),
-						elements: theFellowship,
+						ctx:          context.TODO(),
+						elements:     theFellowship,
+						runnerConfig: assembleBaseRunnerConfig(&runnerProperties{numEntriesPerMap: uint32(42)}),
 						getElementID: func(element any) string {
 							return element.(string)
 						},
+						usePreInitializedElements: true,
 					},
 				}
 
@@ -1931,12 +1933,18 @@ func TestResetAfterOperationChain(t *testing.T) {
 				mc := &modeCache{current: fill, forceActionTowardsMode: true}
 				ac := &actionCache{last: insert, next: read}
 				keysCache := make(map[string]struct{})
+				numKeysStored := 0
 				ms.m.data.Range(func(key, value any) bool {
 					keysCache[key.(string)] = struct{}{}
+					numKeysStored++
 					return true
 				})
-				elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship))
-				tl.resetAfterOperationChain(ms.m, defaultTestMapName, defaultTestMapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
+				ic := &indexCache{current: uint32(numKeysStored)}
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   make(map[string]struct{}, len(theFellowship)),
+				}
+				tl.resetAfterOperationChain(ms.m, defaultTestMapName, defaultTestMapNumber, &keysCache, available, mc, ac, ic)
 
 				msg := "\t\t\tafter reset, local mode cache for given map number must be cleared"
 				if mc.current == "" && !mc.forceActionTowardsMode {
@@ -1947,6 +1955,13 @@ func TestResetAfterOperationChain(t *testing.T) {
 
 				msg = "\t\t\tlocal action cache for given map number must be cleared"
 				if ac.last == "" && ac.next == "" {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tindex cache must have been reset"
+				if ic.current == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1975,11 +1990,10 @@ func TestResetAfterOperationChain(t *testing.T) {
 				}
 
 				msg = "\t\t\tstore representing elements available for insertion must have been re-populated"
-				msg = "\t\t\tstore representing elements available for insertion must have been re-populated"
-				if len(elementsAvailableForInsertion) == len(theFellowship) {
+				if len(available.pool) == len(theFellowship) {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(elementsAvailableForInsertion)))
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(available.pool)))
 				}
 
 			}
@@ -1997,14 +2011,22 @@ func TestResetAfterOperationChain(t *testing.T) {
 				populateTestHzMapStore(defaultTestMapName, defaultTestMapNumber, &ms)
 
 				keysCache := make(map[string]struct{})
+				numKeysStored := 0
 				ms.m.data.Range(func(key, value any) bool {
 					keysCache[key.(string)] = struct{}{}
+					numKeysStored++
 					return true
 				})
 				mc := &modeCache{current: fill}
 				ac := &actionCache{last: insert, next: read}
+				ic := &indexCache{current: uint32(numKeysStored)}
+
 				elementsAvailableForInsertion := make(map[string]struct{}, len(theFellowship))
-				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, &elementsAvailableForInsertion, mc, ac)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   elementsAvailableForInsertion,
+				}
+				tl.resetAfterOperationChain(ms.m, "", mapNumber, &keysCache, available, mc, ac, ic)
 
 				msg := "\t\t\tlocal mode cache for given map number must be cleared anyway"
 				if mc.current == "" {
@@ -2025,6 +2047,13 @@ func TestResetAfterOperationChain(t *testing.T) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d element/-s, got %d", len(theFellowship), len(keysCache)))
+				}
+
+				msg = "\t\t\tindex cache must have remained unmodified, too"
+				if ic.current == uint32(numKeysStored) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tstore representing set of elements available for insertion must remain unmodified, too"
