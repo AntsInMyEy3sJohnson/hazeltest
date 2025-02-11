@@ -280,7 +280,6 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, m
 
 	*mc = modeCache{}
 	*ac = actionCache{}
-	*ic = indexCache{}
 
 	p := assemblePredicate(client.ID(), mapName, mapNumber)
 	lp.LogMapRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), l.tle.runnerName, log.TraceLevel)
@@ -288,10 +287,20 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, m
 	if err != nil {
 		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
 	} else {
+
+		*ic = indexCache{}
+
+		var pool map[string]struct{}
+		if l.tle.usePreInitializedElements {
+			pool = l.populateElementsAvailableForInsertion()
+		} else {
+			// TODO Verify map is empty when index-only mode was enabled
+			pool = make(map[string]struct{})
+		}
 		*elementsInserted = make(map[string]struct{})
 		*availableElements = availableElementsWrapper{
 			maxNum: l.tle.runnerConfig.numEntriesPerMap,
-			pool:   l.populateElementsAvailableForInsertion(),
+			pool:   pool,
 		}
 	}
 
