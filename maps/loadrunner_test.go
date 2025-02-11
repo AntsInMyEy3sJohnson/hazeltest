@@ -7,7 +7,6 @@ import (
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
-	"strconv"
 	"testing"
 )
 
@@ -459,30 +458,21 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
 			}
 
-			msg = "\t\tnumber of generated load elements must be correct"
-			elements := l.assignedTestLoopExecution.elements
-			if len(elements) == numEntriesPerMap {
+			// Unlike the Pokedex Runner, the Load Runner does not rely on
+			// pre-initialized load elements, so the elements slice in the
+			// assigned test loop execution must be empty.
+			msg = "\t\tnumber of generated load elements must be zero"
+			if len(l.assignedTestLoopExecution.elements) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, len(elements))
+				t.Fatal(msg, ballotX, len(l.assignedTestLoopExecution.elements))
 			}
 
-			msg = "\t\tkeys must have been populated on load elements"
-			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) {
-					t.Log(msg, checkMark, v.Key)
-				} else {
-					t.Fatal(msg, ballotX, v.Key)
-				}
-			}
-
-			msg = "\t\tall load elements must carry nil Payload"
-			for _, v := range elements {
-				if v.Payload == nil {
-					t.Log(msg, checkMark, v.Key)
-				} else {
-					t.Fatal(msg, ballotX, v.Key, v.Payload)
-				}
+			msg = "\t\tconfig must have been correctly populated with number of map elements"
+			if l.assignedTestLoopExecution.runnerConfig.numEntriesPerMap == uint32(numEntriesPerMap) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\trequirement for generation of fixed-size payload must have been registered"
@@ -577,7 +567,7 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "˜\t\tregistered requirement must be correct"
+			msg = "\t\tregistered requirement must be correct"
 			if !registeredForActor.UseFixedSize &&
 				registeredForActor.UseVariableSize &&
 				registeredForActor.VariableSize.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
@@ -595,21 +585,14 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
 			}
 
-			msg = "\t\tnumber of generated load elements must be correct"
-			elements := l.assignedTestLoopExecution.elements
-			if len(elements) == numEntriesPerMap {
+			// The Load Runner does not make use of pre-initialized load elements regardless of
+			// the configured payload mode, so make sure load elements slice is empty in case
+			// of variable-size payloads, too
+			msg = "\t\tnumber of generated load elements must be zero"
+			if len(l.assignedTestLoopExecution.elements) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, len(elements))
-			}
-
-			msg = "\t\tonly keys of load elements must have been populated"
-			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && v.Payload == nil {
-					t.Log(msg, checkMark, v.Key)
-				} else {
-					t.Fatal(msg, ballotX, v.Key)
-				}
+				t.Fatal(msg, ballotX, len(l.assignedTestLoopExecution.elements))
 			}
 
 			msg = "\t\ttest loop must have been run once"
