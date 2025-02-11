@@ -22,6 +22,7 @@ type (
 	runnerProperties struct {
 		numMaps               uint16
 		numRuns               uint32
+		numEntriesPerMap      uint32
 		cleanMapsPriorToRun   bool
 		mapCleanErrorBehavior state.ErrorDuringCleanBehavior
 		sleepBetweenRuns      *sleepConfig
@@ -119,11 +120,15 @@ func BenchmarkRunOperationChain(b *testing.B) {
 
 	mc := &modeCache{}
 	ac := &actionCache{}
+	ic := &indexCache{}
 	elementsInserted := make(map[string]struct{})
-	elementsAvailableForInsertion := make(map[string]struct{})
 
+	availableElements := &availableElementsWrapper{
+		maxNum: 0,
+		pool:   make(map[string]struct{}),
+	}
 	for i := 0; i < b.N; i++ {
-		err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map-name", 0, elementsInserted, elementsAvailableForInsertion)
+		err := tl.runOperationChain(0, ms.m, mc, ac, ic, "awesome-map-name", 0, elementsInserted, availableElements)
 
 		if err != nil {
 			b.Fatal("encountered error in scope of running operation chain: ", err)
@@ -1538,7 +1543,7 @@ func TestCheckForModeChange(t *testing.T) {
 
 	t.Log("given a function that determines whether the map action mode should be changed")
 	{
-		t.Log("\twhen currently stored number of elements is less than lower boundary")
+		t.Log("\twhen index position indicating currently stored elements is less than lower boundary")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
@@ -1546,8 +1551,9 @@ func TestCheckForModeChange(t *testing.T) {
 				},
 			}
 			lowerBoundary := float32(0.5)
-			currentCacheSize := uint32(lowerBoundary*float32(len(theFellowship)) - 1)
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentCacheSize, drain)
+			currentIndex := uint32(lowerBoundary*float32(len(theFellowship)) - 1)
+			maxNumElements := uint32(len(theFellowship))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentIndex, maxNumElements, drain)
 
 			msg := "\t\tmode check must yield fill as next mode"
 
@@ -1565,7 +1571,7 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen currently stored number of elements matches lower boundary")
+		t.Log("\twhen index indicating currently stored number of elements matches lower boundary")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
@@ -1574,8 +1580,9 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 			currentMode := drain
 			lowerBoundary := float32(0.3)
-			currentCacheSize := uint32(math.Round(float64(len(theFellowship)) * float64(lowerBoundary)))
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentCacheSize, currentMode)
+			currentIndex := uint32(math.Round(float64(len(theFellowship)) * float64(lowerBoundary)))
+			maxNumElements := uint32(len(theFellowship))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, lowerBoundary, currentIndex, maxNumElements, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1593,7 +1600,7 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen the currently stored number of elements is in between the lower and the upper boundary")
+		t.Log("\twhen index indicating currently stored number of elements is between lower and upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
@@ -1602,8 +1609,9 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 			currentMode := drain
 			upperBoundary := float32(0.8)
-			currentCacheSize := uint32(float32(len(theFellowship))*upperBoundary) - 1
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentCacheSize, currentMode)
+			currentIndex := uint32(float32(len(theFellowship))*upperBoundary) - 1
+			maxNumElements := uint32(len(theFellowship))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentIndex, maxNumElements, currentMode)
 
 			msg := "\t\tmode check must return current mode"
 
@@ -1621,7 +1629,7 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen the currently stored number of elements is equal to the upper boundary")
+		t.Log("\twhen index indicating currently stored number of elements is equal to upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
@@ -1630,8 +1638,9 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 			currentMode := fill
 			upperBoundary := float32(0.8)
-			currentCacheSize := uint32(math.Round(float64(len(theFellowship)) * float64(upperBoundary)))
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentCacheSize, currentMode)
+			currentIndex := uint32(math.Round(float64(len(theFellowship)) * float64(upperBoundary)))
+			maxNumElements := uint32(len(theFellowship))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(upperBoundary, 0.2, currentIndex, maxNumElements, currentMode)
 
 			msg := "\t\tmode check must switch mode"
 
@@ -1649,14 +1658,15 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen the currently stored number of elements is greater than the upper boundary")
+		t.Log("\twhen index indicating currently stored number of elements is greater than upper boundary")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, 0.2, uint32(len(theFellowship)), fill)
+			maxNumElements := uint32(len(theFellowship))
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(0.8, 0.2, maxNumElements, maxNumElements, fill)
 
 			msg := "\t\tmode check must return drain as next mode"
 
@@ -1674,14 +1684,14 @@ func TestCheckForModeChange(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen the currently stored number of elements is zero and the current mode is unset")
+		t.Log("\twhen index indicating currently stored number of elements is zero and current mode is unset")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 0, "")
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 0, uint32(len(theFellowship)), "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -1700,14 +1710,14 @@ func TestCheckForModeChange(t *testing.T) {
 
 		}
 
-		t.Log("\twhen currently stored number of elements is greater than zero and current mode is unset")
+		t.Log("\twhen index indicating currently stored number of elements is greater than zero and current mode is unset")
 		{
 			btl := boundaryTestLoop[string]{
 				tle: &testLoopExecution[string]{
 					elements: theFellowship,
 				},
 			}
-			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 500, "")
+			nextMode, forceActionTowardsMode := btl.checkForModeChange(1.0, 0.0, 500, 501, "")
 
 			msg := "\t\tnext mode must be fill"
 
@@ -2233,10 +2243,11 @@ func TestRunOperationChain(t *testing.T) {
 
 			mc := &modeCache{}
 			ac := &actionCache{}
+			ic := &indexCache{}
 			keysCache := make(map[string]struct{})
-			availableForInsertion := make(map[string]struct{})
+			available := &availableElementsWrapper{}
 
-			err := tl.runOperationChain(0, ms.m, mc, ac, "awesome-map", 0, keysCache, availableForInsertion)
+			err := tl.runOperationChain(0, ms.m, mc, ac, ic, "awesome-map", 0, keysCache, available)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -2308,13 +2319,18 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
+				ic := &indexCache{}
 				keysCache := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
-				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, mapName, mapNumber, keysCache, availableForInsertion)
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   availableForInsertion,
+				}
+				err := tl.runOperationChain(0, ms.m, mc, ac, ic, mapName, mapNumber, keysCache, available)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2390,13 +2406,19 @@ func TestRunOperationChain(t *testing.T) {
 
 				mc := &modeCache{}
 				ac := &actionCache{}
+				ic := &indexCache{}
 				keysCache := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(0)
-				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
 
-				err := tl.runOperationChain(0, ms.m, mc, ac, mapName, mapNumber, keysCache, availableForInsertion)
+				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   availableForInsertion,
+				}
+
+				err := tl.runOperationChain(0, ms.m, mc, ac, ic, mapName, mapNumber, keysCache, available)
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -2439,7 +2461,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 42, make(map[string]struct{}), make(map[string]struct{}))
+			_ = tl.runOperationChain(42, ms.m, &modeCache{}, &actionCache{}, &indexCache{}, "awesome-map", 42, make(map[string]struct{}), &availableElementsWrapper{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2468,7 +2490,7 @@ func TestRunOperationChain(t *testing.T) {
 			ts := &testSleeper{}
 			tl.s = ts
 
-			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, "awesome-map", 12, make(map[string]struct{}), make(map[string]struct{}))
+			_ = tl.runOperationChain(3, ms.m, &modeCache{}, &actionCache{}, &indexCache{}, "awesome-map", 12, make(map[string]struct{}), &availableElementsWrapper{})
 
 			msg := "\t\tsleep must have been invoked"
 
@@ -2502,13 +2524,17 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
+				ic := &indexCache{}
 				kc := make(map[string]struct{})
 
 				mapName := "awesome-map"
 				mapNumber := uint16(12)
 
-				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, mapName, mapNumber, kc, availableForInsertion)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship),
+				}
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, ic, mapName, mapNumber, kc, available)
 
 				msg := "\t\t\taction must be tracked anyway"
 				// We can check whether the action was tracked by verifying the action cache's last action is populated
@@ -2526,7 +2552,7 @@ func TestRunOperationChain(t *testing.T) {
 				}
 
 				msg = "\t\t\telement must not have been removed from elements available for insertion"
-				if len(availableForInsertion) == len(theFellowship) {
+				if len(available.pool) == len(theFellowship) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2537,6 +2563,13 @@ func TestRunOperationChain(t *testing.T) {
 				// even if it was also the last, because insert is the only action that makes sense on an empty cache
 				msg = "\t\t\tinsert must have been retried"
 				if ms.m.setInvocations == 3 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tindex tracking number of inserted elements must not have been increased"
+				if ic.current == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2565,15 +2598,18 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
+				ic := &indexCache{}
 				kc := make(map[string]struct{})
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 
 				mapName := "awesome-map"
 				mapNumber := uint16(12)
 
-				availableForInsertion := populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship)
-
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, mapName, mapNumber, kc, availableForInsertion)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   populateElementsAvailableForInsertion(mapName, mapNumber, theFellowship),
+				}
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, ic, mapName, mapNumber, kc, available)
 				tl.gatherer.StopListen()
 
 				waitForStatusGatheringDone(tl.gatherer)
@@ -2608,6 +2644,13 @@ func TestRunOperationChain(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX)
 				}
+
+				msg = "\t\t\telement index keeping track of inserted elements must have been moved forward"
+				if ic.current == uint32(operationChainLength) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 
 			t.Log("\t\twhen read and remove operations fail after successful inserts")
@@ -2633,6 +2676,7 @@ func TestRunOperationChain(t *testing.T) {
 				tl.s = ts
 
 				ac := &actionCache{}
+				ic := &indexCache{}
 				kc := make(map[string]struct{})
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 
@@ -2643,7 +2687,12 @@ func TestRunOperationChain(t *testing.T) {
 					availableForInsertion[key] = struct{}{}
 				}
 
-				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, defaultTestMapName, defaultTestMapNumber, kc, availableForInsertion)
+				available := &availableElementsWrapper{
+					maxNum: uint32(len(theFellowship)),
+					pool:   availableForInsertion,
+				}
+
+				_ = tl.runOperationChain(3, ms.m, &modeCache{}, ac, ic, defaultTestMapName, defaultTestMapNumber, kc, available)
 				tl.gatherer.StopListen()
 
 				waitForStatusGatheringDone(tl.gatherer)
