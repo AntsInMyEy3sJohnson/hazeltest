@@ -64,35 +64,6 @@ func newTestLoadTestLoop() *testLoadTestLoop {
 	}
 }
 
-func TestPopulateLoadElementKeys(t *testing.T) {
-
-	t.Log("given a function to populate only load element keys")
-	{
-		t.Log("\twhen number of entries per map is configured")
-		{
-			msgNumKeys := "\t\tnumber of populated load element keys must be equal to configured number of keys"
-			msgEmptyPayload := "\t\t\tpayload must be empty"
-			for _, numKeys := range []int{0, 3, 12} {
-				loadElementOnlyKeys := populateLoadElementKeys(numKeys)
-				if len(loadElementOnlyKeys) == numKeys {
-					t.Log(msgNumKeys, checkMark, numKeys)
-				} else {
-					t.Fatal(msgNumKeys, ballotX, numKeys)
-				}
-
-				for _, l := range loadElementOnlyKeys {
-					if l.Payload == nil {
-						t.Log(msgEmptyPayload, checkMark, l.Key, numKeys)
-					} else {
-						t.Fatal(msgEmptyPayload, ballotX, l.Key, numKeys)
-					}
-				}
-			}
-		}
-	}
-
-}
-
 func TestInitializeLoadElementTestLoop(t *testing.T) {
 
 	t.Log("given a function to initialize the test loop from the provided loop type")
@@ -431,8 +402,10 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 		}
 		t.Log("\twhen usage of fixed-size load elements was enabled")
 		{
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                      true,
+				"mapTests.load.numEntriesPerMap":             numEntriesPerMap,
 				"mapTests.load.testLoop.type":                string(batch),
 				"mapTests.load.payload.fixedSize.enabled":    true,
 				"mapTests.load.payload.variableSize.enabled": false,
@@ -543,8 +516,10 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			upperBoundaryBytes := 1200
 			sameSizeSteps := 100
 
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                                                  true,
+				"mapTests.load.numEntriesPerMap":                                         numEntriesPerMap,
 				"mapTests.load.testLoop.type":                                            string(batch),
 				"mapTests.load.payload.fixedSize.enabled":                                false,
 				"mapTests.load.payload.variableSize.enabled":                             true,
@@ -580,7 +555,6 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 			gatherer := status.NewGatherer()
 			go gatherer.Listen(make(chan struct{}, 1))
 
-			numEntriesPerMap = 9
 			fixedPayloadSizeBytes = 3
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
@@ -647,8 +621,10 @@ func TestLoadRunner_runMapTests(t *testing.T) {
 		}
 		t.Log("\twhen neither fixed-size nor variable-size load elements were enabled")
 		{
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                      true,
+				"mapTests.load.numEntriesPerMap":             numEntriesPerMap,
 				"mapTests.load.testLoop.type":                string(batch),
 				"mapTests.load.payload.fixedSize.enabled":    false,
 				"mapTests.load.payload.variableSize.enabled": false,
@@ -934,13 +910,15 @@ func TestPopulateLoadConfig(t *testing.T) {
 			}
 
 			msg = "\t\tconfig values specific to load runner must have been correctly populated, too"
-			if numEntriesPerMap == tc[testMapRunnerKeyPath+".numEntriesPerMap"].(int) {
-				t.Log(msg, checkMark)
+			keyPath := testMapRunnerKeyPath + ".numEntriesPerMap"
+			expectedNumEntriesPerMap := tc[keyPath]
+			if cfg.numEntriesPerMap == uint32(expectedNumEntriesPerMap.(int)) {
+				t.Log(msg, checkMark, keyPath)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, keyPath)
 			}
 
-			keyPath := testMapRunnerKeyPath + ".payload.fixedSize.enabled"
+			keyPath = testMapRunnerKeyPath + ".payload.fixedSize.enabled"
 			if useFixedPayload == tc[keyPath].(bool) {
 				t.Log(msg, checkMark, keyPath)
 			} else {
