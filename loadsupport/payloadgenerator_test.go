@@ -264,8 +264,7 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 			}
 
 			msg = "\t\tfixed-size payload must have been associated with size in store"
-			v, ok := fixedSizePayloads.Load(r.FixedSize.SizeBytes)
-			stored := v.(*string)
+			stored, ok := fixedSizePayloads.p[r.FixedSize.SizeBytes]
 
 			if ok && stored == p {
 				t.Log(msg, checkMark)
@@ -280,7 +279,7 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 			previouslyInitializedPayload := "super-awesome-payload"
 			sizeBytes := len(previouslyInitializedPayload)
 			pointer := &previouslyInitializedPayload
-			fixedSizePayloads.Store(sizeBytes, pointer)
+			fixedSizePayloads.p[sizeBytes] = pointer
 
 			p, err := initializeAndReturnFixedSizePayload("some-actor-name", PayloadGenerationRequirement{
 				FixedSize: FixedSizePayloadDefinition{
@@ -297,6 +296,59 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 
 			msg = "\t\treturned pointer must point to payload previously initialized for given size"
 			if p == pointer {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen many actors query for payload")
+		{
+			sizeBytes := 2000
+			preInitializedPayload := GenerateRandomStringPayload(sizeBytes)
+			fixedSizePayloads = fixedSizePayloadsWrapper{
+				p: map[int]*string{
+					sizeBytes: preInitializedPayload,
+				},
+				m: sync.Mutex{},
+			}
+			var wg sync.WaitGroup
+			numActors := 1000
+			errorOccurred := false
+			for i := 0; i < numActors; i++ {
+				wg.Add(1)
+				go func(actorIndex int) {
+					defer wg.Done()
+					_, err := initializeAndReturnFixedSizePayload(fmt.Sprintf("large-payload-querying-actor-%d", actorIndex), PayloadGenerationRequirement{
+						UseFixedSize: true,
+						FixedSize: FixedSizePayloadDefinition{
+							SizeBytes: sizeBytes,
+						},
+					})
+					if err != nil {
+						errorOccurred = true
+						return
+					}
+				}(i)
+			}
+			wg.Wait()
+
+			msg := "\t\tno error must have occurred"
+			if !errorOccurred {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpayload cache must contain only one element"
+			if len(fixedSizePayloads.p) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected 1, got %d", len(fixedSizePayloads.p)))
+			}
+
+			msg = "\t\tsingle element must be equivalent to pre-initialized value"
+			if storedPayload, _ := fixedSizePayloads.p[sizeBytes]; storedPayload == preInitializedPayload {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)

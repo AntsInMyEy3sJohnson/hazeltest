@@ -35,6 +35,10 @@ type (
 		numGeneratePayloadInvocations int
 		payloadSize                   int
 	}
+	fixedSizePayloadsWrapper struct {
+		p map[int]*string
+		m sync.Mutex
+	}
 )
 
 // From https://stackoverflow.com/a/31832326
@@ -48,7 +52,10 @@ const (
 var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
 	payloadConsumingActors sync.Map
-	fixedSizePayloads      sync.Map
+	fixedSizePayloads      = fixedSizePayloadsWrapper{
+		p: make(map[int]*string),
+		m: sync.Mutex{},
+	}
 )
 
 func (p *DefaultPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
@@ -143,16 +150,16 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("initializing fixed-size payload for actor '%s'", actorName), log.TraceLevel)
 
 	sizeBytes := r.FixedSize.SizeBytes
-	if _, ok := fixedSizePayloads.Load(r.FixedSize.SizeBytes); !ok {
+	fixedSizePayloads.m.Lock()
+	defer fixedSizePayloads.m.Unlock()
+
+	if _, ok := fixedSizePayloads.p[r.FixedSize.SizeBytes]; !ok {
 		lp.LogPayloadGeneratorEvent(fmt.Sprintf("performing first-time initialization of fixed-size payload of %d bytes", sizeBytes), log.InfoLevel)
 		payload := GenerateRandomStringPayload(sizeBytes)
-		fixedSizePayloads.Store(sizeBytes, payload)
+		fixedSizePayloads.p[sizeBytes] = payload
 	}
 
-	v, _ := fixedSizePayloads.Load(sizeBytes)
-	payload := v.(*string)
-
-	return payload, nil
+	return fixedSizePayloads.p[sizeBytes], nil
 
 }
 
