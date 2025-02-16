@@ -39,6 +39,30 @@ func TestDefaultPayloadProvider_RegisterPayloadGenerationRequirement(t *testing.
 			}
 		}
 	}
+	t.Log("given many actors wishing to register payload generation requirements")
+	{
+		actorBaseName := "mapLoadRunner"
+		numActors := 100
+
+		var wg sync.WaitGroup
+		dp := &DefaultPayloadProvider{}
+		r := PayloadGenerationRequirement{
+			UseVariableSize: true,
+			VariableSize: VariableSizePayloadDefinition{
+				LowerBoundaryBytes: 1000,
+				UpperBoundaryBytes: 2000000,
+				SameSizeStepsLimit: 100,
+			},
+		}
+		for i := 0; i < numActors; i++ {
+			go func(actorIndex int) {
+				defer wg.Done()
+				dp.RegisterPayloadGenerationRequirement(fmt.Sprintf("%s-ht_load-%d", actorBaseName, actorIndex), r)
+			}(i)
+		}
+		wg.Wait()
+
+	}
 
 }
 

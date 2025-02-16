@@ -7,6 +7,7 @@ import (
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
 	"math"
@@ -22,7 +23,7 @@ import (
 type (
 	evaluateTimeToSleep      func(sc *sleepConfig) int
 	getElementIdFunc         func(element any) string
-	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, elementID string) (*string, error)
+	getOrAssemblePayloadFunc func(mapName string, mapNumber uint16, elementID string) (*loadsupport.PayloadWrapper, error)
 	looper[t any]            interface {
 		init(lc *testLoopExecution[t], s sleeper, gatherer status.Gatherer)
 		run()
@@ -447,12 +448,12 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 	switch action {
 	case insert:
-		payload, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
+		pw, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
 		if err != nil {
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
 			return err
 		}
-		if err := m.Set(l.tle.ctx, key, toValue(payload)); err != nil {
+		if err := m.Set(l.tle.ctx, key, pw.Payload); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -752,11 +753,11 @@ func (l *batchTestLoop[t]) performSingleIngest(m hazelcastwrapper.Map, elementID
 	if containsKey {
 		return nil
 	}
-	value, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
+	pw, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
 	if err != nil {
 		return err
 	}
-	if err = m.Set(l.tle.ctx, key, toValue(value)); err != nil {
+	if err = m.Set(l.tle.ctx, key, pw.Payload); err != nil {
 		l.ct.increaseCounter(statusKeyNumFailedInserts)
 		return err
 	}
@@ -883,18 +884,4 @@ func assembleMapKey(mapName string, mapNumber uint16, elementID string) string {
 
 	return fmt.Sprintf("%s-%s-%d-%s", client.ID(), mapName, mapNumber, elementID)
 
-}
-
-/*
-	toValue simply dereferences the given pointer and returns the string value.
-
-We need to make sure to dereference strings and pass their values into Hazelcast due to auto-registering of
-values to be serialized using gob.Register that happens in Hazelcast Golang client as of version 1.4.2.
-At this point in code execution, multiple values have already been sent to the target Hazelcast cluster,
-having gone through serialization -- hence through auto-registration --, and since these values are strings,
-the string type has already been registered. Trying to pass in a string pointer now yields the
-'gob: registering duplicate names for *string: "string" != "*string' error message.
-*/
-func toValue(s *string) string {
-	return *s
 }

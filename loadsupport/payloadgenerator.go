@@ -15,7 +15,7 @@ import (
 type (
 	PayloadProvider interface {
 		RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement)
-		RetrievePayload(fullActorName string) (*string, error)
+		RetrievePayload(fullActorName string) (*PayloadWrapper, error)
 	}
 	DefaultPayloadProvider struct {
 		actorRequirements sync.Map
@@ -31,12 +31,15 @@ type (
 	VariableSizePayloadDefinition struct {
 		LowerBoundaryBytes, UpperBoundaryBytes, SameSizeStepsLimit int
 	}
+	PayloadWrapper struct {
+		Payload []byte
+	}
 	variablePayloadGenerationInfo struct {
 		numGeneratePayloadInvocations int
 		payloadSize                   int
 	}
 	fixedSizePayloadsWrapper struct {
-		p map[int]*string
+		p map[int]*PayloadWrapper
 		m sync.Mutex
 	}
 )
@@ -53,7 +56,7 @@ var (
 	lp                     = logging.GetLogProviderInstance(client.ID())
 	payloadConsumingActors sync.Map
 	fixedSizePayloads      = fixedSizePayloadsWrapper{
-		p: make(map[int]*string),
+		p: make(map[int]*PayloadWrapper),
 		m: sync.Mutex{},
 	}
 )
@@ -65,7 +68,7 @@ func (p *DefaultPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseN
 
 }
 
-func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*string, error) {
+func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*PayloadWrapper, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("retrieving payload for actor '%s'", actorName), log.TraceLevel)
 
@@ -120,7 +123,7 @@ func (p *DefaultPayloadProvider) findMatchingPayloadGenerationRequirement(actorN
 // GenerateRandomStringPayload generates a random string payload having a size of n bytes.
 // Copied from: https://stackoverflow.com/a/31832326
 // May I just add that StackOverflow is such a highly fascinating place.
-func GenerateRandomStringPayload(n int) *string {
+func GenerateRandomStringPayload(n int) *PayloadWrapper {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating random string payload having size of %d byte/-s", n), log.TraceLevel)
 
@@ -140,12 +143,11 @@ func GenerateRandomStringPayload(n int) *string {
 		remain--
 	}
 
-	s := string(b)
-	return &s
+	return &PayloadWrapper{Payload: b}
 
 }
 
-func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRequirement) (*string, error) {
+func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRequirement) (*PayloadWrapper, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("initializing fixed-size payload for actor '%s'", actorName), log.TraceLevel)
 
@@ -163,7 +165,7 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 
 }
 
-func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*string, error) {
+func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*PayloadWrapper, error) {
 
 	lp.LogPayloadGeneratorEvent(fmt.Sprintf("generating random string payload for actor '%s' according to payload generation requirement: %v", actorName, r), log.TraceLevel)
 

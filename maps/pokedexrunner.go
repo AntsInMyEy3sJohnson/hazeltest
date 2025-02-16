@@ -10,6 +10,7 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
 	"strconv"
@@ -178,7 +179,7 @@ func (r *pokedexRunner) appendState(s runnerState) {
 
 }
 
-func returnPokemonPayload(_ string, _ uint16, elementID string) (*string, error) {
+func returnPokemonPayload(_ string, _ uint16, elementID string) (*loadsupport.PayloadWrapper, error) {
 
 	p, ok := pokemonEntries[elementID]
 	if !ok {
@@ -193,8 +194,7 @@ func returnPokemonPayload(_ string, _ uint16, elementID string) (*string, error)
 	if err != nil {
 		return nil, err
 	}
-	pString := string(pJson)
-	return &pString, nil
+	return &loadsupport.PayloadWrapper{Payload: pJson}, nil
 }
 
 func getPokemonID(element any) string {

@@ -191,7 +191,7 @@ func (r *loadRunner) appendState(s runnerState) {
 
 }
 
-func (r *loadRunner) getOrAssemblePayload(mapName string, mapNumber uint16, _ string) (*string, error) {
+func (r *loadRunner) getOrAssemblePayload(mapName string, mapNumber uint16, _ string) (*loadsupport.PayloadWrapper, error) {
 
 	actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
 	return r.payloadProvider.RetrievePayload(actorName)
