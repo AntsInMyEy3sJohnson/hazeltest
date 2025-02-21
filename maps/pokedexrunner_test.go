@@ -82,7 +82,7 @@ func TestReturnPokemonPayload(t *testing.T) {
 				}
 				pokemonEntries[strconv.Itoa(pokemonElement.ID)] = &pokemonElement
 
-				sp, err := returnPokemonPayload("", 0, strconv.Itoa(pokemonElement.ID))
+				pw, err := returnPokemonPayload("", 0, strconv.Itoa(pokemonElement.ID))
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -92,7 +92,7 @@ func TestReturnPokemonPayload(t *testing.T) {
 				}
 
 				unmarshalledPokemonElement := &pokemon{}
-				err = json.Unmarshal([]byte(*sp), unmarshalledPokemonElement)
+				err = json.Unmarshal(pw.Payload, unmarshalledPokemonElement)
 
 				msg = "\t\t\tno error must be returned upon attempt to unmarshal pokemon"
 				if err == nil {
