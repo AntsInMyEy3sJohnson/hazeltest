@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
 	"math"
@@ -2351,7 +2352,15 @@ func TestRunOperationChain(t *testing.T) {
 			t.Log("\t\twhen upper boundary is 100 %, lower boundary is 0 %, and probability for action towards boundary is 100 %")
 			{
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
-				chainLength := 10 * len(theFellowship)
+				/*
+					Set up chain length so the chain will run both three complete fills and three complete drains.
+					One complete fill-drain cycle takes 35 steps rather than 36 on a source data pool of 9 elements
+					because the 36th operation would be a read, but at this point, the cache is already empty,
+					so the 36th operation instead becomes the first operation of the next iteration. Thus, if we wish
+					to set up the operation chain for three complete fill-and-drain iterations without starting
+					the next iteration, the chain needs to have 3*36-3 or 12*9-3 steps.
+				*/
+				chainLength := 12*len(theFellowship) - 3
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -2362,7 +2371,7 @@ func TestRunOperationChain(t *testing.T) {
 					chainLength,
 					true,
 				)
-				tl := assembleBoundaryTestLoop(uuid.New(), testSource, true, &testHzClientHandler{}, ms, rc)
+				tl := assembleBoundaryTestLoop(uuid.New(), testSource, false, &testHzClientHandler{}, ms, rc)
 
 				mc := &modeCache{}
 				ac := &actionCache{}
@@ -2387,42 +2396,46 @@ func TestRunOperationChain(t *testing.T) {
 				}
 
 				/*
-						Number of elements in source data: 9
-						Chain length: 90
+					Number of elements in source data: 9
+					Chain length: 105
 
-						With both upper boundary and probability for action towards boundary set to 100 % as well as
-						lower boundary set to 0 %, the operation chain will move back and forth between completely filling
-						the map, then completely erasing the map, then going back to filling, etc.
+					With both upper boundary and probability for action towards boundary set to 100 % as well as
+					lower boundary set to 0 %, the operation chain will move back and forth between completely filling
+					and draining the map by always executing state-altering operations in the corresponding "direction",
+					i.e. fill mode will only execute inserts and reads, and drain mode will only run removes and reads.
 
-						A chain length of 90 covers 10 times fully filling or fully erasing the map if the source data
-						contains 9 elements. Thus, for each kind of the two state-changing operations, we expect them
-						to be invoked 10 / 2 * 9 times --> 45 inserts and 45 removes.
+					Within this framework, the operation chain requires 35 operations for one complete fill-drain cycle
+					(35 because, as mentioned above when defining the chain length, the last read of iteration n
+					becomes the first insert of iteration n+1 because that last read would otherwise be executed
+					on an empty cache), and the operation counts accumulate as follows:
 
-						The number of reads must be equal to <number of completed full iterations on map> * len(<source data>) - <number of times a read was skipped>.
-					    A read will be skipped if one of the following is true:
-						(1) The cache is currently empty, meaning there is nothing to be read --> Happens whenever the mode changes from "drain" back to "fill" when
-					        the map's lower boundary is 0 %
-					    (2) Loop counter reached maximum --> Happens when loop counter is <chain length - 1> -- even when the last operation was a state-changing
-					        operation, the next operation, which would necessarily be a read, will not be executed anymore
-
-						This corresponds to 10 * 9 - 5 = 85 read operations.
+					Chain position (when either 9 or zero is last hit during this iteration) -> index -> operation counts
+					(start: fill)		0 	-> 	0 	-> 0 sets, 	0 gets, 0 removes
+					(result of fill) 	17 	-> 	9 	-> 9 sets, 	9 gets, 0 removes 	-- +9 of primary, +9 gets
+					(result of drain) 	34 	-> 	0 	-> 9 sets, 	17 gets, 9 removes 	-- +9 of primary, +8 gets
+					(result of fill) 	52 	-> 	9 	-> 18 sets, 26 gets, 9 removes 	-- +9 of primary, +9 gets
+					(result of drain) 	69 	-> 	0 	-> 18 sets, 34 gets, 18 removes -- +9 of primary, +8 gets
+					(result of fill) 	87 	-> 	9 	-> 27 sets, 43 gets, 18 removes -- +9 of primary, +9 gets
+					(result of drain) 	104 ->	0 	-> 27 sets, 51 gets, 27 removes -- +9 of primary, +8 gets
 				*/
+				expectedNumStateAlteringInvocations := 12 * len(theFellowship) / 4
+				expectedNumGetInvocations := 12*len(theFellowship)/2 - 3
 				msg = "\t\t\tnumber of inserts performed must be five times the number of elements in the source data"
-				if ms.m.setInvocations == 5*len(theFellowship) {
+				if ms.m.setInvocations == expectedNumStateAlteringInvocations {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship), ms.m.setInvocations))
 				}
 
 				msg = "\t\t\tnumber of removes performed must be five times the number of elements in the source data, too"
-				if ms.m.removeInvocations == 5*len(theFellowship) {
+				if ms.m.removeInvocations == expectedNumStateAlteringInvocations {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship), ms.m.removeInvocations))
 				}
 
 				msg = "\t\t\tnumber of reads performed must be ten times the number of elements in the source data minus the number of times the read had to be skipped"
-				if ms.m.getInvocations == 10*len(theFellowship)-5 {
+				if ms.m.getInvocations == expectedNumGetInvocations {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d invocations, got %d", 10*len(theFellowship)-5, ms.m.getInvocations))
@@ -2666,7 +2679,7 @@ func TestRunOperationChain(t *testing.T) {
 				if ms.m.setInvocations == operationChainLength {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d invocations", operationChainLength, ms.m.setInvocations))
 				}
 
 				msg = "\t\t\treads must have been retried"
@@ -3918,13 +3931,13 @@ func assembleTestLoopExecution(id uuid.UUID, source string, elements []string, u
 
 }
 
-func returnFellowshipMemberName(_ string, _ uint16, element string) (*string, error) {
+func returnFellowshipMemberName(_ string, _ uint16, element string) (*loadsupport.PayloadWrapper, error) {
 	getOrAssembleObservations.numInvocations++
 
 	if getOrAssembleBehavior.returnError {
 		return nil, getOrAssemblePayloadError
 	}
-	return &element, nil
+	return &loadsupport.PayloadWrapper{Payload: []byte(element)}, nil
 }
 
 func assembleTestMapStoreWithBoundaryMonitoring(b *testMapStoreBehavior, bm *boundaryMonitoring) testHzMapStore {
