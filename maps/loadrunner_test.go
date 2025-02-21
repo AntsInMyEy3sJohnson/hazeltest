@@ -30,7 +30,7 @@ type (
 	}
 	testPayloadProviderBehavior struct {
 		returnErrorUponPayloadRetrieval bool
-		payloadsToReturn                map[string]*string
+		payloadsToReturn                map[string]*loadsupport.PayloadWrapper
 	}
 )
 
@@ -47,7 +47,7 @@ func (p *testPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseName
 	p.observations.requirementRegistrations[actorBaseName] = r
 }
 
-func (p *testPayloadProvider) RetrievePayload(actorName string) (*string, error) {
+func (p *testPayloadProvider) RetrievePayload(actorName string) (*loadsupport.PayloadWrapper, error) {
 	p.observations.payloadRetrievals[actorName] = struct{}{}
 
 	if p.behavior.returnErrorUponPayloadRetrieval {
@@ -701,16 +701,15 @@ func TestLoadRunner_getOrAssemblePayload(t *testing.T) {
 			mapName := "awesome-map-name"
 			mapNumber := uint16(0)
 			actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
-			s := "super-awesome-payload"
-			payload := &s
+			pw := &loadsupport.PayloadWrapper{Payload: []byte("super-awesome-payload")}
 			tp := &testPayloadProvider{
 				observations: &testPayloadProviderObservations{
 					payloadRetrievals: map[string]struct{}{},
 				},
 				behavior: &testPayloadProviderBehavior{
 					returnErrorUponPayloadRetrieval: false,
-					payloadsToReturn: map[string]*string{
-						actorName: payload,
+					payloadsToReturn: map[string]*loadsupport.PayloadWrapper{
+						actorName: pw,
 					},
 				},
 			}
@@ -737,7 +736,7 @@ func TestLoadRunner_getOrAssemblePayload(t *testing.T) {
 			}
 
 			msg = "\t\treturned payload must match the one given in test payload provider"
-			if p == payload {
+			if p == pw {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
