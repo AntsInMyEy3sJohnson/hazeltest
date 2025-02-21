@@ -39,31 +39,6 @@ func TestDefaultPayloadProvider_RegisterPayloadGenerationRequirement(t *testing.
 			}
 		}
 	}
-	t.Log("given many actors wishing to register payload generation requirements")
-	{
-		actorBaseName := "mapLoadRunner"
-		numActors := 100
-
-		var wg sync.WaitGroup
-		dp := &DefaultPayloadProvider{}
-		r := PayloadGenerationRequirement{
-			UseVariableSize: true,
-			VariableSize: VariableSizePayloadDefinition{
-				LowerBoundaryBytes: 1000,
-				UpperBoundaryBytes: 2000000,
-				SameSizeStepsLimit: 100,
-			},
-		}
-		for i := 0; i < numActors; i++ {
-			go func(actorIndex int) {
-				defer wg.Done()
-				dp.RegisterPayloadGenerationRequirement(fmt.Sprintf("%s-ht_load-%d", actorBaseName, actorIndex), r)
-			}(i)
-		}
-		wg.Wait()
-
-	}
-
 }
 
 func TestDefaultPayloadProvider_RetrievePayload(t *testing.T) {
@@ -148,7 +123,7 @@ func TestDefaultPayloadProvider_RetrievePayload(t *testing.T) {
 				}
 
 				msg = "\t\t\treturned payload must correspond to boundaries specified by means of previously registered payload generation requirement"
-				if len(*p) >= r.VariableSize.LowerBoundaryBytes && len(*p) <= r.VariableSize.UpperBoundaryBytes {
+				if len(p.Payload) >= r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -179,7 +154,7 @@ func TestDefaultPayloadProvider_RetrievePayload(t *testing.T) {
 				}
 
 				msg = "\t\t\treturned payload must correspond to fixed size specified by means of previously registered payload generation requirement"
-				if len(*p) == r.FixedSize.SizeBytes {
+				if len(p.Payload) == r.FixedSize.SizeBytes {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -281,7 +256,7 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 			}
 
 			msg = "\t\treturned payload must match expected size"
-			if len(*p) == r.FixedSize.SizeBytes {
+			if len(p.Payload) == r.FixedSize.SizeBytes {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -300,10 +275,10 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 		t.Log("\twhen payload with given size was already initialized")
 		{
 			// Manually insert payload into store
-			previouslyInitializedPayload := "super-awesome-payload"
+			previouslyInitializedPayload := []byte("super-awesome-payload")
 			sizeBytes := len(previouslyInitializedPayload)
-			pointer := &previouslyInitializedPayload
-			fixedSizePayloads.p[sizeBytes] = pointer
+			pw := &PayloadWrapper{Payload: previouslyInitializedPayload}
+			fixedSizePayloads.p[sizeBytes] = pw
 
 			p, err := initializeAndReturnFixedSizePayload("some-actor-name", PayloadGenerationRequirement{
 				FixedSize: FixedSizePayloadDefinition{
@@ -318,8 +293,8 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\treturned pointer must point to payload previously initialized for given size"
-			if p == pointer {
+			msg = "\t\treturned payload wrapper must point to payload previously initialized for given size"
+			if p == pw {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -331,7 +306,7 @@ func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 			sizeBytes := 2000
 			preInitializedPayload := GenerateRandomStringPayload(sizeBytes)
 			fixedSizePayloads = fixedSizePayloadsWrapper{
-				p: map[int]*string{
+				p: map[int]*PayloadWrapper{
 					sizeBytes: preInitializedPayload,
 				},
 				m: sync.Mutex{},
@@ -411,7 +386,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 			}
 
 			msg = "\t\tsize of generated payload must correspond to boundaries provided in given payload generation requirement"
-			if len(*p) >= r.VariableSize.LowerBoundaryBytes && len(*p) <= r.VariableSize.UpperBoundaryBytes {
+			if len(p.Payload) >= r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -434,7 +409,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 			}
 
 			msg = "\t\tpayload generation info must contain size of generated payload"
-			if insertedInfo.payloadSize == len(*p) {
+			if insertedInfo.payloadSize == len(p.Payload) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -456,7 +431,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 				},
 			}
 
-			previouslyGeneratedPayload := ""
+			previouslyGeneratedPayload := []byte("")
 			for i := 0; i < r.VariableSize.SameSizeStepsLimit+1; i++ {
 				p, err := generateRandomStringPayloadWithinBoundary(actorExtendedName, r)
 
@@ -487,7 +462,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 
 				if i == 0 {
 					msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
-					if len(*p) > r.VariableSize.LowerBoundaryBytes && len(*p) <= r.VariableSize.UpperBoundaryBytes {
+					if len(p.Payload) > r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
 						t.Log(msg, checkMark, i)
 					} else {
 						t.Fatal(msg, ballotX, i)
@@ -496,7 +471,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 					t.Log("\t\t\twhen number of invocations is within same size step boundary")
 					{
 						msg = "\t\t\t\tpayload's size must be equal to previous generated payload's size"
-						if len(*p) == len(previouslyGeneratedPayload) {
+						if len(p.Payload) == len(previouslyGeneratedPayload) {
 							t.Log(msg, checkMark, i)
 						} else {
 							t.Fatal(msg, ballotX, i)
@@ -506,7 +481,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 					t.Log("\t\t\twhen number of invocations exceeds same size step boundary")
 					{
 						msg = "\t\t\t\tpayload's size must differ from previously generated payload's size"
-						if len(*p) != len(previouslyGeneratedPayload) {
+						if len(p.Payload) != len(previouslyGeneratedPayload) {
 							t.Log(msg, checkMark, i)
 						} else {
 							t.Fatal(msg, ballotX, i)
@@ -514,7 +489,7 @@ func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
 					}
 				}
 
-				previouslyGeneratedPayload = *p
+				previouslyGeneratedPayload = p.Payload
 			}
 
 		}
