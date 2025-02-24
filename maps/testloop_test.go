@@ -2675,22 +2675,28 @@ func TestRunOperationChain(t *testing.T) {
 				waitForStatusGatheringDone(tl.gatherer)
 
 				msg := "\t\t\toperation chain must commence"
-				// We can verify the operation chain continued by checking the number of inserts on the map store
-				if ms.m.setInvocations == operationChainLength {
+				/*
+					We can verify the operation chain continued by checking the number of inserts on the map store.
+
+					For a chain length of 9 (as set up above), we expect 5 set invocations (each set is followed by a read,
+					hence 9 steps will yield 5 sets and 4 reads).
+				*/
+				numExpectedInserts := 5
+				if ms.m.setInvocations == numExpectedInserts {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX, fmt.Sprintf("expected %d, got %d invocations", operationChainLength, ms.m.setInvocations))
 				}
 
 				msg = "\t\t\treads must have been retried"
-				if ms.m.getInvocations == operationChainLength-1 {
+				if ms.m.getInvocations == 4 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
 				msg = "\t\t\tcache must have been updated after each successful insert"
-				if len(kc) == operationChainLength {
+				if len(kc) == numExpectedInserts {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2706,7 +2712,7 @@ func TestRunOperationChain(t *testing.T) {
 				}
 
 				msg = "\t\t\telement index keeping track of inserted elements must have been moved forward"
-				if ic.current == uint32(operationChainLength) {
+				if ic.current == uint32(numExpectedInserts) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -2715,7 +2721,7 @@ func TestRunOperationChain(t *testing.T) {
 
 			t.Log("\t\twhen read and remove operations fail after successful inserts")
 			{
-				operationChainLength := len(theFellowship) * 2
+				operationChainLength := 4 * len(theFellowship)
 				rc := assembleRunnerConfigForBoundaryTestLoop(
 					rpOneMapOneRunNoEvictionScDisabled,
 					sleepConfigDisabled,
@@ -2758,31 +2764,38 @@ func TestRunOperationChain(t *testing.T) {
 				waitForStatusGatheringDone(tl.gatherer)
 
 				msg := "\t\t\tremoves must have been retried"
-				if ms.m.removeInvocations == operationChainLength/2 {
+				if ms.m.removeInvocations == operationChainLength/4 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, ms.m.removeInvocations)
 				}
 
 				msg = "\t\t\treads must have been retried"
-				if ms.m.getInvocations == operationChainLength-1 {
+				if ms.m.getInvocations == operationChainLength/2 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, ms.m.getInvocations)
 				}
 
 				msg = "\t\t\tno element must have been removed from cache"
 				if len(kc) == ms.m.setInvocations {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, len(kc))
 				}
 
 				msg = "\t\t\tno elements must have been inserted into store representing elements available for insertion"
 				if len(availableForInsertion) == 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, len(availableForInsertion))
+				}
+
+				msg = "\t\t\tindex tracking element insertion must be equal to amount of inserted elements"
+				if ic.current == uint32(ms.m.setInvocations) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, ic.current)
 				}
 			}
 		}
