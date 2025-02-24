@@ -1861,7 +1861,7 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 					id := uuid.New()
 					numMaps, numRuns := uint16(1), uint32(1)
 
-					chainLength := 10 * len(theFellowship)
+					chainLength := 12*len(theFellowship) - 3
 					rc := assembleRunnerConfigForBoundaryTestLoop(
 						&runnerProperties{
 							numMaps:             numMaps,
@@ -1882,12 +1882,14 @@ func TestRunWithBoundaryTestLoop(t *testing.T) {
 
 					tl.run()
 
-					// With an action-towards-boundary-probability of 50 %, the test loop will execute inserts, reads,
-					// and removes roughly the same number of times due to the fact that after a remove on a cache of
-					// size 1, the next action has to be an insert rather than a read. Hence, the usual rule of "do a
-					// read after each modifying action" does not apply here.
-					msg := "\t\t\t\tnumber of set invocations must be roughly one third of the chain length"
-					if math.Abs(float64(ms.m.setInvocations-chainLength/3)) < 5 {
+					// With an action-towards-boundary probability of 100 %, we'd expect 27 sets for the given
+					// operation chain length. In this case, it's the same with a probability of 50 %, though,
+					// because the operation chain length was configured such that we can run four complete fill-drain
+					// cycles. Due to the probability of 50 %, inserts will get executed almost the same number of
+					// times than removes even during the "drain" phase (except in cases where an action towards
+					// the boundary is forced).
+					msg := "\t\t\t\tnumber of set invocations must be roughly one quarter of the chain length"
+					if math.Abs(float64(ms.m.setInvocations-chainLength/4)) < 10 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX, ms.m.setInvocations)
@@ -3014,29 +3016,42 @@ func TestRunWithBatchTestLoop(t *testing.T) {
 
 				waitForStatusGatheringDone(tl.gatherer)
 
-				msg := "\t\tno remove invocations must have been attempted"
-
-				if ms.m.removeInvocations == 0 {
+				// Since Hazeltest v0.16.3, errors in get operations only count as warnings, hence we expect the batch
+				// test loop to have moved on to the remove batch.
+				msg := "\t\tremove invocations must have been attempted anyway"
+				// The set of source data contains nine elements, but since the number of removes executed depends
+				// on a randomness factor, we can't check for a specific number, so we simply verify the number
+				// of remove operations is at least one.
+				if ms.m.removeInvocations > 0 {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX)
+					t.Fatal(msg, ballotX, ms.m.removeInvocations)
 				}
 
 				msg = "\t\tdata must remain in map since no remove was executed"
-
-				if numElementsInSyncMap(ms.m.data) == len(theFellowship) {
+				// Even with the randomness factor considered, we know that at least one remove operation was
+				// executed, so the number of elements in the target map must be smaller than the number
+				// of elements available in the source data.
+				if numElementsInSyncMap(ms.m.data) < len(theFellowship) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\tvalues in test loop status must be correct"
-
-				expectedRuns := uint32(numMaps) * numRuns
-				if ok, key, detail := statusContainsExpectedValues(tl.gatherer.AssembleStatusCopy(), numMaps, numRuns, expectedRuns, true); ok {
+				msg = "\t\ttest loop status must contain expected number of runs"
+				expectedNumRuns := uint32(numMaps) * numRuns
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if v, ok := statusCopy["numRuns"]; ok && v.(uint32) == expectedNumRuns {
 					t.Log(msg, checkMark)
 				} else {
-					t.Fatal(msg, ballotX, key, detail)
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\ttest loop status must contain information on failed read attempts"
+				if v, ok := statusCopy["numFailedReads"]; ok && v.(uint64) == uint64(len(theFellowship)) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
 				}
 			}()
 		}
