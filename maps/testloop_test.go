@@ -3503,6 +3503,153 @@ func TestIngestAll(t *testing.T) {
 
 }
 
+func TestPerformSingleIngest(t *testing.T) {
+
+	t.Log("given a target hazelcast map and a single element for insertion")
+	{
+		t.Log("\twhen contains key check yields error")
+		{
+			ch := &testHzClientHandler{}
+			ms := assembleTestMapStore(&testMapStoreBehavior{
+				returnErrorUponContainsKey: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(
+				&runnerProperties{},
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				ch,
+				ms,
+				rc,
+			)
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed of one failed contains key check"
+			waitForStatusGatheringDone(tl.gatherer)
+
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen contains key check succeeds and target map already contains element")
+		{
+			ch := &testHzClientHandler{}
+			elementAlreadyInMap := theFellowship[0]
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+			mapName := "ht_load-0"
+			mapNumber := uint16(0)
+			key := assembleMapKey(mapName, mapNumber, elementAlreadyInMap)
+			ms.m.data.Store(key, elementAlreadyInMap)
+			rc := assembleRunnerConfigForBatchTestLoop(
+				&runnerProperties{},
+				sleepConfigDisabled,
+				sleepConfigDisabled,
+			)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				ch,
+				ms,
+				rc,
+			)
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleIngest(ms.m, elementAlreadyInMap, mapName, mapNumber)
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno failed contains key check must have been recorded"
+			waitForStatusGatheringDone(tl.gatherer)
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen contains key check succeeds and target map does not contain element yet")
+		{
+			t.Log("\t\twhen get or assemble payload yields error")
+			{
+				func() {
+					defer resetGetOrAssemblePayloadTestSetup()
+
+					getOrAssembleBehavior = getOrAssemblePayloadFunctionBehavior{returnError: true}
+
+					ch := &testHzClientHandler{}
+					ms := assembleTestMapStore(&testMapStoreBehavior{})
+					rc := assembleRunnerConfigForBatchTestLoop(
+						&runnerProperties{},
+						sleepConfigDisabled,
+						sleepConfigDisabled,
+					)
+					tl := assembleBatchTestLoop(
+						uuid.New(),
+						testSource,
+						false,
+						ch,
+						ms,
+						rc,
+					)
+
+					go tl.gatherer.Listen(make(chan struct{}, 1))
+					err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
+					tl.gatherer.StopListen()
+
+					msg := "\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tno failed contains key check must have been recorded"
+					waitForStatusGatheringDone(tl.gatherer)
+					statusCopy := tl.gatherer.AssembleStatusCopy()
+					if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tno failed insert must have been recorded"
+					if v, ok := statusCopy[string(statusKeyNumFailedInserts)]; ok && v.(uint64) == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}()
+			}
+		}
+	}
+
+}
+
 func TestReadAll(t *testing.T) {
 
 	t.Log("given a hazelcast map")
