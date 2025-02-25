@@ -3527,6 +3527,9 @@ func TestPerformSingleIngest(t *testing.T) {
 				rc,
 			)
 
+			s := &testSleeper{}
+			tl.s = s
+
 			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
 			tl.gatherer.StopListen()
@@ -3540,9 +3543,22 @@ func TestPerformSingleIngest(t *testing.T) {
 
 			msg = "\t\tstatus gatherer must have been informed of one failed contains key check"
 			waitForStatusGatheringDone(tl.gatherer)
-
 			statusCopy := tl.gatherer.AssembleStatusCopy()
 			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno set execution must have been executed"
+			if ms.m.setInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -3572,6 +3588,9 @@ func TestPerformSingleIngest(t *testing.T) {
 				rc,
 			)
 
+			s := &testSleeper{}
+			tl.s = s
+
 			go tl.gatherer.Listen(make(chan struct{}, 1))
 			err := tl.performSingleIngest(ms.m, elementAlreadyInMap, mapName, mapNumber)
 			tl.gatherer.StopListen()
@@ -3587,6 +3606,20 @@ func TestPerformSingleIngest(t *testing.T) {
 			waitForStatusGatheringDone(tl.gatherer)
 			statusCopy := tl.gatherer.AssembleStatusCopy()
 			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno set execution must have been executed"
+			if ms.m.setInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -3617,6 +3650,9 @@ func TestPerformSingleIngest(t *testing.T) {
 						rc,
 					)
 
+					s := &testSleeper{}
+					tl.s = s
+
 					go tl.gatherer.Listen(make(chan struct{}, 1))
 					err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
 					tl.gatherer.StopListen()
@@ -3643,9 +3679,23 @@ func TestPerformSingleIngest(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX)
 					}
+
+					msg = "\t\t\tno set invocation must have been executed"
+					if ms.m.setInvocations == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tsleeper must have been invoked"
+					if s.sleepInvoked {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
 				}()
 			}
-			t.Log("\t\twhen payload assembly does not yield error, but set invocation does")
+			t.Log("\t\twhen payload assembly does not yield error, but insert does")
 			{
 				ch := &testHzClientHandler{}
 				ms := assembleTestMapStore(&testMapStoreBehavior{
@@ -3664,6 +3714,9 @@ func TestPerformSingleIngest(t *testing.T) {
 					ms,
 					rc,
 				)
+
+				s := &testSleeper{}
+				tl.s = s
 
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
@@ -3684,8 +3737,15 @@ func TestPerformSingleIngest(t *testing.T) {
 				} else {
 					t.Fatal(msg, ballotX)
 				}
+
+				msg = "\t\t\tsleeper must have been invoked"
+				if s.sleepInvoked {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
-			t.Log("\t\twhen both payload assembly and set invocation are successful")
+			t.Log("\t\twhen both payload assembly and insert operation are successful")
 			{
 				ch := &testHzClientHandler{}
 				ms := assembleTestMapStore(&testMapStoreBehavior{})
@@ -3703,6 +3763,9 @@ func TestPerformSingleIngest(t *testing.T) {
 					rc,
 				)
 
+				s := &testSleeper{}
+				tl.s = s
+
 				go tl.gatherer.Listen(make(chan struct{}, 1))
 				err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
 				tl.gatherer.StopListen()
@@ -3718,6 +3781,27 @@ func TestPerformSingleIngest(t *testing.T) {
 				waitForStatusGatheringDone(tl.gatherer)
 				statusCopy := tl.gatherer.AssembleStatusCopy()
 				if v, ok := statusCopy[string(statusKeyNumFailedInserts)]; ok && v.(uint64) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tcontains key check must have been performed once"
+				if ms.m.containsKeyInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tset operation must have been performed once"
+				if ms.m.setInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tsleeper must have been invoked"
+				if s.sleepInvoked {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
