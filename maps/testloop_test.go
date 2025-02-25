@@ -3645,6 +3645,84 @@ func TestPerformSingleIngest(t *testing.T) {
 					}
 				}()
 			}
+			t.Log("\t\twhen payload assembly does not yield error, but set invocation does")
+			{
+				ch := &testHzClientHandler{}
+				ms := assembleTestMapStore(&testMapStoreBehavior{
+					returnErrorUponSet: true,
+				})
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{},
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+				)
+				tl := assembleBatchTestLoop(
+					uuid.New(),
+					testSource,
+					false,
+					ch,
+					ms,
+					rc,
+				)
+
+				go tl.gatherer.Listen(make(chan struct{}, 1))
+				err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
+				tl.gatherer.StopListen()
+
+				msg := "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have been informed about one failed insert"
+				waitForStatusGatheringDone(tl.gatherer)
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if v, ok := statusCopy[string(statusKeyNumFailedInserts)]; ok && v.(uint64) == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen both payload assembly and set invocation are successful")
+			{
+				ch := &testHzClientHandler{}
+				ms := assembleTestMapStore(&testMapStoreBehavior{})
+				rc := assembleRunnerConfigForBatchTestLoop(
+					&runnerProperties{},
+					sleepConfigDisabled,
+					sleepConfigDisabled,
+				)
+				tl := assembleBatchTestLoop(
+					uuid.New(),
+					testSource,
+					false,
+					ch,
+					ms,
+					rc,
+				)
+
+				go tl.gatherer.Listen(make(chan struct{}, 1))
+				err := tl.performSingleIngest(ms.m, theFellowship[0], "ht_load-0", 0)
+				tl.gatherer.StopListen()
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must contain zero failed set invocations"
+				waitForStatusGatheringDone(tl.gatherer)
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if v, ok := statusCopy[string(statusKeyNumFailedInserts)]; ok && v.(uint64) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
 		}
 	}
 
