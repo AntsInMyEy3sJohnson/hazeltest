@@ -3991,6 +3991,171 @@ func TestReadAll(t *testing.T) {
 	}
 }
 
+func TestPerformSingleRead(t *testing.T) {
+
+	t.Log("given a target hazelcast map potentially containing some elements to be read")
+	{
+		t.Log("\twhen get invocation yields error")
+		{
+			ms := assembleTestMapStore(&testMapStoreBehavior{
+				returnErrorUponGet: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				&testHzClientHandler{},
+				ms,
+				rc,
+			)
+
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleRead(ms.m, theFellowship[0], "ht_load-0", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tstatus gatherer must have been informed about one failed read"
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedReads)]; ok && v.(uint64) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen get invocation is successful, but no value existed for given key, so returned value is nil")
+		{
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				&testHzClientHandler{},
+				ms,
+				rc,
+			)
+
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleRead(ms.m, theFellowship[0], "ht_load-0", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tno failed read must be present in status gatherer"
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedReads)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed about one nil read"
+			if v, ok := statusCopy[string(statusKeyNumNilReads)]; ok && v.(uint64) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen get invocation is successful and yields non-nil value")
+		{
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+
+			mapName := "ht_load-0"
+			mapNumber := uint16(0)
+			elementID := theFellowship[0]
+			key := assembleMapKey(mapName, mapNumber, elementID)
+			ms.m.data.Store(key, elementID)
+
+			rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				&testHzClientHandler{},
+				ms,
+				rc,
+			)
+
+			s := &testSleeper{}
+			tl.s = s
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleRead(ms.m, elementID, mapName, mapNumber)
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			waitForStatusGatheringDone(tl.gatherer)
+
+			msg = "\t\tno failed read must be present in status gatherer"
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedReads)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno nil value read must be present in status gatherer"
+			if v, ok := statusCopy[string(statusKeyNumNilReads)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have been invoked"
+			if s.sleepInvoked {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+	}
+
+}
+
 func TestRemoveSome(t *testing.T) {
 
 	t.Log("given a hazelcast map containing state")
