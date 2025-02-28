@@ -67,10 +67,10 @@ spec:
               memory: {{ .Values.mancenter.instance.resources.limits.memory }}
           env:
             - name: JAVA_OPTS
-              value: "{{ .Values.mancenter.instance.javaOpts }}{{ if .Values.mancenter.instance.enterprise.enable }} -Dhazelcast.mc.license=$(MC_LICENSE_KEY){{ end }} -XX:+UseContainerSupport"
+              value: "{{ .Values.mancenter.instance.javaOpts }}{{ if .Values.mancenter.instance.enterprise.enabled }} -Dhazelcast.mc.license=$(MC_LICENSE_KEY){{ end }} -XX:+UseContainerSupport"
             - name: MC_INIT_CMD
               value: ./bin/mc-conf.sh cluster add --lenient=true -H /data -cc /data/hazelcastmancenter/config/hazelcast-client.yaml
-            {{- if .Values.mancenter.instance.enterprise.enable }}
+            {{- if .Values.mancenter.instance.enterprise.enabled }}
             - name: MC_LICENSE_KEY
               valueFrom:
                 secretKeyRef:
