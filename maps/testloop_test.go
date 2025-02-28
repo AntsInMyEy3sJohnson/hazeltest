@@ -4284,6 +4284,197 @@ func TestRemoveSome(t *testing.T) {
 
 }
 
+func TestPerformSingleRemove(t *testing.T) {
+
+	t.Log("given a target hazelcast map")
+	{
+		t.Log("\twhen contains key check yields error")
+		{
+			ms := assembleTestMapStore(&testMapStoreBehavior{
+				returnErrorUponContainsKey: true,
+			})
+			rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				&testHzClientHandler{},
+				ms,
+				rc,
+			)
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleRemove(ms.m, theFellowship[0], "ht_load-0", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed of one failed contains key check"
+			waitForStatusGatheringDone(tl.gatherer)
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno remove attempt must have been made"
+			if ms.m.removeInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen contains key check succeeds and is negative")
+		{
+			ms := assembleTestMapStore(&testMapStoreBehavior{})
+			rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+			tl := assembleBatchTestLoop(
+				uuid.New(),
+				testSource,
+				false,
+				&testHzClientHandler{},
+				ms,
+				rc,
+			)
+
+			go tl.gatherer.Listen(make(chan struct{}, 1))
+			err := tl.performSingleRemove(ms.m, theFellowship[0], "ht_load-0", uint16(0))
+			tl.gatherer.StopListen()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must contain zero failed contains key checks"
+			waitForStatusGatheringDone(tl.gatherer)
+			statusCopy := tl.gatherer.AssembleStatusCopy()
+			if v, ok := statusCopy[string(statusKeyNumFailedKeyChecks)]; ok && v.(uint64) == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno remove attempt must have been executed"
+			if ms.m.removeInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen contains key check succeeds and is positive")
+		{
+			t.Log("\t\twhen remove attempt yields error")
+			{
+				ms := assembleTestMapStore(&testMapStoreBehavior{
+					returnErrorUponRemove: true,
+				})
+
+				mapName := "ht_load-0"
+				mapNumber := uint16(0)
+				elementID := theFellowship[0]
+				key := assembleMapKey(mapName, mapNumber, elementID)
+				ms.m.data.Store(key, elementID)
+				rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBatchTestLoop(
+					uuid.New(),
+					testSource,
+					false,
+					&testHzClientHandler{},
+					ms,
+					rc,
+				)
+
+				go tl.gatherer.Listen(make(chan struct{}, 1))
+				err := tl.performSingleRemove(ms.m, elementID, "ht_load-0", uint16(0))
+				tl.gatherer.StopListen()
+
+				msg := "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have been informed of one failed remove attempt"
+				waitForStatusGatheringDone(tl.gatherer)
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if v, ok := statusCopy[string(statusKeyNumFailedRemoves)]; ok && v.(uint64) == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+
+			t.Log("\t\twhen remove attempt succeeds")
+			{
+				ms := assembleTestMapStore(&testMapStoreBehavior{})
+
+				mapName := "ht_load-0"
+				mapNumber := uint16(0)
+				elementID := theFellowship[0]
+				key := assembleMapKey(mapName, mapNumber, elementID)
+				ms.m.data.Store(key, elementID)
+				rc := assembleRunnerConfigForBatchTestLoop(&runnerProperties{}, sleepConfigDisabled, sleepConfigDisabled)
+				tl := assembleBatchTestLoop(
+					uuid.New(),
+					testSource,
+					false,
+					&testHzClientHandler{},
+					ms,
+					rc,
+				)
+
+				go tl.gatherer.Listen(make(chan struct{}, 1))
+				err := tl.performSingleRemove(ms.m, elementID, "ht_load-0", uint16(0))
+				tl.gatherer.StopListen()
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must contain zero failed remove attempts"
+				waitForStatusGatheringDone(tl.gatherer)
+				statusCopy := tl.gatherer.AssembleStatusCopy()
+				if v, ok := statusCopy[string(statusKeyNumFailedRemoves)]; ok && v.(uint64) == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tmap store must have experienced one contains key check invocation"
+				if ms.m.containsKeyInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tmap store must have experienced one remove invocation"
+				if ms.m.removeInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+	}
+
+}
+
 func resetGetOrAssemblePayloadTestSetup() {
 
 	getOrAssembleObservations = getOrAssemblePayloadFunctionObservations{}
