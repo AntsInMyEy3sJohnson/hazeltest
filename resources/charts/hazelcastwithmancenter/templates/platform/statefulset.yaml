@@ -39,7 +39,7 @@ spec:
             name: {{ template "hazelcastplatform.fullname" . }}-config
       containers:
         - name: {{ template "hazelcastplatform.fullname" . }}
-          image: {{ if .Values.platform.cluster.members.edition.enterprise.enable }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
+          image: {{ if .Values.platform.cluster.members.edition.enterprise.enabled }}{{ .Values.platform.cluster.members.edition.enterprise.image }}{{ else }}{{ .Values.platform.cluster.members.edition.community.image }}{{ end }}
           imagePullPolicy: {{ .Values.platform.cluster.members.imagePullPolicy }}
           resources:
             {{- toYaml .Values.platform.cluster.members.containerResources | nindent 12 }}
@@ -95,7 +95,7 @@ spec:
             - name: PROMETHEUS_PORT
               value: "{{ .Values.platform.cluster.members.ports.metrics }}"
             {{- end }}
-            {{- if .Values.platform.cluster.members.edition.enterprise.enable }}
+            {{- if .Values.platform.cluster.members.edition.enterprise.enabled }}
             - name: HZ_LICENSEKEY
               valueFrom:
                 secretKeyRef:

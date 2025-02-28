@@ -27,7 +27,7 @@ platform:
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
-          enable: true
+          enabled: false
           # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
@@ -204,7 +204,7 @@ mancenter:
       # Whether to upgrade this Management Center instance to the enterprise version by injecting a secret into the
       # Pod. If set to 'true', then the name of the Kubernetes Secret containing the enterprise license
       # key has to be specified, too.
-      enable: false
+      enabled: false
       license:
         # The name of the Kubernetes Secret containing the license key for
         # the enterprise version of Management Center.
