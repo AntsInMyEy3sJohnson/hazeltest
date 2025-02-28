@@ -838,6 +838,7 @@ func (l *batchTestLoop[t]) performSingleRemove(m hazelcastwrapper.Map, elementID
 	key := assembleMapKey(mapName, mapNumber, elementID)
 	containsKey, err := m.ContainsKey(l.tle.ctx, key)
 	if err != nil {
+		l.ct.increaseCounter(statusKeyNumFailedKeyChecks)
 		return err
 	}
 	if !containsKey {
