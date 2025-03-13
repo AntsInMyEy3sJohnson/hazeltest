@@ -4,17 +4,17 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.16.2
-  digest: 4b843a1854de4e577a4bfdd6ce0972d3f0ad398f08e43313dae8aa3219bb5adf
+  tag: 0.16.3-dev7
+  digest: f577bace2857d1957dd23c57d2dd8c7e81ac00b3a9bece810a9d6236f6f7dba7
   pullPolicy: IfNotPresent
 
 resources:
   requests:
     cpu: "200m"
-    memory: "250Mi"
+    memory: "50Mi"
   limits:
     cpu: "400m"
-    memory: "500Mi"
+    memory: "100Mi"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
