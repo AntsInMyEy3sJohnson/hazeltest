@@ -27,7 +27,7 @@ platform:
         enterprise:
           # Whether to use the enterprise version of Hazelcast Platform. If enabled, the name of the Kubernetes Secret
           # containing the enterprise license key has to be specified, too, see below.
-          enabled: true
+          enabled: false
           # Caution: Hazelcast Platform embodies the difference between editions in the image itself. Therefore, image
           # configuration is separated here into 'enterprise.image' and 'community.image'. (In contrast to that, the
           # Hazelcast Management Center uses one image you may supply an enterprise license to, hence for the Management
@@ -55,8 +55,8 @@ platform:
           memory: "20G"
       # Increase JVM's heap size if native memory is disabled.
       jvmResources:
-        xmx: 6000m
-        xms: 6000m
+        xmx: 16000m
+        xms: 16000m
       probes:
         liveness:
           enabled: true
@@ -91,7 +91,7 @@ platform:
     # so use property names that Hazelcast expects
     nativeMemory:
       # Set this to false if you run the community edition of Hazelcast
-      enabled: true
+      enabled: false
       size:
         unit: GIGABYTES
         value: 12
@@ -129,34 +129,34 @@ platform:
         max-idle-seconds: 5
         # Caution: Native memory is an enterprise-only feature -- set this to 'BINARY' if you're running
         # the community edition.
-        # in-memory-format: BINARY
-        in-memory-format: NATIVE
+        in-memory-format: BINARY
+        # in-memory-format: NATIVE
         eviction:
           eviction-policy: LRU
-          # max-size-policy: FREE_HEAP_PERCENTAGE
-          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          f: FREE_HEAP_PERCENTAGE
+          # max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
           size: 50
       # Config for the Hazeltest maps
       ht_*:
         backup-count: 1
         # Keep entries around for ten minutes
         max-idle-seconds: 600
-        # in-memory-format: BINARY
-        in-memory-format: NATIVE
+        in-memory-format: BINARY
+        # in-memory-format: NATIVE
         eviction:
           eviction-policy: LRU
-          # max-size-policy: FREE_HEAP_PERCENTAGE
-          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          max-size-policy: FREE_HEAP_PERCENTAGE
+          # max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
           size: 15
       htp_*:
         backup-count: 1
         max-idle-seconds: 600
-        # in-memory-format: BINARY
-        in-memory-format: NATIVE
+        in-memory-format: BINARY
+        # in-memory-format: NATIVE
         eviction:
           eviction-policy: LRU
-          # max-size-policy: FREE_HEAP_PERCENTAGE
-          max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
+          max-size-policy: FREE_HEAP_PERCENTAGE
+          # max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
           size: 15
         map-store:
           enabled: true
