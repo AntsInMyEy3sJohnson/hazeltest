@@ -2,10 +2,11 @@ package maps
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
-	"strconv"
 	"testing"
 )
 
@@ -19,6 +20,18 @@ type (
 		numInitLooperInvocations int
 		numRunInvocations        int
 	}
+	testPayloadProvider struct {
+		observations *testPayloadProviderObservations
+		behavior     *testPayloadProviderBehavior
+	}
+	testPayloadProviderObservations struct {
+		requirementRegistrations map[string]loadsupport.PayloadGenerationRequirement
+		payloadRetrievals        map[string]struct{}
+	}
+	testPayloadProviderBehavior struct {
+		returnErrorUponPayloadRetrieval bool
+		payloadsToReturn                map[string]*loadsupport.PayloadWrapper
+	}
 )
 
 func (d *testLoadTestLoop) init(tle *testLoopExecution[loadElement], _ sleeper, _ status.Gatherer) {
@@ -30,69 +43,24 @@ func (d *testLoadTestLoop) run() {
 	d.observations.numRunInvocations++
 }
 
+func (p *testPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseName string, r loadsupport.PayloadGenerationRequirement) {
+	p.observations.requirementRegistrations[actorBaseName] = r
+}
+
+func (p *testPayloadProvider) RetrievePayload(actorName string) (*loadsupport.PayloadWrapper, error) {
+	p.observations.payloadRetrievals[actorName] = struct{}{}
+
+	if p.behavior.returnErrorUponPayloadRetrieval {
+		return nil, errors.New("the error everybody told you would never happen")
+	}
+
+	return p.behavior.payloadsToReturn[actorName], nil
+}
+
 func newTestLoadTestLoop() *testLoadTestLoop {
 	return &testLoadTestLoop{
 		observations: &testLoadTestLoopObservations{},
 	}
-}
-
-func TestPopulateLoadElementKeys(t *testing.T) {
-
-	t.Log("given a function to populate only load element keys")
-	{
-		t.Log("\twhen number of entries per map is configured")
-		{
-			msgNumKeys := "\t\tnumber of populated load element keys must be equal to configured number of keys"
-			msgEmptyPayload := "\t\t\tpayload must be empty"
-			for _, numKeys := range []int{0, 3, 12} {
-				loadElementOnlyKeys := populateLoadElementKeys(numKeys)
-				if len(loadElementOnlyKeys) == numKeys {
-					t.Log(msgNumKeys, checkMark, numKeys)
-				} else {
-					t.Fatal(msgNumKeys, ballotX, numKeys)
-				}
-
-				for _, l := range loadElementOnlyKeys {
-					if l.Payload == "" {
-						t.Log(msgEmptyPayload, checkMark, l.Key, numKeys)
-					} else {
-						t.Fatal(msgEmptyPayload, ballotX, l.Key, numKeys)
-					}
-				}
-			}
-		}
-	}
-
-}
-
-func TestPopulateLoadElements(t *testing.T) {
-
-	t.Log("given a function to populate a list of load elements")
-	{
-		t.Log("\twhen number of entries per map is configured")
-		{
-			msgNumEntries := "\t\tnumber of load elements in populated list must be equal to configured number of entries per map"
-			msgPayloadSize := "\t\t\tload element must carry payload having configured size"
-			payloadSize := 3
-			for _, numEntries := range []int{0, 6, 21} {
-				loadElements := populateLoadElements(numEntries, payloadSize)
-				if len(loadElements) == numEntries {
-					t.Log(msgNumEntries, checkMark, numEntries)
-				} else {
-					t.Fatal(msgNumEntries, ballotX, numEntries)
-				}
-
-				for _, l := range loadElements {
-					if len(l.Payload) == payloadSize {
-						t.Log(msgPayloadSize, checkMark, numEntries, payloadSize)
-					} else {
-						t.Fatal(msgPayloadSize, ballotX, numEntries, payloadSize)
-					}
-				}
-			}
-		}
-	}
-
 }
 
 func TestInitializeLoadElementTestLoop(t *testing.T) {
@@ -159,7 +127,7 @@ func TestInitializeLoadElementTestLoop(t *testing.T) {
 
 }
 
-func TestRunLoadMapTests(t *testing.T) {
+func TestLoadRunner_runMapTests(t *testing.T) {
 
 	t.Log("given a load runner to run map test loops")
 	{
@@ -176,12 +144,13 @@ func TestRunLoadMapTests(t *testing.T) {
 				assigner:   assigner,
 				stateList:  []runnerState{},
 				hzMapStore: testHzMapStore{},
-				providerFuncs: struct {
-					mapStore            newMapStoreFunc
-					loadElementTestLoop newLoadElementTestLoopFunc
-				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
-					return l, nil
-				}},
+				providerFunctions: providerFuncs{
+					mapStore: newTestMapStore,
+					loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+						return l, nil
+					},
+					payloads: nil,
+				},
 			}
 
 			gatherer := status.NewGatherer()
@@ -256,7 +225,7 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, ch.shutdownInvocations)
 			}
 		}
-		t.Log("\twhen test loop has executed")
+		t.Log("\twhen test loop was executed")
 		{
 			assigner := testConfigPropertyAssigner{
 				returnError: false,
@@ -271,21 +240,28 @@ func TestRunLoadMapTests(t *testing.T) {
 			ch := &testHzClientHandler{}
 			ms := &testHzMapStore{observations: &testHzMapStoreObservations{}}
 			l := newTestLoadTestLoop()
-
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
+			}
 			r := loadRunner{
 				assigner:        assigner,
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
-				providerFuncs: struct {
-					mapStore            newMapStoreFunc
-					loadElementTestLoop newLoadElementTestLoopFunc
-				}{mapStore: func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
-					ms.observations.numInitInvocations++
-					return ms
-				}, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
-					l.observations.numNewLooperInvocations++
-					return l, nil
-				}},
+				providerFunctions: providerFuncs{
+					mapStore: func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
+						ms.observations.numInitInvocations++
+						return ms
+					},
+					loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+						l.observations.numNewLooperInvocations++
+						return l, nil
+					},
+					payloads: func() loadsupport.PayloadProvider {
+						return tp
+					},
+				},
 			}
 
 			gatherer := status.NewGatherer()
@@ -358,6 +334,20 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tgeneration requirement for variable-size payloads must have been correctly registered"
+			registeredRequirements := tp.observations.requirementRegistrations
+			registeredForActor, ok := registeredRequirements[mapLoadRunnerName]
+			if len(registeredRequirements) == 1 && ok &&
+				!registeredForActor.UseFixedSize &&
+				registeredForActor.UseVariableSize &&
+				registeredForActor.VariableSize.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
+				registeredForActor.VariableSize.LowerBoundaryBytes == variablePayloadSizeLowerBoundaryBytes &&
+				registeredForActor.VariableSize.UpperBoundaryBytes == variablePayloadSizeUpperBoundaryBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 		t.Log("\twhen test loop cannot be initialized")
 		{
@@ -411,28 +401,37 @@ func TestRunLoadMapTests(t *testing.T) {
 		}
 		t.Log("\twhen usage of fixed-size load elements was enabled")
 		{
-			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                      true,
+				"mapTests.load.numEntriesPerMap":             numEntriesPerMap,
 				"mapTests.load.testLoop.type":                string(batch),
 				"mapTests.load.payload.fixedSize.enabled":    true,
 				"mapTests.load.payload.variableSize.enabled": false,
 			}}
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
+			}
 			r := loadRunner{
 				assigner:        a,
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				l:               l,
 				name:            mapLoadRunnerName,
-				providerFuncs: struct {
-					mapStore            newMapStoreFunc
-					loadElementTestLoop newLoadElementTestLoopFunc
-				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
-					l.observations.numNewLooperInvocations++
-					return l, nil
-				}},
+				providerFunctions: providerFuncs{
+					mapStore: newTestMapStore,
+					loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+						l.observations.numNewLooperInvocations++
+						return l, nil
+					},
+					payloads: func() loadsupport.PayloadProvider {
+						return tp
+					},
+				},
 			}
 
 			gatherer := status.NewGatherer()
@@ -459,21 +458,39 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
 			}
 
-			msg = "\t\tnumber of generated load elements must be correct"
-			elements := l.assignedTestLoopExecution.elements
-			if len(elements) == numEntriesPerMap {
+			// Unlike the Pokedex Runner, the Load Runner does not rely on
+			// pre-initialized load elements, so the elements slice in the
+			// assigned test loop execution must be empty.
+			msg = "\t\tnumber of generated load elements must be zero"
+			if len(l.assignedTestLoopExecution.elements) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, len(elements))
+				t.Fatal(msg, ballotX, len(l.assignedTestLoopExecution.elements))
 			}
 
-			msg = "\t\tboth key and payload must have been populated on each generated load element"
-			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && len(v.Payload) == fixedPayloadSizeBytes {
-					t.Log(msg, checkMark, v.Key)
-				} else {
-					t.Fatal(msg, ballotX, v.Key)
-				}
+			msg = "\t\tconfig must have been correctly populated with number of map elements"
+			if l.assignedTestLoopExecution.runnerConfig.numEntriesPerMap == uint32(numEntriesPerMap) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\trequirement for generation of fixed-size payload must have been registered"
+			registeredRequirements := tp.observations.requirementRegistrations
+			registeredForActor, ok := registeredRequirements[mapLoadRunnerName]
+			if len(registeredRequirements) == 1 && ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tregistered requirement must be correct"
+			if registeredForActor.UseFixedSize &&
+				!registeredForActor.UseVariableSize &&
+				registeredForActor.FixedSize.SizeBytes == fixedPayloadSizeBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\ttest loop must have been run once"
@@ -482,33 +499,17 @@ func TestRunLoadMapTests(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, l.observations.numRunInvocations)
 			}
-
-			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
-			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tempty payload generation requirement must be returned"
-			emptyPgr := loadsupport.PayloadGenerationRequirement{}
-			if pgr == emptyPgr {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
 		}
 		t.Log("\twhen usage of variable-size load elements was enabled")
 		{
-			loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
-
 			lowerBoundaryBytes := 6
 			upperBoundaryBytes := 1200
 			sameSizeSteps := 100
 
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                                                  true,
+				"mapTests.load.numEntriesPerMap":                                         numEntriesPerMap,
 				"mapTests.load.testLoop.type":                                            string(batch),
 				"mapTests.load.payload.fixedSize.enabled":                                false,
 				"mapTests.load.payload.variableSize.enabled":                             true,
@@ -518,25 +519,32 @@ func TestRunLoadMapTests(t *testing.T) {
 			}}
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
+			}
 			r := loadRunner{
 				assigner:        a,
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				l:               l,
 				name:            mapLoadRunnerName,
-				providerFuncs: struct {
-					mapStore            newMapStoreFunc
-					loadElementTestLoop newLoadElementTestLoopFunc
-				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
-					l.observations.numNewLooperInvocations++
-					return l, nil
-				}},
+				providerFunctions: providerFuncs{
+					mapStore: newTestMapStore,
+					loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+						l.observations.numNewLooperInvocations++
+						return l, nil
+					},
+					payloads: func() loadsupport.PayloadProvider {
+						return tp
+					},
+				},
 			}
 
 			gatherer := status.NewGatherer()
 			go gatherer.Listen(make(chan struct{}, 1))
 
-			numEntriesPerMap = 9
 			fixedPayloadSizeBytes = 3
 			r.runMapTests(context.TODO(), hzCluster, hzMembers, gatherer)
 			gatherer.StopListen()
@@ -550,19 +558,21 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numNewLooperInvocations)
 			}
 
-			registeredRequirement, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
-
-			msg = "\t\tno error must be returned upon attempt to find matching payload generation requirement"
-			if err == nil {
+			msg = "\t\trequirement for generation of variable-size payloads must have been registered"
+			registeredRequirements := tp.observations.requirementRegistrations
+			registeredForActor, ok := registeredRequirements[mapLoadRunnerName]
+			if len(registeredRequirements) == 1 && ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tpayload generation requirement must have been registered"
-			if registeredRequirement.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
-				registeredRequirement.LowerBoundaryBytes == variablePayloadSizeLowerBoundaryBytes &&
-				registeredRequirement.UpperBoundaryBytes == variablePayloadSizeUpperBoundaryBytes {
+			msg = "\t\tregistered requirement must be correct"
+			if !registeredForActor.UseFixedSize &&
+				registeredForActor.UseVariableSize &&
+				registeredForActor.VariableSize.SameSizeStepsLimit == variablePayloadEvaluateNewSizeAfterNumWriteActions &&
+				registeredForActor.VariableSize.LowerBoundaryBytes == variablePayloadSizeLowerBoundaryBytes &&
+				registeredForActor.VariableSize.UpperBoundaryBytes == variablePayloadSizeUpperBoundaryBytes {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -575,21 +585,14 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, l.observations.numInitLooperInvocations)
 			}
 
-			msg = "\t\tnumber of generated load elements must be correct"
-			elements := l.assignedTestLoopExecution.elements
-			if len(elements) == numEntriesPerMap {
+			// The Load Runner does not make use of pre-initialized load elements regardless of
+			// the configured payload mode, so make sure load elements slice is empty in case
+			// of variable-size payloads, too
+			msg = "\t\tnumber of generated load elements must be zero"
+			if len(l.assignedTestLoopExecution.elements) == 0 {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, len(elements))
-			}
-
-			msg = "\t\tonly keys of load elements must have been populated"
-			for i, v := range elements {
-				if v.Key == strconv.Itoa(i) && v.Payload == "" {
-					t.Log(msg, checkMark, v.Key)
-				} else {
-					t.Fatal(msg, ballotX, v.Key)
-				}
+				t.Fatal(msg, ballotX, len(l.assignedTestLoopExecution.elements))
 			}
 
 			msg = "\t\ttest loop must have been run once"
@@ -601,26 +604,36 @@ func TestRunLoadMapTests(t *testing.T) {
 		}
 		t.Log("\twhen neither fixed-size nor variable-size load elements were enabled")
 		{
+			numEntriesPerMap := 9
 			a := &testConfigPropertyAssigner{testConfig: map[string]any{
 				"mapTests.load.enabled":                      true,
+				"mapTests.load.numEntriesPerMap":             numEntriesPerMap,
 				"mapTests.load.testLoop.type":                string(batch),
 				"mapTests.load.payload.fixedSize.enabled":    false,
 				"mapTests.load.payload.variableSize.enabled": false,
 			}}
 			ch := &testHzClientHandler{}
 			l := newTestLoadTestLoop()
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					requirementRegistrations: map[string]loadsupport.PayloadGenerationRequirement{},
+				},
+			}
 			r := loadRunner{
 				assigner:        a,
 				stateList:       []runnerState{},
 				hzClientHandler: ch,
 				l:               l,
-				providerFuncs: struct {
-					mapStore            newMapStoreFunc
-					loadElementTestLoop newLoadElementTestLoopFunc
-				}{mapStore: newTestMapStore, loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
-					l.observations.numNewLooperInvocations++
-					return l, nil
-				}},
+				providerFunctions: providerFuncs{
+					mapStore: newTestMapStore,
+					loadElementTestLoop: func(rc *runnerConfig) (looper[loadElement], error) {
+						l.observations.numNewLooperInvocations++
+						return l, nil
+					},
+					payloads: func() loadsupport.PayloadProvider {
+						return tp
+					},
+				},
 			}
 
 			gatherer := status.NewGatherer()
@@ -668,17 +681,8 @@ func TestRunLoadMapTests(t *testing.T) {
 				t.Fatal(msg, ballotX, detail)
 			}
 
-			pgr, err := loadsupport.ActorTracker.FindMatchingPayloadGenerationRequirement(r.name)
-			msg = "\t\tno payload generation requirement must have been registered, so error must be returned upon attempt to find a matching one"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tempty payload generation requirement must be returned"
-			emptyPgr := loadsupport.PayloadGenerationRequirement{}
-			if pgr == emptyPgr {
+			msg = "\t\tno payload generation requirement must have been registered"
+			if len(tp.observations.requirementRegistrations) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -688,161 +692,95 @@ func TestRunLoadMapTests(t *testing.T) {
 
 }
 
-func TestGetOrAssemblePayload(t *testing.T) {
+func TestLoadRunner_getOrAssemblePayload(t *testing.T) {
 
 	t.Log("given map name, map number, and a load element")
 	{
-		t.Log("\twhen usage of fixed-size payloads was enabled")
+		t.Log("\twhen payload retrieval is successful")
 		{
-			t.Log("\t\twhen load element has empty payload")
-			{
-				useFixedPayload = true
-
-				le := loadElement{}
-
-				v, err := getOrAssemblePayload("some-map-name", uint16(0), le)
-
-				msg := "\t\terror must be returned"
-				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				payload := v.(string)
-				msg = "\t\tempty payload must be returned"
-				if len(payload) == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
+			mapName := "awesome-map-name"
+			mapNumber := uint16(0)
+			actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
+			pw := &loadsupport.PayloadWrapper{Payload: []byte("super-awesome-payload")}
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					payloadRetrievals: map[string]struct{}{},
+				},
+				behavior: &testPayloadProviderBehavior{
+					returnErrorUponPayloadRetrieval: false,
+					payloadsToReturn: map[string]*loadsupport.PayloadWrapper{
+						actorName: pw,
+					},
+				},
 			}
-			t.Log("\t\twhen load element has populated payload")
-			{
-				useFixedPayload = true
-
-				le := loadElement{
-					Key:     "awesome-key",
-					Payload: "awesome-value",
-				}
-				p, err := getOrAssemblePayload("awesome-map-name", uint16(0), le)
-
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, err)
-				}
-
-				msg = "\t\t\tpayload of given load element must be returned without modification"
-				if p == le.Payload {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
+			r := loadRunner{
+				payloadProvider: tp,
 			}
+
+			p, err := r.getOrAssemblePayload(mapName, mapNumber, "")
+
+			msg := "\t\tpayload retrieval must have been invoked for correct actor"
+			payloadRetrievals := tp.observations.payloadRetrievals
+			_, ok := payloadRetrievals[actorName]
+			if len(payloadRetrievals) == 1 && ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned payload must match the one given in test payload provider"
+			if p == pw {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
-		t.Log("\twhen usage of variable-size payloads was enabled")
+
+		t.Log("\twhen payload retrieval is unsuccessful")
 		{
-			useFixedPayload = false
-			useVariablePayload = true
-
-			t.Log("\t\twhen no payload-consuming actor has registered")
-			{
-				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
-
-				v, err := getOrAssemblePayload("map-name", uint16(6), loadElement{})
-
-				msg := "\t\terror must be returned"
-				if err != nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				payload := v.(string)
-				msg = "\t\tempty payload must be returned"
-				if len(payload) == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
+			tp := &testPayloadProvider{
+				observations: &testPayloadProviderObservations{
+					payloadRetrievals: map[string]struct{}{},
+				},
+				behavior: &testPayloadProviderBehavior{
+					returnErrorUponPayloadRetrieval: true,
+				},
+			}
+			r := loadRunner{
+				payloadProvider: tp,
 			}
 
-			t.Log("\t\twhen payload-consuming actor has previously registered payload generation requirement")
-			{
-				loadsupport.ActorTracker = loadsupport.PayloadConsumingActorTracker{}
+			mapName := "awesome-map-name"
+			mapNumber := uint16(0)
+			actorName := fmt.Sprintf("%s-%s-%d", mapLoadRunnerName, mapName, mapNumber)
+			p, err := r.getOrAssemblePayload(mapName, mapNumber, "")
 
-				actorBaseName := mapLoadRunnerName
-
-				variablePayloadSizeLowerBoundaryBytes = 9
-				variablePayloadSizeUpperBoundaryBytes = 111
-				variablePayloadEvaluateNewSizeAfterNumWriteActions = 100
-
-				loadsupport.RegisterPayloadGenerationRequirement(actorBaseName, loadsupport.PayloadGenerationRequirement{
-					LowerBoundaryBytes: variablePayloadSizeLowerBoundaryBytes,
-					UpperBoundaryBytes: variablePayloadSizeUpperBoundaryBytes,
-					SameSizeStepsLimit: variablePayloadEvaluateNewSizeAfterNumWriteActions,
-				})
-
-				v, err := getOrAssemblePayload("ht_load", uint16(0), loadElement{})
-
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX, err)
-				}
-
-				payload := v.(string)
-				msg = "\t\t\tpayload must be generated within the specified boundaries"
-				if len(payload) >= variablePayloadSizeLowerBoundaryBytes && len(payload) <= variablePayloadSizeUpperBoundaryBytes {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
+			msg := "\t\tpayload retrieval must have been invoked for correct actor"
+			payloadRetrievals := tp.observations.payloadRetrievals
+			_, ok := payloadRetrievals[actorName]
+			if len(payloadRetrievals) == 1 && ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
 			}
-		}
-		t.Log("\twhen neither fixed-size nor variable-size payloads were enabled")
-		{
-			useFixedPayload = false
-			useVariablePayload = false
 
-			v, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
-
-			msg := "\t\terror must be returned"
+			msg = "\t\terror must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			payload := v.(string)
-			msg = "\t\tempty payload must be returned"
-			if len(payload) == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-		t.Log("\twhen both fixed-size and variable-size payloads were enabled")
-		{
-			useFixedPayload = true
-			useVariablePayload = true
-
-			v, err := getOrAssemblePayload("some-map-name", uint16(0), loadElement{})
-
-			msg := "\t\terror must be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			payload := v.(string)
-			msg = "\t\tempty payload must be returned"
-			if len(payload) == 0 {
+			msg = "\t\treturned payload must be nil"
+			if p == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -954,13 +892,15 @@ func TestPopulateLoadConfig(t *testing.T) {
 			}
 
 			msg = "\t\tconfig values specific to load runner must have been correctly populated, too"
-			if numEntriesPerMap == tc[testMapRunnerKeyPath+".numEntriesPerMap"].(int) {
-				t.Log(msg, checkMark)
+			keyPath := testMapRunnerKeyPath + ".numEntriesPerMap"
+			expectedNumEntriesPerMap := tc[keyPath]
+			if cfg.numEntriesPerMap == uint32(expectedNumEntriesPerMap.(int)) {
+				t.Log(msg, checkMark, keyPath)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, keyPath)
 			}
 
-			keyPath := testMapRunnerKeyPath + ".payload.fixedSize.enabled"
+			keyPath = testMapRunnerKeyPath + ".payload.fixedSize.enabled"
 			if useFixedPayload == tc[keyPath].(bool) {
 				t.Log(msg, checkMark, keyPath)
 			} else {

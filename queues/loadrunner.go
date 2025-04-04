@@ -25,7 +25,7 @@ type (
 		gatherer        status.Gatherer
 	}
 	loadElement struct {
-		Payload string
+		Payload []byte
 	}
 )
 
@@ -108,10 +108,11 @@ func populateLoadElements() []loadElement {
 
 	elements := make([]loadElement, numLoadEntries)
 
+	// TODO Use new mechanism for lazy initialization of fixed payload for queue load runner, too
 	randomPayload := loadsupport.GenerateRandomStringPayload(payloadSizeBytes)
 
 	for i := 0; i < numLoadEntries; i++ {
-		elements[i] = loadElement{Payload: randomPayload}
+		elements[i] = loadElement{Payload: randomPayload.Payload}
 	}
 
 	return elements

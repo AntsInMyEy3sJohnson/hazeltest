@@ -3,7 +3,6 @@ package maps
 import (
 	"context"
 	"embed"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -11,8 +10,10 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
+	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
+	"strconv"
 )
 
 type (
@@ -60,7 +61,8 @@ type (
 
 var (
 	//go:embed pokedex.json
-	pokedexFile embed.FS
+	pokedexFile    embed.FS
+	pokemonEntries = make(map[string]*pokemon)
 )
 
 func init() {
@@ -75,7 +77,6 @@ func init() {
 			pokemonTestLoop newPokemonTestLoopFunc
 		}{mapStore: newDefaultMapStore, pokemonTestLoop: initPokedexTestLoop},
 	})
-	gob.Register(pokemon{})
 }
 
 func initPokedexTestLoop(rc *runnerConfig) (looper[pokemon], error) {
@@ -115,11 +116,15 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 
 	api.RaiseNotReady()
 
-	p, err := parsePokedexFile(r.name)
+	pd, err := parsePokedexFile(r.name)
 
 	if err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
 	}
+
+	initializePokemonElements(pd)
+	// TODO In tests, verify property gets set
+	config.numEntriesPerMap = uint32(len(pokemonEntries))
 
 	l, err := r.providerFuncs.pokemonTestLoop(config)
 	if err != nil {
@@ -143,17 +148,18 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	lp.LogMapRunnerEvent("starting pokedex test loop for maps", r.name, log.InfoLevel)
 
 	le := &testLoopExecution[pokemon]{
-		id:                   uuid.New(),
-		runnerName:           r.name,
-		source:               r.source,
-		hzClientHandler:      r.hzClientHandler,
-		hzMapStore:           r.hzMapStore,
-		stateCleanerBuilder:  &state.DefaultSingleMapCleanerBuilder{},
-		runnerConfig:         config,
-		elements:             p.Pokemon,
-		ctx:                  ctx,
-		getElementID:         getPokemonID,
-		getOrAssemblePayload: returnPokemonPayload,
+		id:                        uuid.New(),
+		runnerName:                r.name,
+		source:                    r.source,
+		hzClientHandler:           r.hzClientHandler,
+		hzMapStore:                r.hzMapStore,
+		stateCleanerBuilder:       &state.DefaultSingleMapCleanerBuilder{},
+		runnerConfig:              config,
+		elements:                  pd.Pokemon,
+		usePreInitializedElements: true,
+		ctx:                       ctx,
+		getElementID:              getPokemonID,
+		getOrAssemblePayload:      returnPokemonPayload,
 	}
 
 	r.l.init(le, &defaultSleeper{}, r.gatherer)
@@ -173,14 +179,28 @@ func (r *pokedexRunner) appendState(s runnerState) {
 
 }
 
-func returnPokemonPayload(_ string, _ uint16, element any) (any, error) {
-	return element, nil
+func returnPokemonPayload(_ string, _ uint16, elementID string) (*loadsupport.PayloadWrapper, error) {
+
+	p, ok := pokemonEntries[elementID]
+	if !ok {
+		return nil, fmt.Errorf("unable to find pokemon with ID '%s' in given pokedex", elementID)
+	}
+
+	if p == nil {
+		return nil, fmt.Errorf("pokemon with ID '%s' was associated with nil entry in given pokedex", elementID)
+	}
+
+	pJson, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return &loadsupport.PayloadWrapper{Payload: pJson}, nil
 }
 
 func getPokemonID(element any) string {
 
-	pokemon := element.(pokemon)
-	return fmt.Sprintf("%d", pokemon.ID)
+	p := element.(pokemon)
+	return fmt.Sprintf("%d", p.ID)
 
 }
 
@@ -221,5 +241,13 @@ func parsePokedexFile(runnerName string) (*pokedex, error) {
 	lp.LogMapRunnerEvent("parsed pokedex file", runnerName, log.TraceLevel)
 
 	return &pokedex, nil
+
+}
+
+func initializePokemonElements(pd *pokedex) {
+
+	for _, v := range pd.Pokemon {
+		pokemonEntries[strconv.Itoa(v.ID)] = &v
+	}
 
 }

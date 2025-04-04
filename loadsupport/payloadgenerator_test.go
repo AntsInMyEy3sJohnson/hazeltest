@@ -1,6 +1,7 @@
 package loadsupport
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -10,13 +11,47 @@ const (
 	ballotX   = "\u2717"
 )
 
-func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
+func TestDefaultPayloadProvider_RegisterPayloadGenerationRequirement(t *testing.T) {
+
+	t.Log("given an actor's base and a payload generation requirement")
+	{
+		t.Log("\twhen actor invokes registration")
+		{
+			actorBaseName := "mapLoadRunner"
+			r := PayloadGenerationRequirement{}
+
+			dp := DefaultPayloadProvider{}
+			dp.RegisterPayloadGenerationRequirement(actorBaseName, r)
+
+			registeredRequirement, ok := dp.actorRequirements.Load(actorBaseName)
+			msg := "\t\tactor must have been registered"
+			if ok {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpayload generation requirement must have been inserted"
+			if registeredRequirement == r {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+}
+
+func TestDefaultPayloadProvider_RetrievePayload(t *testing.T) {
 
 	t.Log("given an actor name")
 	{
-		t.Log("\twhen no actor with matching name has previously registered a payload generation requirement")
+		t.Log("\twhen no payload generation requirement corresponding to actor name is present")
 		{
-			p, err := GenerateTrackedRandomStringPayloadWithinBoundary("awesome-actor")
+			dp := DefaultPayloadProvider{}
+
+			// Invoke retrieve method without previous registration of payload generation requirement for this
+			// actor's base name
+			p, err := dp.RetrievePayload("super-awesome-actor-name")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -25,33 +60,60 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty string must be returned"
-			if p == "" {
+			msg = "\t\treturned payload must be nil pointer"
+			if p == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 		}
 
-		t.Log("\twhen actor has previously registered")
+		t.Log("\twhen payload generation requirement corresponding to actor name was previously registered")
 		{
-			t.Log("\t\twhen given actor has not previously invoked payload generation yet")
+			t.Log("\t\twhen registered payload generation requirement enables both fixed-size and variable-size payloads")
 			{
-				payloadConsumingActors = sync.Map{}
+				dp := DefaultPayloadProvider{}
+
+				actorBaseName := "mapsLoadRunner"
+				dp.RegisterPayloadGenerationRequirement(actorBaseName, PayloadGenerationRequirement{
+					UseFixedSize:    true,
+					UseVariableSize: true,
+				})
+
+				actorExtendedName := fmt.Sprintf("%s-ht_load-0", actorBaseName)
+				p, err := dp.RetrievePayload(actorExtendedName)
+
+				msg := "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treturned payload must be nil pointer"
+				if p == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen registered payload generation requirement enables only variable-size payload")
+			{
+				dp := DefaultPayloadProvider{}
 
 				actorBaseName := "mapLoadRunner"
-				actorExtendedName := "mapLoadRunner-ht_load-0"
-
-				ActorTracker = PayloadConsumingActorTracker{}
-
-				registeredRequirement := PayloadGenerationRequirement{
-					LowerBoundaryBytes: 0,
-					UpperBoundaryBytes: 10,
-					SameSizeStepsLimit: 5,
+				r := PayloadGenerationRequirement{
+					UseVariableSize: true,
+					VariableSize: VariableSizePayloadDefinition{
+						LowerBoundaryBytes: 0,
+						UpperBoundaryBytes: 21,
+						SameSizeStepsLimit: 3,
+					},
 				}
-				RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
+				dp.RegisterPayloadGenerationRequirement(actorBaseName, r)
 
-				p, err := GenerateTrackedRandomStringPayloadWithinBoundary(actorExtendedName)
+				p, err := dp.RetrievePayload(fmt.Sprintf("%s-ht_load-42", actorBaseName))
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -60,134 +122,67 @@ func TestGenerateTrackedRandomStringPayloadWithinBoundary(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
-				if len(p) >= registeredRequirement.LowerBoundaryBytes && len(p) <= registeredRequirement.UpperBoundaryBytes {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tnew payload generation info value must have been inserted"
-				v, ok := payloadConsumingActors.Load(actorExtendedName)
-				if ok {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tnumber of invocations must have been updated in payload generation info for this actor"
-				insertedInfo := v.(PayloadGenerationInfo)
-				if insertedInfo.numGeneratePayloadInvocations == 1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tpayload generation info must contain size of generated payload"
-				if insertedInfo.payloadSize == len(p) {
+				msg = "\t\t\treturned payload must correspond to boundaries specified by means of previously registered payload generation requirement"
+				if len(p.Payload) >= r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 			}
 
-			t.Log("\t\twhen given actor has previously invoked payload generation")
+			t.Log("\t\twhen registered payload generation requirement enables only fixed-size payload")
 			{
-				payloadConsumingActors = sync.Map{}
+				dp := DefaultPayloadProvider{}
 
-				actorBaseName := "mapLoadRunner"
-				actorExtendedName := "mapLoadRunner-ht_load-0"
-
-				ActorTracker = PayloadConsumingActorTracker{}
-
-				registeredRequirement := PayloadGenerationRequirement{
-					LowerBoundaryBytes: 0,
-					UpperBoundaryBytes: 5001,
-					SameSizeStepsLimit: 6,
-				}
-				RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
-
-				previouslyGeneratedPayload := ""
-				for i := 0; i < registeredRequirement.SameSizeStepsLimit+1; i++ {
-					p, err := GenerateTrackedRandomStringPayloadWithinBoundary(actorExtendedName)
-
-					msg := "\t\t\tno error must be returned"
-					if err == nil {
-						t.Log(msg, checkMark, i)
-					} else {
-						t.Fatal(msg, ballotX, i)
-					}
-
-					msg = "\t\t\tnumber of invocations must have been updated in payload generation info for this actor"
-					v, _ := payloadConsumingActors.Load(actorExtendedName)
-
-					payloadGenerationInfo := v.(PayloadGenerationInfo)
-
-					var expectedTrackedNumberOfInvocations int
-					if i < registeredRequirement.SameSizeStepsLimit {
-						expectedTrackedNumberOfInvocations = i + 1
-					} else {
-						expectedTrackedNumberOfInvocations = 1
-					}
-
-					if payloadGenerationInfo.numGeneratePayloadInvocations == expectedTrackedNumberOfInvocations {
-						t.Log(msg, checkMark, i)
-					} else {
-						t.Fatal(msg, ballotX, i, payloadGenerationInfo.numGeneratePayloadInvocations)
-					}
-
-					if i == 0 {
-						msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
-						if len(p) > registeredRequirement.LowerBoundaryBytes && len(p) <= registeredRequirement.UpperBoundaryBytes {
-							t.Log(msg, checkMark, i)
-						} else {
-							t.Fatal(msg, ballotX, i)
-						}
-					} else if i < registeredRequirement.SameSizeStepsLimit {
-						t.Log("\t\t\twhen number of invocations is within same size step boundary")
-						{
-							msg = "\t\t\t\tpayload's size must be equal to previous generated payload's size"
-							if len(p) == len(previouslyGeneratedPayload) {
-								t.Log(msg, checkMark, i)
-							} else {
-								t.Fatal(msg, ballotX, i)
-							}
-						}
-					} else {
-						t.Log("\t\t\twhen number of invocations exceeds same size step boundary")
-						{
-							msg = "\t\t\t\tpayload's size must differ from previously generated payload's size"
-							if len(p) != len(previouslyGeneratedPayload) {
-								t.Log(msg, checkMark, i)
-							} else {
-								t.Fatal(msg, ballotX, i)
-							}
-						}
-					}
-
-					previouslyGeneratedPayload = p
+				actorBaseName := "mapsPokedexRunner"
+				r := PayloadGenerationRequirement{
+					UseFixedSize: true,
+					FixedSize: FixedSizePayloadDefinition{
+						SizeBytes: 42,
+					},
 				}
 
+				dp.RegisterPayloadGenerationRequirement(actorBaseName, r)
+
+				p, err := dp.RetrievePayload(fmt.Sprintf("%s-ht_load-42", actorBaseName))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treturned payload must correspond to fixed size specified by means of previously registered payload generation requirement"
+				if len(p.Payload) == r.FixedSize.SizeBytes {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 		}
-
 	}
 
 }
 
-func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
+func TestDefaultPayloadProvider_findMatchingPayloadGenerationRequirement(t *testing.T) {
 
 	t.Log("given an actor name")
 	{
 		t.Log("\twhen no actor with corresponding base name has previously registered")
 		{
-			ActorTracker = PayloadConsumingActorTracker{}
+			dp := DefaultPayloadProvider{}
 			// Register a couple of dummy actors
 			for _, a := range []string{"aragorn", "gimli", "legolas"} {
-				RegisterPayloadGenerationRequirement(a, PayloadGenerationRequirement{LowerBoundaryBytes: len(a)})
+				dp.RegisterPayloadGenerationRequirement(a, PayloadGenerationRequirement{
+					UseVariableSize: true,
+					VariableSize: VariableSizePayloadDefinition{
+						LowerBoundaryBytes: len(a),
+					},
+				})
 			}
 
-			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("super-awesome-actor-name")
+			r, err := dp.findMatchingPayloadGenerationRequirement("super-awesome-actor-name")
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -207,19 +202,19 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 		t.Log("\twhen actor with corresponding base name has previously registered")
 		{
-			ActorTracker = PayloadConsumingActorTracker{}
+			dp := DefaultPayloadProvider{}
 
-			actorBaseName := "mapLoadRunner"
 			registeredRequirement := PayloadGenerationRequirement{
-				LowerBoundaryBytes: 500,
-				UpperBoundaryBytes: 2000,
-				SameSizeStepsLimit: 250,
+				UseVariableSize: true,
+				VariableSize: VariableSizePayloadDefinition{
+					LowerBoundaryBytes: 500,
+					UpperBoundaryBytes: 2000,
+					SameSizeStepsLimit: 250,
+				},
 			}
-			RegisterPayloadGenerationRequirement(actorBaseName, registeredRequirement)
 
-			RegisterPayloadGenerationRequirement("mapPokedexRunner", PayloadGenerationRequirement{})
-
-			r, err := ActorTracker.FindMatchingPayloadGenerationRequirement("mapLoadRunner-ht_load-0")
+			dp.RegisterPayloadGenerationRequirement("mapLoadRunner", registeredRequirement)
+			r, err := dp.findMatchingPayloadGenerationRequirement("mapLoadRunner-ht_load-0")
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -240,31 +235,263 @@ func TestPayloadConsumingActorTracker_findMatchingRequirement(t *testing.T) {
 
 }
 
-func TestRegisterPayloadGenerationRequirement(t *testing.T) {
+func TestInitializeAndReturnFixedSizePayload(t *testing.T) {
 
-	t.Log("given an actor's base and a payload generation requirement")
+	t.Log("given an actor name and a payload generation requirement")
 	{
-		t.Log("\twhen actor invokes registration")
+		t.Log("\twhen payload with given size wasn't previously initialized")
 		{
-			actorBaseName := "mapLoadRunner"
-			r := PayloadGenerationRequirement{}
+			r := PayloadGenerationRequirement{
+				FixedSize: FixedSizePayloadDefinition{
+					SizeBytes: 42,
+				},
+			}
+			p, err := initializeAndReturnFixedSizePayload("awesome-actor-name", r)
 
-			RegisterPayloadGenerationRequirement(actorBaseName, r)
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 
-			registered, ok := ActorTracker.actors.Load(actorBaseName)
-			msg := "\t\tactor must have been registered"
+			msg = "\t\treturned payload must match expected size"
+			if len(p.Payload) == r.FixedSize.SizeBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tfixed-size payload must have been associated with size in store"
+			stored, ok := fixedSizePayloads.p[r.FixedSize.SizeBytes]
+
+			if ok && stored == p {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("%v != %v", p, stored))
+			}
+		}
+
+		t.Log("\twhen payload with given size was already initialized")
+		{
+			// Manually insert payload into store
+			previouslyInitializedPayload := []byte("super-awesome-payload")
+			sizeBytes := len(previouslyInitializedPayload)
+			pw := &PayloadWrapper{Payload: previouslyInitializedPayload}
+			fixedSizePayloads.p[sizeBytes] = pw
+
+			p, err := initializeAndReturnFixedSizePayload("some-actor-name", PayloadGenerationRequirement{
+				FixedSize: FixedSizePayloadDefinition{
+					SizeBytes: sizeBytes,
+				},
+			})
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treturned payload wrapper must point to payload previously initialized for given size"
+			if p == pw {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen many actors query for payload")
+		{
+			sizeBytes := 2000
+			preInitializedPayload := GenerateRandomStringPayload(sizeBytes)
+			fixedSizePayloads = fixedSizePayloadsWrapper{
+				p: map[int]*PayloadWrapper{
+					sizeBytes: preInitializedPayload,
+				},
+				m: sync.Mutex{},
+			}
+			var wg sync.WaitGroup
+			numActors := 1000
+			errorOccurred := false
+			for i := 0; i < numActors; i++ {
+				wg.Add(1)
+				go func(actorIndex int) {
+					defer wg.Done()
+					_, err := initializeAndReturnFixedSizePayload(fmt.Sprintf("large-payload-querying-actor-%d", actorIndex), PayloadGenerationRequirement{
+						UseFixedSize: true,
+						FixedSize: FixedSizePayloadDefinition{
+							SizeBytes: sizeBytes,
+						},
+					})
+					if err != nil {
+						errorOccurred = true
+						return
+					}
+				}(i)
+			}
+			wg.Wait()
+
+			msg := "\t\tno error must have occurred"
+			if !errorOccurred {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpayload cache must contain only one element"
+			if len(fixedSizePayloads.p) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, fmt.Sprintf("expected 1, got %d", len(fixedSizePayloads.p)))
+			}
+
+			msg = "\t\tsingle element must be equivalent to pre-initialized value"
+			if storedPayload, _ := fixedSizePayloads.p[sizeBytes]; storedPayload == preInitializedPayload {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
+func TestGenerateRandomStringPayloadWithinBoundary(t *testing.T) {
+
+	t.Log("given an actor name and a payload generation requirement")
+	{
+		t.Log("\twhen given actor has not previously invoked payload generation yet")
+		{
+			payloadConsumingActors = sync.Map{}
+
+			actorExtendedName := "mapLoadRunner-ht_load-0"
+
+			r := PayloadGenerationRequirement{
+				UseVariableSize: true,
+				VariableSize: VariableSizePayloadDefinition{
+					LowerBoundaryBytes: 0,
+					UpperBoundaryBytes: 10,
+					SameSizeStepsLimit: 5,
+				},
+			}
+
+			p, err := generateRandomStringPayloadWithinBoundary(actorExtendedName, r)
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsize of generated payload must correspond to boundaries provided in given payload generation requirement"
+			if len(p.Payload) >= r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnew payload generation info value must have been inserted"
+			v, ok := payloadConsumingActors.Load(actorExtendedName)
 			if ok {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tpayload generation requirement must have been inserted"
-			if registered == r {
+			msg = "\t\tnumber of invocations must have been updated in payload generation info for this actor"
+			insertedInfo := v.(variablePayloadGenerationInfo)
+			if insertedInfo.numGeneratePayloadInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tpayload generation info must contain size of generated payload"
+			if insertedInfo.payloadSize == len(p.Payload) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen given actor has previously invoked payload generation")
+		{
+			payloadConsumingActors = sync.Map{}
+
+			actorExtendedName := "mapLoadRunner-ht_load-0"
+
+			r := PayloadGenerationRequirement{
+				UseVariableSize: true,
+				VariableSize: VariableSizePayloadDefinition{
+					LowerBoundaryBytes: 0,
+					UpperBoundaryBytes: 5001,
+					SameSizeStepsLimit: 6,
+				},
+			}
+
+			previouslyGeneratedPayload := []byte("")
+			for i := 0; i < r.VariableSize.SameSizeStepsLimit+1; i++ {
+				p, err := generateRandomStringPayloadWithinBoundary(actorExtendedName, r)
+
+				msg := "\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark, i)
+				} else {
+					t.Fatal(msg, ballotX, i)
+				}
+
+				msg = "\t\tnumber of invocations must have been updated in payload generation info for this actor"
+				v, _ := payloadConsumingActors.Load(actorExtendedName)
+
+				payloadGenerationInfo := v.(variablePayloadGenerationInfo)
+
+				var expectedTrackedNumberOfInvocations int
+				if i < r.VariableSize.SameSizeStepsLimit {
+					expectedTrackedNumberOfInvocations = i + 1
+				} else {
+					expectedTrackedNumberOfInvocations = 1
+				}
+
+				if payloadGenerationInfo.numGeneratePayloadInvocations == expectedTrackedNumberOfInvocations {
+					t.Log(msg, checkMark, i)
+				} else {
+					t.Fatal(msg, ballotX, i, payloadGenerationInfo.numGeneratePayloadInvocations)
+				}
+
+				if i == 0 {
+					msg = "\t\t\tsize of generated payload must correspond to previously registered payload generation requirement"
+					if len(p.Payload) > r.VariableSize.LowerBoundaryBytes && len(p.Payload) <= r.VariableSize.UpperBoundaryBytes {
+						t.Log(msg, checkMark, i)
+					} else {
+						t.Fatal(msg, ballotX, i)
+					}
+				} else if i < r.VariableSize.SameSizeStepsLimit {
+					t.Log("\t\t\twhen number of invocations is within same size step boundary")
+					{
+						msg = "\t\t\t\tpayload's size must be equal to previous generated payload's size"
+						if len(p.Payload) == len(previouslyGeneratedPayload) {
+							t.Log(msg, checkMark, i)
+						} else {
+							t.Fatal(msg, ballotX, i)
+						}
+					}
+				} else {
+					t.Log("\t\t\twhen number of invocations exceeds same size step boundary")
+					{
+						msg = "\t\t\t\tpayload's size must differ from previously generated payload's size"
+						if len(p.Payload) != len(previouslyGeneratedPayload) {
+							t.Log(msg, checkMark, i)
+						} else {
+							t.Fatal(msg, ballotX, i)
+						}
+					}
+				}
+
+				previouslyGeneratedPayload = p.Payload
+			}
+
 		}
 	}
 
