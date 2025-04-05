@@ -133,7 +133,7 @@ platform:
         # in-memory-format: NATIVE
         eviction:
           eviction-policy: LRU
-          f: FREE_HEAP_PERCENTAGE
+          max-size-policy: FREE_HEAP_PERCENTAGE
           # max-size-policy: FREE_NATIVE_MEMORY_PERCENTAGE
           size: 50
       # Config for the Hazeltest maps
