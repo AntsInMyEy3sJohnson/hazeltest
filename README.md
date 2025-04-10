@@ -1,21 +1,38 @@
 # Hazeltest
 
-Welcome, fellow Hazelcast warrior! If you're looking at this code repository, it may be so because you've been facing
-the challenge of testing your Hazelcast clusters, and maybe you've been wondering if there are tools out there making
-that process a bit easier.
+Welcome, fellow Hazelcast warrior! Maybe you're taking a look at this repository because you've been facing the
+challenge of load-testing your Hazelcast clusters, and perhaps you've been wondering whether there are tools out there
+in the depths of this thing called the _Internet_ that can support you on this journey.
 
-Hazeltest is an application that attempts to achieve just that: By means of simple-to-configure, yet effective and
-versatile test loops, it stresses a Hazelcast cluster, thus facilitating the discovery of misconfigurations or other
-errors.
+## Application Purpose
 
-Right now, the application is still in a very early phase of development, but because I'm using it as a real-world
-project for learning Golang -- and because I actually do face the challenge of testing Hazelcast clusters in a project I
-currently work in --, you can expect more features to be added in the upcoming weeks.
+Hazeltest is a small application whose purpose is to support Hazelcast operation engineers in load-testing the Hazelcast
+clusters described by their release candidates (where the _release candidate_ is the package bundling the Hazelcast
+Platform executable plus all configuration to make it fly that might eventually make it to production, such as a Helm
+chart). For this purpose, the application offers simple-to-configure, yet effective and versatile test loops you can
+utilize to create load on the Hazelcast cluster under test, so errors such as misconfigurations make themselves known in
+a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to
+production_, where such errors could wreak all kinds of havoc!
 
-For a general overview of the background and ideas behind Hazeltest, please refer to the introductory blog post I've
+In short, Hazeltest offers...
+
+1. ... two map runners along with two test loops to create load on Hazelcast maps
+2. ... two queue runners with a single test loop to create load on Hazelcast queues
+3. ... a chaos monkey to purposefully kill Hazelcast members in order to measure their configurations appropriateness in
+   terms of handling such error scenarios
+4. ... a status endpoint to query for test progress as a foundation for building automation on top of Hazeltest
+
+Right now, the application is still in development, so it's likely this feature list will expand quite a bit in the
+future!
+
+For a more elaborate overview of the background and ideas behind Hazeltest, please refer to the introductory blog post
+I've
 written, which you can find [here](https://nicokrieg.com/hazeltest-introduction.html).
 
 ## Getting Started
+
+The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while
+more in-depth information awaits you further down the line.
 
 Have a Kubernetes cluster at your disposal? Then you're in luck, because the easiest and most convenient way to get
 started is to apply the two Helm charts you can find in this repository's [chart](./resources/charts/) folder to it.
@@ -220,3 +237,22 @@ without much prior configuration work.
 You can find PadoGrid's source code and many useful guides for getting started over
 on [GitHub](https://github.com/padogrid/padogrid).
 
+## More text to potentially include later on
+
+Designed to run on Kubernetes (but by this design by no means limited to running there), the application embodies an
+important Kubernetes design philosophy: to formulate desired target state declaratively and in a format easy to
+understand and reason about by engineers (granted, it may be subject to wonderful discussion whether Yaml is actually
+easy to read assuming a sufficiently large file -- or whether Yaml is something humanity was in need of in the first
+place --, but that's beside the point). While _desired target state_ is hard to capture in terms of application
+configuration if what the application does is create load on a Hazelcast cluster, Hazeltest still lets you define
+declaratively what you want its actors to do -- i.e., what load you want them to create -- by means of
+easy-to-reason-about Yaml files.
+
+This reveals another purpose of Hazeltest besides offering the means to perform effective, automated Hazelcast
+load-testing: to ensure _repeatability_ of those tests. Repeatability is crucial, for example, when you're adjusting
+Hazelcast configuration and want to measure the impact on performance of your adjustments, or when you wish to assess
+the performance of a new Hazelcast version compared to an older one. Need to examine how performance changes when you
+swap out the Hazelcast JVM's Garbage Collector (say, G1GC vs. ZGC)? Want to know how halving the batch size of a WAN
+replication publisher affects replication latency? Or how about simply checking whether your memory configuration is
+sane? Only automated load tests with good repeatability will help you get meaningful results quickly and reliably! With
+Hazeltest, you can check in Yaml load configs to version control and 
