@@ -14,28 +14,27 @@ utilize to create load on the Hazelcast cluster under test, so errors such as mi
 a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to
 production_, where such errors could wreak all kinds of havoc!
 
-In short, Hazeltest offers...
+In short, Hazeltest (currently) offers...
 
-1. ... two map runners along with two test loops to create load on Hazelcast maps
-2. ... two queue runners with a single test loop to create load on Hazelcast queues
-3. ... a chaos monkey to purposefully kill Hazelcast members in order to measure their configurations appropriateness in
+* ... two map runners along with two test loops to create load on Hazelcast maps
+* ... two queue runners with a single test loop to create load on Hazelcast queues
+* ... a chaos monkey to purposefully kill Hazelcast members in order to measure their configuration's appropriateness in
    terms of handling such error scenarios
-4. ... a status endpoint to query for test progress as a foundation for building automation on top of Hazeltest
+* ... a status endpoint to query for test progress as a foundation for building automation on top of Hazeltest
 
 Right now, the application is still in development, so it's likely this feature list will expand quite a bit in the
 future!
 
-For a more elaborate overview of the background and ideas behind Hazeltest, please refer to the introductory blog post
-I've
-written, which you can find [here](https://nicokrieg.com/hazeltest-introduction.html).
+Interested in a more elaborate overview of the background and ideas behind Hazeltest? Then the [introductory blog](https://nicokrieg.com/hazeltest-introduction.html) post I've written on precisely this matter has you covered.
 
 ## Getting Started
 
 The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while
-more in-depth information awaits you further down the line.
+more in-depth information awaits you further down the line (to answer questions such as _What's a test loop as opposed to a runner, and how do I configure them?_, _What information does the status endpoint provide, and how could I build automation on top of it?_, and _What are some common flaws in Hazelcast configuration I should be cautious of?_).
 
-Have a Kubernetes cluster at your disposal? Then you're in luck, because the easiest and most convenient way to get
-started is to apply the two Helm charts you can find in this repository's [chart](./resources/charts/) folder to it.
+If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get
+started is to apply the various Helm charts you can find in this repository's [charts](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
+
 First, get yourself a neat little Hazelcast cluster by running the following:
 
 ```bash
@@ -48,7 +47,7 @@ Once the cluster is up and running, you can install Hazeltest like so:
 helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 ```
 
-In the Hazeltest pod, you should see some logging statements informing about the duration of a bunch of `getMap()` calls
+In the Hazeltest Pod, you should see some logging statements informing about the duration of a bunch of `getMap()` calls
 the two runners enabled by default have made on the Hazelcast cluster.
 
 ## Diving Deeper
