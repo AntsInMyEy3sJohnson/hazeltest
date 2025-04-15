@@ -14,6 +14,8 @@ utilize to create load on the Hazelcast cluster under test, so errors such as mi
 a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to
 production_, where such errors could wreak all kinds of havoc!
 
+Even if running an exhaustive and thorough load test on a Hazelcast cluster does not make misconfigurations manifest, it may still uncover potential for improvement in terms of the members' performance, which you can then address prior to shipping the release candidate in question to production. And in case neither errors nor improvement potentials make themselves known, then, well, you've got proof that your release candidate is ready to go!
+
 In short, Hazeltest (currently) offers...
 
 * ... two map runners along with two test loops to create load on Hazelcast maps
@@ -34,6 +36,8 @@ more in-depth information awaits you further down the line (to answer questions 
 
 If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get
 started is to apply the various Helm charts you can find in this repository's [charts](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
+
+> :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster. I configured the resource requests and limits such that all Helm charts are applicable on a single-node cluster with 6 CPUs and 20 GBs of RAM assuming a light-weight Kubernetes distribution, such as k3s. However, the values might not be optimal for your setup, so please adjust as needed.
 
 First, get yourself a neat little Hazelcast cluster by running the following:
 
