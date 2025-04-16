@@ -34,25 +34,38 @@ Interested in a more elaborate overview of the background and ideas behind Hazel
 The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while
 more in-depth information awaits you further down the line (to answer questions such as _What's a test loop as opposed to a runner, and how do I configure them?_, _What information does the status endpoint provide, and how could I build automation on top of it?_, and _What are some common flaws in Hazelcast configuration I should be cautious of?_).
 
-If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get
-started is to apply the various Helm charts you can find in this repository's [charts](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
+If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get started is to apply the various Helm charts you can find in this repository's [`charts`](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
 
-> :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster. I configured the resource requests and limits such that all Helm charts are applicable on a single-node cluster with 6 CPUs and 20 GBs of RAM assuming a light-weight Kubernetes distribution, such as k3s. However, the values might not be optimal for your setup, so please adjust as needed.
+> :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster. I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and limits might not be optimally suited for your environment, so please feel free to adjust as needed.
 
-First, get yourself a neat little Hazelcast cluster by running the following:
+### Installing Hazelcast
+
+First, you can spawn a small Hazelcast cluster by invoking the following command (assuming, as will all ensuing commands, you're in the `resources/charts` folder of your locally cloned version of this repository):
 
 ```bash
 helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
 ```
 
-Once the cluster is up and running, you can install Hazeltest like so:
+### Installing Hazeltest
+
+Once the Hazelcast cluster is up and running, you can install Hazeltest like so:
 
 ```bash
 helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 ```
 
-In the Hazeltest Pod, you should see some logging statements informing about the duration of a bunch of `getMap()` calls
-the two runners enabled by default have made on the Hazelcast cluster.
+ Upon checking the Hazeltest Pod's logs, you'll now find messages informing about the various actions the application's Map Runners and Queue Runners are performing, such as:
+
+ * `starting operation chain of length 3000 for map '<some map>' on goroutine goroutine <z>`
+ * `using upper boundary <x> and lower boundary <y> for map '<some map>' on goroutine <z>`
+ * `finished <x> of <y> put runs for queue '<some queue>' in queue goroutine <z>`
+
+ ... all neatly formatted in JSON for better machine-based evaluation (log aggregation platforms like Splunk, for example, are excellent at working with JSON!) and along with quite a bit of meta information, but you get the idea.
+
+ ### Logging In To The Management Center
+
+ 
+
 
 ## Diving Deeper
 
