@@ -10,11 +10,11 @@ image:
 
 resources:
   requests:
-    cpu: "200m"
-    memory: "50Mi"
+    cpu: "100m"
+    memory: "25M"
   limits:
-    cpu: "400m"
-    memory: "100Mi"
+    cpu: "200m"
+    memory: "50M"
 
 startupArgs:
   - "-config-file=/data/config/custom-config.yaml"
@@ -47,7 +47,7 @@ config:
   # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
   chaosMonkeys:
     memberKiller:
-      enabled: false
+      enabled: true
       numRuns: 100
       chaosProbability: 0.5
       memberAccess:
@@ -248,10 +248,10 @@ config:
       numRuns: 10000
       payload:
         fixedSize:
-          enabled: false
-          sizeBytes: 10000000
-        variableSize:
           enabled: true
+          sizeBytes: 500
+        variableSize:
+          enabled: false
           lowerBoundaryBytes: 1000
           upperBoundaryBytes: 10000
           evaluateNewSizeAfterNumWriteActions: 100
