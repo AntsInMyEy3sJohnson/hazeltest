@@ -46,23 +46,35 @@ First, you can spawn a small Hazelcast cluster by invoking the following command
 helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
 ```
 
+If you left the Helm chart in question unmodified, this will bring up a three-node Hazelcast cluster plus a tiny Management Center instance. By default, the latter is exposed via a `NodePort`-type Service on port `30080`, so in case you want to check out the Management Center's UI, simply visit `http://<ip-of-an-arbitrary-node-in-your-kubernetes-cluster>:30080` in your browser. 
+
+You can retrieve the IP of one of the nodes in your Kubernetes cluster with a command like the following:
+
+```bash
+k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' && echo
+```
+
+... where `k` is an alias for `kubectl`, because typing the latter a million times a day when working with Kubernetes gets old real fast.
+
+
+
 ### Installing Hazeltest
 
-Once the Hazelcast cluster is up and running, you can install Hazeltest like so:
+Once the Hazelcast cluster is up and running -- and you have, optionally, brought up the Management Center's UI in your browser --, you can install Hazeltest like so:
 
 ```bash
 helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 ```
 
- Upon checking the Hazeltest Pod's logs, you'll now find messages informing about the various actions the application's Map Runners and Queue Runners are performing, such as:
+ The Hazeltest Pod's logs will inform about the various actions the application's Map Runners and Queue Runners are performing, such as:
 
- * `starting operation chain of length 3000 for map '<some map>' on goroutine goroutine <z>`
+ * `starting operation chain of length 3000 for map '<some map>' on goroutine <z>`
  * `using upper boundary <x> and lower boundary <y> for map '<some map>' on goroutine <z>`
  * `finished <x> of <y> put runs for queue '<some queue>' in queue goroutine <z>`
 
- ... all neatly formatted in JSON for better machine-based evaluation (log aggregation platforms like Splunk, for example, are excellent at working with JSON!) and along with quite a bit of meta information, but you get the idea.
+ ... all neatly formatted in JSON for improved machine-based processing (log aggregation platforms like Splunk, for example, are excellent at working with JSON!) and along with quite a bit of meta information, but you get the idea.
 
- ### Logging In To The Management Center
+ (In case you're wondering right now what the heck "Map Runners" and "Queue Runners" are -- don't worry! We'll dive into these concepts further down below.)
 
  
 
