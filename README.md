@@ -76,6 +76,21 @@ helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 
  (In case you're wondering right now what the heck "Map Runners" and "Queue Runners" are -- don't worry! We'll dive into these concepts further down below.)
 
+
+ ### Installing Prometheus
+
+Isn't running any kind of load test so much more fun when you can watch some dashboard panels go wild as soon as the test does its thing? Well, the Grafana chart you can find in this repository's charts folder comes with some nice dashboards, but they are of no use whatsoever without the delivery of corresponding metrics. 
+
+The Hazelcast members you brought up earlier are configured to expose metrics to Prometheus (or any kind of technology able to scrape them, really), so let's get ourselves a Prometheus instance to perform the scraping:
+
+```bash
+helm upgrade --install prometheus ./prometheus -n monitoring --create-namespace
+```
+
+Note that this Prometheus instance is super simple -- it writes any metrics gathered to the Pod filesystem, for example, so as soon as the Pod's gone, so are the metrics. (Which is exactly what we want in a simple demo setup so as to save ourselves the hassle of running clean-up jobs afterwards, but don't use this for production, obviously.)
+
+By default, the Prometheus chart, too, exposes its workload by means of a `NodePort`-type Service, albeit this time on port 30090. If you feel so inclined, therefore, you can once again fire up your browser and directly access Prometheus' UI, but without some queries to run, there won't be much to see. Luckily, you won't have to type out said queries -- Grafana comes bundled with them.
+
  
 
 
