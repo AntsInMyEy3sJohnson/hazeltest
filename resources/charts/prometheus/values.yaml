@@ -26,7 +26,7 @@ prometheusServer:
       port: 9090
       nodePort: 30090
     ingress:
-      deploy: true
+      deploy: false
       port: 8080
       # Point this to the correct IP address in your DNS config
       hostName: prometheus.awesomeserver1.local
