@@ -228,7 +228,7 @@ gossipPortName: gossip
 ##
 service:
   enabled: true
-  type: ClusterIP
+  type: NodePort
   # Set the ip family policy to configure dual-stack see [Configure dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services)
   ipFamilyPolicy: ""
   # Sets the families that should be supported and the order in which they should be applied to ClusterIP as well. Can be IPv4 and/or IPv6.
@@ -238,6 +238,7 @@ service:
   loadBalancerSourceRanges: [ ]
   port: 80
   targetPort: 3000
+  nodePort: 30300
   # targetPort: 4181 To be used with a proxy extraContainer
   ## Service annotations. Can be templated.
   annotations: { }
@@ -275,7 +276,7 @@ hostAliases: [ ]
 #     - "my.host.com"
 
 ingress:
-  enabled: true
+  enabled: false
   # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
   # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
   # ingressClassName: nginx
@@ -290,6 +291,7 @@ ingress:
   pathType: Prefix
 
   hosts:
+    # Point this to the correct IP address in your DNS config
     - grafana.awesomeserver1.local
   ## Extra paths to prepend to every host configuration. This is useful when working with annotation based services.
   extraPaths: [ ]
@@ -350,11 +352,11 @@ route:
 
 resources:
   limits:
-    cpu: 8
-    memory: 16Gi
+    cpu: 2
+    memory: 4G
   requests:
-    cpu: 4
-    memory: 10Gi
+    cpu: 1
+    memory: 2G
 
 ## Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
