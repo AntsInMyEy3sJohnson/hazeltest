@@ -27,7 +27,7 @@ In short, Hazeltest (currently) offers...
 Right now, the application is still in development, so it's likely this feature list will expand quite a bit in the
 future!
 
-Interested in a more elaborate overview of the background and ideas behind Hazeltest? Then the [introductory blog](https://nicokrieg.com/hazeltest-introduction.html) post I've written on precisely this matter has you covered.
+Interested in a more elaborate overview of the background and ideas behind Hazeltest? Then you might find the [introductory blog post](https://nicokrieg.com/hazeltest-introduction.html) I've written on precisely this matter helpful.
 
 ## Getting Started
 
@@ -51,7 +51,7 @@ If you left the Helm chart in question unmodified, this will bring up a three-no
 You can retrieve the IP of one of the nodes in your Kubernetes cluster with a command like the following:
 
 ```bash
-k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' && echo
+k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}'; echo
 ```
 
 ... where `k` is an alias for `kubectl`, because typing the latter a million times a day when working with Kubernetes gets old real fast.
@@ -76,6 +76,7 @@ helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 
  (In case you're wondering right now what the heck "Map Runners" and "Queue Runners" are -- don't worry! We'll dive into these concepts further down below.)
 
+ > :warning: **Note:** By default, this Hazeltest chart launches a single instance whose Chaos Monkey feature is enabled, so worry not if you suddenly observe Hazelcast members getting terminated and restarting -- in this case, that's actually intended!
 
  ### Installing Prometheus
 
@@ -91,8 +92,45 @@ Note that this Prometheus instance is super simple -- it writes any metrics gath
 
 By default, the Prometheus chart, too, exposes its workload by means of a `NodePort`-type Service, albeit this time on port 30090. If you feel so inclined, therefore, you can once again fire up your browser and directly access Prometheus' UI, but without some queries to run, there won't be much to see. Luckily, you won't have to type out said queries -- Grafana comes bundled with them.
 
- 
+### Installing Grafana
 
+We've established above that load testing is so much more if you can watch the effects of the tests unfold on a couple of nice dashboards, but there are no such dashboards in sight yet. Let's change that!
+
+The following command will bring up a small Grafana instance to visualize the metrics exposed by Hazelcast and scraped by Prometheus:
+
+```bash
+helm upgrade --install grafana ./grafana -n monitoring
+```
+
+The Grafana chart you just installed is a slightly altered version of the [official Grafana chart](https://github.com/grafana/helm-charts/tree/main/charts/grafana) that comes bundled with a couple of dashboards and pre-configured so the Grafana Pod doesn't use any kind of persistence (as that would increase the complexity of the setup, rendering it less viable for a simple "Getting Started" guide such as this one) and is easily accessible from outside. By default, Grafana's UI is accessible by means of a `NodePort`-type Service on port `30300`. Bring up said UI by pointing your browser to `http://<ip-of-an-arbitrary-node-in-your-kubernetes-cluster>:30300`.
+
+The UI will now ask you to authenticate. To do so, use `admin` as the username and the password retrieved by the following command:
+
+```bash
+k get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode; echo
+```
+
+The aforementioned dashboards await you in dashboard section's _Hazelcast_ folder (no surprise there):
+
+![Dashboards available in the Hazelcast folder](./resources/images_for_readme/grafana_dashboards_in_hazelcast_folder.png)
+
+By now, your Hazelcast/Hazeltest stack should be running for at least a couple of minutes, so all dashboards should display quite a bit of interesting information. For example, the `System Overview` dashboard might look something like the following:
+
+![General Hazelcast cluster statistics](./resources/images_for_readme/grafana_system_overview_general_cluster_statistics.png)
+
+![Statistics specific to Hazelcast members](./resources/images_for_readme/grafana_system_overview_member_specific_statistics.png)
+
+Here, the little spikes you see are hints of terminated and then newly joining Hazelcast members, which are precisely the results of the workings of Hazeltest's aforementioned Chaos Monkey.
+
+At the time of this writing, Hazeltest comes with actors to create load on Hazelcast maps and queues (in the form of Map and Queue Runners, which were shortly mentioned above), so it makes sense there are dashboards for these two kinds of data structures. The _Maps_ dashboard might look like this on your end if your Hazelcast/Hazeltest stack has been running for some time:
+
+![Maps overview](./resources/images_for_readme/grafana_maps_overview.png)
+
+Similarly, the _Queues_ dashboard might look something like this:
+
+![Queues overview](./resources/images_for_readme/grafana_queues_overview.png)
+
+These dashboards give rough indications for how Hazeltest's Map Runners and Queue Runners work (how they work as a result of the configuration encapsulated in the previously installed Hazeltest Helm chart, anyway), so in the next section, we're going to take a closer look at those runners and a concept called "Test Loops".
 
 ## Diving Deeper
 
