@@ -104,7 +104,7 @@ config:
         prefix: "ht_"
       putConfig:
         enabled: true
-        numRuns: 500
+        numRuns: 5000
         batchSize: 50
         sleeps:
           initialDelay:
@@ -121,7 +121,7 @@ config:
             enableRandomness: true
       pollConfig:
         enabled: true
-        numRuns: 500
+        numRuns: 5000
         batchSize: 50
         sleeps:
           initialDelay:
@@ -148,7 +148,7 @@ config:
         prefix: "ht_"
       putConfig:
         enabled: true
-        numRuns: 500
+        numRuns: 10000
         batchSize: 50
         sleeps:
           initialDelay:
@@ -165,7 +165,7 @@ config:
             enableRandomness: true
       pollConfig:
         enabled: true
-        numRuns: 500
+        numRuns: 10000
         batchSize: 50
         sleeps:
           initialDelay:
