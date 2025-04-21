@@ -170,8 +170,9 @@ For example, a Hazelcast cluster could be under load in terms of these dimension
 
 It's important to classify load along those different dimensions due to the fact that, say, 8 million items in 1.200 maps will create totally different cluster and member usage and performance than, say, 8 million items in one large map, even if the total memory consumed is exactly the same in both scenarios.
 
+With a minimal framework for measuring and creating load established, let's take another look at Hazeltest's purpose: It seems obvious now that to fulfil its purpose, the application has to offer load-creating actors that are able -- not necessarily individually, but at least in combination -- to create load across these six dimensions.
 
-
+Let's take a look at the load-creating actors available in Hazeltest and how you can get the most out of them in terms of creating load across these load dimensions.
 
 
 ### Run, Forest, Run
