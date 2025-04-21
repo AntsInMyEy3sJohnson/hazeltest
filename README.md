@@ -148,7 +148,33 @@ To shortly reiterate the application purposes stated previously, Hazeltest lets 
 
 ### Load Dimensions
 
-### Available Runners
+Before we dive into how the application achieves the purpose outlined above, we need a framework within which what load means for both the sender (the load-creating actor; here: the actors within Hazeltest) and the receiver (the Hazelcast cluster under test) can be navigated more explicitly. As a suggestion for such a framework, I'm putting forward "load dimensions". 
+
+Currently, there are six load dimensions (as far as the load Hazeltest can currently create is concerned; there are more dimensions to load a Hazelcast cluster can experience, and as new features get added to Hazeltest, so will be the following list):
+
+1. Number of items
+2. Item size
+3. Number of data structures
+4. Number of clients
+5. Cluster health
+6. Operations per second
+
+For example, a Hazelcast cluster could be under load in terms of these dimensions as follows (using only Hazelcast maps in this example):
+
+1. 8 million items
+2. Average size of 1.2 kb, with the largest items ranging up to 2mb
+3. Total number of items distributed across 1.200 maps
+4. Maps are operated on by 220 clients
+5. The cluster is healthy (i.e. no member restarts, no members down due to maintenance, etc.)
+6. Across all maps, the members combined experience 5.000 sets, 2.000 puts, 11.000 gets, and 500 removes per second
+
+It's important to classify load along those different dimensions due to the fact that, say, 8 million items in 1.200 maps will create totally different cluster and member usage and performance than, say, 8 million items in one large map, even if the total memory consumed is exactly the same in both scenarios.
+
+
+
+
+
+### Run, Forest, Run
 
 The first runner available today is the `PokedexRunner`, which runs the test loop with the 151 Pokémon of the
 first-generation Pokédex. It serializes them into a string-based Json structure, which is then saved to Hazelcast.
