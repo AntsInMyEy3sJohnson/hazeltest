@@ -9,12 +9,14 @@ in the depths of this thing called the _Internet_ that can support you on this j
 Hazeltest is a small application whose purpose is to support Hazelcast operation engineers in load-testing the Hazelcast
 clusters described by their release candidates (where the _release candidate_ is the package bundling the Hazelcast
 Platform executable plus all configuration to make it fly that might eventually make it to production, such as a Helm
-chart). For this purpose, the application offers simple-to-configure, yet effective and versatile test loops you can
+chart). Along those lines, the application offers simple-to-configure, yet effective and versatile runners you can
 utilize to create load on the Hazelcast cluster under test, so errors such as misconfigurations make themselves known in
 a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to
 production_, where such errors could wreak all kinds of havoc!
 
-Even if running an exhaustive and thorough load test on a Hazelcast cluster does not make misconfigurations manifest, it may still uncover potential for improvement in terms of the members' performance, which you can then address prior to shipping the release candidate in question to production. And in case neither errors nor improvement potentials make themselves known, then, well, you've got proof that your release candidate is ready to go!
+Keep in mind that you don't really have a choice _if_ your Hazelcast clusters will load-tested; you can only choose _when_ -- after all, in the absence of any kind of formal load-testing prior to shipping a release candidate to production, it's the production environment itself that will necessarily conduct the first load test, as it will be the first stage in which the release candidate -- now actually released -- gets exposed to load, which it must then handle. So, if load testing is necessarily performed anyway, then why not adjust the _when_ bit to a point in the release cycle in which the release candidate can be load-tested to your heart's content in a safe environment, such as a dedicated load-testing environment? 
+
+Even if running an exhaustive and thorough load test on a Hazelcast cluster does not make misconfigurations manifest, it may still uncover potential for improvement in terms of the members' performance, which you can then address prior to shipping the release candidate in question to production. And in case neither errors nor improvement potentials make themselves known, then, well, you've got proof that your release candidate is ready to go, and you brought about that proof long before the release candidate is actually rolled out to production!
 
 In short, Hazeltest (currently) offers...
 
@@ -24,10 +26,12 @@ In short, Hazeltest (currently) offers...
    terms of handling such error scenarios
 * ... a status endpoint to query for test progress as a foundation for building automation on top of Hazeltest
 
-Right now, the application is still in development, so it's likely this feature list will expand quite a bit in the
+Hazeltest is under active development, so it's likely this feature list will expand quite a bit in the
 future!
 
 Interested in a more elaborate overview of the background and ideas behind Hazeltest? Then you might find the [introductory blog post](https://nicokrieg.com/hazeltest-introduction.html) I've written on precisely this matter helpful.
+
+I've also been working on some videos explaining the idea of and concepts embedded in Hazeltest, which you can find on the [Hazeltest channel over on YouTube](https://www.youtube.com/@hazeltest).
 
 ## Getting Started
 
@@ -55,8 +59,6 @@ k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].ad
 ```
 
 ... where `k` is an alias for `kubectl`, because typing the latter a million times a day when working with Kubernetes gets old real fast.
-
-
 
 ### Installing Hazeltest
 
