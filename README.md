@@ -174,6 +174,68 @@ With a minimal framework for measuring and creating load established, let's take
 
 Let's take a look at the load-creating actors available in Hazeltest and how you can get the most out of them in terms of creating load across these load dimensions.
 
+### Map Runners And Map Test Loops
+At the time of this writing, there are two Map Runners available in Hazeltest -- the Pokédex Runner and the Load Runner --, and they can be combined with two types of Test Loop -- the Batch Test Loop and the Boundary Test Loop --, where the relationship between Runners and Test Loops is one of parent-child, i.e. the Runner can use one type of Test Loop.
+
+__Runner vs. Test Loop__
+
+This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (with the exception of load dimension 6, as both available Test Loops offer adjustability for sleeps, too, thus offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
+
+Let's take a look at an example for how to configure the Map Load Runner/Batch Test Loop combination (many properties have been omitted here for brevity -- we're going to take a more in-depth look at configuration a bit further down the line):
+
+```yaml
+mapTests:
+  load:
+    enabled: true
+    # load dimension 3
+    numMaps: 10
+    # load dimension 1
+    numEntriesPerMap: 50000
+    payload:
+      # load dimension 2
+      fixedSize:
+        enabled: true
+        sizeBytes: 1200
+    # load dimension 3 (will impact how the Runner will form map names, so 
+    # translates to more or fewer maps)
+    appendMapIndexToMapName: true
+    # load dimension 3 (for the same reason)
+    appendClientIdToMapName: false
+    sleeps:
+      # load dimension 6
+      betweenRuns:
+        enabled: true
+        durationMs: 2000
+        enableRandomness: true
+    testLoop:
+      type: batch
+      batch:
+        # load dimension 6
+        sleeps:
+          afterBatchAction:
+            enabled: true
+            durationMs: 10
+            enableRandomness: true
+          afterActionBatch:
+            enabled: true
+            durationMs: 2000
+            enableRandomness: true
+```
+
+So, with the exception of load dimension 6, adjustability of load dimensions is offered by the Runner. The Test Loop, on the other hand -- although not explicitly expressed in terms of this declarative configuration, but rather as a result of the logic of the Test Loop itself, expressed in its code -- decides when to execute which kind of operation on the Hazelcast cluster under test.
+
+To drive this point home, let's take a look at the following diagrams:
+
+![Comparison of Map Load Runner effects on maps in Hazelcast with Boundary Test Loop and Batch Test Loop](./resources/images_for_readme/map_load_runner_comparison_boundary_vs_batch_test_loop.png)
+
+
+In both the diagrams on the left-hand side and on the right-hand side, the Map Load Runner was configured in exactly the same way, yet the effects on the target Hazelcast maps are wildly different. Why is that? Due only to the difference in the Test Loop the Runner was configured with -- the effects of the Batch Test Loop can be seen on the left, whereas the right shows those of the Boundary Test Loop.
+
+
+
+
+
+
 
 ### Run, Forest, Run
 
