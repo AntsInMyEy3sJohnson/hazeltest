@@ -175,7 +175,7 @@ With a minimal framework for measuring and creating load established, let's take
 Let's take a look at the load-creating actors available in Hazeltest and how you can get the most out of them in terms of creating load across these load dimensions.
 
 ### Map Runners And Map Test Loops
-At the time of this writing, there are two Map Runners available in Hazeltest -- the Pokédex Runner and the Load Runner --, and they can be combined with two types of Test Loop -- the Batch Test Loop and the Boundary Test Loop --, where the relationship between Runners and Test Loops is one of parent-child, i.e. the Runner can use one type of Test Loop.
+At the time of this writing, there are two Map Runners available in Hazeltest -- the Pokédex Runner and the Load Runner --, and they can be combined with two types of Test Loop, namely, the Batch Test Loop and the Boundary Test Loop. The relationship between Runners and Test Loops is one of parent-child, i.e. a Runner can use one type of Test Loop.
 
 __Runner vs. Test Loop__
 
@@ -196,7 +196,7 @@ mapTests:
       fixedSize:
         enabled: true
         sizeBytes: 1200
-    # load dimension 3 (will impact how the Runner will form map names, so 
+    # load dimension 3 (impacts how the Runner will form map names, so 
     # translates to more or fewer maps)
     appendMapIndexToMapName: true
     # load dimension 3 (for the same reason)
@@ -210,7 +210,9 @@ mapTests:
     testLoop:
       type: batch
       batch:
-        # load dimension 6
+        # load dimension 6 (only option to influence a load dimension on the 
+        # test loop layer -- same goes for boundary test loop, although the latter
+        # offers different kinds of sleeps)
         sleeps:
           afterBatchAction:
             enabled: true
@@ -231,10 +233,7 @@ To drive this point home, let's take a look at the following diagrams:
 
 In both the diagrams on the left-hand side and on the right-hand side, the Map Load Runner was configured in exactly the same way, yet the effects on the target Hazelcast maps are wildly different. Why is that? Due only to the difference in the Test Loop the Runner was configured with -- the effects of the Batch Test Loop can be seen on the left, whereas the right shows those of the Boundary Test Loop.
 
-
-
-
-
+With the Map Runner and Test Loop concepts established and their relationship outlined, let's examine the available Runners and Test Loops more closely.
 
 
 ### Run, Forest, Run
