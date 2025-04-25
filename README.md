@@ -6,24 +6,21 @@ in the depths of this thing called the _Internet_ that can support you on this j
 
 ## Application Purpose
 
-Hazeltest is a small application whose purpose is to support Hazelcast operation engineers in load-testing the Hazelcast
-clusters described by their release candidates (where the _release candidate_ is the package bundling the Hazelcast
-Platform executable plus all configuration to make it fly that might eventually make it to production, such as a Helm
-chart). Along those lines, the application offers simple-to-configure, yet effective and versatile runners you can
-utilize to create load on the Hazelcast cluster under test, so errors such as misconfigurations make themselves known in
-a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to
-production_, where such errors could wreak all kinds of havoc!
+Short disclaimer: If you're more the visual type of person and would much rather digest a video than read text, then the [introduction video for Hazeltest](https://youtu.be/GojMTeDzdsk?si=xh-6P6Vk15UdjWCb) might be for you!
 
-Keep in mind that you don't really have a choice _if_ your Hazelcast clusters will load-tested; you can only choose _when_ -- after all, in the absence of any kind of formal load-testing prior to shipping a release candidate to production, it's the production environment itself that will necessarily conduct the first load test, as it will be the first stage in which the release candidate -- now actually released -- gets exposed to load, which it must then handle. So, if load testing is necessarily performed anyway, then why not adjust the _when_ bit to a point in the release cycle in which the release candidate can be load-tested to your heart's content in a safe environment, such as a dedicated load-testing environment? 
+On the other hand, in case you like _reading_ stuff -- you know, how our grandfathers did --, then... well, read on.
 
-Even if running an exhaustive and thorough load test on a Hazelcast cluster does not make misconfigurations manifest, it may still uncover potential for improvement in terms of the members' performance, which you can then address prior to shipping the release candidate in question to production. And in case neither errors nor improvement potentials make themselves known, then, well, you've got proof that your release candidate is ready to go, and you brought about that proof long before the release candidate is actually rolled out to production!
+Hazeltest is a small application whose purpose is to support Hazelcast operation engineers in load-testing the Hazelcast clusters described by their release candidates (where the _release candidate_ is the package bundling the Hazelcast Platform executable plus all configuration to make it fly that might eventually make it to production, such as a Helm chart). Along those lines, the application offers simple-to-configure, yet effective and versatile runners you can utilize to create load on the Hazelcast cluster under test, so errors such as misconfigurations make themselves known in a safe testing environment -- that is, _long before the release candidate describing this cluster makes its way to production_, where such errors could wreak all kinds of havoc!
+
+Keep in mind that you don't really have a choice _if_ your Hazelcast clusters will be load-tested; you can only choose _when_ -- after all, in the absence of any kind of formal load-testing prior to shipping a release candidate to production, it's the production environment itself that will necessarily conduct the first load test, as it will be the first stage in which the release candidate -- now actually released -- gets exposed to load, which it must then handle. So, if load testing is necessarily performed anyway, then why not adjust the _when_ bit to a point in the release cycle in which the release candidate can be load-tested to your heart's content in a safe environment, such as a dedicated load-testing environment? 
+
+Even if running an exhaustive and thorough load test on a Hazelcast cluster does not make misconfigurations manifest, it may still uncover potential for improvement in terms of the members' performance, which you can then address prior to shipping the release candidate in question to production. And in case neither errors nor improvement potentials make themselves known, then, well, you've got proof that your release candidate is ready to go, and you brought about that proof long before the release candidate actually got shipped to production! (In my humble opinion, bringing that proof _before_ rolling out the thing to production just makes for so much better sleep at night, specifically when your Hazelcast clusters run mission-critical workloads.)
 
 In short, Hazeltest (currently) offers...
 
 * ... two map runners along with two test loops to create load on Hazelcast maps
 * ... two queue runners with a single test loop to create load on Hazelcast queues
-* ... a chaos monkey to purposefully kill Hazelcast members in order to measure their configuration's appropriateness in
-   terms of handling such error scenarios
+* ... a chaos monkey to purposefully kill Hazelcast members in order to measure their configuration's appropriateness in terms of handling such error scenarios
 * ... a status endpoint to query for test progress as a foundation for building automation on top of Hazeltest
 
 Hazeltest is under active development, so it's likely this feature list will expand quite a bit in the
@@ -31,16 +28,15 @@ future!
 
 Interested in a more elaborate overview of the background and ideas behind Hazeltest? Then you might find the [introductory blog post](https://nicokrieg.com/hazeltest-introduction.html) I've written on precisely this matter helpful.
 
-I've also been working on some videos explaining the idea of and concepts embedded in Hazeltest, which you can find on the [Hazeltest channel over on YouTube](https://www.youtube.com/@hazeltest).
+I've also been working on some videos explaining the idea of and concepts embedded in Hazeltest, which you can find on the [Hazeltest channel over on YouTube](https://www.youtube.com/@hazeltest) (in case you watched the introduction video linked to above, you may have already discovered the other videos, too).
 
 ## Getting Started
 
-The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while
-more in-depth information awaits you further down the line (to answer questions such as _What's a test loop as opposed to a runner, and how do I configure them?_, _What information does the status endpoint provide, and how could I build automation on top of it?_, and _What are some common flaws in Hazelcast configuration I should be cautious of?_).
+The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while more in-depth information awaits you further down the line (to answer questions such as _What's a test loop as opposed to a runner, and how do I configure them?_, _What information does the status endpoint provide, and how could I build automation on top of it?_, and _What are some common flaws in a Hazelcast configuration I should be cautious of?_).
 
 If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get started is to apply the various Helm charts you can find in this repository's [`charts`](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
 
-> :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster. I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and limits might not be optimally suited for your environment, so please feel free to adjust as needed.
+> :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously -- d'uh). I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and limits might not be optimally suited for your environment, so please feel free to adjust as needed.
 
 ### Installing Hazelcast
 
@@ -92,11 +88,11 @@ helm upgrade --install prometheus ./prometheus -n monitoring --create-namespace
 
 Note that this Prometheus instance is super simple -- it writes any metrics gathered to the Pod filesystem, for example, so as soon as the Pod's gone, so are the metrics. (Which is exactly what we want in a simple demo setup so as to save ourselves the hassle of setting up proper persistence and running clean-up jobs afterwards, but don't use this for production, obviously.)
 
-By default, the Prometheus chart, too, exposes its workload by means of a `NodePort`-type Service, albeit this time on port `30090`. If you feel so inclined, therefore, you can once again fire up your browser and directly access Prometheus' UI, but without some queries to run, there won't be much to see. Luckily, you won't have to type out said queries -- the dashboards bundled with the Grafana Helm chart you're about to install will do that for you.
+By default, the Prometheus chart, too, exposes its workload by means of a `NodePort`-type Service, albeit this time on port `30090`. If you feel so inclined, therefore, you can once again fire up your browser and directly access Prometheus' UI, but without some queries to run, there won't be much to see. Luckily, you won't have to type out and then manually run said queries -- the dashboards bundled with the Grafana Helm chart you're about to install will do that for you.
 
 ### Installing Grafana
 
-We've established above that load testing is so much more fun if you can watch the effects of the tests unfold on a couple of nice dashboards, but there are no such dashboards in sight yet. Let's change that!
+We've established above that load testing is a lot more fun if you can watch the effects of the tests unfold on a couple of nice dashboards, but there are no such dashboards in sight yet. Let's change that!
 
 The following command will bring up a small Grafana instance to visualize the metrics exposed by Hazelcast and scraped by Prometheus:
 
@@ -125,7 +121,7 @@ By now, your Hazelcast/Hazeltest stack should have been running for at least a c
 
 ![Statistics specific to Hazelcast members](./resources/images_for_readme/grafana_system_overview_member_specific_statistics.png)
 
-Here, the little spikes you see are hints of terminated and then newly joined Hazelcast members, which are the results of the workings of Hazeltest's aforementioned Chaos Monkey.
+Here, the little spikes you can see are hints of terminated and then newly joined Hazelcast members, which are the results of the workings of Hazeltest's aforementioned Chaos Monkey.
 
 At the time of this writing, Hazeltest comes with actors to create load on Hazelcast maps and queues (in the form of the aforementioned Map and Queue Runners, respectively), so it makes sense there are dashboards for these two kinds of data structures. The _Maps_ dashboard might look like this on your end if your Hazelcast/Hazeltest stack has been running for some time:
 
@@ -135,22 +131,22 @@ Similarly, the _Queues_ dashboard may appear like so:
 
 ![Queues overview](./resources/images_for_readme/grafana_queues_overview.png)
 
-These dashboards give rough indications for how Hazeltest's Map Runners and Queue Runners work (how they work as a result of the configuration encapsulated in the previously installed Hazeltest Helm chart, anyway), so in the next section, we're going to take a closer look at those runners and a concept called "Test Loops".
+These dashboards give rough indications for how Hazeltest's Map Runners and Queue Runners work (how they work as a result of the configuration encapsulated in the previously installed Hazeltest Helm chart, anyway), so in the next section, we're going to take a closer look at those runners and a concept called "Test Loops", but a little bit of ground-laying work is required first.
 
 ## Diving Deeper
 
 Interested in learning more about the concepts in Hazeltest whose workings you can observe on your Hazelcast clusters under test? Then look no further than the following sections.
 
 ### Underlying Idea
-To shortly reiterate the application purposes stated previously, Hazeltest lets you load-test Hazelcast clusters, enabling you to iterate over the release candidates describing those clusters long before any of them gets rolled out to production. In this way, you can spot errors such as misconfigurations and identify improvement potentials for cluster/member performance, and not only address them long before the new release candidate thus created makes it to production, but also create proof that the fixes and improvements actually have the intended effect. Thus, you can create proof that your release candidates are fit for production _before_ they get rolled out to production.
+To shortly reiterate the application purposes stated previously, Hazeltest lets you load-test Hazelcast clusters, enabling you to iterate over the release candidates describing those clusters long before any of them gets rolled out to production. In this way, you can spot errors such as misconfigurations and identify improvement potentials for cluster/member performance, and not only address them long before the new release candidate thus created makes it to production, but also create proof that the fixes and improvements actually have the intended effect. Thus, you can establish proof that your release candidates are fit for production _before_ they actually get rolled out to production.
 
-(Side note: If you're from the realm of software development, the idea described above -- you know, asserting production fitness for a given release candidate before deploying the thing to production -- probably appears as natural, and as self-evidently reasonable and useful, as the act of breathing! And that's because, well, it is. But, according to my own experience thus far, the release candidates describing middleware components -- such as databases, message queues, or a certain in-memory data and computing platform -- don't experience nearly the same amount of formalized, standardized testing (which strikes as a surprise given the criticality of the workloads such components often run). It might be subject to wonderful discussion as to why this is the case, but either way, the absence of such testing is brave at best, and can entail catastrophic consequences at worst, hence Hazeltest is my attempt at solving this problem in the realm of Hazelcast.)
+(Side note: If you're from the realm of software development, the idea described above -- you know, asserting production fitness for a given release candidate before deploying the thing to production -- probably appears as natural, and as self-evidently reasonable and useful, as the act of breathing! And that's because, well, it is. But, according to my own experience thus far, the release candidates describing middleware components -- such as databases, message queues, or a certain in-memory data and computing platform -- don't experience nearly the same amount of formalized, standardized testing than self-written code artifact release candidates (which strikes as a surprise given the criticality of the workloads such middleware components often run). It might be subject to wonderful discussion as to why this is the case, but either way, the absence of such testing is brave at best, and can entail catastrophic consequences at worst, hence Hazeltest is my attempt at solving this problem in the realm of Hazelcast.)
 
 ### Load Dimensions
 
 Before we dive into how the application achieves the purpose outlined above, we need a framework within which the meaning of load for both the sender (the load-creating actor; here: the actors within Hazeltest) and the receiver (the Hazelcast cluster under test) can be established and then navigated more clearly and explicitly. As a suggestion for such a framework, I'm putting forward "load dimensions". 
 
-Currently, there are six load dimensions (as far as the load Hazeltest can currently create is concerned; there are more dimensions to load a Hazelcast cluster can experience, so as Hazeltest's feature set will be expanded, so will be the following list):
+Currently, there are six load dimensions (as far as the load Hazeltest can currently create is concerned; there are more dimensions to load a Hazelcast cluster can experience, hence as Hazeltest's feature set will be expanded, so will be the following list):
 
 1. Number of items
 2. Item size
@@ -165,21 +161,21 @@ For example, a Hazelcast cluster could be under load in terms of these dimension
 2. Average size of 1.2 kb, with the largest items being up to 2mb in size
 3. Total number of items distributed across 1.200 maps
 4. Maps are operated on by 220 clients
-5. The cluster is healthy (i.e. no member restarts, no members down due to maintenance, etc.)
+5. The cluster is healthy (i.e. no member restarts, no members down due to maintenance, etc.) -- no additional load as a result of, for example, repartitioning operations
 6. Across all maps, the members combined experience 5.000 sets, 2.000 puts, 11.000 gets, and 500 removes per second
 
 It's important to classify load along those different dimensions due to the fact that, say, 8 million items in 1.200 maps will create totally different Hazelcast cluster and member usage and performance than, say, 8 million items in one large map, even if the total (net payload) memory consumed is exactly the same in both scenarios.
 
-With a minimal framework for measuring and creating load established, let's take another look at Hazeltest's purpose: It seems obvious now that to fulfil its purpose, the application has to offer load-creating actors that are able -- not necessarily individually, but at least in combination -- to create load across these six dimensions.
+With a minimal framework for measuring and creating load established, it seems obvious that to fulfil its purpose, Hazeltest has to offer load-creating actors that are able -- not necessarily individually, but at least in combination -- to create load on these six dimensions.
 
-Let's take a look at the load-creating actors available in Hazeltest and how you can get the most out of them in terms of creating load across these load dimensions.
+Let's take a look at the load-creating actors available in Hazeltest and how you can get the most out of them.
 
 ### Map Runners And Map Test Loops
 At the time of this writing, there are two Map Runners available in Hazeltest -- the Pokédex Runner and the Load Runner --, and they can be combined with two types of Test Loop, namely, the Batch Test Loop and the Boundary Test Loop. The relationship between Runners and Test Loops is one of parent-child, i.e. a Runner can use one type of Test Loop.
 
 __Runner vs. Test Loop__
 
-This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (with the exception of load dimension 6, as both available Test Loops offer adjustability for sleeps, too, thus offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
+This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (with the exception of load dimension 6, as both available Test Loops offer adjustability for sleeps, too, which translates to offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
 
 Let's take a look at an example for how to configure the Map Load Runner/Batch Test Loop combination (many properties have been omitted here for brevity -- we're going to take a more in-depth look at configuration a bit further down the line):
 
@@ -224,14 +220,14 @@ mapTests:
             enableRandomness: true
 ```
 
-So, with the exception of load dimension 6, adjustability of load dimensions is offered by the Runner. The Test Loop, on the other hand -- although not explicitly expressed in terms of this declarative configuration, but rather as a result of the logic of the Test Loop itself, expressed in its code -- decides when to execute which kind of operation on the Hazelcast cluster under test.
+So, with the exception of load dimension 6, adjustability of load dimensions is offered exclusively by the Runner. The Test Loop, on the other hand -- although not explicitly expressed in terms of this declarative configuration, but rather as a result of the logic of the Test Loop itself, expressed in its code -- decides when to execute which kind of operation on the Hazelcast cluster under test.
 
 To drive this point home, let's take a look at the following diagrams:
 
 ![Comparison of Map Load Runner effects on maps in Hazelcast with Boundary Test Loop and Batch Test Loop](./resources/images_for_readme/map_load_runner_comparison_boundary_vs_batch_test_loop.png)
 
 
-In both the diagrams on the left-hand side and on the right-hand side, the Map Load Runner was configured in exactly the same way, yet the effects on the target Hazelcast maps are wildly different. Why is that? Due only to the difference in the Test Loop the Runner was configured with -- the effects of the Batch Test Loop can be seen on the left, whereas the right shows those of the Boundary Test Loop.
+In the diagrams on the left-hand side and on the right-hand side, the Map Load Runner was configured in exactly the same way -- with the exception, as you might have guessed, of the test loop being used. So, due only to the difference in the Test Loop the Runner was configured with -- the effects of the Batch Test Loop can be seen on the left, whereas the right shows those of the Boundary Test Loop --, the load creation behavior observable on the target Hazelcast maps is wildly different.
 
 With the Map Runner and Test Loop concepts established and their relationship outlined, let's examine the available Runners and Test Loops more closely.
 
