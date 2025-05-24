@@ -232,6 +232,21 @@ In the diagrams on the left-hand side and on the right-hand side, the Map Load R
 With the Map Runner and Test Loop concepts established and their relationship outlined, let's examine the available Runners and Test Loops more closely.
 
 
+__The Map Pokédex Runner__
+
+The Pokédex Runner for creating load on maps is where it all started -- the first load creation mechanism in Hazeltest I implemented to observe how quickly the lite (or "compute") members of my client's Hazelcast clusters are able to respond to incoming `getMap` requests with different threading configurations when under high CPU load (the fact that today's Test Loops log the time it takes for their `getMap` calls to complete traces back to this first use case). Requirements for this first load generation mechanism, then, were very simple:
+
+1. Execute `getMap` calls and log time it took to complete each one
+2. Keep CPU busy
+
+It's for this reason I chose the first-generation Pokédex (the one you may remember if you had an awesome childhood and/or little interest to pay attention in school) as the basis for the Pokédex Runner -- a simple and light-weight dataset that allowed for the Runner itself to be very light-weight, too, so as to maximize load along load dimension 6 (number of operations per second) in order to stress the CPU of unsuspecting Hazelcast members as much as possible. Even today, if your goal is to maximize CPU usage on the members of your Hazelcast cluster under test, the Pokédex Runner/Batch Test Loop combination is a great tool to have.
+
+
+
+
+
+
+
 ### Run, Forest, Run
 
 The first runner available today is the `PokedexRunner`, which runs the test loop with the 151 Pokémon of the
