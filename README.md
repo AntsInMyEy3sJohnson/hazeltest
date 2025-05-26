@@ -239,7 +239,7 @@ The Pokédex Runner for creating load on maps is where it all started -- the fir
 1. Execute `getMap` calls and log time it took to complete each one
 2. Keep CPU busy
 
-It's for this reason I chose the first-generation Pokédex (the one you may remember if you had an awesome childhood and/or little interest to pay attention in school) as the basis for the Pokédex Runner -- a simple and light-weight dataset that allowed for the Runner itself to be very light-weight, too, so as to maximize load along load dimension 6 (number of operations per second) in order to stress the CPU of unsuspecting Hazelcast members as much as possible. Even today, if your goal is to maximize CPU usage on the members of your Hazelcast cluster under test, the Pokédex Runner/Batch Test Loop combination is a great tool to have.
+It's for this reason I chose the first-generation Pokédex (the one you may remember if you had an awesome childhood and/or little interest to pay attention in school) as the basis for the first Runner (which then, obviously, became the "Pokédex Runner") -- a simple and light-weight dataset that allowed for the Runner itself to be very light-weight, too, so as to maximize load along load dimension 6 (number of operations per second) in order to stress the CPU of unsuspecting Hazelcast members as much as possible. Even today, if your goal is simply to maximize CPU usage on the members of your Hazelcast cluster under test, the Pokédex Runner/Batch Test Loop combination is a useful helper to have in your tool belt. 
 
 
 
