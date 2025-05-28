@@ -133,6 +133,19 @@ Similarly, the _Queues_ dashboard may appear like so:
 
 These dashboards give rough indications for how Hazeltest's Map Runners and Queue Runners work (how they work as a result of the configuration encapsulated in the previously installed Hazeltest Helm chart, anyway), so in the next section, we're going to take a closer look at those runners and a concept called "Test Loops", but a little bit of ground-laying work is required first.
 
+### Running Hazeltest Outside of Kubernetes
+The Hazeltest Helm chart available in this repository is useful in the sense that it conveniently hides all the details of configuration necessary to connect Hazeltest to a target Hazelcast cluster at startup, but if you've come to this section, it's likely you'll want to know how to connect to a Hazelcast cluster from outside of Kubernetes (or without any involvement of Kubernetes whatsoever, really). 
+
+Well, you're in luck! You can either read on here, or if you're more the audio/visual type, there's a video on my channel covering that topic:
+
+[How To Hazeltest 1: Connecting To A Hazelcast Cluster](https://youtu.be/-c5XPT4-daw?si=cmsLt13F3mXgnTca)
+
+On the other hand, read on if you prefer reading some good ol' text.
+
+
+
+
+
 ## Diving Deeper
 
 Interested in learning more about the concepts in Hazeltest whose workings you can observe on your Hazelcast clusters under test? Then look no further than the following sections.
