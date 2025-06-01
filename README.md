@@ -143,10 +143,18 @@ Well, you're in luck! You can either read on here, or in case you're more the au
 On the other hand, read on if you prefer reading some good ol' text.
 
 __Mandatory Properties__
+
 There are two things you have to tell Hazeltest if you want it to connect to a Hazelcast cluster: the cluster's name, and at least one endpoint to connect to. Both of these parameters are injectable via environment variables:
 
 * ``HZ_CLUSTER``: Specifies the name of the target Hazelcast cluster (i.e. the string you specified on Hazelcast's side using the `hazelcast.cluster-name` property). For example, the Hazelcast Helm chart contained in this repository by default sets ``cluster-name`` to ``hazelcastplatform`` and, correspondingly, the Helm chart for Hazeltest sets ``HZ_CLUSTER`` to the same value.
 * ``HZ_MEMBERS``: Although this can be a comma-separated list of members to connect to, in most cases, providing a single member -- or an endpoint pointing to at least one member, such as a loadbalancer host name -- is completely sufficient, as the all-member routing mode (also known as "smart routing") enabled by default in the Hazelcast Golang client used by Hazeltest will figure out the remaining members on its own and automatically connect to them, too, assuming they're on the same network and nothing blocks access. For example, if you run a Hazelcast cluster on a couple of VMs and want Hazeltest to load-test its members, specifying ``<host name or IP of one of the VMs>:5701`` should suffice, assuming you exposed the Hazelcast member running on the VM using Hazelcast's default port of ``5701``. (Obviously, if you're running your Hazelcast members on a system in which IPs have limited meaning because they can arbitrarily change -- think of a Pod running in Kubernetes --, you'll be better off using a hostname than an IP.)
+
+__Optional Properties__
+
+Although the following two properties are still important, they aren't mandatory for simply connecting to the target Hazelcast cluster, and because of that, they were modelled as command-line arguments rather than environment variables (you can find an example invocation setting both the former and the latter down below):
+
+* ``-config-file``: Allows you to specify a custom configuration file, thus represents the means through which custom configuration for load creation behavior can be injected. To build your own configuration, I suggest you take the [``defaultConfig.yaml``](./client/defaultConfig.yaml) as a starting point and iteratively adjust configuration as required. Note that Hazeltest will take the default configuration from the aforementioned file for any property not explicitly overridden by means of a custom config file, so you only have to provide those properties in the latter that you wish to override.
+* ``-use-unisocket-client``: Enables or disables usage of the uni-socket routing mode on the Hazelcast client. The default is the smart-routing (or all-member routing) mode (i.e. ``-use-unisocket-client=false``), but that mode only makes sense if all members of the target Hazelcast cluster can be reached (the classic example for when this isn't the case is when you're accessing Hazelcast members running on a different network with a loadbalancer acting as a single entrypoint into the set of members; in this case, uni-socket mode will establish and hold a sticky connection to whatever member of the cluster the loadbalancer happened to balance the initial request to).
 
 
 
