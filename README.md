@@ -34,11 +34,13 @@ I've also been working on some videos explaining the idea of and concepts embedd
 
 The following paragraphs will help you get started quickly with performing the first load test using Hazeltest, while more in-depth information awaits you further down the line (to answer questions such as _What's a test loop as opposed to a runner, and how do I configure them?_, _What information does the status endpoint provide, and how could I build automation on top of it?_, and _What are some common flaws in a Hazelcast configuration I should be cautious of?_).
 
+### Simple Load Testing And Results Investigation
+
 If you have a Kubernetes cluster at your disposal, you're in luck, because the easiest and most convenient way to get started is to apply the various Helm charts you can find in this repository's [`charts`](./resources/charts/) folder to it (bonus luck points if the Kubernetes cluster in question has some juice in terms of CPU and memory, because that just makes everything so much more interesting!).
 
 > :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously -- d'uh). I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and limits might not be optimally suited for your environment, so please feel free to adjust as needed.
 
-### Installing Hazelcast
+#### Installing Hazelcast
 
 First, you can spawn a small Hazelcast cluster by invoking the following command (assuming, as will all ensuing commands, you're in the `resources/charts` folder of your locally cloned version of this repository):
 
@@ -56,7 +58,7 @@ k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].ad
 
 ... where `k` is an alias for `kubectl`, because typing the latter a million times a day when working with Kubernetes gets old real fast.
 
-### Installing Hazeltest
+#### Installing Hazeltest
 
 Once the Hazelcast cluster is up and running -- and you have, optionally, brought up the Management Center's UI in your browser --, you can install Hazeltest like so:
 
@@ -76,7 +78,7 @@ helm upgrade --install hazeltest ./hazeltest --namespace=hazelcastplatform
 
  > :warning: **Note:** By default, this chart launches a single Hazeltest instance whose Chaos Monkey feature is enabled, so worry not if you suddenly observe Hazelcast members getting terminated and restarting -- in this case, that's actually intended!
 
- ### Installing Prometheus
+ #### Installing Prometheus
 
 Isn't running any kind of load test so much more fun when you can watch some dashboard panels go wild as soon as the test starts doing its thing? Well, the Grafana chart you can find in this repository's charts folder comes with some nice dashboards, but they are of no use whatsoever without the delivery of corresponding metrics. 
 
@@ -90,7 +92,7 @@ Note that this Prometheus instance is super simple -- it writes any metrics gath
 
 By default, the Prometheus chart, too, exposes its workload by means of a `NodePort`-type Service, albeit this time on port `30090`. If you feel so inclined, therefore, you can once again fire up your browser and directly access Prometheus' UI, but without some queries to run, there won't be much to see. Luckily, you won't have to type out and then manually run said queries -- the dashboards bundled with the Grafana Helm chart you're about to install will do that for you.
 
-### Installing Grafana
+#### Installing Grafana
 
 We've established above that load testing is a lot more fun if you can watch the effects of the tests unfold on a couple of nice dashboards, but there are no such dashboards in sight yet. Let's change that!
 
@@ -108,7 +110,7 @@ Once the UI asks you to authenticate, use `admin` as the username and the passwo
 k get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode; echo
 ```
 
-### Harvesting The Fruits
+#### Harvesting The Fruits
 After having successfully launched a small Hazelcast/Hazeltest stack plus a super simple monitoring stack on top, let's harvest the fruits of our work by investigating the aforementioned dashboards!
 
 Unsurprisingly, they await you in the dashboard section's _Hazelcast_ folder:
@@ -134,7 +136,7 @@ Similarly, the _Queues_ dashboard may appear like so:
 These dashboards give rough indications for how Hazeltest's Map Runners and Queue Runners work (how they work as a result of the configuration encapsulated in the previously installed Hazeltest Helm chart, anyway), so in the next section, we're going to take a closer look at those runners and a concept called "Test Loops", but a little bit of ground-laying work is required first.
 
 ### Running Hazeltest Outside of Kubernetes
-The Hazeltest Helm chart available in this repository is useful in the sense that it conveniently hides all the details of configuration necessary to connect Hazeltest to a target Hazelcast cluster at startup, but if you've come to this section, it's likely you'll want to know how to connect to a Hazelcast cluster from outside of Kubernetes (or without any involvement of Kubernetes whatsoever, really). 
+The Hazeltest Helm chart available in this repository is useful in the sense that it conveniently hides all the details of configuration necessary to connect Hazeltest to a target Hazelcast cluster at startup, but if you've come to this section, it's likely you'll want to know how to connect to a Hazelcast cluster from outside of Kubernetes (or without any involvement of Kubernetes whatsoever, really).
 
 Well, you're in luck! You can either read on here, or in case you're more the audio/visual type, you may find the following video on my channel enlightening:
 
@@ -142,21 +144,21 @@ Well, you're in luck! You can either read on here, or in case you're more the au
 
 On the other hand, read on if you prefer reading some good ol' text.
 
-__Mandatory Properties__
+#### Mandatory Properties
 
 There are two things you have to tell Hazeltest if you want it to connect to a Hazelcast cluster: the cluster's name, and at least one endpoint to connect to. Both of these parameters are injectable via environment variables:
 
 * ``HZ_CLUSTER``: Specifies the name of the target Hazelcast cluster (i.e. the string you specified on Hazelcast's side using the `hazelcast.cluster-name` property). For example, the Hazelcast Helm chart contained in this repository by default sets ``cluster-name`` to ``hazelcastplatform`` and, correspondingly, the Helm chart for Hazeltest sets ``HZ_CLUSTER`` to the same value.
 * ``HZ_MEMBERS``: Although this can be a comma-separated list of members to connect to, in most cases, providing a single member -- or an endpoint pointing to at least one member, such as a loadbalancer host name -- is completely sufficient, as the all-member routing mode (also known as "smart routing") enabled by default in the Hazelcast Golang client used by Hazeltest will figure out the remaining members on its own and automatically connect to them, too, assuming they're on the same network and nothing blocks access. For example, if you run a Hazelcast cluster on a couple of VMs and want Hazeltest to load-test its members, specifying ``<host name or IP of one of the VMs>:5701`` should suffice, assuming you exposed the Hazelcast member running on the VM using Hazelcast's default port of ``5701``. (Obviously, if you're running your Hazelcast members on a system in which IPs have limited meaning because they can arbitrarily change -- think of a Pod running in Kubernetes --, you'll be better off using a hostname than an IP.)
 
-__Optional Properties__
+#### Optional Properties
 
 Although the following two properties are still important, they aren't mandatory for simply connecting to the target Hazelcast cluster, and because of that, they were modelled as command-line arguments rather than environment variables (you can find an example invocation setting both the former and the latter down below):
 
 * ``-config-file``: Allows you to specify a custom configuration file, thus represents the means through which custom configuration for load creation behavior can be injected. To build your own configuration, I suggest you take the [``defaultConfig.yaml``](./client/defaultConfig.yaml) as a starting point and iteratively adjust configuration as required. Note that Hazeltest will take the default configuration from the aforementioned file for any property not explicitly overridden by means of a custom config file, so you only have to provide those properties in the latter that you wish to override.
 * ``-use-unisocket-client``: Enables or disables usage of the uni-socket routing mode on the Hazelcast client. The default is the smart-routing (or all-member routing) mode (i.e. ``-use-unisocket-client=false``), but that mode only makes sense if all members of the target Hazelcast cluster can be reached (the classic example for when this isn't the case is when you're accessing Hazelcast members running on a different network with a loadbalancer acting as a single entrypoint into the set of members; in this case, uni-socket mode will establish and hold a sticky connection to whatever member of the cluster the loadbalancer happened to balance the initial request to).
 
-__Sample Invocation__
+#### Sample Invocation
 
 So, let's assume you just downloaded the native Hazeltest executable from the [releases tag](https://github.com/AntsInMyEy3sJohnson/hazeltest/releases), you already wrote a custom configuration, and now you want to wreak havoc on an unsuspecting Hazelcast cluster!
  
@@ -172,15 +174,7 @@ This makes a couple of assumptions, of course, namely:
 * There is a loadbalancer with the IP ``192.168.44.129`` whose port `32571` points to at least one Hazelcast member
 * You run Hazeltest and the Hazelcast members on two separate networks (or network segments) and therefore have to rely on the sticky TCP connection unisocket client mode establishes to one of the Hazelcast members when initially making the connection via the loadbalancer
 
-These are some assumptions that may or may not be true in your particular setup, so please treat this only as a suggestion, and adjust your invocation as needed.
-
-
-
-
-
-
-
-
+These are some assumptions that may or may not be true in your particular setup, so please treat this only as a suggestion, and adjust your invocatiob as needed.
 
 ## Diving Deeper
 
@@ -222,7 +216,7 @@ Let's take a look at the load-creating actors available in Hazeltest and how you
 ### Map Runners And Map Test Loops
 At the time of this writing, there are two Map Runners available in Hazeltest -- the Pokédex Runner and the Load Runner --, and they can be combined with two types of Test Loop, namely, the Batch Test Loop and the Boundary Test Loop. The relationship between Runners and Test Loops is one of parent-child, i.e. a Runner can use one type of Test Loop.
 
-__Runner vs. Test Loop__
+#### Runner vs. Test Loop
 
 This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (with the exception of load dimension 6, as both available Test Loops offer adjustability for sleeps, too, which translates to offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
 
@@ -279,7 +273,7 @@ In the diagrams on the left-hand side and on the right-hand side, the Map Load R
 
 With the Map Runner and Test Loop concepts established and their relationship outlined, let's examine the available Runners and Test Loops more closely.
 
-__The Map Pokédex Runner__
+#### The Map Pokédex Runner
 
 The Pokédex Runner for creating load on maps is where it all started -- the first load creation mechanism in Hazeltest I implemented to observe how quickly the lite (or "compute") members of my client's Hazelcast clusters are able to respond to incoming `getMap` requests with different threading configurations when under high CPU load (the fact that today's Test Loops log the time it takes for their `getMap` calls to complete traces back to this first use case). Requirements for this first load generation mechanism, then, were very simple:
 
@@ -294,7 +288,7 @@ Even in today's version of Hazeltest, if your goal is to simply stress the CPU o
 
 The following excerpt shows a possible configuration for the Pokédex Runner (for explanations on those properties, please refer to the [`defaultConfig.yaml` file](./client/defaultConfig.yaml)) in combination with the Batch Test Loop:
 
-```
+```yaml
 mapTests:
   pokedex:
     enabled: true
@@ -333,166 +327,11 @@ You may have spotted the `performPreRunClean` configuration object as hint for a
 
 __In short__, use the Pokédex Runner if you wish to stress the CPU of the Hazelcast cluster under test.
 
+#### The Map Load Runner
 
-### Run, Forest, Run
+#### Map Runner/Test Loop Combinations
 
-The first runner available today is the `PokedexRunner`, which runs the test loop with the 151 Pokémon of the
-first-generation Pokédex. It serializes them into a string-based Json structure, which is then saved to Hazelcast.
-The `PokedexRunner` is not intended to put a lot of data into Hazelcast (i. e., it is not intended to load-test a
-Hazelcast cluster in terms of its memory), but instead stresses the CPU. The second available runner, on the other hand,
-is the `LoadRunner`, and as its name indicates, it is designed to "load up" the Hazelcast cluster under test with lots
-of data such as to test the behavior of the cluster once its maximum storage capacity has been reached. As opposed to
-the `PokedexRunner`, which is -- by nature of the data it works with -- restricted to 151 elements in each map,
-the `LoadRunner` can be configured arbitrarily regarding the number of elements it should put into each map, and the
-elements' size is configurable, too.
 
-### Configuration
-
-The default configuration resides right with the source code, and you can find it [here](./client/defaultConfig.yaml).
-It contains all properties currently available for configuring the two aforementioned runners along with comments
-shortly describing what each property does and what it can be used for.
-
-You can find all properties for configuring the Hazeltest application itself in
-the [`values.yaml`](./resources/charts/hazeltest/values.yaml) file of
-the [Hazeltest Helm chart](./resources/charts/hazeltest/) along with comments explaining them.
-
-## Monitoring Your Hazelcast Cluster
-
-Once you deployed Hazeltest so it generates some load on your Hazelcast cluster under test, you might want to start
-monitoring it in order to get a more thorough understanding for the sort of load Hazeltest creates and how your
-cluster's members can deal with that load. In case you have deployed Hazelcast to a Kubernetes cluster, you may find the
-small monitoring stack this repository offers useful. In short, it utilizes the following components:
-
-* Prometheus for scraping the Pods of your Hazelcast cluster (or clusters)
-* Grafana dashboards for visualizing the metrics scraped by Prometheus
-* Grafana itself
-
-The latter two are provided by the [`padogrid-hazelmon`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-hazelmon)
-image, which itself is based on a [`padogrid`](https://hub.docker.com/r/padogrid/padogrid) image. (In case you're
-wondering what PadoGrid is and how it can help you, there's a short introduction down below.)
-
-### Installing Hazelcast
-
-To make the monitoring stack work, both the Community and Enterprise edition of Hazelcast will do fine, as both offer
-the _com_hazelcast_ metrics the Grafana dashboards rely on. In case you would still like to use the Enterprise version
-using the chart provided in this repository, check out the [_Installing Hazelcast
-Enterprise_](#installing-hazelcast-enterprise) section down below.
-
-You can deploy the Hazelcast cluster to be monitored using the same old Helm command you may have already encountered in
-the [_Getting Started_](#getting-started) section above (assuming you're in
-the [`resources/charts`](./resources/charts/) directory of your local copy of this repository):
-
-```bash
-helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
-```
-
-### Installing Prometheus
-
-Once your Hazelcast cluster is up and running, it's time to scrape some metrics! To do so, you can install Prometheus
-using the following command:
-
-```bash
-helm upgrade --install prometheus ./prometheus --namespace prometheus --create-namespace
-```
-
-(You can modify the Prometheus configuration in the chart's [`values.yaml`](./resources/charts/prometheus/values.yaml)
-file if you so desire, of course, but the properties already provided there should work out of the box.)
-
-You can check whether the _com_hazelcast_ metrics are scraped correctly by navigating to Prometheus' web UI. The URL for
-doing so corresponds to the following pattern: `http://<external ip of prometheus loadbalancer service>:9090`
-
-### Installing `padogrid-hazelmon`
-
-The last puzzle piece in this small monitoring stack is
-the [`padogrid-hazelmon`](https://hub.docker.com/r/antsinmyey3sjohnson/padogrid-hazelmon) image that comes bundled both
-with Grafana and some really sweet dashboards for monitoring Hazelcast (more precisely speaking, the image's base
-image, [`padogrid`](https://hub.docker.com/r/padogrid/padogrid), offers all the dashboards, and `padogrid-hazelmon`
-merely adds Grafana and performs some work to get Grafana configured and running when deployed in a Helm chart).
-
-The `padogrid-hazelmon` installation must be pointed to the Prometheus server that scrapes the _com_hazelcast_ metrics
-from your Hazelcast cluster's members. In case you installed Prometheus according to the instructions above without
-having modified the chart, the `padogridwithgrafana` chart will work out of the box, too. In case you have modified
-either the name of the Kubernetes Service that points to your Prometheus Pod, the namespace, or the port, please make
-sure to adjust the `PADO_MONITORING_PROMETHEUS_URL` property beneath the `padogridWithGrafana.config.padoEnv` object in
-the chart's [`values.yaml`](./resources/charts/padogridwithgrafana/values.yaml) file accordingly.
-
-You can install the chart like so:
-
-```bash
-helm upgrade --install padogridwithgrafana ./padogridwithgrafana --namespace hazelcastplatform
-```
-
-### Harvesting The Fruits
-
-Finally, you'll probably want to get some monitoring done using this freshly installed monitoring stack. To do so, visit
-the Grafana web UI and navigate to the _Dashboards_ page:
-
-```
-http://<external ip for grafana loadbalancer service>:3000/dashboards
-```
-
-> :warning: **Note:** If this is your first login to Grafana, you can log in using Grafana's default username/password
-> combination, which, at the time of this writing, is _admin/admin_. Of course, it is recommended to change this to
-> something more secure once Grafana prompts you to do so.
-
-Here, the available dashboards are categorized into multiple folders:
-
-![Overview of dashboards available in Grafana](./resources/images_for_readme/grafana_dashboards_overview.png)
-
-A good place to start is the _00Main_ dashboard in the _Hazelcast_ folder. Wih a very small Hazelcast cluster, it might
-look something like the following:
-
-![Dashboard showing an overview of the state of a small Hazelcast cluster.](./resources/images_for_readme/grafana_dashboard_hazelcast_00main.png)
-
-This should give you a good overview of how your Hazelcast cluster is currently doing, and more detailed views are
-available via the links on the left-hand side of the dashboard. In fact, there is quite a lot to discover, so feel free
-to dig in and have fun exploring!
-
-## Installing Hazelcast Enterprise
-
-In case you would like to install Hazelcast in the Enterprise edition using the chart offered in this repository, you
-may find the following notes useful.
-
-The [Helm chart](./resources/charts/hazelcastwithmancenter/) included in this repository for installing Hazelcast can be
-configured to use Hazelcast Enterprise rather than the community edition. The following properties in
-the [`values.yaml`](./resources/charts/hazelcastwithmancenter/values.yaml) file are important in this context:
-
-* `.Values.platform.cluster.members.edition.enterprise.enabled`: Whether to enable using the Enterprise edition. If set
-  so `true`, the chart expects a Kubernetes Secret that contains the enterprise license key, see below.
-* `.Values.platform.cluster.members.edition.enterprise.image`: The Hazelcast Enterprise image to use.
-* `.Values.platform.cluster.members.edition.enterprise.license.secretName`: The name of the Kubernetes Secret that
-  contains the enterprise license key.
-* `.Values.platform.cluster.members.edition.enterprise.license.keyPath`: The path, within the secret, to the key that
-  holds the enterprise license key as a string.
-
-> :warning: **Note:** The Hazelcast Enterprise cluster must be deployed to the same namespace that holds the Secret
-> containing the license key.
-
-For example, assuming you would like to use the image for Hazelcast Enterprise 5.3.6 and your license key sits in a
-Secret called `hazelcast-enterprise-license` that represents the license key string a in a property
-called `data.licenseKey`, you would configure the properties above like so:
-
-```yaml
-platform:
-  # ...
-  cluster:
-    # ...
-    members:
-      # ...
-      edition:
-        enterprise:
-          enable: true
-          image: hazelcast/hazelcast-enterprise:5.3.6
-          license:
-            secretName: hazelcast-enterprise-license
-            keyPath: licenseKey
-```
-
-Then, you can install your Hazelcast cluster using the very same Helm command that, by now, is probably familiar:
-
-```bash
-helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
-```
 
 ## Generating Load With PadoGrid
 
@@ -514,23 +353,3 @@ without much prior configuration work.
 
 You can find PadoGrid's source code and many useful guides for getting started over
 on [GitHub](https://github.com/padogrid/padogrid).
-
-## More text to potentially include later on
-
-Designed to run on Kubernetes (but by this design by no means limited to running there), the application embodies an
-important Kubernetes design philosophy: to formulate desired target state declaratively and in a format easy to
-understand and reason about by engineers (granted, it may be subject to wonderful discussion whether Yaml is actually
-easy to read assuming a sufficiently large file -- or whether Yaml is something humanity was in need of in the first
-place --, but that's beside the point). While _desired target state_ is hard to capture in terms of application
-configuration if what the application does is create load on a Hazelcast cluster, Hazeltest still lets you define
-declaratively what you want its actors to do -- i.e., what load you want them to create -- by means of
-easy-to-reason-about Yaml files.
-
-This reveals another purpose of Hazeltest besides offering the means to perform effective, automated Hazelcast
-load-testing: to ensure _repeatability_ of those tests. Repeatability is crucial, for example, when you're adjusting
-Hazelcast configuration and want to measure the impact on performance of your adjustments, or when you wish to assess
-the performance of a new Hazelcast version compared to an older one. Need to examine how performance changes when you
-swap out the Hazelcast JVM's Garbage Collector (say, G1GC vs. ZGC)? Want to know how halving the batch size of a WAN
-replication publisher affects replication latency? Or how about simply checking whether your memory configuration is
-sane? Only automated load tests with good repeatability will help you get meaningful results quickly and reliably! With
-Hazeltest, you can check in Yaml load configs to version control and 
