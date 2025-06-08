@@ -337,7 +337,65 @@ In terms of the aforementioned load dimensions, this is what the Pokédex Runner
 In other words: As the preceding descriptions of the feature indicated, the Pokédex Runner is not an appropriate tool to load-test a Hazelcast cluster's abilities to keep payloads in memory, but it's excellent at stressing the CPU. For load-testing the in-memory storage capacities of a Hazelcast clusters, the Load Runner is the far better tool. 
 
 #### Load Runner
-The Load Runner enables you to optimize load creation along load dimensions 1 and 2, that is, the number of items and the size of each item stored in the Hazelcast cluster under test, respectively (with the Pokédex Runner, load dimension 2 is not adjustable at all because the Runner works on a fixed data set, and load dimension 1 is only adjustable indirectly by having each Runner instances spawn more maps, and/or increasing the number of Runners by adding more Hazeltest instances). 
+The Load Runner enables you to optimize load creation along load dimensions 1 and 2, that is, the number of items and the size of each item stored in the Hazelcast cluster under test, respectively, which is why it's the bread-and-butter feature in Hazeltest for load-testing a Hazelcast cluster's ability to keep and serve payloads in memory.
+
+In order to offer adjustability of load dimensions 1 and 2, the Load Runner doesn't work on a fixed dataset, but creates a random string payload according to the desired specifications. Therefore, the Load Runner's configuration comes with some additional properties, as the following complete example configuration making use of the Batch Test Loop highlights (again, the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) has explanations on all properties in store for you):
+
+```yaml
+  load:
+    enabled: true
+    numMaps: 10
+    numEntriesPerMap: 50000
+    payload:
+      fixedSize:
+        enabled: false
+        sizeBytes: 10000000
+      variableSize:
+        enabled: true
+        lowerBoundaryBytes: 1000
+        upperBoundaryBytes: 10000
+        evaluateNewSizeAfterNumWriteActions: 100
+    appendMapIndexToMapName: true
+    appendClientIdToMapName: false
+    numRuns: 10000
+    performPreRunClean:
+      enabled: false
+      cleanMode: destroy
+      errorBehavior: ignore
+      cleanAgainThreshold:
+        enabled: true
+        thresholdMs: 30000
+    mapPrefix:
+      enabled: true
+      prefix: "ht_"
+    sleeps:
+      betweenRuns:
+        enabled: true
+        durationMs: 2000
+        enableRandomness: true
+    testLoop:
+      type: batch
+      batch:
+        sleeps:
+          afterBatchAction:
+            enabled: true
+            durationMs: 10
+            enableRandomness: true
+          afterActionBatch:
+            enabled: true
+            durationMs: 2000
+            enableRandomness: true
+```
+
+While most of the configuration is identical to that of the Pokédex Runner, the Load Runner takes the following additional properties:
+* The ``numEntriesPerMap`` property, which offers adjustability of load dimension 1
+* The entire ``payload`` configuration object, offering, by means of its various sub-properties, configuration of load dimension 2
+
+
+
+
+
+
 
 
 #### Map Runner/Test Loop Combinations
