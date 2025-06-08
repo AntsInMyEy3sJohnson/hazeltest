@@ -325,9 +325,19 @@ mapTests:
 
 You may have spotted the `performPreRunClean` configuration object as hint for a concept in Hazeltest that hasn't been formally introduced yet, but don't worry about it for now, we're going to give this feature its due introduction later on.
 
-__In short__, use the Pokédex Runner if you wish to stress the CPU of the Hazelcast cluster under test.
+In terms of the aforementioned load dimensions, this is what the Pokédex Runner offers: 
+
+1. Number of items: Adjustable only indirectly (because fixed dataset) by increasing the number of maps or the number of Runners (by adding more Hazeltest instances)
+2. Item size: Not adjustable
+3. Number of data structures: By means of the ``numMaps`` property, or by adding more Hazeltest instances
+4. Number of clients: By adding more Hazeltest instances
+5. Cluster health: Not adjustable
+6. Operations per second: By means of ``sleeps.betweenRuns`` and the sleep configurations of the chosen test loop
+
+In other words: As the preceding descriptions of the feature indicated, the Pokédex Runner is not an appropriate tool to load-test a Hazelcast cluster's abilities to keep payloads in memory, but it's excellent at stressing the CPU. For load-testing the in-memory storage capacities of a Hazelcast clusters, the Load Runner is the far better tool. 
 
 #### Load Runner
+The Load Runner enables you to optimize load creation along load dimensions 1 and 2, that is, the number of items and the size of each item stored in the Hazelcast cluster under test, respectively (with the Pokédex Runner, load dimension 2 is not adjustable at all because the Runner works on a fixed data set, and load dimension 1 is only adjustable indirectly by having each Runner instances spawn more maps, and/or increasing the number of Runners by adding more Hazeltest instances). 
 
 
 #### Map Runner/Test Loop Combinations
