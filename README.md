@@ -273,7 +273,7 @@ In the diagrams on the left-hand side and on the right-hand side, the Map Load R
 
 With the Map Runner and Test Loop concepts established and their relationship outlined, let's examine the available Runners and Test Loops more closely.
 
-#### The Map Pokédex Runner
+#### Pokédex Runner
 
 The Pokédex Runner for creating load on maps is where it all started -- the first load creation mechanism in Hazeltest I implemented to observe how quickly the lite (or "compute") members of my client's Hazelcast clusters are able to respond to incoming `getMap` requests with different threading configurations when under high CPU load (the fact that today's Test Loops log the time it takes for their `getMap` calls to complete traces back to this first use case). Requirements for this first load generation mechanism, then, were very simple:
 
@@ -327,11 +327,24 @@ You may have spotted the `performPreRunClean` configuration object as hint for a
 
 __In short__, use the Pokédex Runner if you wish to stress the CPU of the Hazelcast cluster under test.
 
-#### The Map Load Runner
+#### Load Runner
+
 
 #### Map Runner/Test Loop Combinations
 
+### Queue Runners
 
+#### Tweets Runner
+
+#### Load Runner
+
+### Other Concepts 
+
+#### Chaos Monkeys
+
+#### State Cleaners
+
+### Configuration
 
 ## Generating Load With PadoGrid
 
