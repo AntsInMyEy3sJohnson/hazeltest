@@ -391,7 +391,9 @@ While most of the configuration is identical to that of the Pokédex Runner, the
 * The ``numEntriesPerMap`` property, which offers adjustability of load dimension 1
 * The entire ``payload`` configuration object, offering, by means of its various sub-properties, configuration of load dimension 2
 
-
+Here, the two options available for payload generation deserve some additional explanation:
+* __Fixed-size payload generation mode__ (``payload.fixedSize``): Will have the Load Runner create one random string according to the given size-in-bytes configuration (yes, the value for this property will contain quite a few zeros for payloads in the megabyte range) to work with on the target Hazelcast maps. So, nothing surprising there, really, but things get more interesting with the...
+* ... __variable-size payload generation mode__ (``payload.variableSize``): Turns out both Hazelcast and the JVM itself aren't that good with handling variable-size payloads (translating internally to heap objects with variable sizes) -- in fact, crashing even well-configured Hazelcast members is definitely possible if they have to deal with payloads having large size variations, from kilobytes to megabytes. Thus, if you already know the client applications that will access your production Hazelcast clusters create variable-size payloads, it's probably a good idea to assert that your cluster configuration is able to deal with those size variations! It's for this reason that variable-size payload generation mode lets you specify a lower boundary and an upper boundary (`lowerBoundaryBytes` and `upperBoundaryBytes`, respectively) for the payload size, which comes in very handy when you know at least roughly the size of the smallest and the largest payloads, and want the Load Runner to simply create payloads with random sizes in that range, without caring so much about the precise size of each individual map item created. The third property in the bunch, then, `evaluateNewSizeAfterNumWriteActions`, is simply a little optimization, so a new random payload doesn't have to be created for every write action.
 
 
 
