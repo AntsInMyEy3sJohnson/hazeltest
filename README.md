@@ -414,6 +414,17 @@ So, the Load Runner offers adjustability of all load dimensions except load dime
 
 
 #### Map Runner/Test Loop Combinations
+As explained above, the Map Runners themselves don't actually execute operations on the Hazelcast cluster under test -- it is, instead, the Test Loop the Runner has been configured with that does. So, if we're any serious about creating appropriate load on a target Hazelcast cluster -- "appropriate" in the sense that the generated load satisfies the requirements we have for our load tests --, we need to take a short look at the available Test Loops and what use cases they can address in combination with an enveloping Runner.
+
+Before we get to that, however, let's take a short look at the Test Loops that are available as of this writing, and their characteristics:
+
+* __Batch Test Loop__: Runs batches of operations (ingest all, read all, delete some). 
+* __Boundary Test Loop__: Offers configuration of a lower and an upper boundary for the exhaustion level of a target map, and the Test Loop will perform operations on the target map such that these boundaries are honored. Thus, the Boundary Test Loop simulates the usage pattern created by real-world applications that are subject to the time-of-day, in which load is almost zero at night, rises during morning hours and reaches its peak around noon, after which the pattern reverses and traffic declines until it's down to almost nothing again during the night, so the pattern then repeats throughout the next day.
+
+
+
+
+
 
 ### Queue Runners
 
