@@ -218,7 +218,7 @@ At the time of this writing, there are two Map Runners available in Hazeltest --
 
 #### Runner vs. Test Loop
 
-This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (with the exception of load dimension 6, as both available Test Loops offer adjustability for sleeps, too, which translates to offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
+This begs the question, of course: Which component does what? As a rule of thumb, it can be said that Runners offer adjustability for load dimensions, whereas the Test Loop determines the kind and order of operation executed on the target Hazelcast cluster (except for load dimension 6, as both available Test Loops offer adjustability for sleeps, too, which translates to offering adjustability for the number of operations executed per second). In other words, the Runner as the framework around the Test Loop never executes any operations on Hazelcast by itself, but relies on the Test Loop to do so. 
 
 Let's take a look at an example for how to configure the Map Load Runner/Batch Test Loop combination (many properties have been omitted here for brevity):
 
@@ -226,7 +226,7 @@ Let's take a look at an example for how to configure the Map Load Runner/Batch T
 mapTests:
   load:
     enabled: true
-    # load dimension 3
+    # load dimension 3 (and, indirectly, load dimension 1)
     numMaps: 10
     # load dimension 1
     numEntriesPerMap: 50000
@@ -250,8 +250,8 @@ mapTests:
       type: batch
       batch:
         # load dimension 6 (only option to influence a load dimension on the 
-        # test loop layer -- same goes for boundary test loop, although the latter
-        # offers different kinds of sleeps)
+        # test loop layer -- same goes for boundary test loop, although the
+        # latter offers different kinds of sleeps)
         sleeps:
           afterBatchAction:
             enabled: true
@@ -263,7 +263,7 @@ mapTests:
             enableRandomness: true
 ```
 
-So, with the exception of load dimension 6, adjustability of load dimensions is offered exclusively by the Runner. The Test Loop, on the other hand -- although not explicitly expressed in terms of this declarative configuration, but rather as a result of the logic of the Test Loop itself, as a result of its code -- decides when to execute which kind of operation on the Hazelcast cluster under test.
+So, except for load dimension 6, adjustability of load dimensions is offered exclusively by the Runner. The Test Loop, on the other hand -- although not explicitly expressed in terms of this declarative configuration, but rather as a result of the logic of the Test Loop itself -- decides when to execute which kind of operation on the Hazelcast cluster under test.
 
 To drive this point home, consider the following diagrams:
 
@@ -292,8 +292,11 @@ The following excerpt shows a possible configuration for the Pokédex Runner in 
 mapTests:
   pokedex:
     enabled: true
+    # load dimension 3 (and, hence, albeit indirectly, load dimension 1)
     numMaps: 10
+    # load dimension 3
     appendMapIndexToMapName: true
+    # load dimension 3
     appendClientIdToMapName: false
     numRuns: 10000
     performPreRunClean:
@@ -304,6 +307,7 @@ mapTests:
     mapPrefix:
       enabled: true
       prefix: "ht_"
+    # load dimension 6
     sleeps:
       betweenRuns:
         enabled: true
@@ -312,6 +316,7 @@ mapTests:
     testLoop:
       type: batch
       batch:
+        # load dimension 6
         sleeps:
           afterBatchAction:
             enabled: true
@@ -330,11 +335,11 @@ In terms of the aforementioned load dimensions, this is what the Pokédex Runner
 1. Number of items: Adjustable only indirectly (because fixed dataset) by increasing the number of maps or the number of Runners (by adding more Hazeltest instances)
 2. Item size: Not adjustable
 3. Number of data structures: By means of the ``numMaps`` property, or by adding more Hazeltest instances
-4. Number of clients: By adding more Hazeltest instances
+4. Number of clients: Not adjustable on the Runner itself, but by adding more Hazeltest instances
 5. Cluster health: Not adjustable
 6. Operations per second: By means of ``sleeps.betweenRuns`` and the sleep configurations of the chosen test loop
 
-In other words: As the preceding descriptions of the feature indicated, the Pokédex Runner is not an appropriate tool to load-test a Hazelcast cluster's abilities to keep payloads in memory, but it's excellent at stressing the CPU. For load-testing the in-memory storage capacities of a Hazelcast clusters, the Load Runner is the far better tool. 
+In other words: As the preceding descriptions of the feature indicated, the Pokédex Runner is not an appropriate tool to load-test a Hazelcast cluster's abilities to keep payloads in memory, but it's excellent at stressing the CPU. For load-testing the in-memory storage capacities of a Hazelcast clusters, the Load Runner is the far better tool.
 
 #### Load Runner
 The Load Runner enables you to optimize load creation along load dimensions 1 and 2, that is, the number of items and the size of each item stored in the Hazelcast cluster under test, respectively, which is why it's the bread-and-butter feature in Hazeltest for load-testing a Hazelcast cluster's ability to keep payloads in memory and serve them from there.
@@ -344,8 +349,11 @@ In order to offer adjustability of load dimensions 1 and 2, the Load Runner does
 ```yaml
   load:
     enabled: true
+    # load dimension 3 (and, indirectly, load dimension 1)
     numMaps: 10
+    # load dimension 1 
     numEntriesPerMap: 50000
+    # load dimension 2
     payload:
       fixedSize:
         enabled: false
@@ -355,7 +363,9 @@ In order to offer adjustability of load dimensions 1 and 2, the Load Runner does
         lowerBoundaryBytes: 1000
         upperBoundaryBytes: 10000
         evaluateNewSizeAfterNumWriteActions: 100
+    # load dimension 3
     appendMapIndexToMapName: true
+    # load dimension 3
     appendClientIdToMapName: false
     numRuns: 10000
     performPreRunClean:
@@ -368,6 +378,7 @@ In order to offer adjustability of load dimensions 1 and 2, the Load Runner does
     mapPrefix:
       enabled: true
       prefix: "ht_"
+    # load dimension 6
     sleeps:
       betweenRuns:
         enabled: true
@@ -376,6 +387,7 @@ In order to offer adjustability of load dimensions 1 and 2, the Load Runner does
     testLoop:
       type: batch
       batch:
+        # load dimension 6
         sleeps:
           afterBatchAction:
             enabled: true
@@ -400,18 +412,13 @@ As you'd expect after the preceding sections, the Load Runner offers adjustabili
 1. Number of items: By means of ``numEntriesPerMap``
 2. Item size: By means of the ``payload`` configuration object and its various sub-properties
 3. Number of data structures: By means of the ``numMaps`` property, or by adding more Hazeltest instances
-4. Number of clients: By adding more Hazeltest instances
+4. Number of clients: Not adjustable on the Runner itself, but by adding more Hazeltest instances 
 5. Cluster health: Not adjustable
 6. Operations per second: By means of ``sleeps.betweenRuns`` and the sleep configurations of the chosen test loop
 
-So, the Load Runner offers adjustability of all load dimensions except load dimension 5 (unless you configure it so it crashes some Hazelcast members, in which case cluster health is obviously affected) and is therefore much more flexible than the Pokédex Runner in terms of the use cases it can cover -- stressing the CPU (previously the domain of the Pokédex Runner) is just as easily doable as exhausting gigabytes or even terabytes of memory. 
+So, in combination with the option of adding more Hazeltest instances, the Load Runner covers all load dimensions except dimension 5 (unless you configure it so it crashes some Hazelcast members, in which case cluster health is obviously affected) and is therefore much more flexible than the Pokédex Runner in terms of the use cases it can cover -- stressing the CPU (previously the domain of the Pokédex Runner) is just as easily doable as exhausting gigabytes or even terabytes of memory. 
 
 (This begs the question, of course, of why the Pokédex Runner is still around. Well, it still has its simplicity going for it -- if your goal is to simply stress the CPU of unsuspecting Hazelcast members, the Pokédex Runner is perfectly sufficient, but saves you the hassle of worrying about adjusting payload sizes and the number of map items to create, so you can get started more easily.)
-
-
-
-
-
 
 #### Map Runner/Test Loop Combinations
 As explained above, the Map Runners themselves don't actually execute operations on the Hazelcast cluster under test -- it is, instead, the Test Loop the Runner has been configured with that does. So, if we're any serious about creating appropriate load on a target Hazelcast cluster -- "appropriate" in the sense that the generated load satisfies the requirements we have for our load tests --, we need to take a short look at the available Test Loops and what use cases they can address in combination with an enveloping Runner.
