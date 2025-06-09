@@ -395,6 +395,19 @@ Here, the two options available for payload generation deserve some additional e
 * __Fixed-size payload generation mode__ (``payload.fixedSize``): Will have the Load Runner create one random string according to the given size-in-bytes configuration (yes, the value for this property will contain quite a few zeros for payloads in the megabyte range) to work with on the target Hazelcast maps. So, nothing surprising there, really, but things get more interesting with the...
 * ... __variable-size payload generation mode__ (``payload.variableSize``): Turns out both Hazelcast and the JVM itself aren't that good with handling variable-size payloads (translating internally to heap objects with variable sizes, or variable-size payloads in Hazelcast native memory, if you happen to use the Enterprise Edition) -- in fact, crashing even well-configured Hazelcast members is definitely possible if they have to deal with payloads exhibiting significant variation in their sizes (e.g. from kilobytes to megabytes). Thus, if you already know the client applications that will access your production Hazelcast clusters create variable-size payloads, it's probably a good idea to assert that your cluster configuration is able to deal with those size variations! It's for this reason that variable-size payload generation mode lets you specify a lower boundary and an upper boundary (`lowerBoundaryBytes` and `upperBoundaryBytes`, respectively) for the payload size, which comes in very handy when you know at least roughly the size of the smallest and the largest payloads, and want the Load Runner to simply create payloads with random sizes in that range, without caring so much about the precise size of each individual map item created. The third property in the bunch, then, `evaluateNewSizeAfterNumWriteActions`, is simply a little optimization, so a new random payload doesn't have to be created for every write action (unless you explicitly set this property to `1`).
 
+As you'd expect after the preceding sections, the Load Runner offers adjustability of load dimensions as follows:
+
+1. Number of items: By means of ``numEntriesPerMap``
+2. Item size: By means of the ``payload`` configuration object and its various sub-properties
+3. Number of data structures: By means of the ``numMaps`` property, or by adding more Hazeltest instances
+4. Number of clients: By adding more Hazeltest instances
+5. Cluster health: Not adjustable
+6. Operations per second: By means of ``sleeps.betweenRuns`` and the sleep configurations of the chosen test loop
+
+So, the Load Runner offers adjustability of all load dimensions except load dimension 5 (unless you configure it so it crashes some Hazelcast members, in which case cluster health is obviously affected) and is therefore much more flexible than the Pokédex Runner in terms of the use cases it can cover -- stressing the CPU (previously the domain of the Pokédex Runner) is just as easily doable as exhausting gigabytes or even terabytes of memory. 
+
+(This begs the question, of course, of why the Pokédex Runner is still around. Well, it still has its simplicity going for it -- if your goal is to simply stress the CPU of unsuspecting Hazelcast members, the Pokédex Runner is perfectly sufficient, but saves you the hassle of worrying about adjusting payload sizes and the number of map items to create, so you can get started more easily.)
+
 
 
 
