@@ -344,6 +344,10 @@ In other words: As the preceding descriptions of the feature indicated, the Pok�
 #### Load Runner
 The Load Runner enables you to optimize load creation along load dimensions 1 and 2, that is, the number of items and the size of each item stored in the Hazelcast cluster under test, respectively, which is why it's the bread-and-butter feature in Hazeltest for load-testing a Hazelcast cluster's ability to keep payloads in memory and serve them from there.
 
+In case you don't really feel like reading an awful lot of text right now and prefer a video instead, go check out this video on my channel, which provides an introduction to the Load Runner:
+
+[Let There Be Load! - Part 1: An Introduction To The Map Load Runner](https://youtu.be/I15GnJJGKf4?si=0YXPT-VSVx38F4ka)
+
 In order to offer adjustability of load dimensions 1 and 2, the Load Runner doesn't work on a fixed dataset, but creates a random string payload according to the desired specifications. Therefore, the Load Runner's configuration comes with some additional properties, as the following complete example configuration making use of the Batch Test Loop highlights (again, the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) has explanations on all properties in store for you):
 
 ```yaml
@@ -448,6 +452,12 @@ You might object here that while a smoke test runs, you can simply perform other
 With the importance of automating release candidate smoke testing (where no automation is already present) and minimizing time-to-feedback (where that time isn't already optimal) as an act of aiming upward and a very practical means to retain your focus and clarity of mind sufficiently highlighted (I hope), let's explore why the combination of Load Runner and Batch Test Loop is a great fit for this purpose -- and why the Pokédex Runner/Batch Test Loop combination isn't.
 
 We'll give some attention to the latter aspect first. As you might recall from the section on the Pokédex Runner, this load creation tool is great for stressing the CPU, but far less so for exhausting memory due to the absence of adjustability of load dimensions 1 and 2. In scope of a smoke test, however, you'll typically want to test the ability of the Hazelcast cluster spawned by the release candidate to keep payloads in memory, and remain stable and performant even when under high load, both in terms of CPU and _in terms of memory_ -- after all, that's what Hazelcast is all about: Keeping stuff in memory! Hence, the Pokédex Runner simply isn't the tool for the job.
+
+Quite the contrary can be said about the Load Runner, however. It has the downside of being somewhat more complex to configure because it needs some bells and whistles to offer adjustability of load dimensions 1 and 2, but what you get in exchange if you combine it with the Batch Test Loop is a tool that can ingest lots of data into a Hazelcast cluster under test _very_ quickly. Therefore, if you wish to exhaust memory quickly in scope of a load test in order to verify that the members of the cluster under test remain stable, the Map Load Runner/Batch Test Loop combination is a perfect fit!
+
+The following video demonstrates how the Map Load Runner/Batch Test Loop combination can be used to expose flaws in a Hazelcast cluster configuration by using the example of memory configuration. As you'll see, each iteration performed on the memory configuration as a result of a smoke test having exposed a flaw in the previous configuration leads to more stable members:
+
+[Let There Be Load! - Part 2: Map Load Runner Feat. Batch Test Loop](https://youtu.be/QCrz5DZa6rc?si=7SsGKm-LUQLAWd2T)
 
 
 
