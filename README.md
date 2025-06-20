@@ -1,5 +1,7 @@
 # Hazeltest
 
+_Disclaimer: What you're about to read is not AI-generated, but created by a human being -- one made of flesh and bone, one who continuously thrives to aim upward (but sometimes struggles to act accordingly), and one who occasionally consumes way too much caffeine (the human being in question stopped counting the cups of coffee it drank while writing this article, but is pretty certain that number would be beyond staggering.) Also, the human author of the following sections hopes you find them useful and, perhaps, even a little entertaining._
+
 Welcome, fellow Hazelcast warrior! Maybe you're taking a look at this repository because you've been facing the
 challenge of load-testing your Hazelcast clusters, and perhaps you've been wondering whether there are tools out there
 in the depths of this thing called the _Internet_ that can support you on this journey.
