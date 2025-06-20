@@ -743,7 +743,7 @@ If you launch a Hazeltest instance whose Tweets Runner receives this configurati
 
 ![Poll operations executed by Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_poll.png)
 
-This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operation perspective, the case of pressure on queues as a consequence of the polling side being too slow is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. To simulate this, the Queue Load Runner is the better choice, however, as it permits for both load dimensions 1 and 2 to be adjustable, so you can more closely model the queue load your release candidate will have to handle in production.
+This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. To simulate this, the Queue Load Runner is the better choice, however, as it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production.
 
 #### Load Runner
 
