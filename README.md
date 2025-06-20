@@ -663,13 +663,85 @@ Although maps are by far the most often-used data structures in Hazelcast, they 
 
 Queues being less-often used than maps, Hazeltest's support for load-testing them isn't as developed as the means for load-testing maps, but still, at the time of this writing, there are two Runners at your disposal to load-test queues with.
 
-As you'll see below, both Queue Runners come with one actor to put and one actor to poll, which are configurable individually in terms of their operation speed. Thus, it's easily possible to simulate a scenario in which queues reach their maximum capacity because the polling actor is too slow.
+As you'll see below, both Queue Runners come with one actor to offer items and one actor to poll them, which are configurable individually in terms of their operation speed. Thus, it's easily possible to simulate a scenario in which queues reach their maximum capacity because the polling actor is too slow. Those offering and polling actors also act as the equivalent of the Test Loops on the Map Runners' side, so explicit Test Loops -- in the sense of a component named for distinction from other such components, and pluggable to switch between different Test Loops, hence different behaviors -- are not required in the case of Queue Runners (not in their current iteration, anyway).
 
 Because Queue Runners are their own actors in Hazeltest, they can act independently of other actors, such as Map Runners. Therefore, you can address both queue- and map-related testing use cases with a single Hazeltest instance (or one batch of Hazeltest instances).
 
 #### Tweets Runner
+Unsurprisingly -- considering its name --, the Tweets Runner ingests Tweets into queues in Hazelcast, and it uses a static file of 500 simplified Tweets to source its queue items from (in case you want to take a look, the file in question resides right alongside the code itself, in the form of the [`tweets_simple.json` file](./queues/tweets_simple.json)). Thus, the Tweets Runner is somewhat comparable to the Map Pokédex Runner in that it does not offer adjustability of load dimensions 1 and 2, but is therefore easier to get started with than the Queue Load Runner (whose acquaintance you'll make a bit further down the line). 
 
+The following is a sample configuration for the Tweets Runner (please refer to the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) for explanations on every property):
 
+```yaml
+queueTests:
+  tweets:
+    enabled: true
+    # Load dimension 3 
+    numQueues: 5
+    # Also load dimension 3, but indirectly -- setting this to false will make 
+    # every goroutine use the name queue name
+    appendQueueIndexToQueueName: true
+    # Also load dimension 3, and also indirectly -- if true, the Tweets Runner will 
+    # append its encompassing Hazeltest instance's unique ID to all queue names; 
+    # hence the number of queues thus created in Hazelcast increases significantly
+    # in cases where more than one Hazeltest instance is active
+    appendClientIdToQueueName: false
+    queuePrefix:
+      enabled: true
+      prefix: "ht_"
+    # Configuration for the 'put' actor
+    putConfig:
+      enabled: true
+      numRuns: 10000
+      batchSize: 50
+      sleeps:
+        # Load dimension 6, but only initially
+        initialDelay:
+          enabled: false
+          durationMs: 2000
+          enableRandomness: false
+        # Load dimension 6
+        afterActionBatch:
+          enabled: true
+          durationMs: 1000
+          enableRandomness: true
+        # Load dimension 6
+        betweenRuns:
+          enabled: true
+          durationMs: 2000
+          enableRandomness: true
+    # Configuration for the 'poll' actor
+    pollConfig:
+      enabled: true
+      numRuns: 10000
+      batchSize: 50
+      sleeps:
+        # Load dimension 6, but only initially
+        initialDelay:
+          enabled: true
+          durationMs: 12500
+          enableRandomness: false
+        # Load dimension 6
+        afterActionBatch:
+          enabled: true
+          durationMs: 1000
+          enableRandomness: true
+        # Load dimension 6
+        betweenRuns:
+          enabled: true
+          durationMs: 2000
+          enableRandomness: true
+```
+
+If you launch a Hazeltest instance whose Tweets Runner receives this configuration and let it run for a bit, you'll be presented after a while with roughly the following views (taken from the _Queues_ Grafana dashboard you may have installed if you followed the _Getting Started_ guide above):
+
+![General queue statistics visualizing actions of the Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_general.png)
+
+![Offer operations executed by Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_offer.png)
+
+![Poll operations executed by Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_poll.png)
+
+This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operation perspective, the case of pressure on queues as a consequence of the polling side being too slow is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. To simulate this, the Queue Load Runner is the better choice, however, as it permits for both load dimensions 1 and 2 to be adjustable, so you can more closely model the queue load your release candidate will have to handle in production.
 
 #### Load Runner
 
