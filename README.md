@@ -485,7 +485,7 @@ Let me give you a simple example of why that matters: Let's assume you employ th
 
 It seems very obvious, then, that the "weight" a load test can pull in terms of making a statement about a release candidate's production fitness is, at least to a considerable degree, a function of the realism of the load it generates, and this is even more true for load-testing Hazelcast clusters because, after all, Hazelcast is a very sophisticated distributed system which will perform outstandingly well if correctly configured, but underwhelmingly so if the configuration doesn't match the load the cluster actually has to handle.
 
-The following steps you can employ to measure and then accurately model production-like load assume there already is a cluster running in your production environment, and that your use case is running load tests for some upcoming release. If you're facing the first-ever production deployment of Hazelcast to production and the first-ever load the resulting clusters will have to handle, the steps remain the same except for step 1 -- in the absence of a production cluster to take measurements from, the second-best option is to measure load in the stage closest to production (which is usually either some kind of load-testing or a pre-production stage), hoping the applications accessing Hazelcast there are themselves subject to decently realistic load. Asking the people responsible for those applications for the maximum load they expect in terms of the aforementioned load dimensions also helps, of course.
+The following steps you can employ to measure and then accurately model production-like load assume there already is a cluster running in your production environment, and that your use case is running load tests to assert the fitness of a release candidate for an upcoming release. If you're facing the first-ever deployment of Hazelcast to production and the first-ever load the resulting clusters will have to handle, the steps remain the same except for step 1 -- in the absence of a production cluster to take measurements from, the second-best option is to measure load in the stage closest to production (which is usually either some kind of load-testing or a pre-production stage), hoping the applications accessing Hazelcast there are themselves subject to decently realistic load. Asking the people responsible for those applications for the maximum load they expect in terms of the aforementioned load dimensions also helps, of course.
 
 1. Measure the load on a reference cluster in production (ideally the one that experiences the highest load levels) in terms of the load dimensions introduced above. Let's assume you come up with the following load characteristics, measured at the daily load peak:
    1. Load dimension 1 (number of items)
@@ -496,33 +496,33 @@ The following steps you can employ to measure and then accurately model producti
       2. Most of the maps contain payloads from 2 to 10kb, but they make up little load in terms of load dimension 1
       3. Rarely, very large elements ranging from 4 to 5mb can be observed in a small number of maps
    3. Load dimension 3 (number of data structures -- here: maps): 2.200
-   4. Load dimension 4 (number of clients): 220
-   5. Load dimension 5 (cluster health): Cluster is stable; no signs of member crashes or network issues
+   4. Load dimension 4 (number of clients): 120
+   5. Load dimension 5 (cluster health): Cluster is stable; no signs of member crashes or latencies introduced by network issues
    6. Load dimension 6 (operations per second):
       1. 2.100 sets per second; 1.000 puts; 13.000 gets; 800 deletes
       2. But: These operations are not equally distributed across all maps; rather, the 10 maps most in use in terms of load dimension 1 are also those that accumulate around 90 % of all operations
 2. Set up the first Hazeltest load config that models the load your reference cluster experiences on its most-used maps. According to the measurements above, this first load config would have to create load as follows (full example configuration further down), assuming the cluster spawned by your release candidate in a load test environment mirrors the reference cluster in terms of member count and storage capacity:
    1. Load dimension 1: 18 million items across 10 maps
    2. Load dimension 2: 1.5kb
-   3. Load dimension 3: 10
-   4. Load dimension 4: 200 (we have to leave some "wiggle room" to the 220 measured above, so we can spawn more instances lather on to create load on the remaining maps)
+   3. Load dimension 3: 10 maps
+   4. Load dimension 4: 100 clients (we have to leave some "wiggle room" to the 220 measured above, so we can spawn more instances lather on to create load on the remaining maps)
    5. Load dimension 5: N/A 
-   6. Load dimension 6: Sleep configurations such that around 2.000 write operations (set or put) are achieved
-3. Install Hazeltest using the previously created load config, and compare the load thus generated with the load goals. In case of a too large delta, go back to step 2.
+   6. Load dimension 6: Sleep configurations such that around 2.800 write operations (set or put) are achieved (which corresponds to ~90 % of the 2.100 + 1.000 puts measured in production)
+3. Install Hazeltest using the previously created load config, and compare the load thus generated with the load goals. In case of too large a delta, go back to step 2.
 4. Repeat steps 2 and 3 for the remaining maps until the generated load corresponds to the one measured on the reference cluster. To generate the load described in the example above, you'll probably end up with three batches of Hazeltest instances; one to model the 18 million session information items distributed across only 10 maps, another to cover the ~2.180 maps containing payloads ranging from 2 to 10kb, and finally one to create those very rare large payloads, ranging from 4 to 5mb.
 
-The following is an example `values.yaml` file to create the load described in step 2 in the above example:
+The following is an example `values.yaml` file for Hazeltest's Helm chart to create the load described in step 2 of the above example:
 
 ```yaml
 # Load dimension 4
-replicaCount: 200
+replicaCount: 100
 
 # To spawn 200 instances, you'll probably need to make each one rather light-weight
 # in terms of resource usage
 resources:
   requests:
     cpu: "100m"
-    memory: "10Mi"
+    memory: "30Mi"
   limits:
     cpu: "200m"
     memory: "60Mi"
@@ -556,17 +556,19 @@ config:
       # Load dimension 3
       numMaps: 10
       # Load dimension 1
-      # 200 clients * 10 maps * 1,5kb for each item * 15.000 entries
-      # will fill 90gb of memory in Hazelcast assuming a backup count
-      # of 1 on the map pattern corresponding to the map names used
-      numEntriesPerMap: 15000
+      # 100 clients * 10 maps * 18.000 entries per map will yield the 
+      # desired 18.000.000 items, and use 54gb of memory on the target
+      # Hazelcast cluster assuming fixed-size payloads of 1,5kb and 
+      # a backup count of 1 for the map pattern matching the names of 
+      # the maps acted on by Hazeltest
+      numEntriesPerMap: 18000
       # Load dimension 3, indirectly -- if we set this to false, each of the  
       # <numMaps> goroutines would use on the same map name
       appendMapIndexToMapName: true
       # Load dimension 3, also indirectly -- setting this to true would yield
       # <replicaCount> * <numMaps> maps (here: 2.000)
       appendClientIdToMapName: false
-      numRuns: 999999
+      numRuns: 9999999
       payload:
         # Load dimension 2
         fixedSize:
@@ -600,7 +602,7 @@ config:
             # available cpu
             afterChainAction:
               enabled: true
-              durationMs: 500
+              durationMs: 180
               enableRandomness: false
             # Strictly also load dimension 6, but only applies when the test loop
             # switches modes (from "fill target map" to "drain target map",
@@ -637,9 +639,24 @@ config:
                actionTowardsBoundaryProbability: 1.0              
 ```
 
+This will yield the following load:
+* Load dimension 1: 18.000.000 items
+* Load dimension 2: 1.5kb 
+* Load dimension 3: 10 maps
+* Load dimension 4: 100 clients
+* Load dimension 5: N/A
+* Load dimension 6: 
+  * Sets/sec: 2.700-2.800
+  * Gets/sec: 2.700-2.800 (at the time of this writing, the boundary test loop executes one read for every write)
+  * Removes/sec:
+    * Fill mode: 0
+    * Drain mode: 2.700-2.800
 
+As you can see, the number of operations executed is tightly coupled between operation kinds, so the next improvement the boundary test loop will see is the option for more fine-grained control at least over the number of gets in relation to the number of state-altering operations (sets or removes). Thus, in its current state, the boundary test loop cannot replicate load patterns in which there are deltas between operation kinds in terms of the number of operations executed for each kind, but the number of state-altering operations -- which are the most performance-significant, particularly if features like WAN replication or write-through to a datastore are in use on the Hazelcast cluster under test -- can indeed be modelled with great accuracy.
 
+The example above will nicely create load simulating that created by one specific use case or group of applications on the production clusters, but as indicated above, it'll typically take more than one batch of Hazeltest instances to simulate the different kinds of use cases/application groups, and coming up with three, four, five, or even more batches of Hazeltest instances (to simulate load on queues, too, for example) usually takes a few iterations, but once the configurations are in place, the load runner/boundary test loop combinations thus employed will reliably simulate the load you measured in production (or predict for production). Therefore, once your release candidate makes its way to higher stages, the load runner/boundary test loop combination is a great tool to have to create realistic (or nigh-realistic) load long before the release candidate is actually deployed to production. Ultimately, therefore, the load runner/boundary test loop combination can help you verify your release candidate possesses the required fitness level to handle production load.
 
+A bonus treat of the load configurations is that they are -- as you've seen by now -- simple Yaml files, so you can easily put them into version control. Thus, the next time you need to assert the same fitness level, you can simply apply those same load configs again, and take measurements of cluster performance across different Hazelcast versions and/or Hazelcast configurations. Load tests, therefore, become a lot more repeatable and considerably more convenient to run, saving you valuable time and nerves.     
 
 
 ### Queue Runners
