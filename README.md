@@ -658,10 +658,13 @@ The example above will nicely create load simulating that created by one specifi
 
 A bonus treat of the load configurations is that they are -- as you've seen by now -- simple Yaml files, so you can easily put them into version control. Thus, the next time you need to assert the same fitness level, you can simply apply those same load configs again, and take measurements of cluster performance across different Hazelcast versions and/or Hazelcast configurations. Load tests, therefore, become a lot more repeatable and considerably more convenient to run, saving you valuable time and nerves.     
 
-
 ### Queue Runners
+Although maps are by far the most often-used data structures in Hazelcast, they aren't optimal for messaging use cases. For these use cases, therefore, Hazelcast provides more tailor-made data structures, such as queues.
+
+Queues being less-often used than maps, Hazeltest's support for load-testing them isn't as developed as the means for load-testing maps, but still, at the time of this writing, there are two Runners at your disposal to load-test queues with.
 
 #### Tweets Runner
+
 
 #### Load Runner
 
