@@ -287,7 +287,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"})",
+          "expr": "com_hazelcast_Metrics_clientCount{kubernetes_namespace=\"$kubernetes_namespace\"}",
           "legendFormat": "cluster-wide client count",
           "range": true,
           "refId": "A"
