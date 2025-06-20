@@ -663,7 +663,12 @@ Although maps are by far the most often-used data structures in Hazelcast, they 
 
 Queues being less-often used than maps, Hazeltest's support for load-testing them isn't as developed as the means for load-testing maps, but still, at the time of this writing, there are two Runners at your disposal to load-test queues with.
 
+As you'll see below, both Queue Runners come with one actor to put and one actor to poll, which are configurable individually in terms of their operation speed. Thus, it's easily possible to simulate a scenario in which queues reach their maximum capacity because the polling actor is too slow.
+
+Because Queue Runners are their own actors in Hazeltest, they can act independently of other actors, such as Map Runners. Therefore, you can address both queue- and map-related testing use cases with a single Hazeltest instance (or one batch of Hazeltest instances).
+
 #### Tweets Runner
+
 
 
 #### Load Runner
