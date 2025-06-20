@@ -473,7 +473,7 @@ Basically, the idea of performing smoke tests with the Load Runner/Batch Test Lo
 
 As a final remark, note that you'll typically want an eviction policy in place that starts evicting when, say, 85 % of native memory is occupied, so the net memory you can effectively use is a little lower than the member's raw capacity. Other factors, such as the metadata space when using Hazelcast's native memory, might reduce the available net storage further. Aiming for the raw capacity is still a good idea, though -- after all, we want to assert the cluster members remain stable even when having reached maximum capacity and further requests come in.
 
-##### Runner Feat. Boundary Test Loop: Modelling And Creating Production-Like Load
+##### Runner Feat. Boundary Test Loop: Creating Production-Like Load
 
 (Although one can definitely combine the Pokédex Runner with the Boundary Test Loop, the Load Runner/Boundary Test Loop combination will be the far more viable and useful alternative due to the Pokédex Runner's shortcomings, outlined above. Therefore, the following sections will refer to the Load Runner/Boundary Test Loop combination.)
 
@@ -485,6 +485,157 @@ Let me give you a simple example of why that matters: Let's assume you employ th
 
 It seems very obvious, then, that the "weight" a load test can pull in terms of making a statement about a release candidate's production fitness is, at least to a considerable degree, a function of the realism of the load it generates, and this is even more true for load-testing Hazelcast clusters because, after all, Hazelcast is a very sophisticated distributed system which will perform outstandingly well if correctly configured, but underwhelmingly so if the configuration doesn't match the load the cluster actually has to handle.
 
+The following steps you can employ to measure and then accurately model production-like load assume there already is a cluster running in your production environment, and that your use case is running load tests for some upcoming release. If you're facing the first-ever production deployment of Hazelcast to production and the first-ever load the resulting clusters will have to handle, the steps remain the same except for step 1 -- in the absence of a production cluster to take measurements from, the second-best option is to measure load in the stage closest to production (which is usually either some kind of load-testing or a pre-production stage), hoping the applications accessing Hazelcast there are themselves subject to decently realistic load. Asking the people responsible for those applications for the maximum load they expect in terms of the aforementioned load dimensions also helps, of course.
+
+1. Measure the load on a reference cluster in production (ideally the one that experiences the highest load levels) in terms of the load dimensions introduced above. Let's assume you come up with the following load characteristics, measured at the daily load peak:
+   1. Load dimension 1 (number of items)
+      1. 22 million across all maps, but...
+      2. ... only 10 maps make up for 18 million of them
+   2. Load dimension 2 (item size)
+      1. The 18 million items making up the majority of the load in terms of dimension 1 represent session information, and are all exactly 1.5kb in size (questioning the teams responsible for the applications creating this session information is helpful to determine whether the data structure they use to represent a session has changed for the upcoming release)
+      2. Most of the maps contain payloads from 2 to 10kb, but they make up little load in terms of load dimension 1
+      3. Rarely, very large elements ranging from 4 to 5mb can be observed in a small number of maps
+   3. Load dimension 3 (number of data structures -- here: maps): 2.200
+   4. Load dimension 4 (number of clients): 220
+   5. Load dimension 5 (cluster health): Cluster is stable; no signs of member crashes or network issues
+   6. Load dimension 6 (operations per second):
+      1. 2.100 sets per second; 1.000 puts; 13.000 gets; 800 deletes
+      2. But: These operations are not equally distributed across all maps; rather, the 10 maps most in use in terms of load dimension 1 are also those that accumulate around 90 % of all operations
+2. Set up the first Hazeltest load config that models the load your reference cluster experiences on its most-used maps. According to the measurements above, this first load config would have to create load as follows (full example configuration further down), assuming the cluster spawned by your release candidate in a load test environment mirrors the reference cluster in terms of member count and storage capacity:
+   1. Load dimension 1: 18 million items across 10 maps
+   2. Load dimension 2: 1.5kb
+   3. Load dimension 3: 10
+   4. Load dimension 4: 200 (we have to leave some "wiggle room" to the 220 measured above, so we can spawn more instances lather on to create load on the remaining maps)
+   5. Load dimension 5: N/A 
+   6. Load dimension 6: Sleep configurations such that around 2.000 write operations (set or put) are achieved
+3. Install Hazeltest using the previously created load config, and compare the load thus generated with the load goals. In case of a too large delta, go back to step 2.
+4. Repeat steps 2 and 3 for the remaining maps until the generated load corresponds to the one measured on the reference cluster. To generate the load described in the example above, you'll probably end up with three batches of Hazeltest instances; one to model the 18 million session information items distributed across only 10 maps, another to cover the ~2.180 maps containing payloads ranging from 2 to 10kb, and finally one to create those very rare large payloads, ranging from 4 to 5mb.
+
+The following is an example `values.yaml` file to create the load described in step 2 in the above example:
+
+```yaml
+# Load dimension 4
+replicaCount: 200
+
+# To spawn 200 instances, you'll probably need to make each one rather light-weight
+# in terms of resource usage
+resources:
+  requests:
+    cpu: "100m"
+    memory: "10Mi"
+  limits:
+    cpu: "200m"
+    memory: "60Mi"
+      
+env:
+  hzCluster: "name-of-cluster-under-test"
+  hzMembers: "endpoint-into-cluster:5701"
+config:
+  # Don't need to create load in terms of dimension 5
+  chaosMonkeys:
+    memberKiller:
+      enabled: false
+  # We'll explore state cleaners further down the line 
+  stateCleaners:
+    maps:
+      enabled: false
+      queues:
+        enabled: false
+  # No need to create load on queues in this example
+  queueTests:
+    tweets:
+      enabled: false
+    load:
+      enabled: false
+  mapTests:
+    pokedex:
+      enabled: false
+    # This is where it gets interesting!
+    load: 
+      enabled: true
+      # Load dimension 3
+      numMaps: 10
+      # Load dimension 1
+      # 200 clients * 10 maps * 1,5kb for each item * 15.000 entries
+      # will fill 90gb of memory in Hazelcast assuming a backup count
+      # of 1 on the map pattern corresponding to the map names used
+      numEntriesPerMap: 15000
+      # Load dimension 3, indirectly -- if we set this to false, each of the  
+      # <numMaps> goroutines would use on the same map name
+      appendMapIndexToMapName: true
+      # Load dimension 3, also indirectly -- setting this to true would yield
+      # <replicaCount> * <numMaps> maps (here: 2.000)
+      appendClientIdToMapName: false
+      numRuns: 999999
+      payload:
+        # Load dimension 2
+        fixedSize:
+          enabled: true
+          sizeBytes: 1500
+      mapPrefix:
+        enabled: true
+        prefix: your_awesome_map_prefix
+      sleeps:
+        # Load dimension 6, strictly speaking, but will only 
+        # kick in after one run (i.e. rarely), so normally won't 
+        # influence number of operations  
+        betweenRuns:
+          enabled: true
+          durationMs: 60000
+          enableRandomness: false
+      testLoop:
+        # Load runner in combination with boundary test loop
+        type: boundary
+        boundary:
+          sleeps:
+            # Also load dimension 6, strictly speaking, but won't
+            # influence operations per second regularly since one
+            # operation chain runs for a while
+            betweenOperationsChains:
+              enabled: true
+              durationMs: 1000
+              enableRandomness: false
+            # Load dimension 6, and most important means for adjusting 
+            # how quickly the test loop runs within the bounds of 
+            # available cpu
+            afterChainAction:
+              enabled: true
+              durationMs: 500
+              enableRandomness: false
+            # Strictly also load dimension 6, but only applies when the test loop
+            # switches modes (from "fill target map" to "drain target map",
+            # or vice-versa), so won't regularly influence number of operations. 
+            # Still, this sleep is useful for the mode change to appear in 
+            # metrics visualizations (often, the scrape interval of systems 
+            # collecting metrics is set anywhere from 20 to 30 seconds)
+            uponModeChange:
+              enabled: true
+              durationMs: 30000
+              enableRandomness: false
+          operationChain:
+             length: 3000000
+             resetAfterChain: false
+             # Load dimension 1, as the boundary definition controls how many
+             # of the <numEntriesPerMap> elements actually get inserted into 
+             # each target map
+             boundaryDefinition:
+               upper:
+                 # We want all elements to be ingested, so specify 100 %, 
+                 # and disable randomness
+                 mapFillPercentage: 1.0
+                 enableRandomness: false
+               lower:
+                 # Lower doesn't matter for load peak, but we want to simulate 
+                 # the daily ups and downs of load nonetheless, so leave 
+                 # gap to upper
+                 mapFillPercentage: 0.6
+                 enableRandomness: false
+               # In this case, we want to fill and drain the target
+               # maps as quickly as possible, so set probability that 
+               # action towards boundary (upper and lower, respectively)
+               # is performed to 100 %
+               actionTowardsBoundaryProbability: 1.0              
+```
 
 
 
