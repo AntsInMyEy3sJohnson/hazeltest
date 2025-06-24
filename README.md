@@ -746,6 +746,77 @@ If you launch a Hazeltest instance whose Tweets Runner receives this configurati
 This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. To simulate this, the Queue Load Runner is the better choice, however, as it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production.
 
 #### Load Runner
+The Queue Load Runner can be seen as the equivalent of the Map Load Runner for queues (like... "no shit, Sherlock!", considering its name) -- just like the latter, it was introduced to offer adjustability of load dimensions 1 and 2 (number of items and item size, respectively). This makes it a great choice to stress the on-heap memory of the members in the Hazelcast cluster under test according to the levels of load the members will eventually be exposed to in production (assuming the release candidate having spawned them exhibits the desired fitness level, and consequently gets deployed to production), although it comes at the cost of the Load Runner being a tad more complex to configure.
+
+Consider the following sample configuration (you can find explanations on the additional properties in the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml)):
+
+```yaml
+queueTests:
+  load:
+    enabled: true
+    numQueues: 100
+    # additional property 1, for configuring load dimension 1
+    numLoadEntries: 10000
+    # additional property 2, for configuring load dimension 2
+    payloadSizeBytes: 15000
+    appendQueueIndexToQueueName: true
+    appendClientIdToQueueName: false
+    queuePrefix:
+      enabled: true
+      prefix: "ht_"
+    putConfig:
+      enabled: true
+      numRuns: 10000
+      batchSize: 50
+      sleeps:
+        initialDelay:
+          enabled: false
+          durationMs: 2000
+          enableRandomness: false
+        afterActionBatch:
+          enabled: true
+          durationMs: 50
+          enableRandomness: false
+        betweenRuns:
+          enabled: true
+          durationMs: 3500
+          enableRandomness: true
+    pollConfig:
+      enabled: true
+      numRuns: 10000
+      batchSize: 25
+      sleeps:
+        initialDelay:
+          enabled: false
+          durationMs: 5000
+          enableRandomness: false
+        afterActionBatch:
+          enabled: true
+          durationMs: 150
+          enableRandomness: false
+        betweenRuns:
+          enabled: true
+          durationMs: 3500
+          enableRandomness: true
+```
+
+So, in comparison to the Tweets Runner, the Load Runner adds the ``numLoadEntries`` and ``payloadSizeBytes`` properties for adjusting load dimension 1 and 2, respectively.
+
+If you take a closer look at the example above, you'll notice the polling actor is configured to work a bit slower than the putting actor:
+
+* ``batchSize`` set to ``25`` rather than ``50``
+* ``sleeps.afterActionBatch.durationMs`` set to ``150`` instead of ``50``
+
+This means the polling actor will sleep more often, and roughly three times as long. The difference in the actors' pace is actually smaller than you'd expect due to the context switching occurring in the Go runtime with a rather large number of queues (here: ``100``, which is a lot for a single instance), but the difference is definitely noticeable, as shown in the left-hand diagram plotting the number of offers vs. the number of polls per second (admittedly, the "putting actor" should have been more aptly called the "offering actor"):
+
+![Number Of Offers Vs. Number Of Polls Per Second](./resources/images_for_readme/grafana_queues_load_runner_operations_per_second.png)
+
+Consequently, the ``ht_load.*`` target queues will inevitably fill up:
+
+![Queues Filling Up In Hazelcast](./resources/images_for_readme/grafana_queues_load_runner_queues_filling_up.png)
+
+This is uncomforting news if the target Hazelcast cluster if the ``ht_load.*`` queues haven't been sensibly configured in terms of their maximum capacity, so it's a tremendous idea to gauge queue load in production and then replicate the same load on the cluster created by a release candidate in a safe environment (we put the emphasis on load dimensions 1 and 2 in this example for the sake of simplicity, but the other load dimensions matter too, of course).
+
 
 ### Other Concepts 
 
