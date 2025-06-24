@@ -811,7 +811,7 @@ If you take a closer look at the example above, you'll notice the polling actor 
 * ``batchSize`` set to ``25`` rather than ``50``
 * ``sleeps.afterActionBatch.durationMs`` set to ``150`` instead of ``50``
 
-This means the polling actor will sleep more often, and roughly three times as long. The difference in the actors' pace is actually smaller than you'd expect due to the context switching occurring in the Go runtime with a rather large number of queues (here: ``100``, which is a lot for a single instance), but the difference is definitely noticeable, as shown in the left-hand diagram plotting the number of offers vs. the number of polls per second (admittedly, the "putting actor" should have been more aptly called the "offering actor"):
+This means the polling actor will sleep more often, and roughly three times as long. The difference in the actors' pace is actually smaller than you'd expect due to the put operations taking significantly longer if the target Hazelcast cluster experiences heavy CPU load (which was the case with mine when I took those screenshots), but even so, the difference is definitely noticeable, as shown in the left-hand diagram plotting the number of offers vs. the number of polls per second (admittedly, the "putting actor" should have been more aptly called the "offering actor"):
 
 ![Number Of Offers Vs. Number Of Polls Per Second](./resources/images_for_readme/grafana_queues_load_runner_operations_per_second.png)
 
