@@ -353,6 +353,7 @@ In case you don't really feel like reading an awful lot of text right now and pr
 In order to offer adjustability of load dimensions 1 and 2, the Load Runner doesn't work on a fixed dataset, but creates a random string payload according to the desired specifications. Therefore, the Load Runner's configuration comes with some additional properties, as the following complete example configuration making use of the Batch Test Loop highlights (again, the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) has explanations on all properties in store for you):
 
 ```yaml
+mapTests:
   load:
     enabled: true
     # load dimension 3 (and, indirectly, load dimension 1)
@@ -513,7 +514,7 @@ The following steps you can employ to measure and then accurately model producti
 3. Install Hazeltest using the previously created load config, and compare the load thus generated with the load goals. In case of too large a delta, go back to step 2.
 4. Repeat steps 2 and 3 for the remaining maps until the generated load corresponds to the one measured on the reference cluster. To generate the load described in the example above, you'll probably end up with three batches of Hazeltest instances; one to model the 18 million session information items distributed across only 10 maps, another to cover the ~2.180 maps containing payloads ranging from 2 to 10kb, and finally one to create those very rare large payloads, ranging from 4 to 5mb.
 
-The following is an example `values.yaml` file for Hazeltest's Helm chart to create the load described in step 2 of the above example:
+The following is an example `values.yaml` file for Hazeltest's Helm chart to create the load described in step 2 of the above example (mind the difference to the other configuration examples in this repository, which refer to the application configuration itself, without the same being wrapped in a Helm chart's `values.yaml` file):
 
 ```yaml
 # Load dimension 4
@@ -746,7 +747,7 @@ If you launch a Hazeltest instance whose Tweets Runner receives this configurati
 
 ![Poll operations executed by Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_poll.png)
 
-This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. To simulate this, the Queue Load Runner is the better choice, however, as it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production.
+This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. Although the Tweets Runner is a great option to stress the CPU or simply create a little bit of background noise on the cluster's queues, the Load Runner is the better choice for stressing memory and thus verifying heap stability because it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production. 
 
 #### Load Runner
 The Queue Load Runner can be seen as the equivalent of the Map Load Runner for queues (like... "no shit, Sherlock!", considering its name) -- just like the latter, it was introduced to offer adjustability of load dimensions 1 and 2 (number of items and item size, respectively). This makes it a great choice to stress the on-heap memory of the members in the Hazelcast cluster under test according to the levels of load the members will eventually be exposed to in production (assuming the release candidate having spawned them exhibits the desired fitness level, and consequently gets deployed to production), although it comes at the cost of the Load Runner being a tad more complex to configure.
