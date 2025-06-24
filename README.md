@@ -695,6 +695,8 @@ queueTests:
     putConfig:
       enabled: true
       numRuns: 10000
+      # indirectly load dimension 6, since this setting determines
+      # how often the 'afterActionBatch' sleep will be performed
       batchSize: 50
       sleeps:
         # Load dimension 6, but only initially
@@ -716,6 +718,7 @@ queueTests:
     pollConfig:
       enabled: true
       numRuns: 10000
+      # load dimension 6, indirectly
       batchSize: 50
       sleeps:
         # Load dimension 6, but only initially
