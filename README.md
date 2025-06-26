@@ -821,8 +821,13 @@ Consequently, the ``ht_load.*`` target queues will inevitably fill up:
 
 This is uncomforting news if the target Hazelcast cluster if the ``ht_load.*`` queues haven't been sensibly configured in terms of their maximum capacity, so it's a tremendous idea to gauge queue load in production and then replicate the same load on the cluster created by a release candidate in a safe environment (we put the emphasis on load dimensions 1 and 2 in this example for the sake of simplicity, but the other load dimensions matter too, of course).
 
+### Other Concepts
+Thus far, we have examined all load-creating actors available in Hazeltest -- two Runners that create load on maps, and two for creating load on queues --, but two questions remain unanswered:
 
-### Other Concepts 
+1. How to explicitly make cluster health a part of the load testing (in other words: how to create load on load dimension 5), other than configuring a Runner such that it deliberately crashes members of the target Hazelcast cluster under test (which would only be possible if the configuration that brought the latter into manifestation is somehow flawed, making a mockery of the load testing, whose goal is to fix such flaws)? 
+2. How to avoid having to uninstall and reinstall an entire Hazelcast cluster between load test iterations (which decrease the number of iterations we can do as engineers in one given unit of time, thus rendering us less productive)?
+
+Fortunately, Hazeltest has answers for both these questions, and we're going to explore them in the upcoming two sections.
 
 #### Chaos Monkeys
 
