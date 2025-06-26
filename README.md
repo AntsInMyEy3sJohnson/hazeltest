@@ -830,6 +830,51 @@ Thus far, we have examined all load-creating actors available in Hazeltest -- tw
 Fortunately, Hazeltest has answers for both these questions, and we're going to explore them in the upcoming two sections.
 
 #### Chaos Monkeys
+As indicated by its name, a Chaos Monkey is a component causing -- chaos (mayhem, havoc, _tohu wa bohu_, or simply the absence of a desired order; in other words, something you don't want happening in production, unless you're a very dedicated adrenaline junkie). In its current iteration, Hazeltest offers one Chaos Monkey -- the _Member Killer Monkey_.
+
+##### Member Killer
+What fun is load testing, really, without a little bit of deliberate component failure thrown into the mix?
+
+All kidding aside: If we already know that Hazelcast members can and _will_ fail in production -- not necessarily as a result of some flaw in their configuration, but perhaps simply due to hardware failure --, then we must also simulate those failures prior to shipping our release candidate to production to make sure its configuration is resilient to such member failures (after all, Hazelcast as a distributed system was designed with resilience to member failures in mind, so it's up to us to make the most of that ability) so they don't propagate through the landscape of applications accessing our clusters.
+
+The Member Killer Monkey -- as you can tell from its name -- was introduced to Hazeltest as a simple means for deliberately killing Hazelcast members, and it comes with a couple of properties to make its behavior configurable. 
+
+In case you're looking for an in-depth introduction to the Member Killer Monkey, the blog post I've written on precisely that matter has you covered:
+
+[Chaos Monkey](https://nicokrieg.com/chaos-monkey-introduction.html)
+
+On the other hand, if you require only a small configuration to get you started, look no further than the next section!
+
+The following is the default configuration taken from the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) -- refer to that file, or the aforementioned blog post, for elaborate explanations on all properties:
+
+```yaml
+chaosMonkeys:
+  memberKiller:
+    enabled: true
+    numRuns: 100
+    chaosProbability: 0.5
+    memberAccess:
+      mode: k8sInCluster
+      targetOnlyActive: true
+      k8sOutOfCluster:
+        kubeconfig: default
+        namespace: hazelcastplatform
+        labelSelector: app.kubernetes.io/name=hazelcastplatform
+      k8sInCluster:
+        labelSelector: app.kubernetes.io/name=hazelcastplatform
+    sleep:
+      enabled: true
+      durationSeconds: 60
+      enableRandomness: false
+    memberGrace:
+      enabled: true
+      durationSeconds: 30
+      enableRandomness: true
+```
+
+Thus configured, the Member Killer Monkey will become active every 60 seconds and kill a target Hazelcast member with a probability of 50 %, where the target member is randomly selected from the set of members that (a) carry labels matching the given selector, and (b) are active (exhibit _readiness_, in Kubernetes parlance).
+
+This also exposes a limitation of the Member Killer Monkey in its current iteration: It's limited to target Hazelcast members running on Kubernetes (or any flavor thereof, as long as its API server's behavior corresponds to the Kubernetes specification).
 
 #### State Cleaners
 
