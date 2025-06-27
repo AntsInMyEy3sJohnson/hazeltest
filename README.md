@@ -889,6 +889,44 @@ I wrote a [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) some t
 
 Erasing state in a "thing" is most easily accomplished by rebuilding that thing from scratch, but that's not always the most efficient way: Often, the "thing" takes its time to rebuilt, and that's certainly true for Hazelcast members: Although the time it takes for them to achieve readiness heavily depends on how the readiness probe is formulated (I'm assuming a Kubernetes environment here), a member will need 20 to 30 seconds even in ideal circumstances to become ready, and while that doesn't sound like a lot, one can easily see how the time spent waiting before the next test can begin can quickly add up if your cluster consists of nine members. Do that a couple of times throughout your work day, and you'll feel like you've spent way too much time waiting! (Also, consider that this example assumes you have direct access to the Kubernetes cluster in question, and can therefore directly terminate the Hazelcast Pods. If, on the other hand, your organization forces you to go through some kind of "deployment engine" acting as an intermediary for every little action to be _documented_ for _auditability_ (regulation folks just _love_ these two words, don't they), uninstalling and reinstalling will catapult your waiting times into whole other realms of tediousness and inefficiency.)
 
+So, wouldn't it be great if you had some kind of tool at your disposal that automatically erases state in the Hazelcast cluster under test, so the next test iteration can start more quickly? And what if the testing tool itself performed that kind of "state cleaning"?
+
+The purpose of Hazeltest's state cleaners is precisely this: If so configured, they erase all state in their target data structures (or destroy them altogether) before any load-creating actor starts doing its thing.
+
+In their current iteration, state cleaners are available in two flavors: standalone and runner-related (the latter currently only for Map Runners). The following is an example of how to configure standalone cleaners (which are available both for maps and for queues), again taken from the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml):
+
+```yaml
+stateCleaners:
+  maps:
+    enabled: true
+    cleanMode: destroy
+    errorBehavior: ignore
+    prefix:
+      enabled: true
+      prefix: "ht_"
+    parallelCleanNumDataStructuresDivisor: 10
+    cleanAgainThreshold:
+      enabled: true
+      thresholdMs: 30000
+  queues:
+    enabled: true
+    cleanMode: destroy
+    errorBehavior: ignore
+    prefix:
+      enabled: true
+      prefix: "ht_"
+    parallelCleanNumDataStructuresDivisor: 10
+    cleanAgainThreshold:
+      enabled: true
+      thresholdMs: 30000
+```
+
+Thus configured, the map and queue cleaners both will destroy maps and queues in the target Hazelcast cluster if they carry an ``ht_`` prefix _unless_ the data structure in question has been cleaned in the past 30 seconds (having this "clean-again threshold" is important when working with batches of Hazeltest instances -- the first will clean the target data structures and then engage its load-creating actors, and if the follow-up instances clean again, they'll inadvertently destroy the data structures already in use in scope of a load test), dividing the total number of target data structures by 10 to calculate how many Goroutines to spawn for the cleaning.
+
+(For a more in-depth explanation of these properties and how they work, please refer to the aforementioned [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) or the good ol' [``defaultConfig.yaml`` file](./client/defaultConfig.yaml).)
+
+
+
 
 
  
