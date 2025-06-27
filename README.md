@@ -877,6 +877,23 @@ Thus configured, the Member Killer Monkey will become active every 60 seconds an
 This also exposes a limitation of the Member Killer Monkey in its current iteration: It's limited to target Hazelcast members running on Kubernetes (or any flavor thereof, as long as its API server's behavior corresponds to the Kubernetes specification).
 
 #### State Cleaners
+If you've already taken a peek at the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml), you may have noticed a top-level object called ``stateCleaners``, and perhaps an object called ``performPreRunClean`` nested within each of the Map Runner's configurations. The naming of these objects indicates they must relate to "cleaning" functionality, but what exactly gets cleaned, and why would you want that in the first place?
+
+I wrote a [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) some time ago on what exactly those cleaners do and why it's useful to have them, and the following is the gist of it:
+
+1. Testing is easiest when the "thing" under test behaves like a function in the mathematical sense -- same input, same output
+2. Side effects hurt testability because they can act as "hidden input" to test execution, jeopardizing the output
+3. A frequently occurring form of a side effect is "state"
+4. In case of load-testing a Hazelcast cluster, creating state is a necessary side effect of running the test because how well the former can handle the latter _is_ the test
+5. So, if every test necessarily creates state as its side effects and if state hurts testability, then we need a way to remove that state before the next test iteration starts, in order to make sure that the state created by the previous iteration doesn't modify the observable output of the next by acting as hidden input to the test
+
+Erasing state in a "thing" is most easily accomplished by rebuilding that thing from scratch, but that's not always the most efficient way: Often, the "thing" takes its time to rebuilt, and that's certainly true for Hazelcast members: Although the time it takes for them to achieve readiness heavily depends on how the readiness probe is formulated (I'm assuming a Kubernetes environment here), a member will need 20 to 30 seconds even in ideal circumstances to become ready, and while that doesn't sound like a lot, one can easily see how the time spent waiting before the next test can begin can quickly add up if your cluster consists of nine members. Do that a couple of times throughout your work day, and you'll feel like you've spent way too much time waiting! (Also, consider that this example assumes you have direct access to the Kubernetes cluster in question, and can therefore directly terminate the Hazelcast Pods. If, on the other hand, your organization forces you to go through some kind of "deployment engine" acting as an intermediary for every little action to be _documented_ for _auditability_ (regulation folks just _love_ these two words, don't they), uninstalling and reinstalling will catapult your waiting times into whole other realms of tediousness and inefficiency.)
+
+
+
+ 
+
+
 
 ### Configuration
 
