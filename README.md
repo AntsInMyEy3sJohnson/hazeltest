@@ -949,6 +949,15 @@ mapTests:
 So, really, the Runner-related cleaners are a somewhat boiled-down version of standalone cleaners, and that reduced complexity is the reason I've added them: Whereas you have to tell standalone cleaners which data structures they should target, Runner-related cleaners are able to figure them out based on the given map prefix, which makes them more convenient to use.
 
 ### Configuration
+Hazeltest sources its default configuration from a file you're probably acquainted with by now; the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml). This file contains all properties along with an elaborate explanation of what each one does, so we won't repeat that here. There are two things worth mentioning concerning application configuration that aren't described in said file, though, simply because they don't refer to properties themselves. Let's take a look!
+
+#### Overwriting The Default Configuration
+The [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) is baked into the application itself, hence the configuration it contains cannot be altered. However, the application can be instructed to source configuration from a custom config file using the ``-config-file`` command-line argument. The approach for weighting the priority of configuration properties internally is "the more explicit one wins", so if you provided, say, ``mapTests.load.numMaps: 100`` in your custom config file, this setting will trump the default of ``10`` provided in the default config file. What this also means is that in the absence of a property in the custom config file, Hazeltest will simply use the default from the default config file. Thus, you only have to specify the properties you want overridden, rather than having to repeat the entirety of configuration.
+
+#### Injecting Custom Configuration Via The Helm Chart
+The [Hazeltest Helm chart](./resources/charts/hazeltest) contained in this repository is set up such that all custom configuration can be nested inside the root-level ``config`` object, and the chart will make sure the contents of this object will get transformed into a ConfigMap, mounted inside the Hazeltest Pod or Pods, and sourced by each Hazeltest process from there. In other words, if you use the "official" Hazeltest Helm chart from this repository, just put your stuff beneath ``config``, and you'll be good to go!
+
+If you wish to write your own Helm chart, make sure that the ``-config-file`` argument is passed to the Hazeltest process, and that its argument refers to a valid configuration file in the Pod filesystem.
 
 ## Generating Load With PadoGrid
 
