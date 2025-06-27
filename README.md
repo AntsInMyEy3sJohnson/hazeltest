@@ -925,13 +925,28 @@ Thus configured, the map and queue cleaners both will destroy maps and queues in
 
 (For a more in-depth explanation of these properties and how they work, please refer to the aforementioned [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) or the good ol' [``defaultConfig.yaml`` file](./client/defaultConfig.yaml).)
 
+As mentioned previously, Runner-related state cleaners are available, too, but only for Map Runners as of now. The following excerpt contains an example configuration for the Map-Runner-related cleaner, making use of the ``performPreRunClean`` property (the Map Load Runner is used as an example here, but pre-run cleaning works the same for the Pokédex Runner):
 
+```yaml
+mapTests:
+  load:
+    enabled: true
 
+    # ...
+    performPreRunClean:
+      enabled: true
+      cleanMode: destroy
+      errorBehavior: ignore
+      cleanAgainThreshold:
+        enabled: true
+        thresholdMs: 30000
+    mapPrefix:
+      enabled: true
+      prefix: "ht_"
+    # ...
+```
 
-
- 
-
-
+So, really, the Runner-related cleaners are a somewhat boiled-down version of standalone cleaners, and that reduced complexity is the reason I've added them: Whereas you have to tell standalone cleaners which data structures they should target, Runner-related cleaners are able to figure them out based on the given map prefix, which makes them more convenient to use.
 
 ### Configuration
 
