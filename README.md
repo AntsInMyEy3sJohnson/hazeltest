@@ -660,11 +660,11 @@ The example above will nicely create load simulating that created by one specifi
 A bonus treat of the load configurations is that they are -- as you've seen by now -- simple Yaml files, so you can easily put them into version control. Thus, the next time you need to assert the same fitness level, you can simply apply those same load configs again and take measurements of cluster performance across different Hazelcast versions and/or Hazelcast configurations. Your load tests, therefore, become a lot more repeatable and considerably more convenient to run, saving you valuable time and nerves.     
 
 ### Queue Runners
-Although maps are by far the most often-used data structures in Hazelcast, they aren't optimal for messaging use cases. For these use cases, therefore, Hazelcast provides more tailor-made data structures, such as queues.
+Although maps are by far the most often-used data structures in Hazelcast, they aren't optimal for messaging use cases. For these use cases, therefore, Hazelcast provides specialized data structures, such as queues.
 
-Queues being less-often used than maps, Hazeltest's support for load-testing them isn't as developed as the means for load-testing maps, but still, at the time of this writing, there are two Runners at your disposal to load-test queues with.
+Queues being less-often used than maps, Hazeltest's support for load-testing them isn't as fleshed out as the means for load-testing maps, but still, at the time of this writing, there are two Runners at your disposal to load-test queues with.
 
-As you'll see below, both Queue Runners come with one actor to offer items and one actor to poll them, which are configurable individually in terms of their operation speed. Thus, it's easily possible to simulate a scenario in which queues reach their maximum capacity because the polling actor is too slow. Those offering and polling actors also act as the equivalent of the Test Loops on the Map Runners' side, so explicit Test Loops -- in the sense of a component named for distinction from other such components, and pluggable to switch between different Test Loops, hence different behaviors -- are not required in the case of Queue Runners (not in their current iteration, anyway).
+As you'll see below, both Queue Runners come with one actor to offer items and one actor to poll them, which are configurable individually in terms of the pace they operate with. Thus, it's easily possible to simulate a scenario in which queues reach their maximum capacity because the polling actor is too slow. Those offering and polling actors also act as the equivalent of the Test Loops on the Map Runners' side, so explicit Test Loops -- in the sense of a component named for distinction from other such components, and pluggable to switch between different Test Loops, hence different behaviors -- are not required in the case of Queue Runners (not in their current iteration, anyway).
 
 Because Queue Runners are their own actors in Hazeltest, they can act independently of other actors, such as Map Runners. Therefore, you can address both queue- and map-related testing use cases with a single Hazeltest instance (or one batch of Hazeltest instances).
 
@@ -690,11 +690,11 @@ queueTests:
     queuePrefix:
       enabled: true
       prefix: "ht_"
-    # Configuration for the 'put' actor
+    # Configuration for the 'put'/'offer' actor
     putConfig:
       enabled: true
       numRuns: 10000
-      # indirectly load dimension 6, since this setting determines
+      # Indirectly load dimension 6, since this setting determines
       # how often the 'afterActionBatch' sleep will be performed
       batchSize: 50
       sleeps:
@@ -717,7 +717,7 @@ queueTests:
     pollConfig:
       enabled: true
       numRuns: 10000
-      # load dimension 6, indirectly
+      # Load dimension 6, indirectly
       batchSize: 50
       sleeps:
         # Load dimension 6, but only initially
@@ -745,10 +745,10 @@ If you launch a Hazeltest instance whose Tweets Runner receives this configurati
 
 ![Poll operations executed by Queue Tweets Runner](./resources/images_for_readme/grafana_queues_tweets_runner_poll.png)
 
-This simulates a use case in which the offering and the polling actor run at the same pace. This is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the JVM's heap. Although the Tweets Runner is a great option to stress the CPU or simply create a little bit of background noise on the cluster's queues, the Load Runner is the better choice for stressing memory and thus verifying heap stability because it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production. 
+This simulates a use case in which the offering and the polling actor run at the same pace. That is not always true for real-world actors, of course, and from an operations perspective, the case of pressure on queues as a consequence of the polling side lagging behind is the far more interesting one, as the queues in question will eventually reach their maximum capacity in such situations, taking up more and more memory on the heap of the Hazelcast members' JVM. Although the Tweets Runner is a great option to stress the CPU or simply create a little bit of background noise on the cluster's queues, the Load Runner is the better choice for stressing memory and thus verifying heap stability because it permits for both load dimensions 1 and 2 to be adjusted, so you can more closely model the queue load your release candidate will have to handle in production. 
 
 #### Load Runner
-The Queue Load Runner can be seen as the equivalent of the Map Load Runner for queues (like... "no shit, Sherlock!", considering its name) -- just like the latter, it was introduced to offer adjustability of load dimensions 1 and 2 (number of items and item size, respectively). This makes it a great choice to stress the on-heap memory of the members in the Hazelcast cluster under test according to the levels of load the members will eventually be exposed to in production (assuming the release candidate having spawned them exhibits the desired fitness level, and consequently gets deployed to production), although it comes at the cost of the Load Runner being a tad more complex to configure.
+The Queue Load Runner can be seen (no points for guessing, considering its name) as the equivalent of the Map Load Runner for queues -- just like the latter, it was introduced to offer adjustability of load dimensions 1 and 2 (number of items and item size, respectively). This makes it a great choice to stress the on-heap memory of the members in the Hazelcast cluster under test according to the levels of load they will eventually be exposed to in production (assuming the release candidate having spawned them exhibits the desired fitness level, and consequently gets deployed to production), although it comes at the cost of the Load Runner being a tad more complex to configure.
 
 Consider the following sample configuration (you can find explanations on the additional properties in the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml)):
 
@@ -757,9 +757,9 @@ queueTests:
   load:
     enabled: true
     numQueues: 100
-    # additional property 1, for configuring load dimension 1
+    # Additional property 1, for configuring load dimension 1
     numLoadEntries: 10000
-    # additional property 2, for configuring load dimension 2
+    # Additional property 2, for configuring load dimension 2
     payloadSizeBytes: 15000
     appendQueueIndexToQueueName: true
     appendClientIdToQueueName: false
@@ -809,7 +809,7 @@ If you take a closer look at the example above, you'll notice the polling actor 
 * ``batchSize`` set to ``25`` rather than ``50``
 * ``sleeps.afterActionBatch.durationMs`` set to ``150`` instead of ``50``
 
-This means the polling actor will sleep more often, and roughly three times as long. The difference in the actors' pace is actually smaller than you'd expect due to the put operations taking significantly longer if the target Hazelcast cluster experiences heavy CPU load (which was the case with mine when I took those screenshots), but even so, the difference is definitely noticeable, as shown in the left-hand diagram plotting the number of offers vs. the number of polls per second (admittedly, the "putting actor" should have been more aptly called the "offering actor"):
+This means the polling actor will sleep more often, and roughly three times as long. The difference in the actors' pace is actually smaller than you'd expect by looking at this configuration due to the put operations taking significantly longer if the target Hazelcast cluster experiences heavy CPU load (which was the case with mine when I took the following screenshots), but even so, the difference is definitely noticeable, as shown in the left-hand diagram plotting the number of offers vs. the number of polls per second (admittedly, the "putting actor" should have been more aptly called the "offering actor"):
 
 ![Number Of Offers Vs. Number Of Polls Per Second](./resources/images_for_readme/grafana_queues_load_runner_operations_per_second.png)
 
