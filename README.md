@@ -822,26 +822,26 @@ This is uncomforting news if the target Hazelcast cluster if the ``ht_load.*`` q
 ### Other Concepts
 Thus far, we have examined all load-creating actors available in Hazeltest -- two Runners that create load on maps, and two for creating load on queues --, but two questions remain unanswered:
 
-1. How to explicitly make cluster health a part of the load testing (in other words: how to create load on load dimension 5), other than configuring a Runner such that it deliberately crashes members of the target Hazelcast cluster under test (which would only be possible if the configuration that brought the latter into manifestation is somehow flawed, making a mockery of the load testing, whose goal is to fix such flaws)? 
-2. How to avoid having to uninstall and reinstall an entire Hazelcast cluster between load test iterations (which decrease the number of iterations we can do as engineers in one given unit of time, thus rendering us less productive)?
+1. How to explicitly make cluster health a part of the load testing (in other words: how to create load on load dimension 5), other than configuring a Runner such that it deliberately crashes members of the target Hazelcast cluster under test (which would only be possible if the configuration that brought the latter into manifestation is somehow flawed, making a mockery of the load testing, whose goal is precisely to eradicate such flaws)? 
+2. How to avoid having to uninstall and reinstall an entire Hazelcast cluster between load test iterations (which decreases the number of iterations we can do as engineers in one given unit of time, thus rendering us less productive)?
 
-Fortunately, Hazeltest has answers for both these questions, and we're going to explore them in the upcoming two sections.
+Fortunately, Hazeltest has answers for both these questions, so let's explore them in the upcoming sections.
 
 #### Chaos Monkeys
-As indicated by its name, a Chaos Monkey is a component causing -- chaos (mayhem, havoc, _tohu wa bohu_, or simply the absence of a desired order; in other words, something you don't want happening in production, unless you're a very dedicated adrenaline junkie). In its current iteration, Hazeltest offers one Chaos Monkey -- the _Member Killer Monkey_.
+As indicated by its name, a Chaos Monkey is a component causing, well, chaos (mayhem, havoc, _tohu wa bohu_, or simply the absence of a desired order; in other words, something you don't want happening in production, unless you're a very dedicated adrenaline junkie). In its current iteration, Hazeltest offers one Chaos Monkey -- the _Member Killer Monkey_.
 
 ##### Member Killer
 What fun is load testing, really, without a little bit of deliberate component failure thrown into the mix?
 
 All kidding aside: If we already know that Hazelcast members can and _will_ fail in production -- not necessarily as a result of some flaw in their configuration, but perhaps simply due to hardware failure --, then we must also simulate those failures prior to shipping our release candidate to production to make sure its configuration is resilient to such member failures (after all, Hazelcast as a distributed system was designed with resilience to member failures in mind, so it's up to us to make the most of that ability) so they don't propagate through the landscape of applications accessing our clusters.
 
-The Member Killer Monkey -- as you can tell from its name -- was introduced to Hazeltest as a simple means for deliberately killing Hazelcast members, and it comes with a couple of properties to make its behavior configurable. 
+The Member Killer Monkey -- as you can tell from its name -- was introduced to Hazeltest as a simple means for deliberately killing Hazelcast members, and it comes with a couple of properties to make this behavior configurable. 
 
 In case you're looking for an in-depth introduction to the Member Killer Monkey, the blog post I've written on precisely that matter has you covered:
 
 [Chaos Monkey](https://nicokrieg.com/chaos-monkey-introduction.html)
 
-On the other hand, if you require only a small configuration to get you started, look no further than the next section!
+On the other hand, if you require only a small configuration to get you started, look no further than the next section.
 
 The following is the default configuration taken from the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) -- refer to that file, or the aforementioned blog post, for elaborate explanations on all properties:
 
@@ -875,7 +875,7 @@ Thus configured, the Member Killer Monkey will become active every 60 seconds an
 This also exposes a limitation of the Member Killer Monkey in its current iteration: It's limited to target Hazelcast members running on Kubernetes (or any flavor thereof, as long as its API server's behavior corresponds to the Kubernetes specification).
 
 #### State Cleaners
-If you've already taken a peek at the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml), you may have noticed a top-level object called ``stateCleaners``, and perhaps an object called ``performPreRunClean`` nested within each of the Map Runner's configurations. The naming of these objects indicates they must relate to "cleaning" functionality, but what exactly gets cleaned, and why would you want that in the first place?
+In case you have already taken a peek at the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml), you may have noticed a top-level object called ``stateCleaners``, and perhaps an object called ``performPreRunClean`` nested within each of the Map Runner's configurations. The naming of these objects indicates they must relate to "cleaning" functionality, but what exactly gets cleaned, and why would you want that in the first place?
 
 I wrote a [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) some time ago on what exactly those cleaners do and why it's useful to have them, and the following is the gist of it:
 
@@ -883,9 +883,9 @@ I wrote a [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) some t
 2. Side effects hurt testability because they can act as "hidden input" to test execution, jeopardizing the output
 3. A frequently occurring form of a side effect is "state"
 4. In case of load-testing a Hazelcast cluster, creating state is a necessary side effect of running the test because how well the former can handle the latter _is_ the test
-5. So, if every test necessarily creates state as its side effects and if state hurts testability, then we need a way to remove that state before the next test iteration starts, in order to make sure that the state created by the previous iteration doesn't modify the observable output of the next by acting as hidden input to the test
+5. So, if every test necessarily creates state as its side effects and if state hurts testability, then we need a way to remove that state before the next test iteration starts, in order to make sure that the state created by the previous iteration doesn't modify the observable output of the next by acting as hidden input to the test thus run
 
-Erasing state in a "thing" is most easily accomplished by rebuilding that thing from scratch, but that's not always the most efficient way: Often, the "thing" takes its time to rebuilt, and that's certainly true for Hazelcast members: Although the time it takes for them to achieve readiness heavily depends on how the readiness probe is formulated (I'm assuming a Kubernetes environment here), a member will need 20 to 30 seconds even in ideal circumstances to become ready, and while that doesn't sound like a lot, one can easily see how the time spent waiting before the next test can begin can quickly add up if your cluster consists of nine members. Do that a couple of times throughout your work day, and you'll feel like you've spent way too much time waiting! (Also, consider that this example assumes you have direct access to the Kubernetes cluster in question, and can therefore directly terminate the Hazelcast Pods. If, on the other hand, your organization forces you to go through some kind of "deployment engine" acting as an intermediary for every little action to be _documented_ for _auditability_ (regulation folks just _love_ these two words, don't they), uninstalling and reinstalling will catapult your waiting times into whole other realms of tediousness and inefficiency.)
+Erasing state in a "thing" is most easily accomplished by rebuilding that thing from scratch, but that's not always the most efficient way: Often, the "thing" takes its time to be rebuilt, and that's certainly true for Hazelcast members: Although the time it takes for them to achieve readiness heavily depends on how the readiness probe is formulated, a member will need 20 to 30 seconds even in ideal circumstances to become ready, and while that doesn't sound like a lot, one can easily see how the time spent waiting before the next test can begin quickly adds up if your cluster consists of, say, nine members. Do that a couple of times throughout your work day, and you'll feel like you've spent way too much time waiting! Also, this example assumes you have direct access to the Kubernetes cluster in question, and can therefore directly terminate the Hazelcast Pods. If, on the other hand, your organization forces you to go through some kind of "deployment engine" acting as an intermediary for every little action to be _documented_ for _auditability_ (regulation folks just _love_ these two words, don't they), uninstalling and reinstalling will catapult your waiting times into whole other realms of tediousness and inefficiency. (The wording chosen here implies a Kubernetes as an execution environment, but the fundamental challenge translates to other kinds of environments, too.)
 
 So, wouldn't it be great if you had some kind of tool at your disposal that automatically erases state in the Hazelcast cluster under test, so the next test iteration can start more quickly? And what if the testing tool itself performed that kind of "state cleaning"?
 
@@ -919,7 +919,7 @@ stateCleaners:
       thresholdMs: 30000
 ```
 
-Thus configured, the map and queue cleaners both will destroy maps and queues in the target Hazelcast cluster if they carry an ``ht_`` prefix _unless_ the data structure in question has been cleaned in the past 30 seconds (having this "clean-again threshold" is important when working with batches of Hazeltest instances -- the first will clean the target data structures and then engage its load-creating actors, and if the follow-up instances clean again, they'll inadvertently destroy the data structures already in use in scope of a load test), dividing the total number of target data structures by 10 to calculate how many Goroutines to spawn for the cleaning.
+Thus configured, the map and queue cleaners both will destroy maps and queues in the target Hazelcast cluster if they carry an ``ht_`` prefix _unless_ the data structure in question has been cleaned in the past 30 seconds (having this "clean-again threshold" is important when working with batches of Hazeltest instances, since they will rarely be spawned at precisely the same time, but usually with some delta -- even if the latter is just a couple of milliseconds, the instances that come to live after the first one will inadvertently clean the target data structures the first has already cleaned, and is now working with). Besides, there is a divisor for dividing the total number of target data structures by 10 to calculate how many Goroutines to spawn for the cleaning, which is neat for speeding up the cleaning process when the target Hazelcast cluster contains many (thousands of) data structures.
 
 (For a more in-depth explanation of these properties and how they work, please refer to the aforementioned [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) or the good ol' [``defaultConfig.yaml`` file](./client/defaultConfig.yaml).)
 
@@ -929,7 +929,6 @@ As mentioned previously, Runner-related state cleaners are available, too, but o
 mapTests:
   load:
     enabled: true
-
     # ...
     performPreRunClean:
       enabled: true
