@@ -958,11 +958,11 @@ If you wish to write your own Helm chart, make sure that the ``-config-file`` ar
 
 ## Generating Load With PadoGrid
 
-_PadoGrid_ is an open source application that provides a fantastic playing ground for testing all kinds of data grid and computing technologies (Hazelcast is one of them, but since it's based on what the developer calls _distributed workspaces_ and pluggable _bundles_, it also works with other technologies like Spark, Kafka, and Hadoop).
+_PadoGrid_ is an open source application that provides a fantastic playground for testing all kinds of data grid and computing technologies (Hazelcast is one of them, but since it's based on what the developer calls _distributed workspaces_ and pluggable _bundles_, it also works with other technologies like Spark, Kafka, and Hadoop).
 
 There are different sub-programs available in PadoGrid, one of which is the [_perf_test_ application for Hazelcast](https://github.com/padogrid/padogrid/wiki/Hazelcast-perf_test-App). This handy tool offers the capability of running tests that can be configured using text-based property files that describe
 the groups and operations to run in scope of a test. Based on this, PadoGrid is a great tool to have if your goal is to perform a load test along load dimensions 1 and 2.
 
-On top of that, the most recent versions of PadoGrid (starting with v0.9.30) also contain super useful Grafana dashboards for monitoring Hazelcast clusters, and the dashboards you may have encountered if you set up the simple monitoring stack according to the instructions at the beginning of this guide are based on them. 
+On top of that, newer versions of PadoGrid (starting with v0.9.30) also contain super useful Grafana dashboards for monitoring Hazelcast clusters, and the dashboards you may have encountered if you set up the simple monitoring stack according to the instructions at the beginning of this guide are based on them. 
 
 You can find PadoGrid's source code and many useful guides for getting started over on [GitHub](https://github.com/padogrid/padogrid).
