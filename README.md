@@ -956,6 +956,18 @@ The [Hazeltest Helm chart](./resources/charts/hazeltest) contained in this repos
 
 If you wish to write your own Helm chart, make sure that the ``-config-file`` argument is passed to the Hazeltest process, and that its argument refers to a valid configuration file in the Pod filesystem.
 
+### Building Automation On Top Of Hazeltest
+Previously in scope of this Getting Started guide, you read about including Hazeltest in a CI/CD pipeline to run automated smoke tests -- _automated_ in the sense that they run automatically once the release candidate under test has been deployed to bring forth a Hazelcast cluster, and in the sense that results are reported automatically in the pipeline itself.
+
+Well, how is the pipeline supposed to know when a smoke test has finished, and _how_ it finished (i.e., test success or failure)? Indeed, how is any automation worth its salt supposed to know about anything related to Hazeltest and all the things it does on a target Hazelcast cluster?
+
+To build automation on top of Hazeltest, there must be a way to easily query what Hazeltest is doing, so some kind of conclusion can be derived from that (also automatically, of course). 
+
+Since the first time Hazeltest was introduced and the necessity for querying status was explicitly mentioned (all the way back in [this blog post](https://nicokrieg.com/hazeltest-introduction.html)), much effort has been invested in the application's status gatherer, which -- again, hooray for useful naming -- gathers information from the application's actors to build a coherent status, which external actors can consume. The status thus assembled is available on the application's status endpoint, ``:8080/status``, and its results might look something like this:
+
+
+
+
 ## Generating Load With PadoGrid
 
 _PadoGrid_ is an open source application that provides a fantastic playground for testing all kinds of data grid and computing technologies (Hazelcast is one of them, but since it's based on what the developer calls _distributed workspaces_ and pluggable _bundles_, it also works with other technologies like Spark, Kafka, and Hadoop).
