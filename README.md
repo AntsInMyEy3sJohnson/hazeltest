@@ -963,10 +963,143 @@ Well, how is the pipeline supposed to know when a smoke test has finished, and _
 
 To build automation on top of Hazeltest, there must be a way to easily query what Hazeltest is doing, so some kind of conclusion can be derived from that (also automatically, of course). 
 
-Since the first time Hazeltest was introduced and the necessity for querying status was explicitly mentioned (all the way back in [this blog post](https://nicokrieg.com/hazeltest-introduction.html)), much effort has been invested in the application's status gatherer, which -- again, hooray for useful naming -- gathers information from the application's actors to build a coherent status, which external actors can consume. The status thus assembled is available on the application's status endpoint, ``:8080/status``, and its results might look something like this:
+Since the first time Hazeltest was introduced and the necessity for querying status was explicitly mentioned (all the way back in [this blog post](https://nicokrieg.com/hazeltest-introduction.html)), much effort has been invested in the application's status gatherer, which -- again, hooray for useful naming -- gathers information from the application's actors to build a coherent status, which external actors can consume. The status thus assembled is available on the application's status endpoint, ``:8080/status``, and the results of a query might look something like the following:
 
+```json
+{
+  "chaosMonkeys": {
+    "memberKiller": {
+      "finished": false,
+      "numMembersKilled": 5,
+      "numRuns": 100
+    }
+  },
+  "mapRunners": {
+    "loadRunner": {
+      "currentState": "testLoopStart",
+      "finished": false,
+      "numFailedInserts": 2,
+      "numFailedKeyChecks": 0,
+      "numFailedReads": 0,
+      "numFailedRemoves": 1,
+      "numMaps": 10,
+      "numNilReads": 0,
+      "numRuns": 10000,
+      "totalNumRuns": 100000
+    },
+    "pokedexRunner": {
+      "currentState": "testLoopComplete",
+      "finished": true,
+      "numFailedInserts": 0,
+      "numFailedKeyChecks": 0,
+      "numFailedReads": 0,
+      "numFailedRemoves": 0,
+      "numMaps": 10,
+      "numNilReads": 0,
+      "numRuns": 1,
+      "totalNumRuns": 10
+    }
+  },
+  "queueRunners": {
+    "loadRunner": {
+      "currentState": "testLoopStart",
+      "finished": false,
+      "numFailedCapacityChecks": 0,
+      "numFailedPolls": 1,
+      "numFailedPuts": 0,
+      "numNilPolls": 6868,
+      "numQueueFullEvents": 0,
+      "numQueues": 5,
+      "poll": {
+        "batchSize": 50,
+        "enabled": true,
+        "numRuns": 5000,
+        "totalNumRuns": 25000
+      },
+      "put": {
+        "batchSize": 50,
+        "enabled": true,
+        "numRuns": 5000,
+        "totalNumRuns": 25000
+      }
+    },
+    "tweetRunner": {
+      "currentState": "testLoopStart",
+      "finished": false,
+      "numFailedCapacityChecks": 0,
+      "numFailedPolls": 2,
+      "numFailedPuts": 0,
+      "numNilPolls": 12622,
+      "numQueueFullEvents": 0,
+      "numQueues": 5,
+      "poll": {
+        "batchSize": 50,
+        "enabled": true,
+        "numRuns": 5000,
+        "totalNumRuns": 25000
+      },
+      "put": {
+        "batchSize": 50,
+        "enabled": true,
+        "numRuns": 5000,
+        "totalNumRuns": 25000
+      }
+    }
+  },
+  "stateCleaners": {
+    "mapCleaner": {
+      "finished": true,
+      "ht_load-0": 554,
+      "ht_load-1": 508,
+      "ht_load-2": 518,
+      "ht_load-3": 531,
+      "ht_load-4": 448,
+      "ht_load-5": 493,
+      "ht_load-6": 496,
+      "ht_load-7": 527,
+      "ht_load-8": 524,
+      "ht_load-9": 533,
+      "ht_pokedex-0": 42,
+      "ht_pokedex-1": 49,
+      "ht_pokedex-2": 51,
+      "ht_pokedex-3": 46,
+      "ht_pokedex-4": 42,
+      "ht_pokedex-5": 50,
+      "ht_pokedex-6": 57,
+      "ht_pokedex-7": 54,
+      "ht_pokedex-8": 57,
+      "ht_pokedex-9": 55
+    },
+    "queueCleaner": {
+      "finished": true,
+      "ht_load-0": 300,
+      "ht_load-1": 50,
+      "ht_load-2": 350,
+      "ht_load-3": 160,
+      "ht_load-4": 107,
+      "ht_tweets-0": 42,
+      "ht_tweets-1": 91,
+      "ht_tweets-2": 50,
+      "ht_tweets-3": 101,
+      "ht_tweets-4": 150
+    }
+  }
+}
+```
 
+This corresponds to the actors within Hazeltest you've been acquainted:
 
+1. The Chaos Monkey reports the number of members it has thus far killed
+2. Each Map Runner reports basic elements of its configuration (like the number of runs it's supposed to do), and (more interestingly) about the number of failed operations it has experienced for each kind of operation (insert, read, remove) as well as its current status (most of the time, you'll see ``testLoopStart`` here, which means the test loop has started and is currently running, and as the sub-object relating to the Pokédex Map Runner above shows, once the Map Runner has completed, that status will switch to ``testLoopComplete``)
+3. Similarly, each Queue Runner reports basic configuration information, the number of failed operations, and its current state, too
+4. Finally, the State Cleaners report whether they're finished and list the data structures they have cleaned (either by evicting or by killing them, depending on how they've been configured), along with the number of elements cleaned from each one
+
+Although it seems easy enough to query status information using Hazeltest's status endpoint, and although the information thus retrieved seems quite extensive at first glance, there are some shortcomings as of today that make building automation on top of the status endpoint alone rather challenging:
+
+1. The information above has been queried from a single Hazeltest instance running in Kubernetes by establishing port-forwarding to the ``hazeltest`` Service of type ``ClusterIP``, and this approach of querying status through a Service object (regardless of what type it is, really; the following would even by true if you set up an Ingress/Route for executing your queries) works as long as there is only one Hazeltest instance. But: What if there's 10, 100, or 1.000? Every query would return the status of a single instance, rather than a top-down view onto the status of all instances, which is a problem for all reporting use cases that need to evaluate, for example, whether there have been any failed reads. What if instance _n_ has none and your automation concludes test success based on that info, whereas instance _n+1_ has 10.000 failed reads?
+2. Many use cases for automated reporting will probably need to know how the Hazelcast cluster under test has been doing while the test was active. Were there any restarts? Was the JVM of a member in trouble? If the Native Memory feature of Hazelcast Enterprise is used, were there any ``NativeOutOfMemoryErrors``? How's the WAN replication been performing?
+
+The current iteration of Hazeltest's status endpoint can address neither (1) nor (2), so as of today, to build powerful automation on top of a load test run with Hazeltest, other sources of information have to be included in the reporting logic, too -- the most obvious one would be the logs of the Hazelcast cluster's members, but their metrics or even the Kubernetes API server could be worth investigating, too. The next iteration of Hazeltest's status endpoint will likely include information from at least one of these, so stay tuned for that!
 
 ## Generating Load With PadoGrid
 
