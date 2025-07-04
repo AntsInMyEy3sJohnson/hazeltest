@@ -1,0 +1,23 @@
+platform:
+    members:
+      count: 7
+      containerResources:
+        requests:
+          cpu: "8"
+          memory: "20G"
+        limits:
+          cpu: "8"
+          memory: "20G"
+      jvmResources:
+        xmx: 16000m
+        xms: 16000m
+
+mancenter:
+  instance:
+    resources:
+      requests:
+        cpu: 4
+        memory: 8G
+      limits:
+        cpu: 8
+        memory: 12G
