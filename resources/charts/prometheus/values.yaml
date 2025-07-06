@@ -4,11 +4,11 @@ prometheusServer:
   instance:
     resources:
       requests:
-        cpu: 2
-        memory: 3Gi
+        cpu: 500m
+        memory: 3G
       limits:
-        cpu: 4
-        memory: 6Gi
+        cpu: 1
+        memory: 5G
     ports:
       web:
         name: web
@@ -22,11 +22,11 @@ prometheusServer:
   reachability:
     service:
       deploy: true
-      type: ClusterIP
+      type: NodePort
       port: 9090
       nodePort: 30090
     ingress:
-      deploy: true
+      deploy: false
       port: 8080
       # Point this to the correct IP address in your DNS config
       hostName: prometheus.awesomeserver1.local
@@ -71,8 +71,8 @@ prometheusConfigReloader:
   instance:
     resources:
       requests:
-        cpu: "50m"
-        memory: "64Mi"
+        cpu: 50m
+        memory: 64M
       limits:
-        cpu: "100m"
-        memory: "128Mi"
+        cpu: 100m
+        memory: 128Mi

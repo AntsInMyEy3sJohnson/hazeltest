@@ -48,15 +48,15 @@ platform:
         maxWaitSeconds: 60
       containerResources:
         requests:
-          cpu: "8"
-          memory: "20G"
+          cpu: "1"
+          memory: "4G"
         limits:
-          cpu: "8"
-          memory: "20G"
+          cpu: "1"
+          memory: "4G"
       # Increase JVM's heap size if native memory is disabled.
       jvmResources:
-        xmx: 16000m
-        xms: 16000m
+        xmx: 3200m
+        xms: 3200m
       probes:
         liveness:
           enabled: true
@@ -94,10 +94,11 @@ platform:
       enabled: false
       size:
         unit: GIGABYTES
+        # Caution: Set in correspondence with JVM's  max heap
         value: 12
       min-block-size: 16
       # Default value is 2^22 (4.194.304 bytes, roughly 4 MB)
-      # Current value equals 2^14, which is about 16 MB
+      # Current value equals 2^24 (16.777.216 bytes, so about 16 MB)
       page-size: 16777216
       metadata-space-percentage: 12.5
     network:
@@ -231,8 +232,8 @@ mancenter:
       path: /health
     resources:
       requests:
-        cpu: "8"
-        memory: "20G"
+        cpu: 500m
+        memory: 2G
       limits:
-        cpu: "8"
-        memory: "20G"
+        cpu: 1
+        memory: 4G
