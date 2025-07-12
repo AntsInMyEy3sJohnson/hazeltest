@@ -1,4 +1,5 @@
 platform:
+  cluster:
     members:
       count: 7
       containerResources:
