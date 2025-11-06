@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -133,7 +132,7 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (st
 			namespace = ns
 		}
 		lp.LogChaosMonkeyEvent("attempting to look up kubernetes namespace using pod-mounted file", log.TraceLevel)
-		if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
+		if data, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
 			return "", err
 		} else {
 			if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
