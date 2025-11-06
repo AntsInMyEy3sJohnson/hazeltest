@@ -43,8 +43,13 @@ type (
 	k8sInClusterMemberAccess struct {
 		labelSelector string
 	}
+	memberSelectionConfig struct {
+		selectionMode                     string
+		absoluteNumMembersToKill          uint8
+		relativePercentageOfMembersToKill float32
+	}
 	memberAccessConfig struct {
-		memberAccessMode string
+		accessMode       string
 		targetOnlyActive bool
 		k8sOutOfCluster  k8sOutOfClusterMemberAccess
 		k8sInCluster     k8sInClusterMemberAccess
@@ -83,13 +88,13 @@ var (
 
 func labelSelectorFromConfig(ac memberAccessConfig) (string, error) {
 
-	switch ac.memberAccessMode {
+	switch ac.accessMode {
 	case k8sOutOfClusterAccessMode:
 		return ac.k8sOutOfCluster.labelSelector, nil
 	case k8sInClusterAccessMode:
 		return ac.k8sInCluster.labelSelector, nil
 	default:
-		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
+		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.accessMode)
 	}
 
 }
@@ -119,11 +124,11 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (st
 		return d.discoveredNamespace, nil
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.memberAccessMode), log.TraceLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.accessMode), log.TraceLevel)
 
 	var namespace string
 
-	switch ac.memberAccessMode {
+	switch ac.accessMode {
 	case k8sOutOfClusterAccessMode:
 		namespace = ac.k8sOutOfCluster.namespace
 	case k8sInClusterAccessMode:
@@ -145,7 +150,7 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (st
 			return "", errors.New(msg)
 		}
 	default:
-		msg := fmt.Sprintf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.memberAccessMode)
+		msg := fmt.Sprintf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.accessMode)
 		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
 		return "", errors.New(msg)
 	}
@@ -182,10 +187,10 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		return p.cs, nil
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.memberAccessMode), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
 
 	var config *rest.Config
-	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfClusterAccessMode {
 		var kubeconfig string
 		if ac.k8sOutOfCluster.kubeconfig == "default" {
 			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
@@ -194,24 +199,24 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		}
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("using kubeconfig path '%s' to initialize kubernetes rest.config", kubeconfig), log.TraceLevel)
 		if c, err := p.configBuilder.buildForOutOfClusterAccess("", kubeconfig); err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.memberAccessMode, err.Error()), log.ErrorLevel)
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
-	} else if ac.memberAccessMode == k8sInClusterAccessMode {
+	} else if ac.accessMode == k8sInClusterAccessMode {
 		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.memberAccessMode, err.Error()), log.ErrorLevel)
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("cannot initialize kubernetes clientset for unknown or unsupported access mode '%s'", ac.memberAccessMode), log.ErrorLevel)
-		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.memberAccessMode)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("cannot initialize kubernetes clientset for unknown or unsupported access mode '%s'", ac.accessMode), log.ErrorLevel)
+		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.accessMode)
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized rest.config for accessing kubernetes in mode '%s'", ac.memberAccessMode), log.TraceLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized rest.config for accessing kubernetes in mode '%s'", ac.accessMode), log.TraceLevel)
 
 	if cs, err := p.clientsetInitializer.init(config); err != nil {
 		return nil, err
@@ -220,7 +225,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 		p.cs = cs
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized kubernetes clientset for access mode '%s'", ac.memberAccessMode), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
 
 	return p.cs, nil
 

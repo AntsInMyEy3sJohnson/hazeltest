@@ -718,7 +718,7 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 	allButAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
 		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
 		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
-		mc.accessConfig.memberAccessMode == expected[testMonkeyKeyPath+".memberAccess.mode"] &&
+		mc.accessConfig.accessMode == expected[testMonkeyKeyPath+".memberAccess.mode"] &&
 		mc.accessConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberAccess.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
 		mc.sleep.durationSeconds == expected[testMonkeyKeyPath+".sleep.durationSeconds"] &&
@@ -728,16 +728,16 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 		mc.memberGrace.enableRandomness == expected[testMonkeyKeyPath+".memberGrace.enableRandomness"]
 
 	var accessModeAsExpected bool
-	if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sOutOfClusterAccessMode {
+	if allButAccessModeAsExpected && mc.accessConfig.accessMode == k8sOutOfClusterAccessMode {
 		accessModeAsExpected = mc.accessConfig.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
 			mc.accessConfig.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
 			mc.accessConfig.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
-	} else if allButAccessModeAsExpected && mc.accessConfig.memberAccessMode == k8sInClusterAccessMode {
+	} else if allButAccessModeAsExpected && mc.accessConfig.accessMode == k8sInClusterAccessMode {
 		accessModeAsExpected = mc.accessConfig.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
 	} else {
 		return false
 	}
 
-	return allButAccessModeAsExpected && accessModeAsExpected
+	return accessModeAsExpected
 
 }
