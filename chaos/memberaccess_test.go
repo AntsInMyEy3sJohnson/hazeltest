@@ -122,7 +122,7 @@ func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (strin
 		return "", namespaceNotDiscoverableError
 	}
 
-	if ac.memberAccessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfClusterAccessMode {
 		return ac.k8sOutOfCluster.namespace, nil
 	}
 
@@ -621,7 +621,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen label selector cannot be determined")
 		{
 			ac := testAccessConfig
-			ac.memberAccessMode = "awesomeUnknownMemberAccessMode"
+			ac.accessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
 			member, err := memberChooser.choose(ac)
@@ -978,7 +978,7 @@ func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeco
 func assembleTestAccessConfig(memberAccessMode, kubeconfig string, targetOnlyActive bool) memberAccessConfig {
 
 	return memberAccessConfig{
-		memberAccessMode: memberAccessMode,
+		accessMode:       memberAccessMode,
 		targetOnlyActive: targetOnlyActive,
 		k8sOutOfCluster: k8sOutOfClusterMemberAccess{
 			kubeconfig:    kubeconfig,
