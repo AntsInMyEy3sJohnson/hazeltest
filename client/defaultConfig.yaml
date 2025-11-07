@@ -16,6 +16,9 @@ chaosMonkeys:
     chaosProbability: 0.5
     memberSelection:
       mode: relative
+      # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
+      # true, the monkey will not kill Pods that haven't achieved readiness.
+      targetOnlyActive: true
       absolute:
         numMembersToKill: 1
       relative:
@@ -23,9 +26,6 @@ chaosMonkeys:
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sInCluster
-      # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
-      # true, the monkey will not kill Pods that haven't achieved readiness.
-      targetOnlyActive: true
       # Mode for accessing Hazelcast members from outside the Kubernetes cluster. To connect to the Kubernetes cluster,
       # a kubeconfig file is used.
       # Handy when testing Hazeltest configurations locally prior to a deployment via Helm. However, since the absolute

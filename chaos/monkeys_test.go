@@ -715,11 +715,11 @@ func assembleTestConfig(keyPath string, enabled bool, chaosProbability float64, 
 
 func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
-	allButAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
+	allExceptSelectionModeAndAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
 		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
 		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
-		mc.accessConfig.accessMode == expected[testMonkeyKeyPath+".memberAccess.mode"] &&
-		mc.accessConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberAccess.targetOnlyActive"] &&
+		mc.selectionConfig.selectionMode == expected[testMonkeyKeyPath+".memberSelection.mode"] &&
+		mc.selectionConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberSelection.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
 		mc.sleep.durationSeconds == expected[testMonkeyKeyPath+".sleep.durationSeconds"] &&
 		mc.sleep.enableRandomness == expected[testMonkeyKeyPath+".sleep.enableRandomness"] &&
@@ -727,17 +727,46 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 		mc.memberGrace.durationSeconds == expected[testMonkeyKeyPath+".memberGrace.durationSeconds"] &&
 		mc.memberGrace.enableRandomness == expected[testMonkeyKeyPath+".memberGrace.enableRandomness"]
 
-	var accessModeAsExpected bool
-	if allButAccessModeAsExpected && mc.accessConfig.accessMode == k8sOutOfClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
-			mc.accessConfig.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
-			mc.accessConfig.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
-	} else if allButAccessModeAsExpected && mc.accessConfig.accessMode == k8sInClusterAccessMode {
-		accessModeAsExpected = mc.accessConfig.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
-	} else {
+	return allExceptSelectionModeAndAccessModeAsExpected &&
+		memberSelectionConfigAsExpected(mc.selectionConfig, expected) &&
+		memberAccessConfigAsExpected(mc.accessConfig, expected)
+
+}
+
+func memberSelectionConfigAsExpected(sc *memberSelectionConfig, expected map[string]any) bool {
+
+	modeAsExpected := sc.selectionMode == expected[testMonkeyKeyPath+"memberSelection.mode"]
+
+	if !modeAsExpected {
 		return false
 	}
 
-	return accessModeAsExpected
+	if sc.selectionMode == relativeMemberSelectionMode {
+		return sc.relativePercentageOfMembersToKill == expected[testMonkeyKeyPath+".memberSelection.relative.percentageOfMembersToKill"]
+	} else if sc.selectionMode == absoluteMemberSelectionMode {
+		return sc.absoluteNumMembersToKill == expected[testMonkeyKeyPath+".memberSelection.absolute.numMembersToKill"]
+	}
+
+	return false
+
+}
+
+func memberAccessConfigAsExpected(ac *memberAccessConfig, expected map[string]any) bool {
+
+	modeAsExpected := ac.accessMode == expected[testMonkeyKeyPath+".memberAccess.mode"]
+
+	if !modeAsExpected {
+		return false
+	}
+
+	if ac.accessMode == k8sOutOfClusterAccessMode {
+		return ac.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
+			ac.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
+			ac.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
+	} else if ac.accessMode == k8sInClusterAccessMode {
+		return ac.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
+	}
+
+	return false
 
 }

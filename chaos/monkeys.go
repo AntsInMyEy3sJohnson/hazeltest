@@ -382,6 +382,13 @@ func (b monkeyConfigBuilder) populateMemberSelectionConfig(a client.ConfigProper
 	var absoluteNumMembersToKill uint8
 	var relativePercentageOfMembersToKill float32
 
+	var targetOnlyActive bool
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberSelection.targetOnlyActive", client.ValidateBool, func(a any) {
+			targetOnlyActive = a.(bool)
+		})
+	})
+
 	switch selectionMode {
 	case absoluteMemberSelectionMode:
 		assignmentOps = append(assignmentOps, func() error {
@@ -409,6 +416,7 @@ func (b monkeyConfigBuilder) populateMemberSelectionConfig(a client.ConfigProper
 		}
 	}
 
+	sc.targetOnlyActive = targetOnlyActive
 	sc.absoluteNumMembersToKill = absoluteNumMembersToKill
 	sc.relativePercentageOfMembersToKill = relativePercentageOfMembersToKill
 
@@ -422,11 +430,6 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 
 	ac := &memberAccessConfig{
 		accessMode: accessMode,
-	}
-	if err := a.Assign(b.monkeyKeyPath+".memberAccess.targetOnlyActive", client.ValidateBool, func(a any) {
-		ac.targetOnlyActive = a.(bool)
-	}); err != nil {
-		return nil, err
 	}
 
 	switch accessMode {
