@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -45,14 +46,14 @@ type (
 	}
 	memberSelectionConfig struct {
 		selectionMode                     string
+		targetOnlyActive                  bool
 		absoluteNumMembersToKill          uint8
 		relativePercentageOfMembersToKill float32
 	}
 	memberAccessConfig struct {
-		accessMode       string
-		targetOnlyActive bool
-		k8sOutOfCluster  k8sOutOfClusterMemberAccess
-		k8sInCluster     k8sInClusterMemberAccess
+		accessMode      string
+		k8sOutOfCluster k8sOutOfClusterMemberAccess
+		k8sInCluster    k8sInClusterMemberAccess
 	}
 	defaultK8sConfigBuilder        struct{}
 	defaultK8sClientsetInitializer struct{}
@@ -273,35 +274,95 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 	}
 
 	var podToKill v1.Pod
-	podFound := false
 
-	if ac.targetOnlyActive {
-		lp.LogChaosMonkeyEvent("targetOnlyActive enabled -- trying to find active (ready) hazelcast member pod", log.TraceLevel)
-		for i := 0; i < len(pods); i++ {
-			candidate := selectRandomPodFromList(pods)
-			if isPodReady(candidate) {
-				podToKill = candidate
-				podFound = true
-				break
-			}
-		}
-		if !podFound {
-			var msg string
-			if len(pods) == 1 {
-				msg = "the only available pod was not ready (can only target ready pods because targetOnlyActive was enabled)"
-			} else {
-				msg = fmt.Sprintf("out of %d candidate pod/-s, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods))
-			}
-			lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
-			return hzMember{}, noMemberFoundError
-		}
-	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("targetOnlyActive disabled -- randomly choosing one out of %d pods", len(pods)), log.TraceLevel)
-		podToKill = selectRandomPodFromList(pods)
-	}
+	//podFound := false
+
+	//if ac.targetOnlyActive {
+	//	lp.LogChaosMonkeyEvent("targetOnlyActive enabled -- trying to find active (ready) hazelcast member pod", log.TraceLevel)
+	//	for i := 0; i < len(pods); i++ {
+	//		candidate := selectRandomPodFromList(pods)
+	//		if isPodReady(candidate) {
+	//			podToKill = candidate
+	//			podFound = true
+	//			break
+	//		}
+	//	}
+	//	if !podFound {
+	//		var msg string
+	//		if len(pods) == 1 {
+	//			msg = "the only available pod was not ready (can only target ready pods because targetOnlyActive was enabled)"
+	//		} else {
+	//			msg = fmt.Sprintf("out of %d candidate pod/-s, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods))
+	//		}
+	//		lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
+	//		return hzMember{}, noMemberFoundError
+	//	}
+	//} else {
+	//	lp.LogChaosMonkeyEvent(fmt.Sprintf("targetOnlyActive disabled -- randomly choosing one out of %d pods", len(pods)), log.TraceLevel)
+	//	podToKill = selectRandomPodFromList(pods)
+	//}
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose hazelcast member: %s", podToKill.Name), log.InfoLevel)
 	return hzMember{podToKill.Name}, nil
+
+}
+
+func selectTargetPods(pods []v1.Pod, sc *memberSelectionConfig, listContainsOnlyReadyPods bool) ([]hzMember, error) {
+
+	if len(pods) == 0 {
+		return nil, errors.New("cannot select pods from empty list of pods")
+	}
+
+	// TODO Add logging
+	if sc.targetOnlyActive && !listContainsOnlyReadyPods {
+		var onlyReadyPods []v1.Pod
+		for _, p := range pods {
+			if isPodReady(p) {
+				onlyReadyPods = append(onlyReadyPods, p)
+			}
+		}
+		return selectTargetPods(onlyReadyPods, sc, true)
+	}
+
+	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var selectedPods map[string]v1.Pod
+	for i := uint8(0); i < numPodsToSelect; {
+		candidate := selectRandomPodFromList(pods)
+		if _, ok := selectedPods[candidate.Name]; !ok {
+			selectedPods[candidate.Name] = candidate
+			i++
+		}
+	}
+
+	var hzMembers []hzMember
+	for _, v := range selectedPods {
+		hzMembers = append(hzMembers, hzMember{v.Name})
+	}
+
+	return hzMembers, nil
+
+}
+
+func evaluateNumPodsToSelect(selectionPool []v1.Pod, sc *memberSelectionConfig) (uint8, error) {
+
+	if sc.selectionMode == absoluteMemberSelectionMode {
+		if len(selectionPool) < int(sc.absoluteNumMembersToKill) {
+			return 0, fmt.Errorf("was instructed to select %d pod/-s from pod list, but given list contained only %d pod/-s",
+				sc.absoluteNumMembersToKill, len(selectionPool))
+		}
+		return sc.absoluteNumMembersToKill, nil
+	}
+
+	if sc.selectionMode == relativeMemberSelectionMode {
+		return uint8(math.Ceil(float64(float32(len(selectionPool)) * sc.relativePercentageOfMembersToKill))), nil
+	}
+
+	return 0, errors.New("unknown member selection mode: " + sc.selectionMode)
 
 }
 
