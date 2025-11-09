@@ -350,6 +350,10 @@ func selectTargetPods(pods []v1.Pod, sc *memberSelectionConfig, listContainsOnly
 
 func evaluateNumPodsToSelect(selectionPool []v1.Pod, sc *memberSelectionConfig) (uint8, error) {
 
+	if len(selectionPool) == 0 {
+		return 0, errors.New("cannot select pods from empty pod list")
+	}
+
 	if sc.selectionMode == absoluteMemberSelectionMode {
 		if len(selectionPool) < int(sc.absoluteNumMembersToKill) {
 			return 0, fmt.Errorf("was instructed to select %d pod/-s from pod list, but given list contained only %d pod/-s",
