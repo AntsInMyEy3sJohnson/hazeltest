@@ -156,13 +156,13 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
-func TestSelectTargetMembers(t *testing.T) {
+func TestSelectTargetMembersFromPods(t *testing.T) {
 
 	t.Log("given a list of pods, a member selection config, and information whether the list contains only ready pods")
 	{
 		t.Log("\twhen list of pods is empty")
 		{
-			hzMembers, err := selectTargetMembers([]v1.Pod{}, nil, false)
+			hzMembers, err := selectTargetMembersFromPods([]v1.Pod{}, nil, false)
 
 			msg := "\t\tnil list of hazelcast members must be returned"
 			if hzMembers == nil {
@@ -185,7 +185,7 @@ func TestSelectTargetMembers(t *testing.T) {
 			{
 				pods := assemblePodList(12, 0)
 
-				hzMembers, err := selectTargetMembers(pods,
+				hzMembers, err := selectTargetMembersFromPods(pods,
 					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0),
 					false)
 
@@ -206,57 +206,99 @@ func TestSelectTargetMembers(t *testing.T) {
 
 			t.Log("\t\twhen list also contains pods in ready state")
 			{
-				t.Log("\t\t\twhen selection config requires more pods to be selected than are ready")
+				t.Log("\t\t\twhen absolute member selection mode is configured")
 				{
-					numReadyPods := 9
-					pods := assemblePodList(12, numReadyPods)
+					t.Log("\t\t\t\twhen selection config requires more pods to be selected than are ready")
+					{
+						numReadyPods := 9
+						pods := assemblePodList(12, numReadyPods)
 
-					numPodsToSelect := uint8(10)
-					hzMembers, err := selectTargetMembers(pods,
-						assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
-						false)
+						numPodsToSelect := uint8(10)
+						hzMembers, err := selectTargetMembersFromPods(pods,
+							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+							false)
 
-					msg := "\t\t\t\treturned list of hazelcast members must be nil"
-					if hzMembers == nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
+						msg := "\t\t\t\t\treturned list of hazelcast members must be nil"
+						if hzMembers == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\terror must be returned"
+						if err != nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 
-					msg = "\t\t\t\terror must be returned"
-					if err != nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
+					t.Log("\t\t\t\twhen selection config requires number of pods to be selected less than number of pods having ready state")
+					{
+						numReadyPods := 9
+						pods := assemblePodList(12, numReadyPods)
+
+						numPodsToSelect := uint8(6)
+						hzMembers, err := selectTargetMembersFromPods(pods,
+							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+							false)
+
+						msg := "\t\t\t\t\treturned list of hazelcast members must contain expected number of elements"
+						if uint8(len(hzMembers)) == numPodsToSelect {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treturned list of hazelcast members must contain only unique identifiers"
+						if assertOnlyUniqueIdentifiers(hzMembers) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tno error must be returned"
+						if err == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
+
 				}
 
-				t.Log("\t\t\twhen selection config requires number of pods to be selected less than number of pods having ready state")
+				t.Log("\t\t\twhen relative member selection mode is configured")
 				{
-					numReadyPods := 9
-					pods := assemblePodList(12, numReadyPods)
+					// While the absolute member selection mode leaves no room for interpretation concerning the number of
+					// members to be selected, the relative member selection mode needs a set of pods to "relate" to, hence
+					// from which to derive the number of pods to be selected. This could be two sets: Either the one
+					// containing the entirety of pods, or the one containing only those having ready state.
+					// --> Need to make sure that the base set for evaluating the number of pods to select is the
+					// set containing only pods having ready state when only active members have been configured to be
+					// subject to the selection.
 
-					numPodsToSelect := uint8(6)
-					hzMembers, err := selectTargetMembers(pods,
-						assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+					numPods := 9
+					numReadyPods := 4
+					pods := assemblePodList(numPods, numReadyPods)
+
+					percentageOfMembersToSelect := 0.5
+					hzMembers, err := selectTargetMembersFromPods(pods,
+						assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0.0, float32(percentageOfMembersToSelect)),
 						false)
 
 					msg := "\t\t\t\treturned list of hazelcast members must contain expected number of elements"
-					if uint8(len(hzMembers)) == numPodsToSelect {
+					if len(hzMembers) == int(float64(numReadyPods)*percentageOfMembersToSelect) {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\treturned list of hazelcast members must contain unique identifiers"
-					identifiers := make(map[string]struct{})
-					for _, member := range hzMembers {
-						if _, ok := identifiers[member.identifier]; ok {
-							t.Fatal(msg, ballotX)
-						}
-						identifiers[member.identifier] = struct{}{}
+					msg = "\t\t\t\treturned list of hazelcast members must contain only unique identifiers"
+					if assertOnlyUniqueIdentifiers(hzMembers) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
 					}
-					t.Log(msg, checkMark)
 
 					msg = "\t\t\t\tno error must be returned"
 					if err == nil {
@@ -267,7 +309,105 @@ func TestSelectTargetMembers(t *testing.T) {
 				}
 			}
 
-			t.Log("\t\twhen list only contains pods in ready state")
+			t.Log("\t\twhen list only contains pods in ready state and selection config requires all pods to be selected as members")
+			{
+				numPods := 21
+				pods := assemblePodList(numPods, numPods)
+
+				hzMembers, err := selectTargetMembersFromPods(pods,
+					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 1.0),
+					false)
+				msg := "\t\t\tlist of returned hazelcast members must contain members corresponding to all pods"
+				if len(hzMembers) == numPods {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\t\treturned list of hazelcast members must contain only unique identifiers"
+				if assertOnlyUniqueIdentifiers(hzMembers) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+		}
+
+		t.Log("\twhen non-active members can be subject to selection, too")
+		{
+			t.Log("\t\twhen absolute member selection mode is configured")
+			{
+				numPods := 15
+				numReadyPods := 3
+				pods := assemblePodList(numPods, numReadyPods)
+
+				numPodsToSelect := uint8(5)
+				hzMembers, err := selectTargetMembersFromPods(pods,
+					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, numPodsToSelect, 0.0), false)
+
+				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
+				if uint8(len(hzMembers)) == numPodsToSelect {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treturned list of hazelcast members must contain only unique identifiers"
+				if assertOnlyUniqueIdentifiers(hzMembers) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen relative member selection mode is configured")
+			{
+				// This time, make sure the base set of pods to "relate" to in relative member selection mode
+				// is the entirety of pods, rather than only those currently having ready state.
+
+				numPods := 11
+				numReadyPods := 3
+				pods := assemblePodList(numPods, numReadyPods)
+
+				hzMembers, err := selectTargetMembersFromPods(pods,
+					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0.0, 1.0), false)
+
+				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
+				if len(hzMembers) == numPods {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treturned list of hazelcast members must contain only unique identifiers"
+				if assertOnlyUniqueIdentifiers(hzMembers) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
 		}
 	}
 
@@ -1217,6 +1357,20 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 		}
 	}
+
+}
+
+func assertOnlyUniqueIdentifiers(ms []hzMember) bool {
+
+	identifiers := make(map[string]struct{})
+	for _, member := range ms {
+		if _, ok := identifiers[member.identifier]; ok {
+			return false
+		}
+		identifiers[member.identifier] = struct{}{}
+	}
+
+	return true
 
 }
 
