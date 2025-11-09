@@ -307,21 +307,21 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, erro
 
 }
 
-func selectTargetPods(pods []v1.Pod, sc *memberSelectionConfig, listContainsOnlyReadyPods bool) ([]hzMember, error) {
+func selectTargetMembers(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
 	if len(pods) == 0 {
 		return nil, errors.New("cannot select pods from empty list of pods")
 	}
 
 	// TODO Add logging
-	if sc.targetOnlyActive && !listContainsOnlyReadyPods {
+	if sc.targetOnlyActive && !listWasCheckedForReadyPods {
 		var onlyReadyPods []v1.Pod
 		for _, p := range pods {
 			if isPodReady(p) {
 				onlyReadyPods = append(onlyReadyPods, p)
 			}
 		}
-		return selectTargetPods(onlyReadyPods, sc, true)
+		return selectTargetMembers(onlyReadyPods, sc, true)
 	}
 
 	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)
@@ -330,7 +330,7 @@ func selectTargetPods(pods []v1.Pod, sc *memberSelectionConfig, listContainsOnly
 		return nil, err
 	}
 
-	var selectedPods map[string]v1.Pod
+	selectedPods := make(map[string]v1.Pod)
 	for i := uint8(0); i < numPodsToSelect; {
 		candidate := selectRandomPodFromList(pods)
 		if _, ok := selectedPods[candidate.Name]; !ok {

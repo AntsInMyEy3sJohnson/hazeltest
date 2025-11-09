@@ -156,9 +156,126 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
+func TestSelectTargetMembers(t *testing.T) {
+
+	t.Log("given a list of pods, a member selection config, and information whether the list contains only ready pods")
+	{
+		t.Log("\twhen list of pods is empty")
+		{
+			hzMembers, err := selectTargetMembers([]v1.Pod{}, nil, false)
+
+			msg := "\t\tnil list of hazelcast members must be returned"
+			if hzMembers == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen only active members should be targeted")
+		{
+			t.Log("\t\twhen list contains only pods in non-ready state")
+			{
+				pods := assemblePodList(12, 0)
+
+				hzMembers, err := selectTargetMembers(pods,
+					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0),
+					false)
+
+				msg := "\t\t\treturned list of hazelcast members must be nil"
+				if hzMembers == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\terror must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen list also contains pods in ready state")
+			{
+				t.Log("\t\t\twhen selection config requires more pods to be selected than are ready")
+				{
+					numReadyPods := 9
+					pods := assemblePodList(12, numReadyPods)
+
+					numPodsToSelect := uint8(10)
+					hzMembers, err := selectTargetMembers(pods,
+						assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+						false)
+
+					msg := "\t\t\t\treturned list of hazelcast members must be nil"
+					if hzMembers == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+
+				t.Log("\t\t\twhen selection config requires number of pods to be selected less than number of pods having ready state")
+				{
+					numReadyPods := 9
+					pods := assemblePodList(12, numReadyPods)
+
+					numPodsToSelect := uint8(6)
+					hzMembers, err := selectTargetMembers(pods,
+						assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+						false)
+
+					msg := "\t\t\t\treturned list of hazelcast members must contain expected number of elements"
+					if uint8(len(hzMembers)) == numPodsToSelect {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treturned list of hazelcast members must contain unique identifiers"
+					identifiers := make(map[string]struct{})
+					for _, member := range hzMembers {
+						if _, ok := identifiers[member.identifier]; ok {
+							t.Fatal(msg, ballotX)
+						}
+						identifiers[member.identifier] = struct{}{}
+					}
+					t.Log(msg, checkMark)
+
+					msg = "\t\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+
+			t.Log("\t\twhen list only contains pods in ready state")
+		}
+	}
+
+}
+
 func TestEvaluateNumPodsToSelect(t *testing.T) {
 
-	t.Log("given list of pods and a member selection config")
+	t.Log("given a selection pool of pods and a member selection config")
 	{
 		t.Log("\twhen selection pool is empty")
 		{
@@ -183,9 +300,9 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 		{
 			t.Log("\t\twhen number of pods selection pool is less than configured number of members to select")
 			{
-				podList := assemblePodList(1)
+				podList := assemblePodList(1, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(absoluteMemberSelectionMode, true, 2, 0))
+					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, 2, 0))
 
 				msg := "\t\t\tevaluated number of pods to select must be zero"
 				if numPodsToSelect == 0 {
@@ -204,11 +321,11 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 			t.Log("\t\twhen number of pods in selection pool is equal to configured number of members to select")
 			{
-				podList := assemblePodList(5)
+				podList := assemblePodList(5, 0)
 
 				configuredNumPodsToSelect := uint8(len(podList))
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(absoluteMemberSelectionMode, true, configuredNumPodsToSelect, 0))
+					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, configuredNumPodsToSelect, 0))
 
 				msg := "\t\t\tevaluated number of pods to select must correspond to configured number of pods to select"
 				if numPodsToSelect == configuredNumPodsToSelect {
@@ -230,9 +347,9 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 		{
 			t.Log("\t\twhen configured percentage of members to kill is zero")
 			{
-				podList := assemblePodList(1)
+				podList := assemblePodList(1, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
+					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 0.0))
 
 				msg := "\t\t\tevaluated number of pods must be zero, too"
 				if numPodsToSelect == 0 {
@@ -251,9 +368,9 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 			t.Log("\t\twhen configured percentage of members to kill is 100")
 			{
-				podList := assemblePodList(9)
+				podList := assemblePodList(9, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 1.0))
+					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 1.0))
 
 				msg := "\t\t\tevaluated number of pods to select must be equal to number of pods in selection pool"
 				if numPodsToSelect == uint8(len(podList)) {
@@ -272,9 +389,9 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 			t.Log("\t\twhen configured percentage of members to kill would result in non-integer number")
 
-			podList := assemblePodList(9)
+			podList := assemblePodList(9, 0)
 
-			sc := assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.5)
+			sc := assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 0.5)
 			numPodsToSelect, err := evaluateNumPodsToSelect(podList, sc)
 
 			msg := "\t\t\tnumber of pods to select must correspond to next-highest integer"
@@ -286,6 +403,27 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 			msg = "\t\t\tno error must be returned"
 			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen unknown member selection mode is configured")
+		{
+			numPodsToSelected, err := evaluateNumPodsToSelect(assemblePodList(1, 0),
+				assembleTestSelectionConfig("awesomeNonExistingSelectionMode", false, 0, 0.0))
+
+			msg := "\t\tnumber of pods to select must be zero"
+			if numPodsToSelected == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror must be returned"
+			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1082,12 +1220,18 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 }
 
-func assemblePodList(numPods int) []v1.Pod {
+func assemblePodList(numPods, numReady int) []v1.Pod {
 
 	podList := make([]v1.Pod, numPods)
 
 	for i := 0; i < numPods; i++ {
-		podList[i] = assemblePod(fmt.Sprintf("awesome-hazelcast-pod-%d", i), true)
+		var ready bool
+		if i < numReady {
+			ready = true
+		} else {
+			ready = false
+		}
+		podList[i] = assemblePod(fmt.Sprintf("awesome-hazelcast-pod-%d", i), ready)
 	}
 
 	return podList
