@@ -27,10 +27,10 @@ type (
 		init(c *rest.Config) (*kubernetes.Clientset, error)
 	}
 	k8sClientsetProvider interface {
-		getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error)
+		getOrInit(ac *memberAccessConfig) (*kubernetes.Clientset, error)
 	}
 	k8sNamespaceDiscoverer interface {
-		getOrDiscover(ac memberAccessConfig) (string, error)
+		getOrDiscover(ac *memberAccessConfig) (string, error)
 	}
 	k8sPodLister interface {
 		list(cs *kubernetes.Clientset, ctx context.Context, namespace string, listOptions metav1.ListOptions) (*v1.PodList, error)
@@ -87,7 +87,7 @@ var (
 	noMemberFoundError = errors.New("unable to identify hazelcast member to be terminated")
 )
 
-func labelSelectorFromConfig(ac memberAccessConfig) (string, error) {
+func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
 
 	switch ac.accessMode {
 	case k8sOutOfClusterAccessMode:
@@ -118,7 +118,7 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 
 }
 
-func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (string, error) {
+func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (string, error) {
 
 	if d.discoveredNamespace != "" {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("namespace has already been populated -- returning '%s'", d.discoveredNamespace), log.TraceLevel)
@@ -181,7 +181,7 @@ func (d *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Cont
 
 }
 
-func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kubernetes.Clientset, error) {
+func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubernetes.Clientset, error) {
 
 	if p.cs != nil {
 		lp.LogChaosMonkeyEvent("kubernetes clientset already present -- returning previously initialized state", log.TraceLevel)
@@ -232,7 +232,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 
 }
 
-func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig, sc memberSelectionConfig) ([]hzMember, error) {
+func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error) {
 
 	lp.LogChaosMonkeyEvent("choosing hazelcast members", log.InfoLevel)
 
@@ -273,9 +273,7 @@ func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig, sc memberSelect
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
-	var podToKill v1.Pod
-
-	if hzMembers, err := chooseTargetMembersFromPods(pods, &sc, false); err == nil {
+	if hzMembers, err := chooseTargetMembersFromPods(pods, sc, false); err == nil {
 		if len(hzMembers) == 0 {
 			return nil, fmt.Errorf("unable to choose target hazelcast members from given list of %d candidate pod/-s", len(pods))
 		}
@@ -374,7 +372,7 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(m hzMember, ac memberAccessConfig, memberGrace sleepConfig) error {
+func (killer *k8sHzMemberKiller) kill(m hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
 
