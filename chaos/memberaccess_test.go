@@ -66,6 +66,7 @@ var (
 	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
 	hazelcastNamespace         = "hazelcastplatform"
 	testAccessConfig           = assembleTestAccessConfig(k8sInClusterAccessMode, "")
+	testSelectionConfig        = assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -107,7 +108,7 @@ func (i *testK8sClientsetInitializer) init(_ *rest.Config) (*kubernetes.Clientse
 
 }
 
-func (p *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.Clientset, error) {
+func (p *testK8sClientsetProvider) getOrInit(_ *memberAccessConfig) (*kubernetes.Clientset, error) {
 
 	if p.returnError {
 		return nil, clientsetInitError
@@ -117,7 +118,7 @@ func (p *testK8sClientsetProvider) getOrInit(_ memberAccessConfig) (*kubernetes.
 
 }
 
-func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac memberAccessConfig) (string, error) {
+func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (string, error) {
 
 	if d.returnError {
 		return "", namespaceNotDiscoverableError
@@ -988,17 +989,18 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+			members, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig),
+				assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
 
 			msg := "\t\terror must be returned"
-			if err != nil && err == clientsetInitError {
+			if err != nil && errors.Is(err, clientsetInitError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\treturned member must be empty"
-			if member == emptyMember {
+			msg = "\t\treturned member list must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1015,7 +1017,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, errTestNamespaceDiscoverer, nil}
-			member, err := memberChooser.choose(testAccessConfig)
+			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1024,8 +1026,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty member must be returned"
-			if member == emptyMember {
+			msg = "\t\treturned list of members must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1044,7 +1046,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			ac.accessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(ac)
+			members, err := memberChooser.choose(ac, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1053,8 +1055,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty member must be returned"
-			if member == emptyMember {
+			msg = "\t\treturned list of members must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1071,7 +1073,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
-			member, err := memberChooser.choose(testAccessConfig)
+			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, podListError) {
@@ -1080,8 +1082,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty member must be returned"
-			if member == emptyMember {
+			msg = "\t\treturned list of members must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1098,7 +1100,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
-			member, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+			members, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMemberFoundError) {
@@ -1107,8 +1109,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty member must be returned"
-			if member == emptyMember {
+			msg = "\t\tlist of returned members must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1120,7 +1122,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(testAccessConfig)
+			sc := assembleTestSelectionConfig(absoluteMemberSelectionMode, true, 1, 0.0)
+			members, err := memberChooser.choose(testAccessConfig, sc)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1129,6 +1132,14 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\treturned list of members must contain one element"
+			if len(members) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			member := members[0]
 			msg = "\t\tname of selected member must be equal to name of ready pod"
 			if member.identifier == pod.Name {
 				t.Log(msg, checkMark)
@@ -1142,7 +1153,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(testAccessConfig)
+			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMemberFoundError) {
@@ -1151,8 +1162,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tempty member must be returned"
-			if member == emptyMember {
+			msg = "\t\treturned list of members must be nil"
+			if members == nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1164,7 +1175,9 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			member, err := memberChooser.choose(assembleTestAccessConfig(k8sInClusterAccessMode, defaultKubeconfig))
+			ac := assembleTestAccessConfig(k8sInClusterAccessMode, defaultKubeconfig)
+			sc := assembleTestSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
+			members, err := memberChooser.choose(ac, sc)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -1173,6 +1186,14 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\treturned list of members must contain one element"
+			if len(members) == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			member := members[0]
 			msg = "\t\tname of chosen member must correspond to name of given pod"
 			if member.identifier == pod.Name {
 				t.Log(msg, checkMark)
@@ -1417,9 +1438,9 @@ func assemblePod(name string, ready bool) v1.Pod {
 
 }
 
-func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeconds int) sleepConfig {
+func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeconds int) *sleepConfig {
 
-	return sleepConfig{
+	return &sleepConfig{
 		enabled:          enabled,
 		durationSeconds:  durationSeconds,
 		enableRandomness: enableRandomness,
@@ -1438,9 +1459,9 @@ func assembleTestSelectionConfig(selectionMode string, targetOnlyActive bool, ab
 
 }
 
-func assembleTestAccessConfig(memberAccessMode, kubeconfig string) memberAccessConfig {
+func assembleTestAccessConfig(memberAccessMode, kubeconfig string) *memberAccessConfig {
 
-	return memberAccessConfig{
+	return &memberAccessConfig{
 		accessMode: memberAccessMode,
 		k8sOutOfCluster: k8sOutOfClusterMemberAccess{
 			kubeconfig:    kubeconfig,
