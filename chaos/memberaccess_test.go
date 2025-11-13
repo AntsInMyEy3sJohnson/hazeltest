@@ -156,13 +156,13 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
-func TestSelectTargetMembersFromPods(t *testing.T) {
+func TestChooseTargetMembersFromPods(t *testing.T) {
 
 	t.Log("given a list of pods, a member selection config, and information whether the list contains only ready pods")
 	{
 		t.Log("\twhen list of pods is empty")
 		{
-			hzMembers, err := selectTargetMembersFromPods([]v1.Pod{}, nil, false)
+			hzMembers, err := chooseTargetMembersFromPods([]v1.Pod{}, nil, false)
 
 			msg := "\t\tnil list of hazelcast members must be returned"
 			if hzMembers == nil {
@@ -185,7 +185,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 			{
 				pods := assemblePodList(12, 0)
 
-				hzMembers, err := selectTargetMembersFromPods(pods,
+				hzMembers, err := chooseTargetMembersFromPods(pods,
 					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0),
 					false)
 
@@ -214,7 +214,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 						pods := assemblePodList(12, numReadyPods)
 
 						numPodsToSelect := uint8(10)
-						hzMembers, err := selectTargetMembersFromPods(pods,
+						hzMembers, err := chooseTargetMembersFromPods(pods,
 							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
 							false)
 
@@ -239,7 +239,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 						pods := assemblePodList(12, numReadyPods)
 
 						numPodsToSelect := uint8(6)
-						hzMembers, err := selectTargetMembersFromPods(pods,
+						hzMembers, err := chooseTargetMembersFromPods(pods,
 							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
 							false)
 
@@ -282,7 +282,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 					pods := assemblePodList(numPods, numReadyPods)
 
 					percentageOfMembersToSelect := 0.5
-					hzMembers, err := selectTargetMembersFromPods(pods,
+					hzMembers, err := chooseTargetMembersFromPods(pods,
 						assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0.0, float32(percentageOfMembersToSelect)),
 						false)
 
@@ -314,7 +314,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 				numPods := 21
 				pods := assemblePodList(numPods, numPods)
 
-				hzMembers, err := selectTargetMembersFromPods(pods,
+				hzMembers, err := chooseTargetMembersFromPods(pods,
 					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 1.0),
 					false)
 				msg := "\t\t\tlist of returned hazelcast members must contain members corresponding to all pods"
@@ -350,7 +350,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 				pods := assemblePodList(numPods, numReadyPods)
 
 				numPodsToSelect := uint8(5)
-				hzMembers, err := selectTargetMembersFromPods(pods,
+				hzMembers, err := chooseTargetMembersFromPods(pods,
 					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, numPodsToSelect, 0.0), false)
 
 				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
@@ -384,7 +384,7 @@ func TestSelectTargetMembersFromPods(t *testing.T) {
 				numReadyPods := 3
 				pods := assemblePodList(numPods, numReadyPods)
 
-				hzMembers, err := selectTargetMembersFromPods(pods,
+				hzMembers, err := chooseTargetMembersFromPods(pods,
 					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0.0, 1.0), false)
 
 				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
