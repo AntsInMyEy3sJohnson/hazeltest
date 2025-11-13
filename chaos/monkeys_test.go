@@ -56,7 +56,7 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 }
 
-func (k *testHzMemberKiller) kill(member hzMember, _ memberAccessConfig, _ sleepConfig) error {
+func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig) error {
 
 	k.numInvocations++
 
@@ -64,21 +64,23 @@ func (k *testHzMemberKiller) kill(member hzMember, _ memberAccessConfig, _ sleep
 		return errors.New("yet another error that should have been completely impossible")
 	}
 
-	k.givenHzMember = member
+	k.givenHzMember = members[0]
 
 	return nil
 
 }
 
-func (c *testHzMemberChooser) choose(_ memberAccessConfig) (hzMember, error) {
+func (c *testHzMemberChooser) choose(_ *memberAccessConfig, _ *memberSelectionConfig) ([]hzMember, error) {
 
 	c.numInvocations++
 
 	if c.returnError {
-		return hzMember{}, errors.New("awesome error")
+		return nil, errors.New("awesome error")
 	}
 
-	return hzMember{c.memberID}, nil
+	return []hzMember{
+		{c.memberID},
+	}, nil
 
 }
 
