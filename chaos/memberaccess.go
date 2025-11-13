@@ -232,82 +232,63 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac memberAccessConfig) (*kuberne
 
 }
 
-func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig) (hzMember, error) {
+func (chooser *k8sHzMemberChooser) choose(ac memberAccessConfig, sc memberSelectionConfig) ([]hzMember, error) {
 
-	lp.LogChaosMonkeyEvent("choosing hazelcast member", log.InfoLevel)
+	lp.LogChaosMonkeyEvent("choosing hazelcast members", log.InfoLevel)
 
 	clientset, err := chooser.clientsetProvider.getOrInit(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
-		return hzMember{}, err
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+		return nil, err
 	}
 
 	namespace, err := chooser.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
-		return hzMember{}, err
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+		return nil, err
 	}
 
 	var labelSelector string
 	if s, err := labelSelectorFromConfig(ac); err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: could not determine label selector: %s", err.Error()), log.ErrorLevel)
-		return hzMember{}, err
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: could not determine label selector: %s", err.Error()), log.ErrorLevel)
+		return nil, err
 	} else {
 		labelSelector = s
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast member", labelSelector, namespace), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.InfoLevel)
 
 	ctx := context.TODO()
 	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast member: could not list pods: %s", err.Error()), log.ErrorLevel)
-		return hzMember{}, err
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: could not list pods: %s", err.Error()), log.ErrorLevel)
+		return nil, err
 	}
 
 	pods := podList.Items
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
-
 	if len(pods) == 0 {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.WarnLevel)
-		return hzMember{}, noMemberFoundError
+		return nil, noMemberFoundError
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
 	var podToKill v1.Pod
 
-	//podFound := false
-
-	//if ac.targetOnlyActive {
-	//	lp.LogChaosMonkeyEvent("targetOnlyActive enabled -- trying to find active (ready) hazelcast member pod", log.TraceLevel)
-	//	for i := 0; i < len(pods); i++ {
-	//		candidate := selectRandomPodFromList(pods)
-	//		if isPodReady(candidate) {
-	//			podToKill = candidate
-	//			podFound = true
-	//			break
-	//		}
-	//	}
-	//	if !podFound {
-	//		var msg string
-	//		if len(pods) == 1 {
-	//			msg = "the only available pod was not ready (can only target ready pods because targetOnlyActive was enabled)"
-	//		} else {
-	//			msg = fmt.Sprintf("out of %d candidate pod/-s, none was ready (can only target ready pods because targetOnlyActive was enabled)", len(pods))
-	//		}
-	//		lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
-	//		return hzMember{}, noMemberFoundError
-	//	}
-	//} else {
-	//	lp.LogChaosMonkeyEvent(fmt.Sprintf("targetOnlyActive disabled -- randomly choosing one out of %d pods", len(pods)), log.TraceLevel)
-	//	podToKill = selectRandomPodFromList(pods)
-	//}
-
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose hazelcast member: %s", podToKill.Name), log.InfoLevel)
-	return hzMember{podToKill.Name}, nil
+	if hzMembers, err := chooseTargetMembersFromPods(pods, &sc, false); err == nil {
+		if len(hzMembers) == 0 {
+			return nil, fmt.Errorf("unable to choose target hazelcast members from given list of %d candidate pod/-s", len(pods))
+		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose %d hazelcast members to kill from given list of %d pod/-s", len(hzMembers), len(pods)), log.InfoLevel)
+		return hzMembers, nil
+	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to choose target members from given list of %d pod/-s: %s", len(pods), err.Error()), log.ErrorLevel)
+		return nil, err
+	}
 
 }
 
-func selectTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
+func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
 	if len(pods) == 0 {
 		return nil, errors.New("cannot select pods from empty list of pods")
@@ -321,7 +302,7 @@ func selectTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 				onlyReadyPods = append(onlyReadyPods, p)
 			}
 		}
-		return selectTargetMembersFromPods(onlyReadyPods, sc, true)
+		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
 
 	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)

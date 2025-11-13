@@ -16,7 +16,7 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	hzMemberChooser     interface {
-		choose(ac memberAccessConfig) (hzMember, error)
+		choose(ac memberAccessConfig, sc memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
 		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
