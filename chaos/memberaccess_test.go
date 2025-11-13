@@ -60,7 +60,6 @@ var (
 	errTestNamespaceDiscoverer = &testK8sNamespaceDiscoverer{true}
 	csProvider                 = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
 	errCsProvider              = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
-	emptyMember                = hzMember{}
 	emptyClientset             = &kubernetes.Clientset{}
 	defaultKubeconfig          = "default"
 	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
@@ -1219,7 +1218,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastplatform-0"},
+				[]hzMember{},
 				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, 42),
 			)
@@ -1243,7 +1242,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			podDeleter := &testK8sPodDeleter{false, 0, 42}
 			killer := k8sHzMemberKiller{csProvider, errTestNamespaceDiscoverer, podDeleter}
 
-			err := killer.kill(hzMember{}, testAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
+			err := killer.kill([]hzMember{}, testAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -1270,7 +1269,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			memberGraceSeconds := math.MaxInt - 1
 			err := killer.kill(
-				hzMember{"hazelcastplatform-0"},
+				[]hzMember{
+					{"hazelcastplatform-0"},
+				},
 				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 			)
@@ -1307,7 +1308,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			memberGraceSeconds := 42
 			err := killer.kill(
-				hzMember{"hazelcastplatform-0"},
+				[]hzMember{
+					{"hazelcastplatform-0"},
+				},
 				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 			)
@@ -1336,7 +1339,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastplatform-0"},
+				[]hzMember{
+					{"hazelcastplatform-0"},
+				},
 				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
@@ -1365,7 +1370,9 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 
 			err := killer.kill(
-				hzMember{"hazelcastplatform-0"},
+				[]hzMember{
+					{"hazelcastplatform-0"},
+				},
 				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)

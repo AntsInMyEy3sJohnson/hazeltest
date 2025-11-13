@@ -372,46 +372,55 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(m hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
+func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
-
-	clientset, err := killer.clientsetProvider.getOrInit(ac)
-	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
-		return err
+	if members == nil {
+		return errors.New("encountered list of nil members to kill")
 	}
 
-	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
-	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
-		return err
-	}
+	for _, m := range members {
 
-	ctx := context.TODO()
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
 
-	var gracePeriod int
-	if memberGrace.enabled {
-		if memberGrace.enableRandomness {
-			gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
-		} else {
-			gracePeriod = memberGrace.durationSeconds
+		clientset, err := killer.clientsetProvider.getOrInit(ac)
+		if err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+			return err
 		}
-	} else {
-		gracePeriod = 0
+
+		namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
+		if err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+			return err
+		}
+
+		ctx := context.TODO()
+
+		var gracePeriod int
+		if memberGrace.enabled {
+			if memberGrace.enableRandomness {
+				gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
+			} else {
+				gracePeriod = memberGrace.durationSeconds
+			}
+		} else {
+			gracePeriod = 0
+		}
+
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
+
+		g := int64(gracePeriod)
+		err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
+
+		if err != nil {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
+			return err
+		}
+
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
-
-	g := int64(gracePeriod)
-	err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
-
-	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
-		return err
-	}
-
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
 	return nil
 
 }

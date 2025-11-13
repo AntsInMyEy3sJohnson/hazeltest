@@ -16,10 +16,10 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	hzMemberChooser     interface {
-		choose(ac memberAccessConfig, sc memberSelectionConfig) ([]hzMember, error)
+		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
+		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -190,7 +190,7 @@ func (m *memberKillerMonkey) causeChaos() {
 		f := rand.Float64()
 		if f <= mc.chaosProbability {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
-			members, err := m.chooser.choose(*mc.accessConfig)
+			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
 				var msg string
 				if errors.Is(err, noMemberFoundError) {
@@ -202,7 +202,7 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			err = m.killer.kill(members, *mc.accessConfig, *mc.memberGrace)
+			err = m.killer.kill(members, mc.accessConfig, mc.memberGrace)
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
 			} else {
