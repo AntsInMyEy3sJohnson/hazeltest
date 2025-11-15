@@ -550,22 +550,111 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
 }
 
+func TestPopulateMemberAccessConfig(t *testing.T) {
+
+	t.Log("given the config builder's method to populate the member access config")
+	{
+		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
+		for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+			t.Logf("\twhen access mode '%s' is given", accessMode)
+			{
+				t.Log("\t\twhen all properties are valid")
+				{
+					testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, accessMode, validLabelSelector)
+					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
+					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
+
+					msg := "\t\t\tno error must be returned"
+					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+
+					msg = "\t\t\tconfig must be returned"
+					if ac != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tconfig must contain correct values"
+					if memberAccessConfigAsExpected(ac, testMemberAccessConfig) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+				t.Log("\t\twhen at least one property is invalid")
+				{
+					testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, accessMode, invalidLabelSelector)
+					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
+					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
+
+					msg := "\t\t\terror must be returned"
+					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX, err)
+					}
+
+					msg = "\t\t\treturned config must be nil"
+					if ac == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+		t.Log("\twhen unknown member access mode is given")
+		{
+			unknownAccessMode := "someUnknownAccessMode"
+			testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, unknownAccessMode, validLabelSelector)
+			assigner := testConfigPropertyAssigner{testMemberAccessConfig}
+			ac, err := b.populateMemberAccessConfig(assigner, unknownAccessMode)
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror must contain information on unknown access mode"
+			if strings.Contains(err.Error(), unknownAccessMode) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err, unknownAccessMode)
+			}
+
+			msg = "\t\tconfig must be nil"
+			if ac == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+	}
+
+}
+
 func TestPopulateConfig(t *testing.T) {
 
 	t.Log("given the config builder's method to populate the member killer config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
-		t.Log("\twhen k8s ouf-of-cluster access mode is given and no property assignment yields an error")
+		t.Log("\twhen valid values are provided for all properties and no property assignment yields an error")
 		{
 			testConfig := assembleTestConfig(
 				testMonkeyKeyPath,
 				true,
 				validChaosProbability,
-				10,
+				42,
 				relativeMemberSelectionMode,
-				false,
+				true,
 				0,
-				0.0,
+				0.3,
 				k8sOutOfClusterAccessMode,
 				validLabelSelector,
 				sleepDisabled,
@@ -573,68 +662,27 @@ func TestPopulateConfig(t *testing.T) {
 			assigner := testConfigPropertyAssigner{testConfig}
 			mc, err := b.populateConfig(assigner)
 
-			msg := "\t\tno errors should be returned"
+			msg := "\t\tno error must be returned"
 			if err == nil {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, err)
+				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tconfig should be returned"
+			msg = "\t\tconfig must be returned"
 			if mc != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tconfig should contain correct values"
+			msg = "\t\tconfig must contain expected values"
 			if configValuesAsExpected(mc, testConfig) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 		}
-
-		t.Log("\twhen k8s in-cluster access mode is given and no property assignment yields an error")
-		{
-			testConfig := assembleTestConfig(
-				testMonkeyKeyPath,
-				true,
-				validChaosProbability,
-				10,
-				relativeMemberSelectionMode,
-				false,
-				0,
-				0.0,
-				k8sInClusterAccessMode,
-				validLabelSelector,
-				sleepDisabled,
-			)
-			assigner := testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig(assigner)
-
-			msg := "\t\tno errors should be returned"
-			if err == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tconfig should be returned"
-			if mc != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err)
-			}
-
-			msg = "\t\tconfig should contain correct values"
-			if configValuesAsExpected(mc, testConfig) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
-
 		t.Log("\twhen top-level property assignment yields an error")
 		{
 			testConfig := assembleTestConfig(
@@ -743,47 +791,6 @@ func TestPopulateConfig(t *testing.T) {
 				}
 			}
 		}
-
-		t.Log("\twhen unknown k8s hazelcast member access mode is given")
-		{
-			unknownAccessMode := "someUnknownAccessMode"
-			testConfig := assembleTestConfig(
-				testMonkeyKeyPath,
-				true,
-				validChaosProbability,
-				10,
-				relativeMemberSelectionMode,
-				false,
-				0,
-				0.0,
-				unknownAccessMode,
-				validLabelSelector,
-				sleepDisabled,
-			)
-			assigner := testConfigPropertyAssigner{testConfig}
-			mc, err := b.populateConfig(assigner)
-
-			msg := "\t\terror should be returned"
-			if err != nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\terror should contain information on unknown access mode"
-			if strings.Contains(err.Error(), unknownAccessMode) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, err, unknownAccessMode)
-			}
-
-			msg = "\t\tconfig should be nil"
-			if mc == nil {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-		}
 	}
 
 }
@@ -830,6 +837,18 @@ func statusContainsExpectedValues(status map[string]any, expectedNumRuns, expect
 	}
 
 	return true, "", ""
+
+}
+
+func assembleTestMemberAccessConfig(keyPath, memberAccessMode, labelSelector string) map[string]any {
+
+	return map[string]any{
+		keyPath + ".memberAccess.mode":                          memberAccessMode,
+		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
+		keyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
+		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
+		keyPath + ".memberAccess.k8sInCluster.labelSelector":    labelSelector,
+	}
 
 }
 
