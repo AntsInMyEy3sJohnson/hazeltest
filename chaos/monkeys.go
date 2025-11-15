@@ -345,6 +345,9 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 	}
 
 	sc, err := b.populateMemberSelectionConfig(a, hzMemberSelectionMode)
+	if err != nil {
+		return nil, err
+	}
 
 	ac, err := b.populateMemberAccessConfig(a, hzMemberAccessMode)
 	if err != nil {
