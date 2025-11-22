@@ -1041,11 +1041,11 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen label selector cannot be determined")
 		{
-			ac := testAccessConfig
+			ac := *testAccessConfig
 			ac.accessMode = "awesomeUnknownMemberAccessMode"
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
-			members, err := memberChooser.choose(ac, testSelectionConfig)
+			members, err := memberChooser.choose(&ac, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil {
