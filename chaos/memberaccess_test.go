@@ -28,10 +28,12 @@ type (
 	testK8sClientsetProvider struct {
 		k8sConfigBuilder
 		k8sClientsetInitializer
-		returnError bool
+		returnError    bool
+		numInvocations int
 	}
 	testK8sNamespaceDiscoverer struct {
-		returnError bool
+		returnError    bool
+		numInvocations int
 	}
 	testK8sPodLister struct {
 		podsToReturn   []v1.Pod
@@ -54,18 +56,14 @@ var (
 )
 
 var (
-	testBuilder                = &testK8sConfigBuilder{}
-	testClientsetInitializer   = &testK8sClientsetInitializer{}
-	testNamespaceDiscoverer    = &testK8sNamespaceDiscoverer{}
-	errTestNamespaceDiscoverer = &testK8sNamespaceDiscoverer{true}
-	csProvider                 = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false}
-	errCsProvider              = &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true}
-	emptyClientset             = &kubernetes.Clientset{}
-	defaultKubeconfig          = "default"
-	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
-	hazelcastNamespace         = "hazelcastplatform"
-	testAccessConfig           = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
-	testSelectionConfig        = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
+	testBuilder              = &testK8sConfigBuilder{}
+	testClientsetInitializer = &testK8sClientsetInitializer{}
+	emptyClientset           = &kubernetes.Clientset{}
+	defaultKubeconfig        = "default"
+	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
+	hazelcastNamespace       = "hazelcastplatform"
+	testAccessConfig         = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
+	testSelectionConfig      = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -109,6 +107,8 @@ func (i *testK8sClientsetInitializer) init(_ *rest.Config) (*kubernetes.Clientse
 
 func (p *testK8sClientsetProvider) getOrInit(_ *memberAccessConfig) (*kubernetes.Clientset, error) {
 
+	p.numInvocations++
+
 	if p.returnError {
 		return nil, clientsetInitError
 	}
@@ -118,6 +118,8 @@ func (p *testK8sClientsetProvider) getOrInit(_ *memberAccessConfig) (*kubernetes
 }
 
 func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (string, error) {
+
+	d.numInvocations++
 
 	if d.returnError {
 		return "", namespaceNotDiscoverableError
@@ -986,8 +988,10 @@ func TestChooseMemberOnK8s(t *testing.T) {
 	{
 		t.Log("\twhen clientset cannot be initialized")
 		{
+			errCsProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
-			memberChooser := k8sHzMemberChooser{errCsProvider, testNamespaceDiscoverer, podLister}
+			memberChooser := k8sHzMemberChooser{errCsProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig),
 				assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
 
@@ -1005,6 +1009,20 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tclient set provider must have one invocation"
+			if errCsProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have no invocations"
+			if nsDiscoverer.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 			msg = "\t\tpod lister must have no invocations"
 			if podLister.numInvocations == 0 {
 				t.Log(msg, checkMark)
@@ -1014,8 +1032,10 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen namespace discovery is not successful")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
-			memberChooser := k8sHzMemberChooser{csProvider, errTestNamespaceDiscoverer, nil}
+			memberChooser := k8sHzMemberChooser{csProvider, errNsDiscoverer, nil}
 			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
@@ -1027,6 +1047,20 @@ func TestChooseMemberOnK8s(t *testing.T) {
 
 			msg = "\t\treturned list of members must be nil"
 			if members == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if errNsDiscoverer.numInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1043,8 +1077,10 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			ac := *testAccessConfig
 			ac.accessMode = "awesomeUnknownMemberAccessMode"
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(&ac, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
@@ -1061,6 +1097,20 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 			msg = "\t\tpod lister must have no invocations"
 			if podLister.numInvocations == 0 {
 				t.Log(msg, checkMark)
@@ -1070,8 +1120,10 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen pod lister returns error")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer, podLister}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
@@ -1088,6 +1140,20 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 			msg = "\t\tpod lister must have one invocation"
 			if podLister.numInvocations == 1 {
 				t.Log(msg, checkMark)
@@ -1097,8 +1163,10 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen no pods are present")
 		{
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
-				&testK8sPodLister{[]v1.Pod{}, false, 0}}
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
 
 			msg := "\t\terror must be returned"
@@ -1114,13 +1182,36 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod lister must have one invocation"
+			if podLister.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 		t.Log("\twhen ready pod is present and target only active is activated")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			pod := assemblePod("hazelcastplatform-0", true)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
-				&testK8sPodLister{pods, false, 0}}
+			podLister := &testK8sPodLister{pods, false, 0}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, true, 1, 0.0)
 			members, err := memberChooser.choose(testAccessConfig, sc)
 
@@ -1145,13 +1236,36 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod lister must have one invocation"
+			if podLister.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 		t.Log("\twhen only non-ready pods are active and target only active is activated")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
-				&testK8sPodLister{pods, false, 0}}
+			podLister := &testK8sPodLister{pods, false, 0}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 			msg := "\t\terror must be returned"
@@ -1167,13 +1281,36 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod lister must have one invocation"
+			if podLister.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 		t.Log("\twhen pods are present and target only active is not activated")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
-			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
-				&testK8sPodLister{pods, false, 0}}
+			podLister := &testK8sPodLister{pods, false, 0}
+			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			ac := assembleTestMemberAccessConfig(k8sInClusterAccessMode, defaultKubeconfig)
 			sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
 			members, err := memberChooser.choose(ac, sc)
@@ -1199,6 +1336,27 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tpod lister must have one invocation"
+			if podLister.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
 		}
 	}
 
@@ -1208,23 +1366,89 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 	t.Log("given the member killer monkey's method to kill a hazelcast member on kubernetes")
 	{
+		t.Log("\twhen given list of members is nil")
+		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
+
+			err := killer.kill(nil, nil, nil)
+
+			msg := "\t\terror must be returned"
+			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have no invocations"
+			if csProvider.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have no invocations"
+			if nsDiscoverer.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have no invocations"
+			if deleter.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+		t.Log("\twhen given list of members is empty")
+		{
+			killer := &k8sHzMemberKiller{}
+
+			err := killer.kill([]hzMember{}, nil, nil)
+
+			msg := "\t\terror must be returned"
+			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 		t.Log("\twhen clientset initialization yields an error")
 		{
+			errCsProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
 				clientsetProvider:   errCsProvider,
-				namespaceDiscoverer: testNamespaceDiscoverer,
+				namespaceDiscoverer: nsDiscoverer,
 				podDeleter:          deleter,
 			}
 
 			err := killer.kill(
-				[]hzMember{},
+				assembleMemberList(1),
 				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, 42),
 			)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, clientsetInitError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if errCsProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have no invocations"
+			if nsDiscoverer.numInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1239,13 +1463,29 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen namespace discovery is not successful")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 			podDeleter := &testK8sPodDeleter{false, 0, 42}
-			killer := k8sHzMemberKiller{csProvider, errTestNamespaceDiscoverer, podDeleter}
+			killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
 
-			err := killer.kill([]hzMember{}, testAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
+			err := killer.kill(assembleMemberList(1), testAccessConfig, assembleMemberGraceSleepConfig(false, false, 0))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if errNsDiscoverer.numInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1260,24 +1500,38 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen member grace is enabled with randomness")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
 				clientsetProvider:   csProvider,
-				namespaceDiscoverer: testNamespaceDiscoverer,
+				namespaceDiscoverer: nsDiscoverer,
 				podDeleter:          deleter,
 			}
 
 			memberGraceSeconds := math.MaxInt - 1
 			err := killer.kill(
-				[]hzMember{
-					{"hazelcastplatform-0"},
-				},
+				assembleMemberList(1),
 				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 			)
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1299,10 +1553,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen member grace is enabled without randomness")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
 				clientsetProvider:   csProvider,
-				namespaceDiscoverer: testNamespaceDiscoverer,
+				namespaceDiscoverer: nsDiscoverer,
 				podDeleter:          deleter,
 			}
 
@@ -1331,10 +1587,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen member grace is disabled")
 		{
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{
 				clientsetProvider:   csProvider,
-				namespaceDiscoverer: testNamespaceDiscoverer,
+				namespaceDiscoverer: nsDiscoverer,
 				podDeleter:          deleter,
 			}
 
@@ -1353,6 +1611,27 @@ func TestKillMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have one invocation"
+			if deleter.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 			msg = "\t\tdeletion must be invoked with member grace zero"
 			if deleter.gracePeriodSeconds == 0 {
 				t.Log(msg, checkMark)
@@ -1362,11 +1641,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen pod deletion yields an error")
 		{
-			deleter := &testK8sPodDeleter{returnError: true}
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
+			errDeleter := &testK8sPodDeleter{returnError: true}
 			killer := &k8sHzMemberKiller{
 				clientsetProvider:   csProvider,
-				namespaceDiscoverer: testNamespaceDiscoverer,
-				podDeleter:          deleter,
+				namespaceDiscoverer: nsDiscoverer,
+				podDeleter:          errDeleter,
 			}
 
 			err := killer.kill(
@@ -1379,6 +1660,27 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, podDeleteError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have one invocation"
+			if csProvider.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have one invocation"
+			if nsDiscoverer.numInvocations == 1 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have one invocation"
+			if errDeleter.numInvocations == 1 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1417,6 +1719,18 @@ func assemblePodList(numPods, numReady int) []v1.Pod {
 	}
 
 	return podList
+
+}
+
+func assembleMemberList(numMembers int) []hzMember {
+
+	members := make([]hzMember, numMembers)
+
+	for i := 0; i < numMembers; i++ {
+		members[i] = hzMember{identifier: fmt.Sprintf("hazelcastimdg-%d", i)}
+	}
+
+	return members
 
 }
 
