@@ -84,7 +84,7 @@ const (
 )
 
 var (
-	noMemberFoundError = errors.New("unable to identify hazelcast member to be terminated")
+	noMemberFoundError = errors.New("unable to identify hazelcast members to be terminated")
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
