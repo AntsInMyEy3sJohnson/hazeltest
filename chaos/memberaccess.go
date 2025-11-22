@@ -84,7 +84,8 @@ const (
 )
 
 var (
-	noMemberFoundError = errors.New("unable to identify hazelcast members to be terminated")
+	noMemberFoundError               = errors.New("unable to identify hazelcast members to be terminated")
+	noMembersProvidedForKillingError = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
@@ -377,8 +378,8 @@ func isPodReady(p v1.Pod) bool {
 
 func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
 
-	if members == nil {
-		return errors.New("encountered list of nil members to kill")
+	if members == nil || len(members) == 0 {
+		return noMembersProvidedForKillingError
 	}
 
 	for _, m := range members {
