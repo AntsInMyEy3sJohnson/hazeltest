@@ -197,7 +197,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 				}
 
 				msg = "\t\t\terror must be returned"
-				if err != nil {
+				if err != nil && errors.Is(err, noMemberFoundError) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
