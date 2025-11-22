@@ -14,6 +14,7 @@ chaosMonkeys:
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
     chaosProbability: 0.5
+    # TODO Write documentation
     memberSelection:
       mode: relative
       # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
