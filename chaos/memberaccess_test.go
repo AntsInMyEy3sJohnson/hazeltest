@@ -64,8 +64,8 @@ var (
 	defaultKubeconfig          = "default"
 	nonDefaultKubeconfig       = "/some/path/to/a/custom/kubeconfig"
 	hazelcastNamespace         = "hazelcastplatform"
-	testAccessConfig           = assembleTestAccessConfig(k8sInClusterAccessMode, "")
-	testSelectionConfig        = assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
+	testAccessConfig           = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
+	testSelectionConfig        = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
@@ -186,7 +186,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 				pods := assemblePodList(12, 0)
 
 				hzMembers, err := chooseTargetMembersFromPods(pods,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0),
+					assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0),
 					false)
 
 				msg := "\t\t\treturned list of hazelcast members must be nil"
@@ -215,7 +215,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 
 						numPodsToSelect := uint8(10)
 						hzMembers, err := chooseTargetMembersFromPods(pods,
-							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+							assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
 							false)
 
 						msg := "\t\t\t\t\treturned list of hazelcast members must be nil"
@@ -240,7 +240,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 
 						numPodsToSelect := uint8(6)
 						hzMembers, err := chooseTargetMembersFromPods(pods,
-							assembleTestSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
+							assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, true, numPodsToSelect, 0.0),
 							false)
 
 						msg := "\t\t\t\t\treturned list of hazelcast members must contain expected number of elements"
@@ -283,7 +283,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 
 					percentageOfMembersToSelect := 0.5
 					hzMembers, err := chooseTargetMembersFromPods(pods,
-						assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0.0, float32(percentageOfMembersToSelect)),
+						assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, float32(percentageOfMembersToSelect)),
 						false)
 
 					msg := "\t\t\t\treturned list of hazelcast members must contain expected number of elements"
@@ -315,7 +315,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 				pods := assemblePodList(numPods, numPods)
 
 				hzMembers, err := chooseTargetMembersFromPods(pods,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 1.0),
+					assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0, 1.0),
 					false)
 				msg := "\t\t\tlist of returned hazelcast members must contain members corresponding to all pods"
 				if len(hzMembers) == numPods {
@@ -351,7 +351,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 
 				numPodsToSelect := uint8(5)
 				hzMembers, err := chooseTargetMembersFromPods(pods,
-					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, numPodsToSelect, 0.0), false)
+					assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, numPodsToSelect, 0.0), false)
 
 				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
 				if uint8(len(hzMembers)) == numPodsToSelect {
@@ -385,7 +385,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 				pods := assemblePodList(numPods, numReadyPods)
 
 				hzMembers, err := chooseTargetMembersFromPods(pods,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0.0, 1.0), false)
+					assembleTestMemberSelectionConfig(relativeMemberSelectionMode, false, 0.0, 1.0), false)
 
 				msg := "\t\t\tlist of returned hazelcast members must contain expected number of elements"
 				if len(hzMembers) == numPods {
@@ -442,7 +442,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 			{
 				podList := assemblePodList(1, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, 2, 0))
+					assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, 2, 0))
 
 				msg := "\t\t\tevaluated number of pods to select must be zero"
 				if numPodsToSelect == 0 {
@@ -465,7 +465,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 				configuredNumPodsToSelect := uint8(len(podList))
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(absoluteMemberSelectionMode, false, configuredNumPodsToSelect, 0))
+					assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, configuredNumPodsToSelect, 0))
 
 				msg := "\t\t\tevaluated number of pods to select must correspond to configured number of pods to select"
 				if numPodsToSelect == configuredNumPodsToSelect {
@@ -489,7 +489,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 			{
 				podList := assemblePodList(1, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 0.0))
+					assembleTestMemberSelectionConfig(relativeMemberSelectionMode, false, 0, 0.0))
 
 				msg := "\t\t\tevaluated number of pods must be zero, too"
 				if numPodsToSelect == 0 {
@@ -510,7 +510,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 			{
 				podList := assemblePodList(9, 0)
 				numPodsToSelect, err := evaluateNumPodsToSelect(podList,
-					assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 1.0))
+					assembleTestMemberSelectionConfig(relativeMemberSelectionMode, false, 0, 1.0))
 
 				msg := "\t\t\tevaluated number of pods to select must be equal to number of pods in selection pool"
 				if numPodsToSelect == uint8(len(podList)) {
@@ -531,7 +531,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 
 			podList := assemblePodList(9, 0)
 
-			sc := assembleTestSelectionConfig(relativeMemberSelectionMode, false, 0, 0.5)
+			sc := assembleTestMemberSelectionConfig(relativeMemberSelectionMode, false, 0, 0.5)
 			numPodsToSelect, err := evaluateNumPodsToSelect(podList, sc)
 
 			msg := "\t\t\tnumber of pods to select must correspond to next-highest integer"
@@ -553,7 +553,7 @@ func TestEvaluateNumPodsToSelect(t *testing.T) {
 		t.Log("\twhen unknown member selection mode is configured")
 		{
 			numPodsToSelected, err := evaluateNumPodsToSelect(assemblePodList(1, 0),
-				assembleTestSelectionConfig("awesomeNonExistingSelectionMode", false, 0, 0.0))
+				assembleTestMemberSelectionConfig("awesomeNonExistingSelectionMode", false, 0, 0.0))
 
 			msg := "\t\tnumber of pods to select must be zero"
 			if numPodsToSelected == 0 {
@@ -618,7 +618,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 		t.Log("\twhen namespace discovery is successful")
 		{
 			discoverer := &defaultK8sNamespaceDiscoverer{}
-			namespace, err := discoverer.getOrDiscover(assembleTestAccessConfig(k8sOutOfClusterAccessMode, "default"))
+			namespace, err := discoverer.getOrDiscover(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, "default"))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -642,7 +642,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 			}
 
 			msg = "\t\twhen queried again, discoverer must return previously discovered namespace"
-			ac := assembleTestAccessConfig(k8sOutOfClusterAccessMode, "default")
+			ac := assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, "default")
 			ac.k8sOutOfCluster.namespace = "another-namespace"
 
 			namespace, err = discoverer.getOrDiscover(ac)
@@ -656,7 +656,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 		t.Log("\twhen namespace discovery is not successful")
 		{
 			discoverer := &defaultK8sNamespaceDiscoverer{}
-			namespace, err := discoverer.getOrDiscover(assembleTestAccessConfig("some-non-existing-access-mode", "default"))
+			namespace, err := discoverer.getOrDiscover(assembleTestMemberAccessConfig("some-non-existing-access-mode", "default"))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -698,7 +698,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -758,7 +758,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				_, _ = provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig))
+				_, _ = provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig))
 
 				msg := "\t\t\tmaster url and kubeconfig must have been passed correctly"
 				if builder.masterUrl == "" && builder.kubeconfig == nonDefaultKubeconfig {
@@ -776,7 +776,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
 
 				msg := "\t\t\terror must be returned"
 				if err != nil && errors.Is(err, configBuildError) {
@@ -880,7 +880,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			provider := &defaultK8sClientsetProvider{}
 
 			unknownAccessMode := "someUnknownMemberAccessMode"
-			cs, err := provider.getOrInit(assembleTestAccessConfig(unknownAccessMode, "default"))
+			cs, err := provider.getOrInit(assembleTestMemberAccessConfig(unknownAccessMode, "default"))
 
 			msg := "\t\terror must be returned"
 			if err != nil {
@@ -917,7 +917,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			provider := &defaultK8sClientsetProvider{configBuilder: builder, clientsetInitializer: initializer}
 			provider.cs = emptyClientset
 
-			cs, err := provider.getOrInit(assembleTestAccessConfig("something", "default"))
+			cs, err := provider.getOrInit(assembleTestMemberAccessConfig("something", "default"))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -988,8 +988,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsProvider, testNamespaceDiscoverer, podLister}
-			members, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig),
-				assembleTestSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
+			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig),
+				assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, clientsetInitError) {
@@ -1099,7 +1099,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		{
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{[]v1.Pod{}, false, 0}}
-			members, err := memberChooser.choose(assembleTestAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
+			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMemberFoundError) {
@@ -1121,7 +1121,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			sc := assembleTestSelectionConfig(absoluteMemberSelectionMode, true, 1, 0.0)
+			sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, true, 1, 0.0)
 			members, err := memberChooser.choose(testAccessConfig, sc)
 
 			msg := "\t\tno error must be returned"
@@ -1174,8 +1174,8 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			pods := []v1.Pod{pod}
 			memberChooser := k8sHzMemberChooser{csProvider, testNamespaceDiscoverer,
 				&testK8sPodLister{pods, false, 0}}
-			ac := assembleTestAccessConfig(k8sInClusterAccessMode, defaultKubeconfig)
-			sc := assembleTestSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
+			ac := assembleTestMemberAccessConfig(k8sInClusterAccessMode, defaultKubeconfig)
+			sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
 			members, err := memberChooser.choose(ac, sc)
 
 			msg := "\t\tno error must be returned"
@@ -1219,7 +1219,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			err := killer.kill(
 				[]hzMember{},
-				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
+				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, 42),
 			)
 
@@ -1272,7 +1272,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				[]hzMember{
 					{"hazelcastplatform-0"},
 				},
-				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
+				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 			)
 
@@ -1311,7 +1311,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				[]hzMember{
 					{"hazelcastplatform-0"},
 				},
-				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
+				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 			)
 
@@ -1342,7 +1342,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				[]hzMember{
 					{"hazelcastplatform-0"},
 				},
-				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
+				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
 
@@ -1373,7 +1373,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				[]hzMember{
 					{"hazelcastplatform-0"},
 				},
-				assembleTestAccessConfig(k8sInClusterAccessMode, "default"),
+				assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
 				assembleMemberGraceSleepConfig(false, false, 42),
 			)
 
@@ -1455,7 +1455,7 @@ func assembleMemberGraceSleepConfig(enabled, enableRandomness bool, durationSeco
 
 }
 
-func assembleTestSelectionConfig(selectionMode string, targetOnlyActive bool, absoluteNumMembersToKill uint8, relativePercentageOfMembersToKill float32) *memberSelectionConfig {
+func assembleTestMemberSelectionConfig(selectionMode string, targetOnlyActive bool, absoluteNumMembersToKill uint8, relativePercentageOfMembersToKill float32) *memberSelectionConfig {
 
 	return &memberSelectionConfig{
 		selectionMode:                     selectionMode,
@@ -1466,7 +1466,7 @@ func assembleTestSelectionConfig(selectionMode string, targetOnlyActive bool, ab
 
 }
 
-func assembleTestAccessConfig(memberAccessMode, kubeconfig string) *memberAccessConfig {
+func assembleTestMemberAccessConfig(memberAccessMode, kubeconfig string) *memberAccessConfig {
 
 	return &memberAccessConfig{
 		accessMode: memberAccessMode,

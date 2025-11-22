@@ -154,7 +154,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 	{
 		t.Log("\twhen populating the member killer config returns an error")
 		{
-			assigner := &testConfigPropertyAssigner{assembleTestConfig(
+			assigner := &testConfigPropertyAssigner{assembleTestConfigAsMap(
 				memberKillerKeyPath,
 				true,
 				invalidChaosProbability,
@@ -211,7 +211,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		genericMsg := "\t\tstate transitions must be correct"
 		t.Log("\twhen monkey is disabled")
 		{
-			testConfig := assembleTestConfig(
+			testConfig := assembleTestConfigAsMap(
 				memberKillerKeyPath,
 				false,
 				validChaosProbability,
@@ -269,7 +269,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			numRuns := 9
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					1.0,
@@ -350,7 +350,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			numRuns := 9
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					0.0,
@@ -396,7 +396,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			numRuns := 3
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					1.0,
@@ -442,7 +442,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		{
 			numRuns := 3
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					1.0,
@@ -480,7 +480,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 		t.Log("\twhen sleep has been disabled")
 		{
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					1.0,
@@ -518,7 +518,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				enableRandomness: false,
 			}
 			assigner := &testConfigPropertyAssigner{
-				assembleTestConfig(
+				assembleTestConfigAsMap(
 					memberKillerKeyPath,
 					true,
 					1.0,
@@ -560,7 +560,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 			{
 				t.Log("\t\twhen all properties are valid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, accessMode, validLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, validLabelSelector)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -587,7 +587,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 				}
 				t.Log("\t\twhen at least one property is invalid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, accessMode, invalidLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, invalidLabelSelector)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -610,7 +610,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 		t.Log("\twhen unknown member access mode is given")
 		{
 			unknownAccessMode := "someUnknownAccessMode"
-			testMemberAccessConfig := assembleTestMemberAccessConfig(testMonkeyKeyPath, unknownAccessMode, validLabelSelector)
+			testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, unknownAccessMode, validLabelSelector)
 			assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 			ac, err := b.populateMemberAccessConfig(assigner, unknownAccessMode)
 
@@ -646,7 +646,7 @@ func TestPopulateConfig(t *testing.T) {
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
 		t.Log("\twhen valid values are provided for all properties and no property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(
+			testConfig := assembleTestConfigAsMap(
 				testMonkeyKeyPath,
 				true,
 				validChaosProbability,
@@ -685,7 +685,7 @@ func TestPopulateConfig(t *testing.T) {
 		}
 		t.Log("\twhen top-level property assignment yields an error")
 		{
-			testConfig := assembleTestConfig(
+			testConfig := assembleTestConfigAsMap(
 				testMonkeyKeyPath,
 				true,
 				invalidChaosProbability,
@@ -721,7 +721,7 @@ func TestPopulateConfig(t *testing.T) {
 			for _, selectionMode := range []string{relativeMemberSelectionMode, absoluteMemberSelectionMode} {
 				t.Logf("\t\t%s", selectionMode)
 				{
-					testConfig := assembleTestConfig(
+					testConfig := assembleTestConfigAsMap(
 						testMonkeyKeyPath,
 						true,
 						validChaosProbability,
@@ -759,7 +759,7 @@ func TestPopulateConfig(t *testing.T) {
 			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
 				t.Logf("\t\t%s", accessMode)
 				{
-					testConfig := assembleTestConfig(
+					testConfig := assembleTestConfigAsMap(
 						testMonkeyKeyPath,
 						true,
 						validChaosProbability,
@@ -840,7 +840,7 @@ func statusContainsExpectedValues(status map[string]any, expectedNumRuns, expect
 
 }
 
-func assembleTestMemberAccessConfig(keyPath, memberAccessMode, labelSelector string) map[string]any {
+func assembleTestMemberAccessConfigAsMap(keyPath, memberAccessMode, labelSelector string) map[string]any {
 
 	return map[string]any{
 		keyPath + ".memberAccess.mode":                          memberAccessMode,
@@ -852,7 +852,7 @@ func assembleTestMemberAccessConfig(keyPath, memberAccessMode, labelSelector str
 
 }
 
-func assembleTestConfig(
+func assembleTestConfigAsMap(
 	keyPath string,
 	enabled bool,
 	chaosProbability float64,
