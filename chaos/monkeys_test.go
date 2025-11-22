@@ -550,6 +550,91 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
 }
 
+func TestPopulateMemberSelectionConfig(t *testing.T) {
+
+	t.Log("given the config builder's method to populate the member selection config")
+	{
+		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
+		{
+			for _, selectionMode := range []string{absoluteMemberSelectionMode, relativeMemberSelectionMode} {
+				t.Logf("\twhen selection mode '%s' is given", selectionMode)
+				{
+					t.Log("\t\twhen all properties are valid")
+					{
+						var absoluteNumMembersToKill int
+						var relativePercentageOfMembersToKill float32
+						if selectionMode == absoluteMemberSelectionMode {
+							absoluteNumMembersToKill = 1
+							relativePercentageOfMembersToKill = 0
+						} else {
+							absoluteNumMembersToKill = 0
+							relativePercentageOfMembersToKill = 0.3
+						}
+
+						testMemberSelectionConfig := assembleTestMemberSelectionConfigAsMap(testMonkeyKeyPath, selectionMode, true, absoluteNumMembersToKill, relativePercentageOfMembersToKill)
+						assigner := testConfigPropertyAssigner{testMemberSelectionConfig}
+
+						sc, err := b.populateMemberSelectionConfig(assigner, selectionMode)
+
+						msg := "\t\t\tno error must be returned"
+						if err == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\tconfig must be returned"
+						if sc != nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\tconfig must have expected values"
+						if memberSelectionConfigAsExpected(sc, testMemberSelectionConfig) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\twhen at least one property is invalid")
+					{
+						var absoluteNumMembersToKill int
+						var relativePercentageOfMembersToKill float32
+						if selectionMode == absoluteMemberSelectionMode {
+							absoluteNumMembersToKill = 0
+							relativePercentageOfMembersToKill = 0
+						} else {
+							absoluteNumMembersToKill = 0
+							relativePercentageOfMembersToKill = 1.1
+						}
+
+						testMemberSelectionConfig := assembleTestMemberSelectionConfigAsMap(testMonkeyKeyPath, selectionMode, true, absoluteNumMembersToKill, relativePercentageOfMembersToKill)
+						assigner := testConfigPropertyAssigner{testMemberSelectionConfig}
+
+						sc, err := b.populateMemberSelectionConfig(assigner, selectionMode)
+
+						msg := "\t\t\terror must be returned"
+						if err != nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\treturned config must be nil"
+						if sc == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestPopulateMemberAccessConfig(t *testing.T) {
 
 	t.Log("given the config builder's method to populate the member access config")
@@ -840,6 +925,17 @@ func statusContainsExpectedValues(status map[string]any, expectedNumRuns, expect
 
 }
 
+func assembleTestMemberSelectionConfigAsMap(keyPath, memberSelectionMode string, targetOnlyActive bool, absoluteNumMembersToKill int, relativePercentageOfMembersToKill float32) map[string]any {
+
+	return map[string]any{
+		keyPath + ".memberSelection.mode":                               memberSelectionMode,
+		keyPath + ".memberSelection.targetOnlyActive":                   targetOnlyActive,
+		keyPath + ".memberSelection.absolute.numMembersToKill":          absoluteNumMembersToKill,
+		keyPath + ".memberSelection.relative.percentageOfMembersToKill": relativePercentageOfMembersToKill,
+	}
+
+}
+
 func assembleTestMemberAccessConfigAsMap(keyPath, memberAccessMode, labelSelector string) map[string]any {
 
 	return map[string]any{
@@ -917,9 +1013,9 @@ func memberSelectionConfigAsExpected(sc *memberSelectionConfig, expected map[str
 	}
 
 	if sc.selectionMode == relativeMemberSelectionMode {
-		return sc.relativePercentageOfMembersToKill == expected[testMonkeyKeyPath+".memberSelection.relative.percentageOfMembersToKill"]
+		return sc.relativePercentageOfMembersToKill == expected[testMonkeyKeyPath+".memberSelection.relative.percentageOfMembersToKill"].(float32)
 	} else if sc.selectionMode == absoluteMemberSelectionMode {
-		return sc.absoluteNumMembersToKill == expected[testMonkeyKeyPath+".memberSelection.absolute.numMembersToKill"]
+		return sc.absoluteNumMembersToKill == uint8(expected[testMonkeyKeyPath+".memberSelection.absolute.numMembersToKill"].(int))
 	}
 
 	return false
