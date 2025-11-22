@@ -300,6 +300,9 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 				onlyReadyPods = append(onlyReadyPods, p)
 			}
 		}
+		if len(onlyReadyPods) == 0 {
+			return nil, noMemberFoundError
+		}
 		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
 
