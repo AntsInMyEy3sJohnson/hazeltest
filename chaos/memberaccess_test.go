@@ -1351,10 +1351,64 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				}
 
 			}
+			t.Log("\t\twhen active (ready) pods are present and desired number of pods is equal to number of available pods")
+			{
+				csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+				nsDiscoverer := &testK8sNamespaceDiscoverer{}
+				numAvailablePods := 15
+				pods := assemblePodList(numAvailablePods, numAvailablePods)
+				podLister := &testK8sPodLister{pods, false, 0}
+				memberChooser := &k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
+
+				members, err := memberChooser.choose(testAccessConfig, assembleTestMemberSelectionConfig(
+					absoluteMemberSelectionMode, true, uint8(numAvailablePods), 0.0))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tnumber of hazelcast members in returned list must be equal to number of available pods"
+				if len(members) == numAvailablePods {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tentries in returned list of hazelcast members must be unique"
+				if assertOnlyUniqueIdentifiers(members) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tclient set provider must have one invocation"
+				if csProvider.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tnamespace discoverer must have one invocation"
+				if nsDiscoverer.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\tpod lister must have one invocation"
+				if podLister.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
 		}
 		t.Log("\twhen target only active (ready) is disabled")
 		{
-			t.Log("\twhen pods are present")
+			t.Log("\t\twhen one pod is present")
 			{
 				csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 				nsDiscoverer := &testK8sNamespaceDiscoverer{}
@@ -1366,14 +1420,14 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
 				members, err := memberChooser.choose(ac, sc)
 
-				msg := "\t\tno error must be returned"
+				msg := "\t\t\tno error must be returned"
 				if err == nil {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = "\t\treturned list of members must contain one element"
+				msg = "\t\t\treturned list of members must contain one element"
 				if len(members) == 1 {
 					t.Log(msg, checkMark)
 				} else {
@@ -1381,8 +1435,63 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				}
 
 				member := members[0]
-				msg = "\t\tname of chosen member must correspond to name of given pod"
+				msg = "\t\t\tname of chosen member must correspond to name of given pod"
 				if member.identifier == pod.Name {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tclient set provider must have one invocation"
+				if csProvider.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tnamespace discoverer must have one invocation"
+				if nsDiscoverer.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tpod lister must have one invocation"
+				if podLister.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen multiple pods are present, only a subset of which is in active (ready) state")
+			{
+				csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+				nsDiscoverer := &testK8sNamespaceDiscoverer{}
+				numAvailablePods := 15
+				pods := assemblePodList(numAvailablePods, 12)
+				podLister := &testK8sPodLister{pods, false, 0}
+				memberChooser := &k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
+
+				members, err := memberChooser.choose(testAccessConfig, assembleTestMemberSelectionConfig(
+					absoluteMemberSelectionMode, false, uint8(numAvailablePods), 0.0))
+
+				msg := "\t\t\tno error must be returned"
+				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tnumber of hazelcast members in returned list must be equal to number of available pods"
+				if len(members) == numAvailablePods {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tentries in returned list of hazelcast members must be unique"
+				if assertOnlyUniqueIdentifiers(members) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
