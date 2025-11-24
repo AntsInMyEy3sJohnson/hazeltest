@@ -276,9 +276,6 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
 	if hzMembers, err := chooseTargetMembersFromPods(pods, sc, false); err == nil {
-		if len(hzMembers) == 0 {
-			return nil, fmt.Errorf("unable to choose target hazelcast members from given list of %d candidate pod/-s", len(pods))
-		}
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose %d hazelcast members to kill from given list of %d pod/-s", len(hzMembers), len(pods)), log.InfoLevel)
 		return hzMembers, nil
 	} else {
