@@ -1096,7 +1096,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			ac := *testAccessConfig
 			ac.accessMode = "awesomeUnknownMemberAccessMode"
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(&ac, testSelectionConfig)
