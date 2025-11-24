@@ -84,8 +84,9 @@ const (
 )
 
 var (
-	noMemberFoundError               = errors.New("unable to identify hazelcast members to be terminated")
-	noMembersProvidedForKillingError = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
+	noMemberFoundError                 = errors.New("unable to identify hazelcast members to be terminated")
+	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
+	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
@@ -289,8 +290,8 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 
 func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
-	if len(pods) == 0 {
-		return nil, errors.New("cannot select pods from empty list of pods")
+	if pods == nil || len(pods) == 0 {
+		return nil, noMembersProvidedToChooseFromError
 	}
 
 	// TODO Add logging

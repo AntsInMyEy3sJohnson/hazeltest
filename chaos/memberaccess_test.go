@@ -162,6 +162,24 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 
 	t.Log("given a list of pods, a member selection config, and information whether the list contains only ready pods")
 	{
+		t.Log("\twhen list of pods is nil")
+		{
+			hzMembers, err := chooseTargetMembersFromPods(nil, nil, false)
+
+			msg := "\t\tnil list of hazelcast members must be returned"
+			if hzMembers == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror must be returned"
+			if err != nil && errors.Is(err, noMembersProvidedToChooseFromError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
 		t.Log("\twhen list of pods is empty")
 		{
 			hzMembers, err := chooseTargetMembersFromPods([]v1.Pod{}, nil, false)
@@ -174,7 +192,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 			}
 
 			msg = "\t\terror must be returned"
-			if err != nil {
+			if err != nil && errors.Is(err, noMembersProvidedToChooseFromError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
