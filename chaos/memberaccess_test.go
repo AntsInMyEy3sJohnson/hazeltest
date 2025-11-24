@@ -1121,7 +1121,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen pod lister returns error")
 		{
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, true, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
@@ -1164,7 +1164,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen no pods are present")
 		{
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
 			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
@@ -1207,7 +1207,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen ready pod is present and target only active is activated")
 		{
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			pod := assemblePod("hazelcastplatform-0", true)
 			pods := []v1.Pod{pod}
 			podLister := &testK8sPodLister{pods, false, 0}
@@ -1261,7 +1261,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen only non-ready pods are active and target only active is activated")
 		{
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
 			podLister := &testK8sPodLister{pods, false, 0}
@@ -1306,7 +1306,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 		t.Log("\twhen pods are present and target only active is not activated")
 		{
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-			nsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			pod := assemblePod("hazelcastplatform-0", false)
 			pods := []v1.Pod{pod}
 			podLister := &testK8sPodLister{pods, false, 0}
