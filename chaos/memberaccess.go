@@ -84,7 +84,9 @@ const (
 )
 
 var (
-	noMemberFoundError                 = errors.New("unable to identify hazelcast members to be terminated")
+	noMembersFoundError      = errors.New("no members found to be terminated")
+	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
+
 	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
 	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
 )
@@ -270,7 +272,7 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 	pods := podList.Items
 	if len(pods) == 0 {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.WarnLevel)
-		return nil, noMemberFoundError
+		return nil, noMembersFoundError
 	}
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
@@ -300,7 +302,7 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 			}
 		}
 		if len(onlyReadyPods) == 0 {
-			return nil, noMemberFoundError
+			return nil, noReadyMembersFoundError
 		}
 		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
