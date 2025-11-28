@@ -7,7 +7,7 @@ type: application
 version: 2.2.0
 
 # Version of Hazelcast Platform used in this chart
-appVersion: "5.5.2"
+appVersion: "5.6.0"
 
 # Useful commands: 
 # helm upgrade --install hazelcastwithmancenter ./hazelcastwithmancenter --namespace=hazelcastplatform --create-namespace
