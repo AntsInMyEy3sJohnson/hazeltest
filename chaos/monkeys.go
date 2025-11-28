@@ -193,10 +193,12 @@ func (m *memberKillerMonkey) causeChaos() {
 			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
 				var msg string
-				if errors.Is(err, noMemberFoundError) {
-					msg = "no hazelcast member available to be killed -- will try again in next iteration"
+				if errors.Is(err, noMembersFoundError) {
+					msg = "no hazelcast members available to be killed -- will try again in next iteration"
+				} else if errors.Is(err, noReadyMembersFoundError) {
+					msg = "no suitable hazelcast members available to be killed -- will try again in next iteration"
 				} else {
-					msg = "unable to choose hazelcast member to kill -- will try again in next iteration"
+					msg = "unable to choose hazelcast members to kill -- will try again in next iteration"
 				}
 				lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
 				continue

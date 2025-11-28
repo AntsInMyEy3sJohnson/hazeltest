@@ -217,7 +217,7 @@ func TestChooseTargetMembersFromPods(t *testing.T) {
 				}
 
 				msg = "\t\t\terror must be returned"
-				if err != nil && errors.Is(err, noMemberFoundError) {
+				if err != nil && errors.Is(err, noReadyMembersFoundError) {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1188,7 +1188,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
 
 			msg := "\t\terror must be returned"
-			if err != nil && errors.Is(err, noMemberFoundError) {
+			if err != nil && errors.Is(err, noMembersFoundError) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1291,7 +1291,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 					members, err := memberChooser.choose(testAccessConfig, testSelectionConfig)
 
 					msg := "\t\t\t\terror must be returned"
-					if err != nil && errors.Is(err, noMemberFoundError) {
+					if err != nil && errors.Is(err, noReadyMembersFoundError) {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
