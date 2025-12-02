@@ -16,10 +16,10 @@ chaosMonkeys:
     chaosProbability: 0.5
     # TODO Write documentation
     memberSelection:
-      mode: relative
       # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
       # true, the monkey will not kill Pods that haven't achieved readiness.
       targetOnlyActive: true
+      mode: relative
       absolute:
         numMembersToKill: 1
       relative:
