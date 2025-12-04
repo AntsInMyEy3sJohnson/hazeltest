@@ -14,16 +14,40 @@ chaosMonkeys:
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
     chaosProbability: 0.5
-    # TODO Write documentation
+    # Specifies the strategy the monkey will use to select Hazelcast members in each run. (Note the difference to
+    # 'memberAccess' below -- the "access" configuration is concerned with how to access the members in the first place,
+    # whereas the "selection" configuration deals with how members should be selected once access was established).
     memberSelection:
       # Controls whether the member killer monkey should only consider active ("ready") members. If this is set to
       # true, the monkey will not kill Pods that haven't achieved readiness.
       targetOnlyActive: true
+      # The mode the monkey will use to evaluate how many members should be terminated. As of this writing, two are
+      # available; relative and absolute. Correspondingly, the mode setting can take either of these two values.
+      # Regardless of the specified mode, the monkey will re-evaluate the specific number of members to terminate in each
+      # of its iterations.
       mode: relative
+      # Absolute member selection mode instructs the monkey to simply select the given number of Hazelcast members for
+      # termination.
       absolute:
+        # The number of Hazelcast members to select for termination. Note that in contrast to the relative member selection
+        # mode, it is easily possible to specify more members than are available. If the number of members is lower
+        # than what the monkey is supposed to terminate according to this setting, the monkey will not terminate the
+        # members that are available but only log an error informing about this condition and try again in its next
+        # iteration. The 'targetOnlyActive' setting is taken into consideration, so if the configured number of members
+        # to kill is higher than the number of members currently active (ready), the monkey will exhibit the aforementioned
+        # behavior.
         numMembersToKill: 1
+      # Relative member selection mode instructs the monkey to evaluate the number of members to terminate based on the
+      # given percentage in relation to the number of members available.
       relative:
+        # The percentage of members to terminate. Inherently, this means you cannot accidentally specify a number higher
+        # than the number of members currently available. The 'targetOnlyActive' setting is taken into consideration
+        # here, too, meaning the number of members to use as the baseline for calculating the number of members to terminate
+        # can be either the number of active (ready) members or the total number of members, regardless of their current
+        # state. If 'targetOnlyActive' is enabled and no active members are present, the monkey will log an error and not
+        # terminate the other members.
         percentageOfMembersToKill: 0.3
+    # Configures how the monkey should access the target Hazelcast members.
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
       mode: k8sInCluster
