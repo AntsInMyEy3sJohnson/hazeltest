@@ -208,7 +208,7 @@ func (m *memberKillerMonkey) causeChaos() {
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
 			} else {
-				m.updateNumMembersKilled()
+				m.updateNumMembersKilled(uint32(len(members)))
 			}
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
@@ -220,9 +220,9 @@ func (m *memberKillerMonkey) causeChaos() {
 
 }
 
-func (m *memberKillerMonkey) updateNumMembersKilled() {
+func (m *memberKillerMonkey) updateNumMembersKilled(num uint32) {
 
-	m.numMembersKilled++
+	m.numMembersKilled += num
 	m.g.Gather(status.Update{Key: statusKeyNumMembersKilled, Value: m.numMembersKilled})
 
 }

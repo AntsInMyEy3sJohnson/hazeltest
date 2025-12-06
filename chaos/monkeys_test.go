@@ -3,6 +3,7 @@ package chaos
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"hazeltest/status"
 	"strings"
 	"testing"
@@ -11,13 +12,13 @@ import (
 type (
 	testHzMemberChooser struct {
 		returnError    bool
-		memberID       string
+		memberIDs      []string
 		numInvocations int
 	}
 	testHzMemberKiller struct {
 		returnError    bool
 		numInvocations int
-		givenHzMember  hzMember
+		givenHzMembers []hzMember
 	}
 	testConfigPropertyAssigner struct {
 		testConfig map[string]any
@@ -66,7 +67,7 @@ func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *
 		return errors.New("yet another error that should have been completely impossible")
 	}
 
-	k.givenHzMember = members[0]
+	k.givenHzMembers = members
 
 	return nil
 
@@ -80,9 +81,12 @@ func (c *testHzMemberChooser) choose(_ *memberAccessConfig, _ *memberSelectionCo
 		return nil, errors.New("awesome error")
 	}
 
-	return []hzMember{
-		{c.memberID},
-	}, nil
+	var members []hzMember
+	for _, memberID := range c.memberIDs {
+		members = append(members, hzMember{memberID})
+	}
+
+	return members, nil
 
 }
 
@@ -282,8 +286,8 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					validLabelSelector,
 					sleepDisabled,
 				)}
-			hzMemberID := "hazelcastplatform-ß"
-			chooser := &testHzMemberChooser{memberID: hzMemberID}
+			hzMemberID := "hazelcastplatform-0"
+			chooser := &testHzMemberChooser{memberIDs: []string{hzMemberID}}
 			killer := &testHzMemberKiller{}
 			m := memberKillerMonkey{}
 
@@ -321,10 +325,10 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			}
 
 			msg = "\t\tkiller's invocation argument must contain previously chosen hazelcast member"
-			if killer.givenHzMember.identifier == hzMemberID {
+			if killer.givenHzMembers[0].identifier == hzMemberID {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX, killer.givenHzMember.identifier)
+				t.Fatal(msg, ballotX, killer.givenHzMembers[0].identifier)
 			}
 
 			msg = "\t\tmonkey status must contain expected values"
@@ -476,6 +480,58 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX, key, detail)
 			}
+		}
+		t.Log("\twhen killer does not yield error and terminates more than one member")
+		{
+			numRuns := 2
+			numMembersAvailable := 3
+			assigner := &testConfigPropertyAssigner{
+				assembleTestConfigAsMap(
+					memberKillerKeyPath,
+					true,
+					1.0,
+					numRuns,
+					absoluteMemberSelectionMode,
+					false,
+					numMembersAvailable,
+					0.0,
+					k8sInClusterAccessMode,
+					validLabelSelector,
+					sleepDisabled,
+				)}
+
+			memberIDs := make([]string, numMembersAvailable)
+			for i := 0; i < numMembersAvailable; i++ {
+				memberIDs[i] = uuid.New().String()
+			}
+			chooser := &testHzMemberChooser{memberIDs: memberIDs}
+			killer := &testHzMemberKiller{}
+			m := memberKillerMonkey{}
+			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+			m.causeChaos()
+			waitForStatusGatheringDone(m.g)
+
+			msg := "\t\tlist of hazelcast members passed to killer must be correct"
+			passedMemberIDs := make([]string, len(memberIDs))
+			for i := 0; i < len(memberIDs); i++ {
+				passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+			}
+			if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tstatus gatherer must have been informed about correct number of members killed"
+			statusCopy := m.g.AssembleStatusCopy()
+
+			if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 		t.Log("\twhen sleep has been disabled")
 		{
@@ -1039,5 +1095,34 @@ func memberAccessConfigAsExpected(ac *memberAccessConfig, expected map[string]an
 	}
 
 	return false
+
+}
+
+func hasSameMemberIDs(expected, observed []string) bool {
+
+	if len(expected) != len(observed) {
+		return false
+	}
+
+	memberIDCounts := make(map[string]int, len(expected))
+
+	for _, memberID := range expected {
+		memberIDCounts[memberID]++
+	}
+
+	for _, memberID := range observed {
+		if memberIDCounts[memberID] == 0 {
+			return false
+		}
+		memberIDCounts[memberID]--
+	}
+
+	for _, count := range memberIDCounts {
+		if count != 0 {
+			return false
+		}
+	}
+
+	return true
 
 }
