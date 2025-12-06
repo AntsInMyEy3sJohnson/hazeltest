@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.17.0-dev0
-  digest: f0234b23de9a620967aa85c4c16de6fbb3e7dee59d90eee0d373b99594977d91
+  tag: 0.17.0
+  digest: ae3d1f1b848fd069b089851f85e287555672c678ca7565fb5abfeac42fa51cba
   pullPolicy: IfNotPresent
 
 resources:
@@ -70,7 +70,7 @@ config:
           labelSelector: app.kubernetes.io/name=hazelcastplatform
       sleep:
         enabled: true
-        durationSeconds: 60
+        durationSeconds: 300
         enableRandomness: false
       memberGrace:
         enabled: true
@@ -101,7 +101,7 @@ config:
         thresholdMs: 30000
   queueTests:
     tweets:
-      enabled: false
+      enabled: true
       numQueues: 5
       appendQueueIndexToQueueName: true
       appendClientIdToQueueName: false
@@ -143,7 +143,7 @@ config:
             durationMs: 5000
             enableRandomness: true
     load:
-      enabled: false
+      enabled: true
       numQueues: 5
       numLoadEntries: 50
       payloadSizeBytes: 100
@@ -188,7 +188,7 @@ config:
             enableRandomness: true
   mapTests:
     pokedex:
-      enabled: false
+      enabled: true
       numMaps: 10
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
@@ -246,7 +246,7 @@ config:
                 enableRandomness: false
               actionTowardsBoundaryProbability: 0.69
     load:
-      enabled: false
+      enabled: true
       numMaps: 10
       numEntriesPerMap: 10000
       appendMapIndexToMapName: true
