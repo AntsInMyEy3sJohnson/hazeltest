@@ -16,10 +16,10 @@ import (
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	hzMemberChooser     interface {
-		choose(ac memberAccessConfig) (hzMember, error)
+		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(member hzMember, ac memberAccessConfig, memberGrace sleepConfig) error
+		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -55,6 +55,7 @@ type (
 		enabled          bool
 		numRuns          uint32
 		chaosProbability float64
+		selectionConfig  *memberSelectionConfig
 		accessConfig     *memberAccessConfig
 		sleep            *sleepConfig
 		memberGrace      *sleepConfig
@@ -63,6 +64,11 @@ type (
 	state          string
 	raiseReady     func()
 	raiseNotReady  func()
+)
+
+const (
+	absoluteMemberSelectionMode = "absolute"
+	relativeMemberSelectionMode = "relative"
 )
 
 const (
@@ -184,23 +190,25 @@ func (m *memberKillerMonkey) causeChaos() {
 		f := rand.Float64()
 		if f <= mc.chaosProbability {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
-			member, err := m.chooser.choose(*mc.accessConfig)
+			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
 				var msg string
-				if errors.Is(err, noMemberFoundError) {
-					msg = "no hazelcast member available to be killed -- will try again in next iteration"
+				if errors.Is(err, noMembersFoundError) {
+					msg = "no hazelcast members available to be killed -- will try again in next iteration"
+				} else if errors.Is(err, noReadyMembersFoundError) {
+					msg = "no suitable hazelcast members available to be killed -- will try again in next iteration"
 				} else {
-					msg = "unable to choose hazelcast member to kill -- will try again in next iteration"
+					msg = "unable to choose hazelcast members to kill -- will try again in next iteration"
 				}
 				lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
 				continue
 			}
 
-			err = m.killer.kill(member, *mc.accessConfig, *mc.memberGrace)
+			err = m.killer.kill(members, mc.accessConfig, mc.memberGrace)
 			if err != nil {
-				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast member '%s' -- will try again in next iteration", member.identifier), log.WarnLevel)
+				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
 			} else {
-				m.updateNumMembersKilled()
+				m.updateNumMembersKilled(uint32(len(members)))
 			}
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
@@ -212,9 +220,9 @@ func (m *memberKillerMonkey) causeChaos() {
 
 }
 
-func (m *memberKillerMonkey) updateNumMembersKilled() {
+func (m *memberKillerMonkey) updateNumMembersKilled(num uint32) {
 
-	m.numMembersKilled++
+	m.numMembersKilled += num
 	m.g.Gather(status.Update{Key: statusKeyNumMembersKilled, Value: m.numMembersKilled})
 
 }
@@ -276,6 +284,13 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		})
 	})
 
+	var hzMemberSelectionMode string
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberSelection.mode", client.ValidateString, func(a any) {
+			hzMemberSelectionMode = a.(string)
+		})
+	})
+
 	var hzMemberAccessMode string
 	assignmentOps = append(assignmentOps, func() error {
 		return a.Assign(b.monkeyKeyPath+".memberAccess.mode", client.ValidateString, func(a any) {
@@ -331,6 +346,11 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		}
 	}
 
+	sc, err := b.populateMemberSelectionConfig(a, hzMemberSelectionMode)
+	if err != nil {
+		return nil, err
+	}
+
 	ac, err := b.populateMemberAccessConfig(a, hzMemberAccessMode)
 	if err != nil {
 		return nil, err
@@ -340,6 +360,7 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		enabled:          enabled,
 		numRuns:          numRuns,
 		chaosProbability: chaosProbability,
+		selectionConfig:  sc,
 		accessConfig:     ac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
@@ -355,17 +376,65 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 
 }
 
+func (b monkeyConfigBuilder) populateMemberSelectionConfig(a client.ConfigPropertyAssigner, selectionMode string) (*memberSelectionConfig, error) {
+
+	var assignmentOps []func() error
+
+	sc := &memberSelectionConfig{
+		selectionMode: selectionMode,
+	}
+
+	var absoluteNumMembersToKill uint8
+	var relativePercentageOfMembersToKill float32
+
+	var targetOnlyActive bool
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberSelection.targetOnlyActive", client.ValidateBool, func(a any) {
+			targetOnlyActive = a.(bool)
+		})
+	})
+
+	switch selectionMode {
+	case absoluteMemberSelectionMode:
+		assignmentOps = append(assignmentOps, func() error {
+			return a.Assign(b.monkeyKeyPath+".memberSelection.absolute.numMembersToKill", client.ValidateInt, func(a any) {
+				absoluteNumMembersToKill = uint8(a.(int))
+			})
+		})
+	case relativeMemberSelectionMode:
+		assignmentOps = append(assignmentOps, func() error {
+			return a.Assign(b.monkeyKeyPath+".memberSelection.relative.percentageOfMembersToKill", client.ValidatePercentage, func(a any) {
+				if v, ok := a.(float64); ok {
+					relativePercentageOfMembersToKill = float32(v)
+				} else if v, ok := a.(float32); ok {
+					relativePercentageOfMembersToKill = v
+				} else {
+					relativePercentageOfMembersToKill = float32(a.(int))
+				}
+			})
+		})
+	}
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	sc.targetOnlyActive = targetOnlyActive
+	sc.absoluteNumMembersToKill = absoluteNumMembersToKill
+	sc.relativePercentageOfMembersToKill = relativePercentageOfMembersToKill
+
+	return sc, nil
+
+}
+
 func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode string) (*memberAccessConfig, error) {
 
 	var assignmentOps []func() error
 
 	ac := &memberAccessConfig{
-		memberAccessMode: accessMode,
-	}
-	if err := a.Assign(b.monkeyKeyPath+".memberAccess.targetOnlyActive", client.ValidateBool, func(a any) {
-		ac.targetOnlyActive = a.(bool)
-	}); err != nil {
-		return nil, err
+		accessMode: accessMode,
 	}
 
 	switch accessMode {
