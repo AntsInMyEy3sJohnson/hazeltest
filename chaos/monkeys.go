@@ -13,6 +13,53 @@ import (
 	"time"
 )
 
+const (
+	absoluteMemberSelectionMode = "absolute"
+	relativeMemberSelectionMode = "relative"
+)
+
+const (
+	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
+	k8sInClusterAccessMode    = "k8sInCluster"
+)
+
+const (
+	start                  state = "start"
+	populateConfigComplete state = "populateConfigComplete"
+	checkEnabledComplete   state = "checkEnabledComplete"
+	raiseReadyComplete     state = "raiseReadyComplete"
+	chaosStart             state = "chaosStart"
+	chaosComplete          state = "chaosComplete"
+)
+
+const (
+	statusKeyNumRuns          = "numRuns"
+	statusKeyNumMembersKilled = "numMembersKilled"
+)
+
+var (
+	monkeys []monkey
+	lp      *logging.LogProvider
+)
+
+var (
+	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
+		var sleepDuration int
+		if sc.enableRandomness {
+			sleepDuration = rand.Intn(sc.durationSeconds + 1)
+		} else {
+			sleepDuration = sc.durationSeconds
+		}
+		return sleepDuration
+	}
+	readyFunc raiseReady = func() {
+		api.RaiseReady()
+	}
+	notReadyFunc raiseNotReady = func() {
+		api.RaiseNotReady()
+	}
+)
+
 type (
 	evaluateTimeToSleep func(sc *sleepConfig) int
 	hzMemberChooser     interface {
@@ -64,53 +111,6 @@ type (
 	state          string
 	raiseReady     func()
 	raiseNotReady  func()
-)
-
-const (
-	absoluteMemberSelectionMode = "absolute"
-	relativeMemberSelectionMode = "relative"
-)
-
-const (
-	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
-	k8sInClusterAccessMode    = "k8sInCluster"
-)
-
-const (
-	start                  state = "start"
-	populateConfigComplete state = "populateConfigComplete"
-	checkEnabledComplete   state = "checkEnabledComplete"
-	raiseReadyComplete     state = "raiseReadyComplete"
-	chaosStart             state = "chaosStart"
-	chaosComplete          state = "chaosComplete"
-)
-
-const (
-	statusKeyNumRuns          = "numRuns"
-	statusKeyNumMembersKilled = "numMembersKilled"
-)
-
-var (
-	monkeys []monkey
-	lp      *logging.LogProvider
-)
-
-var (
-	sleepTimeFunc evaluateTimeToSleep = func(sc *sleepConfig) int {
-		var sleepDuration int
-		if sc.enableRandomness {
-			sleepDuration = rand.Intn(sc.durationSeconds + 1)
-		} else {
-			sleepDuration = sc.durationSeconds
-		}
-		return sleepDuration
-	}
-	readyFunc raiseReady = func() {
-		api.RaiseReady()
-	}
-	notReadyFunc raiseNotReady = func() {
-		api.RaiseNotReady()
-	}
 )
 
 func init() {
