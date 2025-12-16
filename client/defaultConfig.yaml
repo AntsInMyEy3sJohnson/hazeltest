@@ -13,7 +13,9 @@ chaosMonkeys:
     # In each run, the monkey will strike with this probability. The provided number expresses
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
-    chaosProbability: 0.5
+    chaosProbability:
+      percentage: 0.5
+      evaluationMode: perMember
     # Specifies the strategy the monkey will use to select Hazelcast members in each run. (Note the difference to
     # 'memberAccess' below -- the "access" configuration is concerned with how to access the members in the first place,
     # whereas the "selection" configuration deals with how members should be selected once access was established).

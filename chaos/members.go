@@ -18,6 +18,18 @@ import (
 	"strings"
 )
 
+const (
+	k8sNamespaceEnvVariable = "POD_NAMESPACE"
+)
+
+var (
+	noMembersFoundError      = errors.New("no members found to be terminated")
+	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
+
+	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
+	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
+)
+
 type (
 	k8sConfigBuilder interface {
 		buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error)
@@ -77,18 +89,6 @@ type (
 		namespaceDiscoverer k8sNamespaceDiscoverer
 		podDeleter          k8sPodDeleter
 	}
-)
-
-const (
-	k8sNamespaceEnvVariable = "POD_NAMESPACE"
-)
-
-var (
-	noMembersFoundError      = errors.New("no members found to be terminated")
-	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
-
-	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
-	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
@@ -376,13 +376,23 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
+func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) error {
 
 	if members == nil || len(members) == 0 {
 		return noMembersProvidedForKillingError
 	}
 
 	for _, m := range members {
+
+		if cc.evaluationMode == perMemberActivityEvaluation {
+			f := rand.Float64()
+			if cc.percentage < f {
+				lp.LogChaosMonkeyEvent(fmt.Sprintf("not killing hazelcast member '%s' as per-member evaluation "+
+					"mode was enabled and evaluated random number did not fall within range of chaos probability",
+					m.identifier), log.InfoLevel)
+				continue
+			}
+		}
 
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
 

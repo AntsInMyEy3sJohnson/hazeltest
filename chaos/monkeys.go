@@ -19,6 +19,11 @@ const (
 )
 
 const (
+	perMemberActivityEvaluation activityEvaluationMode = "perMember"
+	perRunActivityEvaluation    activityEvaluationMode = "perRun"
+)
+
+const (
 	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
 	k8sInClusterAccessMode    = "k8sInCluster"
 )
@@ -66,7 +71,7 @@ type (
 		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error
+		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) error
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -98,19 +103,24 @@ type (
 		durationSeconds  int
 		enableRandomness bool
 	}
-	monkeyConfig struct {
-		enabled          bool
-		numRuns          uint32
-		chaosProbability float64
-		selectionConfig  *memberSelectionConfig
-		accessConfig     *memberAccessConfig
-		sleep            *sleepConfig
-		memberGrace      *sleepConfig
+	chaosProbabilityConfig struct {
+		percentage     float64
+		evaluationMode activityEvaluationMode
 	}
-	defaultSleeper struct{}
-	state          string
-	raiseReady     func()
-	raiseNotReady  func()
+	monkeyConfig struct {
+		enabled         bool
+		numRuns         uint32
+		chaosConfig     *chaosProbabilityConfig
+		selectionConfig *memberSelectionConfig
+		accessConfig    *memberAccessConfig
+		sleep           *sleepConfig
+		memberGrace     *sleepConfig
+	}
+	defaultSleeper         struct{}
+	raiseReady             func()
+	raiseNotReady          func()
+	state                  string
+	activityEvaluationMode string
 )
 
 func init() {
@@ -187,8 +197,7 @@ func (m *memberKillerMonkey) causeChaos() {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
 		}
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.TraceLevel)
-		f := rand.Float64()
-		if f <= mc.chaosProbability {
+		if monkeyInvocationNecessary(mc.chaosConfig) {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
 			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
@@ -204,7 +213,7 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			err = m.killer.kill(members, mc.accessConfig, mc.memberGrace)
+			err = m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig)
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
 			} else {
@@ -240,6 +249,21 @@ func (m *memberKillerMonkey) appendState(s state) {
 
 }
 
+func monkeyInvocationNecessary(chaosConfig *chaosProbabilityConfig) bool {
+
+	if chaosConfig.evaluationMode == perMemberActivityEvaluation {
+		return true
+	}
+
+	if chaosConfig.evaluationMode == perRunActivityEvaluation {
+		f := rand.Float64()
+		return f <= chaosConfig.percentage
+	}
+
+	return false
+
+}
+
 func populateMemberKillerMonkeyConfig(a client.ConfigPropertyAssigner) (*monkeyConfig, error) {
 
 	monkeyKeyPath := "chaosMonkeys.memberKiller"
@@ -265,22 +289,6 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 	assignmentOps = append(assignmentOps, func() error {
 		return a.Assign(b.monkeyKeyPath+".numRuns", client.ValidateInt, func(a any) {
 			numRuns = uint32(a.(int))
-		})
-	})
-
-	var chaosProbability float64
-	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
-			// TODO Refactor config assignment mechanism so it returns the parsed and validated value
-			// The assignment itself shouldn't have to parse the value again if it has already
-			// been parsed in the validation function
-			if v, ok := a.(int); ok {
-				chaosProbability = float64(v)
-			} else if v, ok := a.(float32); ok {
-				chaosProbability = float64(v)
-			} else if v, ok := a.(float64); ok {
-				chaosProbability = v
-			}
 		})
 	})
 
@@ -356,12 +364,17 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		return nil, err
 	}
 
+	cc, err := b.populateChaosProbabilityConfig(a)
+	if err != nil {
+		return nil, err
+	}
+
 	return &monkeyConfig{
-		enabled:          enabled,
-		numRuns:          numRuns,
-		chaosProbability: chaosProbability,
-		selectionConfig:  sc,
-		accessConfig:     ac,
+		enabled:         enabled,
+		numRuns:         numRuns,
+		chaosConfig:     cc,
+		selectionConfig: sc,
+		accessConfig:    ac,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
@@ -372,6 +385,43 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 			durationSeconds:  memberGraceDurationSeconds,
 			enableRandomness: memberGraceEnableRandomness,
 		},
+	}, nil
+
+}
+
+func (b monkeyConfigBuilder) populateChaosProbabilityConfig(a client.ConfigPropertyAssigner) (*chaosProbabilityConfig, error) {
+
+	var assignmentOps []func() error
+
+	var percentage float64
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".chaosProbability.percentage", client.ValidatePercentage, func(a any) {
+			if v, ok := a.(int); ok {
+				percentage = float64(v)
+			} else if v, ok := a.(float32); ok {
+				percentage = float64(v)
+			} else if v, ok := a.(float64); ok {
+				percentage = v
+			}
+		})
+	})
+
+	var evaluationMode string
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".chaosProbability.evaluationMode", client.ValidateString, func(a any) {
+			evaluationMode = a.(string)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &chaosProbabilityConfig{
+		percentage:     percentage,
+		evaluationMode: activityEvaluationMode(evaluationMode),
 	}, nil
 
 }
