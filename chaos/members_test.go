@@ -13,6 +13,25 @@ import (
 	"testing"
 )
 
+var (
+	clientsetInitError            = errors.New("lo and behold, the error everyone told you was never going to happen")
+	configBuildError              = errors.New("another impossible error")
+	podListError                  = errors.New("another one")
+	podDeleteError                = errors.New("and yet another one")
+	namespaceNotDiscoverableError = errors.New("and here goes your sanity")
+)
+
+var (
+	testBuilder              = &testK8sConfigBuilder{}
+	testClientsetInitializer = &testK8sClientsetInitializer{}
+	emptyClientset           = &kubernetes.Clientset{}
+	defaultKubeconfig        = "default"
+	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
+	hazelcastNamespace       = "hazelcastplatform"
+	testAccessConfig         = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
+	testSelectionConfig      = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
+)
+
 type (
 	testK8sConfigBuilder struct {
 		returnError                 bool
@@ -45,25 +64,6 @@ type (
 		numInvocations     int
 		gracePeriodSeconds int64
 	}
-)
-
-var (
-	clientsetInitError            = errors.New("lo and behold, the error everyone told you was never going to happen")
-	configBuildError              = errors.New("another impossible error")
-	podListError                  = errors.New("another one")
-	podDeleteError                = errors.New("and yet another one")
-	namespaceNotDiscoverableError = errors.New("and here goes your sanity")
-)
-
-var (
-	testBuilder              = &testK8sConfigBuilder{}
-	testClientsetInitializer = &testK8sClientsetInitializer{}
-	emptyClientset           = &kubernetes.Clientset{}
-	defaultKubeconfig        = "default"
-	nonDefaultKubeconfig     = "/some/path/to/a/custom/kubeconfig"
-	hazelcastNamespace       = "hazelcastplatform"
-	testAccessConfig         = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
-	testSelectionConfig      = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
 )
 
 func (b *testK8sConfigBuilder) buildForOutOfClusterAccess(masterUrl, kubeconfig string) (*rest.Config, error) {
