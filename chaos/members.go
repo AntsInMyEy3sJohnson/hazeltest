@@ -382,6 +382,24 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 		return noMembersProvidedForKillingError
 	}
 
+	if cc.evaluationMode == perMemberActivityEvaluation && cc.percentage == 0.0 {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer was given set of %d member/-s, but per-member activity evaluation "+
+			"mode was enabled with a chaos percentage of zero, so cannot kill members", len(members)), log.InfoLevel)
+		return nil
+	}
+
+	clientset, err := killer.clientsetProvider.getOrInit(ac)
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+		return err
+	}
+
+	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+		return err
+	}
+
 	for _, m := range members {
 
 		if cc.evaluationMode == perMemberActivityEvaluation {
@@ -395,20 +413,6 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 		}
 
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
-
-		clientset, err := killer.clientsetProvider.getOrInit(ac)
-		if err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
-			return err
-		}
-
-		namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
-		if err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
-			return err
-		}
-
-		ctx := context.TODO()
 
 		var gracePeriod int
 		if memberGrace.enabled {
@@ -424,6 +428,7 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
 
 		g := int64(gracePeriod)
+		ctx := context.TODO()
 		err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
 
 		if err != nil {

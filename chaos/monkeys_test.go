@@ -59,7 +59,7 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 }
 
-func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig) error {
+func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, _ *chaosProbabilityConfig) error {
 
 	k.numInvocations++
 
@@ -1044,7 +1044,8 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
 	allExceptSelectionModeAndAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
 		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
-		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
+		mc.chaosConfig.percentage == expected[testMonkeyKeyPath+".chaosProbability.percentage"] &&
+		mc.chaosConfig.evaluationMode == expected[testMonkeyKeyPath+".chaosProbability.evaluationMode"] &&
 		mc.selectionConfig.selectionMode == expected[testMonkeyKeyPath+".memberSelection.mode"] &&
 		mc.selectionConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberSelection.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
