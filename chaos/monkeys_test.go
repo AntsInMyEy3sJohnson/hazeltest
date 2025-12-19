@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
+	"math"
 	"strings"
 	"testing"
 )
@@ -776,6 +777,62 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+	}
+
+}
+
+func TestMonkeyInvocationNecessary(t *testing.T) {
+
+	t.Log("given a function to check whether the invocation of the given monkey is necessary")
+	{
+		t.Log("\twhen evaluation mode is set to per-member evaluation")
+		{
+			invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation))
+
+			msg := "\t\tresult must be that monkey invocation is necessary"
+			if invocationNecessary {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen evaluation mode is set to per-run evaluation")
+		{
+			t.Log("\t\twhen chaos percentage is zero")
+			{
+				invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(0.0, perRunActivityEvaluation))
+
+				msg := "\t\t\tresult must be that monkey invocation is not necessary"
+				if !invocationNecessary {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen chaos percentage is greater than zero")
+			{
+				percentages := []float64{0.1, 0.3, 0.5, 0.8, 1.0}
+				numInvocations := 100
+				for _, p := range percentages {
+					trueCounter := 0
+					for i := 0; i < numInvocations; i++ {
+						invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(p, perRunActivityEvaluation))
+						if invocationNecessary {
+							trueCounter++
+						}
+					}
+					msg := fmt.Sprintf("\t\t\tnumber of times evaluation concluded positively must (roughly) correspond to number of invocations by given percentage: %d * %.2f", numInvocations, p)
+					if math.Abs(float64(trueCounter)-float64(numInvocations)*p) < float64(numInvocations)*0.1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+
 	}
 
 }
