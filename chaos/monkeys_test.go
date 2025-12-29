@@ -169,7 +169,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
-				k8sInClusterAccessMode,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)}
@@ -227,7 +227,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
-				k8sInClusterAccessMode,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -288,7 +288,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)}
@@ -370,7 +370,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)}
@@ -417,7 +417,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)}
@@ -464,7 +464,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)}
@@ -505,7 +505,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						numMembersAvailable,
 						0.0,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)}
@@ -556,7 +556,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					0,
 					0.0,
 					perRunActivityEvaluation,
-					k8sInClusterAccessMode,
+					k8sInCluster,
 					validLabelSelector,
 					sleepDisabled,
 				)}
@@ -595,7 +595,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					0,
 					0.0,
 					perRunActivityEvaluation,
-					k8sInClusterAccessMode,
+					k8sInCluster,
 					validLabelSelector,
 					sc,
 				)}
@@ -708,12 +708,12 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 	t.Log("given the config builder's method to populate the member access config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
-		for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+		for _, accessMode := range []hzOnK8sMemberAccessMode{k8sOutOfCluster, k8sInCluster} {
 			t.Logf("\twhen access mode '%s' is given", accessMode)
 			{
 				t.Log("\t\twhen all properties are valid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, validLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, validLabelSelector, accessMode)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -740,7 +740,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 				}
 				t.Log("\t\twhen at least one property is invalid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, invalidLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, invalidLabelSelector, accessMode)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -762,8 +762,8 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 		}
 		t.Log("\twhen unknown member access mode is given")
 		{
-			unknownAccessMode := "someUnknownAccessMode"
-			testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, unknownAccessMode, validLabelSelector)
+			unknownAccessMode := hzOnK8sMemberAccessMode("someUnknownAccessMode")
+			testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, validLabelSelector, unknownAccessMode)
 			assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 			ac, err := b.populateMemberAccessConfig(assigner, unknownAccessMode)
 
@@ -775,7 +775,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 			}
 
 			msg = "\t\terror must contain information on unknown access mode"
-			if strings.Contains(err.Error(), unknownAccessMode) {
+			if strings.Contains(err.Error(), string(unknownAccessMode)) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err, unknownAccessMode)
@@ -865,7 +865,7 @@ func TestPopulateConfig(t *testing.T) {
 				0,
 				0.3,
 				perRunActivityEvaluation,
-				k8sOutOfClusterAccessMode,
+				k8sOutOfCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -905,7 +905,7 @@ func TestPopulateConfig(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
-				k8sInClusterAccessMode,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -942,7 +942,7 @@ func TestPopulateConfig(t *testing.T) {
 						invalidAbsoluteNumMembersToKill,
 						invalidRelativePercentageOfMembersToKill,
 						perRunActivityEvaluation,
-						k8sInClusterAccessMode,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)
@@ -968,7 +968,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen k8s access mode property assignment yields an error")
 		{
-			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+			for _, accessMode := range []hzOnK8sMemberAccessMode{k8sOutOfCluster, k8sInCluster} {
 				t.Logf("\t\t%s", accessMode)
 				{
 					testConfig := assembleTestConfigAsMap(
@@ -1064,7 +1064,7 @@ func assembleTestMemberSelectionConfigAsMap(keyPath, memberSelectionMode string,
 
 }
 
-func assembleTestMemberAccessConfigAsMap(keyPath, memberAccessMode, labelSelector string) map[string]any {
+func assembleTestMemberAccessConfigAsMap(keyPath, labelSelector string, memberAccessMode hzOnK8sMemberAccessMode) map[string]any {
 
 	return map[string]any{
 		keyPath + ".memberAccess.mode":                          memberAccessMode,
@@ -1086,7 +1086,8 @@ func assembleTestConfigAsMap(
 	absoluteNumMembersToKill int,
 	relativePercentageOfMembersToKill float32,
 	chaosEvaluationMode activityEvaluationMode,
-	memberAccessMode, labelSelector string,
+	memberAccessMode hzOnK8sMemberAccessMode,
+	labelSelector string,
 	sleep *sleepConfig,
 ) map[string]any {
 
@@ -1099,7 +1100,7 @@ func assembleTestConfigAsMap(
 		keyPath + ".memberSelection.targetOnlyActive":                   targetOnlyActive,
 		keyPath + ".memberSelection.absolute.numMembersToKill":          absoluteNumMembersToKill,
 		keyPath + ".memberSelection.relative.percentageOfMembersToKill": relativePercentageOfMembersToKill,
-		keyPath + ".memberAccess.mode":                                  memberAccessMode,
+		keyPath + ".memberAccess.mode":                                  string(memberAccessMode),
 		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":            "default",
 		keyPath + ".memberAccess.k8sOutOfCluster.namespace":             "hazelcastplatform",
 		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector":         labelSelector,
@@ -1119,7 +1120,7 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 	allExceptSelectionModeAndAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
 		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
 		mc.chaosConfig.percentage == expected[testMonkeyKeyPath+".chaosProbability.percentage"] &&
-		mc.chaosConfig.evaluationMode == expected[testMonkeyKeyPath+".chaosProbability.evaluationMode"] &&
+		mc.chaosConfig.evaluationMode == activityEvaluationMode(expected[testMonkeyKeyPath+".chaosProbability.evaluationMode"].(string)) &&
 		mc.selectionConfig.selectionMode == expected[testMonkeyKeyPath+".memberSelection.mode"] &&
 		mc.selectionConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberSelection.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
@@ -1155,17 +1156,17 @@ func memberSelectionConfigAsExpected(sc *memberSelectionConfig, expected map[str
 
 func memberAccessConfigAsExpected(ac *memberAccessConfig, expected map[string]any) bool {
 
-	modeAsExpected := ac.accessMode == expected[testMonkeyKeyPath+".memberAccess.mode"]
+	modeAsExpected := ac.accessMode == hzOnK8sMemberAccessMode(expected[testMonkeyKeyPath+".memberAccess.mode"].(string))
 
 	if !modeAsExpected {
 		return false
 	}
 
-	if ac.accessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfCluster {
 		return ac.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
 			ac.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
 			ac.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
-	} else if ac.accessMode == k8sInClusterAccessMode {
+	} else if ac.accessMode == k8sInCluster {
 		return ac.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
 	}
 

@@ -29,7 +29,7 @@ var (
 	defaultKubeconfig                   = "default"
 	nonDefaultKubeconfig                = "/some/path/to/a/custom/kubeconfig"
 	hazelcastNamespace                  = "hazelcastplatform"
-	testAccessConfig                    = assembleTestMemberAccessConfig(k8sInClusterAccessMode, "")
+	testAccessConfig                    = assembleTestMemberAccessConfig(k8sInCluster, "")
 	testSelectionConfig                 = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
 )
 
@@ -126,7 +126,7 @@ func (d *testK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (stri
 		return "", namespaceNotDiscoverableError
 	}
 
-	if ac.accessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfCluster {
 		return ac.k8sOutOfCluster.namespace, nil
 	}
 
@@ -639,7 +639,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 		t.Log("\twhen namespace discovery is successful")
 		{
 			discoverer := &defaultK8sNamespaceDiscoverer{}
-			namespace, err := discoverer.getOrDiscover(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, "default"))
+			namespace, err := discoverer.getOrDiscover(assembleTestMemberAccessConfig(k8sOutOfCluster, "default"))
 
 			msg := "\t\tno error must be returned"
 			if err == nil {
@@ -663,7 +663,7 @@ func TestDefaultNamespaceDiscovererGetOrDiscover(t *testing.T) {
 			}
 
 			msg = "\t\twhen queried again, discoverer must return previously discovered namespace"
-			ac := assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, "default")
+			ac := assembleTestMemberAccessConfig(k8sOutOfCluster, "default")
 			ac.k8sOutOfCluster.namespace = "another-namespace"
 
 			namespace, err = discoverer.getOrDiscover(ac)
@@ -719,7 +719,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfCluster, defaultKubeconfig))
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
@@ -779,7 +779,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				_, _ = provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, nonDefaultKubeconfig))
+				_, _ = provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfCluster, nonDefaultKubeconfig))
 
 				msg := "\t\t\tmaster url and kubeconfig must have been passed correctly"
 				if builder.masterUrl == "" && builder.kubeconfig == nonDefaultKubeconfig {
@@ -797,7 +797,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 					clientsetInitializer: initializer,
 				}
 
-				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig))
+				cs, err := provider.getOrInit(assembleTestMemberAccessConfig(k8sOutOfCluster, defaultKubeconfig))
 
 				msg := "\t\t\terror must be returned"
 				if err != nil && errors.Is(err, configBuildError) {
@@ -900,7 +900,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 		{
 			provider := &defaultK8sClientsetProvider{}
 
-			unknownAccessMode := "someUnknownMemberAccessMode"
+			unknownAccessMode := hzOnK8sMemberAccessMode("someUnknownMemberAccessMode")
 			cs, err := provider.getOrInit(assembleTestMemberAccessConfig(unknownAccessMode, "default"))
 
 			msg := "\t\terror must be returned"
@@ -911,7 +911,7 @@ func TestDefaultClientsetProviderGetOrInit(t *testing.T) {
 			}
 
 			msg = "\t\terror must contain access mode in question"
-			if strings.Contains(err.Error(), unknownAccessMode) {
+			if strings.Contains(err.Error(), string(unknownAccessMode)) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1011,7 +1011,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{errCsProvider, nsDiscoverer, podLister}
-			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig),
+			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfCluster, defaultKubeconfig),
 				assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0, 0.0))
 
 			msg := "\t\terror must be returned"
@@ -1186,7 +1186,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			podLister := &testK8sPodLister{[]v1.Pod{}, false, 0}
 			memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
-			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfClusterAccessMode, defaultKubeconfig), testSelectionConfig)
+			members, err := memberChooser.choose(assembleTestMemberAccessConfig(k8sOutOfCluster, defaultKubeconfig), testSelectionConfig)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersFoundError) {
@@ -1479,7 +1479,7 @@ func TestChooseMemberOnK8s(t *testing.T) {
 				pods := []v1.Pod{pod}
 				podLister := &testK8sPodLister{pods, false, 0}
 				memberChooser := k8sHzMemberChooser{csProvider, nsDiscoverer, podLister}
-				ac := assembleTestMemberAccessConfig(k8sInClusterAccessMode, defaultKubeconfig)
+				ac := assembleTestMemberAccessConfig(k8sInCluster, defaultKubeconfig)
 				sc := assembleTestMemberSelectionConfig(absoluteMemberSelectionMode, false, 1, 0.0)
 				members, err := memberChooser.choose(ac, sc)
 
@@ -1711,7 +1711,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				}
 				err := killer.kill(
 					assembleMemberList(42),
-					assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+					assembleTestMemberAccessConfig(k8sInCluster, "default"),
 					nil,
 					assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation),
 				)
@@ -1759,7 +1759,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					err := killer.kill(
 						assembleMemberList(3),
-						assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(true, true, 42),
 						chaosConfigHavingPerRunActivityMode,
 					)
@@ -1848,7 +1848,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					memberGraceSeconds := math.MaxInt - 1
 					err := killer.kill(
 						assembleMemberList(1),
-						assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 						chaosConfigHavingPerRunActivityMode,
 					)
@@ -1904,7 +1904,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						[]hzMember{
 							{"hazelcastplatform-0"},
 						},
-						assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 						chaosConfigHavingPerRunActivityMode,
 					)
@@ -1938,7 +1938,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						[]hzMember{
 							{"hazelcastplatform-0"},
 						},
-						assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(false, false, 42),
 						chaosConfigHavingPerRunActivityMode,
 					)
@@ -1992,7 +1992,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					numMembers := 42
 					err := killer.kill(
 						assembleMemberList(numMembers),
-						assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(false, false, 42),
 						chaosConfigHavingPerRunActivityMode,
 					)
@@ -2041,7 +2041,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 				chaosPercentage := 0.5
 				err := killer.kill(
 					assembleMemberList(numMembers),
-					assembleTestMemberAccessConfig(k8sInClusterAccessMode, "default"),
+					assembleTestMemberAccessConfig(k8sInCluster, "default"),
 					assembleMemberGraceSleepConfig(false, false, 0),
 					assembleChaosProbabilityConfig(chaosPercentage, perMemberActivityEvaluation),
 				)
@@ -2165,7 +2165,7 @@ func assembleTestMemberSelectionConfig(selectionMode string, targetOnlyActive bo
 
 }
 
-func assembleTestMemberAccessConfig(memberAccessMode, kubeconfig string) *memberAccessConfig {
+func assembleTestMemberAccessConfig(memberAccessMode hzOnK8sMemberAccessMode, kubeconfig string) *memberAccessConfig {
 
 	return &memberAccessConfig{
 		accessMode: memberAccessMode,

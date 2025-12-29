@@ -63,7 +63,7 @@ type (
 		relativePercentageOfMembersToKill float32
 	}
 	memberAccessConfig struct {
-		accessMode      string
+		accessMode      hzOnK8sMemberAccessMode
 		k8sOutOfCluster k8sOutOfClusterMemberAccess
 		k8sInCluster    k8sInClusterMemberAccess
 	}
@@ -94,9 +94,9 @@ type (
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
 
 	switch ac.accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		return ac.k8sOutOfCluster.labelSelector, nil
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		return ac.k8sInCluster.labelSelector, nil
 	default:
 		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.accessMode)
@@ -134,9 +134,9 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (s
 	var namespace string
 
 	switch ac.accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		namespace = ac.k8sOutOfCluster.namespace
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), log.TraceLevel)
 		if ns, ok := os.LookupEnv(k8sNamespaceEnvVariable); ok {
 			namespace = ns
@@ -195,7 +195,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
 
 	var config *rest.Config
-	if ac.accessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfCluster {
 		var kubeconfig string
 		if ac.k8sOutOfCluster.kubeconfig == "default" {
 			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
@@ -209,7 +209,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 		} else {
 			config = c
 		}
-	} else if ac.accessMode == k8sInClusterAccessMode {
+	} else if ac.accessMode == k8sInCluster {
 		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
 			return nil, err

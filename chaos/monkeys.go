@@ -24,8 +24,8 @@ const (
 )
 
 const (
-	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
-	k8sInClusterAccessMode    = "k8sInCluster"
+	k8sOutOfCluster hzOnK8sMemberAccessMode = "k8sOutOfCluster"
+	k8sInCluster    hzOnK8sMemberAccessMode = "k8sInCluster"
 )
 
 const (
@@ -116,11 +116,12 @@ type (
 		sleep           *sleepConfig
 		memberGrace     *sleepConfig
 	}
-	defaultSleeper         struct{}
-	raiseReady             func()
-	raiseNotReady          func()
-	state                  string
-	activityEvaluationMode string
+	defaultSleeper          struct{}
+	raiseReady              func()
+	raiseNotReady           func()
+	state                   string
+	activityEvaluationMode  string
+	hzOnK8sMemberAccessMode string
 )
 
 func init() {
@@ -359,7 +360,7 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		return nil, err
 	}
 
-	ac, err := b.populateMemberAccessConfig(a, hzMemberAccessMode)
+	ac, err := b.populateMemberAccessConfig(a, hzOnK8sMemberAccessMode(hzMemberAccessMode))
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +480,7 @@ func (b monkeyConfigBuilder) populateMemberSelectionConfig(a client.ConfigProper
 
 }
 
-func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode string) (*memberAccessConfig, error) {
+func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode hzOnK8sMemberAccessMode) (*memberAccessConfig, error) {
 
 	var assignmentOps []func() error
 
@@ -488,22 +489,22 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 	}
 
 	switch accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		var kubeconfig string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeconfig", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".kubeconfig", client.ValidateString, func(a any) {
 				kubeconfig = a.(string)
 			})
 		})
 		var namespace string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".namespace", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".namespace", client.ValidateString, func(a any) {
 				namespace = a.(string)
 			})
 		})
 		var labelSelector string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".labelSelector", client.ValidateString, func(a any) {
 				labelSelector = a.(string)
 			})
 		})
@@ -517,9 +518,9 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 			namespace:     namespace,
 			labelSelector: labelSelector,
 		}
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		var labelSelector string
-		if err := a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+		if err := a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".labelSelector", client.ValidateString, func(a any) {
 			labelSelector = a.(string)
 		}); err != nil {
 			return nil, err
