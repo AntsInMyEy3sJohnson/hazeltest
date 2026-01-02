@@ -9,7 +9,7 @@ chaosMonkeys:
     # number of runs != number of kills in case the chaos probability is set to something
     # less than 1.0 (100%), but the number evaluated to decide whether the monkey should
     # terminate is indeed the number of runs, and not the number of kills.
-    numRuns: 100
+    numRuns: 100000
     # In each run, the monkey will strike with this probability. The provided number expresses
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
@@ -79,7 +79,7 @@ chaosMonkeys:
       # the '/var/run/secrets/kubernetes.io/serviceaccount/namespace' file mounted into the Pod by Kubernetes. If the
       # namespace cannot be retrieved by these means, the monkey will report an error and terminate.
       # Please note that the implication of this is that, regardless of how the namespace is retrieved, the Hazeltest
-      # Pod has to reside in the same namespace as the Hazelcast member Pods to be acted upon, i.e. cross-namespace
+      # Pod has to reside in the same namespace as the Hazelcast member Pods to be acted upon, i.e., cross-namespace
       # actions on Hazelcast member Pods are not supported.
       k8sInCluster:
         # Same as for out-of-cluster config.
@@ -90,11 +90,11 @@ chaosMonkeys:
       enabled: true
       # The duration, in seconds, to sleep. (Mind the difference between this sleep config's duration and the various
       # runner's sleeps, where the sleep is configured in milliseconds.)
-      durationSeconds: 60
+      durationSeconds: 1800
       # Enables or disables randomness for this sleep configuration. If enabled, the amount of seconds to sleep will be
       # determined randomly in the closed interval [0, <durationSeconds>]. If disabled, the sleep will be static, i.e.
       # the monkey will simply sleep for the given amount of seconds.
-      enableRandomness: false
+      enableRandomness: true
     # Configures deletion behavior. When enabled, the member killer monkey will kill the selected Hazelcast member
     # using a grace period as defined by 'durationSeconds' and 'enableRandomness'.
     memberGrace:
