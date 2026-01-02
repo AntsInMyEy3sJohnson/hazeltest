@@ -11,6 +11,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 var (
@@ -1645,72 +1646,6 @@ func TestChooseMemberOnK8s(t *testing.T) {
 
 }
 
-func memberKillResultsAsExpectedWithRange(
-	totalNumMembers, reportedNumMembersToKill int,
-	chaosPercentage float64,
-	killEvents chan bool,
-) (bool, string) {
-
-	if math.Abs(float64(reportedNumMembersToKill)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
-		return false, "reported number of members to kill outside of expected range"
-	}
-
-	numMemberKillsAttempted, numMemberKillsSuccessful := drainMembersKilledChannel(reportedNumMembersToKill, killEvents)
-
-	if math.Abs(float64(numMemberKillsAttempted)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
-		return false, "reported number of member kills attempted outside of expected range"
-	}
-
-	if numMemberKillsAttempted != numMemberKillsSuccessful {
-		return false, "number of members kills attempted not equal to number of successful member kills"
-	}
-
-	return true, ""
-
-}
-
-func memberKillResultsAsExpected(
-	expectedNumMembersToKill, expectedNumKillsAttempted, expectedNumKillsSuccessful, reportedNumMembersToKill int,
-	killEvents chan bool,
-) (bool, string) {
-
-	if reportedNumMembersToKill != expectedNumMembersToKill {
-		return false, fmt.Sprintf("expected number of members to kill is not equal to reported number of members to kill: %d != %d", expectedNumMembersToKill, reportedNumMembersToKill)
-	}
-
-	reportedNumKillsAttempted, reportedNumKillsSuccessful := drainMembersKilledChannel(expectedNumKillsAttempted, killEvents)
-
-	if reportedNumKillsAttempted != expectedNumKillsAttempted {
-		return false, fmt.Sprintf("expected number of kill invocations is not equal to reported number of kill invocations: %d != %d", expectedNumKillsAttempted, reportedNumKillsAttempted)
-	}
-
-	if reportedNumKillsSuccessful != expectedNumKillsSuccessful {
-		return false, fmt.Sprintf("expected number of successful kills is not equal to reported number of successful kills: %d != %d", expectedNumKillsSuccessful, reportedNumKillsSuccessful)
-	}
-
-	return true, ""
-
-}
-
-func drainMembersKilledChannel(expectedNumKillAttempted int, ch chan bool) (int, int) {
-
-	numKillsAttempted := 0
-	numKillsSuccessful := 0
-
-	for numKillsAttempted < expectedNumKillAttempted {
-		select {
-		case success := <-ch:
-			numKillsAttempted++
-			if success {
-				numKillsSuccessful++
-			}
-		}
-	}
-
-	return numKillsAttempted, numKillsSuccessful
-
-}
-
 func TestKillMemberOnK8s(t *testing.T) {
 
 	t.Log("given the member killer monkey's method to kill a hazelcast member on kubernetes")
@@ -2228,7 +2163,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 					}
-					t.Log("\t\t\t\twhen pod deletion yields error after first pod")
+					t.Log("\t\t\t\twhen pod deleter yields error upon attempt to delete first pod")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
@@ -2248,8 +2183,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 							testAtOnceTerminationConfig,
 						)
 
-						msg := "\t\t\t\t\terror must be returned"
-						if err != nil && errors.Is(err, podDeleteError) {
+						// Pod deletion now invoked asynchronously, so by the time pod deleter runs, enclosing
+						// function has long finished --> Unsuccessful pod deletion must be conveyed using channel
+						// rather than return value (error return value now only to inform about errors that might
+						// have arisen prior to pod deleter invocation)
+						msg := "\t\t\t\t\tno error must be returned"
+						if err == nil {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
@@ -2257,9 +2196,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 						msg = "\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
-							1,
-							1,
-							1,
+							numMembers,
+							// Loop invoking pod deletion now has no way of knowing whether pod deletion was
+							// successful, so it can't abort in case of an error --> Loop will continue to
+							// launch goroutines even if pod deletion on previously executed goroutine was
+							// unsuccessful
+							numMembersToKill,
+							0,
 							numMembersToKill,
 							killEvents,
 						); ok {
@@ -2281,9 +2224,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
-						// Loop aborts as soon as it encounters an error
-						msg = "\t\t\t\t\tdeleter must have one invocation"
-						if errDeleter.numInvocations == 1 {
+						msg = "\t\t\t\t\tnumber of pod deleter invocations must be equal to number of members to be killed according to chaos probability"
+						if errDeleter.numInvocations == numMembersToKill {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
@@ -2310,8 +2252,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 							testAtOnceTerminationConfig,
 						)
 
-						msg := "\t\t\t\t\terror must be returned"
-						if err != nil && errors.Is(err, podDeleteError) {
+						msg := "\t\t\t\t\tno error must be returned"
+						if err == nil {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
@@ -2319,8 +2261,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 						msg = "\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
-							expectedNumMembersKilled,
-							expectedNumMembersKilled,
+							numMembers,
+							numMembers,
 							expectedNumMembersKilled,
 							numMembersToKill,
 							killEvents,
@@ -2344,8 +2286,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\tdeleter must have expected number of invocations"
-						if errDeleter.numInvocations == expectedNumMembersKilled+1 {
+						msg = "\t\t\t\t\tnumber of pod deleter invocations must be equal to number of members to be terminated according to chaos probability"
+						if errDeleter.numInvocations == numMembersToKill {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
@@ -2355,6 +2297,75 @@ func TestKillMemberOnK8s(t *testing.T) {
 			}
 		}
 	}
+
+}
+
+func memberKillResultsAsExpectedWithRange(
+	totalNumMembers, reportedNumMembersToKill int,
+	chaosPercentage float64,
+	killEvents chan bool,
+) (bool, string) {
+
+	if math.Abs(float64(reportedNumMembersToKill)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
+		return false, "reported number of members to kill outside of expected range"
+	}
+
+	numMemberKillsAttempted, numMemberKillsSuccessful := drainMembersKilledChannel(killEvents)
+
+	if math.Abs(float64(numMemberKillsAttempted)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
+		return false, "reported number of member kills attempted outside of expected range"
+	}
+
+	if numMemberKillsAttempted != numMemberKillsSuccessful {
+		return false, "number of members kills attempted not equal to number of successful member kills"
+	}
+
+	return true, ""
+
+}
+
+func memberKillResultsAsExpected(
+	expectedNumMembersToKill, expectedNumKillsAttempted, expectedNumKillsSuccessful, reportedNumMembersToKill int,
+	killEvents chan bool,
+) (bool, string) {
+
+	if reportedNumMembersToKill != expectedNumMembersToKill {
+		return false, fmt.Sprintf("expected number of members to kill is not equal to reported number of members to kill: %d != %d", expectedNumMembersToKill, reportedNumMembersToKill)
+	}
+
+	reportedNumKillsAttempted, reportedNumKillsSuccessful := drainMembersKilledChannel(killEvents)
+
+	if reportedNumKillsAttempted != expectedNumKillsAttempted {
+		return false, fmt.Sprintf("expected number of kill invocations is not equal to reported number of kill invocations: %d != %d", expectedNumKillsAttempted, reportedNumKillsAttempted)
+	}
+
+	if reportedNumKillsSuccessful != expectedNumKillsSuccessful {
+		return false, fmt.Sprintf("expected number of successful kills is not equal to reported number of successful kills: %d != %d", expectedNumKillsSuccessful, reportedNumKillsSuccessful)
+	}
+
+	return true, ""
+
+}
+
+func drainMembersKilledChannel(ch chan bool) (int, int) {
+
+	numKillsAttempted := 0
+	numKillsSuccessful := 0
+
+loop:
+	for {
+		select {
+		case success := <-ch:
+			numKillsAttempted++
+			if success {
+				numKillsSuccessful++
+			}
+		case <-time.After(100 * time.Millisecond):
+			break loop
+		}
+	}
+
+	return numKillsAttempted, numKillsSuccessful
 
 }
 
