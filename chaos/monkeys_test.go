@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"hazeltest/status"
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -17,9 +18,11 @@ type (
 		numInvocations int
 	}
 	testHzMemberKiller struct {
-		returnError    bool
-		numInvocations int
-		givenHzMembers []hzMember
+		returnError                               bool
+		useProbabilityToCalculateNumMembersKilled bool
+		numMembersKilledToReturn                  int
+		numInvocations                            int
+		givenHzMembers                            []hzMember
 	}
 	testConfigPropertyAssigner struct {
 		testConfig map[string]any
@@ -60,17 +63,29 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 }
 
-func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, _ *chaosProbabilityConfig) error {
+func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig) (int, error) {
 
 	k.numInvocations++
 
 	if k.returnError {
-		return errors.New("yet another error that should have been completely impossible")
+		return 0, errors.New("yet another error that should have been completely impossible")
 	}
 
 	k.givenHzMembers = members
 
-	return nil
+	numMembersKilled := 0
+	if k.useProbabilityToCalculateNumMembersKilled {
+		for range k.givenHzMembers {
+			f := rand.Float64()
+			if cc.percentage >= f {
+				numMembersKilled++
+			}
+		}
+	} else {
+		numMembersKilled = k.numMembersKilledToReturn
+	}
+
+	return numMembersKilled, nil
 
 }
 
@@ -294,7 +309,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					)}
 				hzMemberID := "hazelcastplatform-0"
 				chooser := &testHzMemberChooser{memberIDs: []string{hzMemberID}}
-				killer := &testHzMemberKiller{}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
 				m := memberKillerMonkey{}
 
 				raiseReadyInvoked := false
@@ -515,7 +530,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					memberIDs[i] = uuid.New().String()
 				}
 				chooser := &testHzMemberChooser{memberIDs: memberIDs}
-				killer := &testHzMemberKiller{}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
 				m := memberKillerMonkey{}
 				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
@@ -534,6 +549,142 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				}
 
 				msg = "\t\t\tstatus gatherer must have been informed about correct number of members killed"
+				statusCopy := m.g.AssembleStatusCopy()
+
+				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen activity mode is per-member")
+		{
+			t.Log("\t\twhen non-zero number of runs is configured and chaos probability is 100 %")
+			{
+				numRuns := 21
+				numMembersAvailable := 12
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						true,
+						0,
+						1.0,
+						perMemberActivityEvaluation,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					),
+				}
+				memberIDs := make([]string, numMembersAvailable)
+				for i := 0; i < len(memberIDs); i++ {
+					memberIDs[i] = uuid.New().String()
+				}
+				chooser := &testHzMemberChooser{memberIDs: memberIDs}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tlist of hazelcast members passed to killer must be correct"
+				passedMemberIDs := make([]string, len(memberIDs))
+				for i := 0; i < len(memberIDs); i++ {
+					passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+				}
+				if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tchooser must have experienced expected number of invocations"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkiller must have experienced expected number of invocations"
+				if killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have been informed about correct number of members killed"
+				statusCopy := m.g.AssembleStatusCopy()
+
+				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+			t.Log("\t\twhen non-zero number of runs is configured and chaos probability is 0 %")
+			{
+				numRuns := 21
+				numMembersAvailable := 12
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						true,
+						0,
+						1.0,
+						perMemberActivityEvaluation,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					),
+				}
+				memberIDs := make([]string, numMembersAvailable)
+				for i := 0; i < len(memberIDs); i++ {
+					memberIDs[i] = uuid.New().String()
+				}
+				chooser := &testHzMemberChooser{memberIDs: memberIDs}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tlist of hazelcast members passed to killer must be correct"
+				passedMemberIDs := make([]string, len(memberIDs))
+				for i := 0; i < len(memberIDs); i++ {
+					passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+				}
+				if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tchooser must have experienced expected number of invocations"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkiller must have experienced expected number of invocations"
+				if killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have recorded zero terminated members"
 				statusCopy := m.g.AssembleStatusCopy()
 
 				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
@@ -1067,7 +1218,7 @@ func assembleTestMemberSelectionConfigAsMap(keyPath, memberSelectionMode string,
 func assembleTestMemberAccessConfigAsMap(keyPath, labelSelector string, memberAccessMode hzOnK8sMemberAccessMode) map[string]any {
 
 	return map[string]any{
-		keyPath + ".memberAccess.mode":                          memberAccessMode,
+		keyPath + ".memberAccess.mode":                          string(memberAccessMode),
 		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
 		keyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
 		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,

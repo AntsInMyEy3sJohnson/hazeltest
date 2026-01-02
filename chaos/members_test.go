@@ -1654,10 +1654,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			err := killer.kill(nil, nil, nil, nil)
+			numMembersKilled, err := killer.kill(nil, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of killed members must be zero"
+			if numMembersKilled == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1686,12 +1693,43 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen given list of members is empty")
 		{
-			killer := &k8sHzMemberKiller{}
+			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+			nsDiscoverer := &testK8sNamespaceDiscoverer{}
+			deleter := &testK8sPodDeleter{}
+			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			err := killer.kill([]hzMember{}, nil, nil, nil)
+			numMembersKilled, err := killer.kill([]hzMember{}, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\treported number of killed members must be zero"
+			if numMembersKilled == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tclient set provider must have no invocations"
+			if csProvider.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tnamespace discoverer must have no invocations"
+			if nsDiscoverer.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tdeleter must have no invocations"
+			if deleter.numInvocations == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1709,7 +1747,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					nsDiscoverer,
 					deleter,
 				}
-				err := killer.kill(
+				numMembersKilled, err := killer.kill(
 					assembleMemberList(42),
 					assembleTestMemberAccessConfig(k8sInCluster, "default"),
 					nil,
@@ -1718,6 +1756,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treported number of killed members must be zero"
+				if numMembersKilled == 0 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)
@@ -1757,7 +1802,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						podDeleter:          deleter,
 					}
 
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						assembleMemberList(3),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(true, true, 42),
@@ -1766,6 +1811,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\terror must be returned"
 					if err != nil && errors.Is(err, clientsetInitError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be zero"
+					if numMembersKilled == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1799,7 +1851,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					podDeleter := &testK8sPodDeleter{false, 0, 42}
 					killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
 
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						assembleMemberList(3),
 						testAccessConfig,
 						assembleMemberGraceSleepConfig(false, false, 0),
@@ -1808,6 +1860,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\terror must be returned"
 					if err != nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be zero"
+					if numMembersKilled == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1846,7 +1905,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					}
 
 					memberGraceSeconds := math.MaxInt - 1
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						assembleMemberList(1),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
@@ -1855,6 +1914,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\tno error must be returned"
 					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be one"
+					if numMembersKilled == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1900,7 +1966,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					}
 
 					memberGraceSeconds := 42
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						[]hzMember{
 							{"hazelcastplatform-0"},
 						},
@@ -1911,6 +1977,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\tno error must be returned"
 					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be one"
+					if numMembersKilled == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1934,7 +2007,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						podDeleter:          deleter,
 					}
 
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						[]hzMember{
 							{"hazelcastplatform-0"},
 						},
@@ -1945,6 +2018,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\tno error must be returned"
 					if err == nil {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be one"
+					if numMembersKilled == 1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1990,7 +2070,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					}
 
 					numMembers := 42
-					err := killer.kill(
+					numMembersKilled, err := killer.kill(
 						assembleMemberList(numMembers),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(false, false, 42),
@@ -1999,6 +2079,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					msg := "\t\t\t\terror must be returned"
 					if err != nil && errors.Is(err, podDeleteError) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\t\treported number of killed members must be zero"
+					if numMembersKilled == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -2039,7 +2126,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 				numMembers := 500
 				chaosPercentage := 0.5
-				err := killer.kill(
+				numMembersKilled, err := killer.kill(
 					assembleMemberList(numMembers),
 					assembleTestMemberAccessConfig(k8sInCluster, "default"),
 					assembleMemberGraceSleepConfig(false, false, 0),
@@ -2048,6 +2135,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 				msg := "\t\t\tno error must be returned"
 				if err == nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\treported number of killed members must be (roughly) half the number of members"
+				if math.Abs(float64(numMembersKilled)-float64(numMembers)*chaosPercentage) < float64(numMembers)*0.1 {
 					t.Log(msg, checkMark)
 				} else {
 					t.Fatal(msg, ballotX)

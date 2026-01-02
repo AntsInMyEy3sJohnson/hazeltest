@@ -376,30 +376,31 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) error {
+func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) (int, error) {
 
 	if members == nil || len(members) == 0 {
-		return noMembersProvidedForKillingError
+		return 0, noMembersProvidedForKillingError
 	}
 
 	if cc.evaluationMode == perMemberActivityEvaluation && cc.percentage == 0.0 {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer was given set of %d member/-s, but per-member activity evaluation "+
 			"mode was enabled with a chaos percentage of zero, so cannot kill members", len(members)), log.InfoLevel)
-		return nil
+		return 0, nil
 	}
 
 	clientset, err := killer.clientsetProvider.getOrInit(ac)
 	if err != nil {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
 	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
-		return err
+		return 0, err
 	}
 
+	numMembersKilled := 0
 	for _, m := range members {
 
 		if cc.evaluationMode == perMemberActivityEvaluation {
@@ -433,13 +434,15 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 
 		if err != nil {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
-			return err
+			return numMembersKilled, err
 		}
+
+		numMembersKilled++
 
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
 
 	}
 
-	return nil
+	return numMembersKilled, nil
 
 }
