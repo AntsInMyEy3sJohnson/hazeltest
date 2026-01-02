@@ -1737,80 +1737,27 @@ func TestKillMemberOnK8s(t *testing.T) {
 		}
 		t.Log("\twhen given list of members contains at least one member")
 		{
-			t.Log("\t\twhen per-member evaluation mode is activated, but chaos probability percentage is zero")
+			t.Log("\t\twhen per-member evaluation mode is enabled")
 			{
-				csProvider := &testK8sClientsetProvider{}
-				nsDiscoverer := &testK8sNamespaceDiscoverer{}
-				deleter := &testK8sPodDeleter{}
-				killer := &k8sHzMemberKiller{
-					csProvider,
-					nsDiscoverer,
-					deleter,
-				}
-				numMembersKilled, err := killer.kill(
-					assembleMemberList(42),
-					assembleTestMemberAccessConfig(k8sInCluster, "default"),
-					nil,
-					assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation),
-				)
-
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\treported number of killed members must be zero"
-				if numMembersKilled == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tclient set provider must have zero invocations"
-				if csProvider.numInvocations == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tnamespace discoverer must have zero invocations"
-				if nsDiscoverer.numInvocations == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-
-				msg = "\t\t\tpod deleter must have zero invocations"
-				if deleter.numInvocations == 0 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
-			}
-			t.Log("\t\twhen per-member evaluation mode is activated and chaos probability percentage is 100")
-			{
-				t.Log("\t\t\twhen clientset initialization yields an error")
+				t.Log("\t\t\twhen chaos probability percentage is zero")
 				{
-					errCsProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true, 0}
+					csProvider := &testK8sClientsetProvider{}
 					nsDiscoverer := &testK8sNamespaceDiscoverer{}
 					deleter := &testK8sPodDeleter{}
 					killer := &k8sHzMemberKiller{
-						clientsetProvider:   errCsProvider,
-						namespaceDiscoverer: nsDiscoverer,
-						podDeleter:          deleter,
+						csProvider,
+						nsDiscoverer,
+						deleter,
 					}
-
 					numMembersKilled, err := killer.kill(
-						assembleMemberList(3),
+						assembleMemberList(42),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
-						assembleMemberGraceSleepConfig(true, true, 42),
-						chaosConfigHavingPerRunActivityMode,
+						nil,
+						assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation),
 					)
 
-					msg := "\t\t\t\terror must be returned"
-					if err != nil && errors.Is(err, clientsetInitError) {
+					msg := "\t\t\t\tno error must be returned"
+					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
@@ -1823,339 +1770,394 @@ func TestKillMemberOnK8s(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\tclient set provider must have one invocation"
-					if errCsProvider.numInvocations == 1 {
+					msg = "\t\t\t\tclient set provider must have zero invocations"
+					if csProvider.numInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\tnamespace discoverer must have no invocations"
+					msg = "\t\t\t\tnamespace discoverer must have zero invocations"
 					if nsDiscoverer.numInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\tdeleter must have no invocations"
+					msg = "\t\t\t\tpod deleter must have zero invocations"
 					if deleter.numInvocations == 0 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 				}
-				t.Log("\t\t\twhen namespace discovery is not successful")
+				t.Log("\t\t\twhen chaos probability percentage is 50")
 				{
-					csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-					errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
-					podDeleter := &testK8sPodDeleter{false, 0, 42}
-					killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
-
-					numMembersKilled, err := killer.kill(
-						assembleMemberList(3),
-						testAccessConfig,
-						assembleMemberGraceSleepConfig(false, false, 0),
-						chaosConfigHavingPerRunActivityMode,
-					)
-
-					msg := "\t\t\t\terror must be returned"
-					if err != nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\treported number of killed members must be zero"
-					if numMembersKilled == 0 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tclient set provider must have one invocation"
-					if csProvider.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tnamespace discoverer must have one invocation"
-					if errNsDiscoverer.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tpod deleter must have no invocations"
-					if podDeleter.numInvocations == 0 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-				}
-				t.Log("\t\t\twhen member grace is enabled with randomness")
-				{
-					csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+					csProvider := &testK8sClientsetProvider{}
 					nsDiscoverer := &testK8sNamespaceDiscoverer{}
-					deleter := &testK8sPodDeleter{}
+					podDeleter := &testK8sPodDeleter{}
 					killer := &k8sHzMemberKiller{
 						clientsetProvider:   csProvider,
 						namespaceDiscoverer: nsDiscoverer,
-						podDeleter:          deleter,
+						podDeleter:          podDeleter,
 					}
 
-					memberGraceSeconds := math.MaxInt - 1
-					numMembersKilled, err := killer.kill(
-						assembleMemberList(1),
-						assembleTestMemberAccessConfig(k8sInCluster, "default"),
-						assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
-						chaosConfigHavingPerRunActivityMode,
-					)
-
-					msg := "\t\t\t\tno error must be returned"
-					if err == nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\treported number of killed members must be one"
-					if numMembersKilled == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tclient set provider must have one invocation"
-					if csProvider.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tnamespace discoverer must have one invocation"
-					if nsDiscoverer.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tdeleter must have one invocation"
-					if deleter.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tdeletion must be invoked with non-zero random member grace seconds"
-					if deleter.gracePeriodSeconds > 0 && deleter.gracePeriodSeconds != int64(memberGraceSeconds) {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-				}
-				t.Log("\t\t\twhen member grace is enabled without randomness")
-				{
-					csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-					nsDiscoverer := &testK8sNamespaceDiscoverer{}
-					deleter := &testK8sPodDeleter{}
-					killer := &k8sHzMemberKiller{
-						clientsetProvider:   csProvider,
-						namespaceDiscoverer: nsDiscoverer,
-						podDeleter:          deleter,
-					}
-
-					memberGraceSeconds := 42
-					numMembersKilled, err := killer.kill(
-						[]hzMember{
-							{"hazelcastplatform-0"},
-						},
-						assembleTestMemberAccessConfig(k8sInCluster, "default"),
-						assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
-						chaosConfigHavingPerRunActivityMode,
-					)
-
-					msg := "\t\t\t\tno error must be returned"
-					if err == nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\treported number of killed members must be one"
-					if numMembersKilled == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tdeletion must be invoked with number equal to pre-configured number"
-					if deleter.gracePeriodSeconds == int64(memberGraceSeconds) {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-				}
-				t.Log("\t\t\twhen member grace is disabled")
-				{
-					csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-					nsDiscoverer := &testK8sNamespaceDiscoverer{}
-					deleter := &testK8sPodDeleter{}
-					killer := &k8sHzMemberKiller{
-						clientsetProvider:   csProvider,
-						namespaceDiscoverer: nsDiscoverer,
-						podDeleter:          deleter,
-					}
-
-					numMembersKilled, err := killer.kill(
-						[]hzMember{
-							{"hazelcastplatform-0"},
-						},
-						assembleTestMemberAccessConfig(k8sInCluster, "default"),
-						assembleMemberGraceSleepConfig(false, false, 42),
-						chaosConfigHavingPerRunActivityMode,
-					)
-
-					msg := "\t\t\t\tno error must be returned"
-					if err == nil {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\treported number of killed members must be one"
-					if numMembersKilled == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tclient set provider must have one invocation"
-					if csProvider.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tnamespace discoverer must have one invocation"
-					if nsDiscoverer.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tdeleter must have one invocation"
-					if deleter.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tdeletion must be invoked with member grace zero"
-					if deleter.gracePeriodSeconds == 0 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-				}
-				t.Log("\t\t\twhen pod deletion yields an error")
-				{
-					csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
-					nsDiscoverer := &testK8sNamespaceDiscoverer{}
-					errDeleter := &testK8sPodDeleter{returnError: true}
-					killer := &k8sHzMemberKiller{
-						clientsetProvider:   csProvider,
-						namespaceDiscoverer: nsDiscoverer,
-						podDeleter:          errDeleter,
-					}
-
-					numMembers := 42
+					numMembers := 500
+					chaosPercentage := 0.5
 					numMembersKilled, err := killer.kill(
 						assembleMemberList(numMembers),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
-						assembleMemberGraceSleepConfig(false, false, 42),
-						chaosConfigHavingPerRunActivityMode,
+						assembleMemberGraceSleepConfig(false, false, 0),
+						assembleChaosProbabilityConfig(chaosPercentage, perMemberActivityEvaluation),
 					)
 
-					msg := "\t\t\t\terror must be returned"
-					if err != nil && errors.Is(err, podDeleteError) {
+					msg := "\t\t\t\tno error must be returned"
+					if err == nil {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\treported number of killed members must be zero"
-					if numMembersKilled == 0 {
+					msg = "\t\t\t\treported number of killed members must be (roughly) half the number of members"
+					if math.Abs(float64(numMembersKilled)-float64(numMembers)*chaosPercentage) < float64(numMembers)*0.1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\tclient set provider must have one invocation"
-					if csProvider.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-
-					msg = "\t\t\t\tnamespace discoverer must have one invocation"
-					if nsDiscoverer.numInvocations == 1 {
-						t.Log(msg, checkMark)
-					} else {
-						t.Fatal(msg, ballotX)
-					}
-					// Loop aborts as soon as it encounters an error
-					msg = "\t\t\t\tdeleter must have one invocation"
-					if errDeleter.numInvocations == 1 {
+					msg = "\t\t\t\tpod deleter's invocations must be equal to (roughly) half the number of members"
+					if math.Abs(float64(podDeleter.numInvocations)-(float64(numMembers)*chaosPercentage)) < float64(numMembers)*0.1 {
 						t.Log(msg, checkMark)
 					} else {
 						t.Fatal(msg, ballotX)
 					}
 				}
-			}
-			t.Log("\t\twhen per-member evaluation mode is activated and chaos probability is 50")
-			{
-				csProvider := &testK8sClientsetProvider{}
-				nsDiscoverer := &testK8sNamespaceDiscoverer{}
-				podDeleter := &testK8sPodDeleter{}
-				killer := &k8sHzMemberKiller{
-					clientsetProvider:   csProvider,
-					namespaceDiscoverer: nsDiscoverer,
-					podDeleter:          podDeleter,
-				}
+				t.Log("\t\t\twhen chaos probability percentage is 100")
+				{
+					t.Log("\t\t\t\twhen clientset initialization yields an error")
+					{
+						errCsProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						deleter := &testK8sPodDeleter{}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   errCsProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          deleter,
+						}
 
-				numMembers := 500
-				chaosPercentage := 0.5
-				numMembersKilled, err := killer.kill(
-					assembleMemberList(numMembers),
-					assembleTestMemberAccessConfig(k8sInCluster, "default"),
-					assembleMemberGraceSleepConfig(false, false, 0),
-					assembleChaosProbabilityConfig(chaosPercentage, perMemberActivityEvaluation),
-				)
+						numMembersKilled, err := killer.kill(
+							assembleMemberList(3),
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(true, true, 42),
+							chaosConfigHavingPerRunActivityMode,
+						)
 
-				msg := "\t\t\tno error must be returned"
-				if err == nil {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
+						msg := "\t\t\t\t\terror must be returned"
+						if err != nil && errors.Is(err, clientsetInitError) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 
-				msg = "\t\t\treported number of killed members must be (roughly) half the number of members"
-				if math.Abs(float64(numMembersKilled)-float64(numMembers)*chaosPercentage) < float64(numMembers)*0.1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
-				}
+						msg = "\t\t\t\t\treported number of killed members must be zero"
+						if numMembersKilled == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 
-				msg = "\t\t\tpod deleter's invocations must be equal to (roughly) half the number of members"
-				if math.Abs(float64(podDeleter.numInvocations)-(float64(numMembers)*chaosPercentage)) < float64(numMembers)*0.1 {
-					t.Log(msg, checkMark)
-				} else {
-					t.Fatal(msg, ballotX)
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if errCsProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have no invocations"
+						if nsDiscoverer.numInvocations == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeleter must have no invocations"
+						if deleter.numInvocations == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen namespace discovery is not successful")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
+						podDeleter := &testK8sPodDeleter{false, 0, 42}
+						killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
+
+						numMembersKilled, err := killer.kill(
+							assembleMemberList(3),
+							testAccessConfig,
+							assembleMemberGraceSleepConfig(false, false, 0),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\terror must be returned"
+						if err != nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treported number of killed members must be zero"
+						if numMembersKilled == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if csProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have one invocation"
+						if errNsDiscoverer.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tpod deleter must have no invocations"
+						if podDeleter.numInvocations == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen member grace is enabled with randomness")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						deleter := &testK8sPodDeleter{}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   csProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          deleter,
+						}
+
+						memberGraceSeconds := math.MaxInt - 1
+						numMembersKilled, err := killer.kill(
+							assembleMemberList(1),
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\tno error must be returned"
+						if err == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treported number of killed members must be one"
+						if numMembersKilled == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if csProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have one invocation"
+						if nsDiscoverer.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeleter must have one invocation"
+						if deleter.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeletion must be invoked with non-zero random member grace seconds"
+						if deleter.gracePeriodSeconds > 0 && deleter.gracePeriodSeconds != int64(memberGraceSeconds) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen member grace is enabled without randomness")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						deleter := &testK8sPodDeleter{}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   csProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          deleter,
+						}
+
+						memberGraceSeconds := 42
+						numMembersKilled, err := killer.kill(
+							[]hzMember{
+								{"hazelcastplatform-0"},
+							},
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\tno error must be returned"
+						if err == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treported number of killed members must be one"
+						if numMembersKilled == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeletion must be invoked with number equal to pre-configured number"
+						if deleter.gracePeriodSeconds == int64(memberGraceSeconds) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen member grace is disabled")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						deleter := &testK8sPodDeleter{}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   csProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          deleter,
+						}
+
+						numMembersKilled, err := killer.kill(
+							[]hzMember{
+								{"hazelcastplatform-0"},
+							},
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(false, false, 42),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\tno error must be returned"
+						if err == nil {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treported number of killed members must be one"
+						if numMembersKilled == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if csProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have one invocation"
+						if nsDiscoverer.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeleter must have one invocation"
+						if deleter.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeletion must be invoked with member grace zero"
+						if deleter.gracePeriodSeconds == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen pod deletion yields an error")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						errDeleter := &testK8sPodDeleter{returnError: true}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   csProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          errDeleter,
+						}
+
+						numMembers := 42
+						numMembersKilled, err := killer.kill(
+							assembleMemberList(numMembers),
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(false, false, 42),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\terror must be returned"
+						if err != nil && errors.Is(err, podDeleteError) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\treported number of killed members must be zero"
+						if numMembersKilled == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if csProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have one invocation"
+						if nsDiscoverer.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+						// Loop aborts as soon as it encounters an error
+						msg = "\t\t\t\t\tdeleter must have one invocation"
+						if errDeleter.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
 				}
 			}
 		}
-
 	}
 
 }
