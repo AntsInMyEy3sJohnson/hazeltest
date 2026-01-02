@@ -420,7 +420,7 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 		return 0, nil, err
 	}
 
-	membersKilled := make(chan bool, len(members))
+	memberKillEvents := make(chan bool, len(members))
 	numMembersToKill := 0
 	for _, m := range members {
 
@@ -439,11 +439,11 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), log.TraceLevel)
 
 		gracePeriod := evaluatePodTerminationGracePeriod(memberGrace)
-		go invokePodDeletion(killer.podDeleter, clientset, namespace, m, gracePeriod, tc, membersKilled)
+		go invokePodDeletion(killer.podDeleter, clientset, namespace, m, gracePeriod, tc, memberKillEvents)
 
 	}
 
-	return numMembersToKill, membersKilled, nil
+	return numMembersToKill, memberKillEvents, nil
 
 }
 
