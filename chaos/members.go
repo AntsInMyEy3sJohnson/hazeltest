@@ -290,11 +290,14 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
 	if pods == nil || len(pods) == 0 {
+		lp.LogChaosMonkeyEvent("cannot select target members from given list of pods because list was either nil or empty", log.WarnLevel)
 		return nil, noMembersProvidedToChooseFromError
 	}
 
-	// TODO Add logging
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("selecting target members from given list of %d pod/-s", len(pods)), log.TraceLevel)
+
 	if sc.targetOnlyActive && !listWasCheckedForReadyPods {
+		lp.LogChaosMonkeyEvent("target-only-active setting was enabled, but list hasn't been checked for ready pods yet -- performing check", log.TraceLevel)
 		var onlyReadyPods []v1.Pod
 		for _, p := range pods {
 			if isPodReady(p) {
@@ -302,12 +305,15 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 			}
 		}
 		if len(onlyReadyPods) == 0 {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("target-only-active setting was enabled, but ouf of %d given pod/-s, none were active (ready)", len(pods)), log.WarnLevel)
 			return nil, noReadyMembersFoundError
 		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("out of %d given pod/-s, %d are currently posting readiness -- entering next iteration of pod selection", len(pods), len(onlyReadyPods)), log.TraceLevel)
 		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
 
 	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("evaluated number of pods to select from given list of %d pod/-s to be %d", len(pods), numPodsToSelect), log.TraceLevel)
 
 	if err != nil {
 		return nil, err
@@ -326,6 +332,8 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 	for _, v := range selectedPods {
 		hzMembers = append(hzMembers, hzMember{v.Name})
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("selected the following pods for termination: %v", hzMembers), log.InfoLevel)
 
 	return hzMembers, nil
 
