@@ -71,7 +71,7 @@ type (
 		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) (int, error)
+		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) (int, chan bool, error)
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -214,11 +214,34 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			numMembersKilled, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig)
+			maxSleepTime := (2 + 1) * time.Second
+			numMembersToKill, membersKilled, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig)
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
+				if membersKilled != nil {
+					close(membersKilled)
+				}
 			} else {
-				m.updateNumMembersKilled(uint32(numMembersKilled))
+				numKillInvocationsInRun := 0
+				for numKillInvocationsInRun < numMembersToKill {
+					select {
+					case success := <-membersKilled:
+						numKillInvocationsInRun++
+						if success {
+							lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.InfoLevel)
+							m.updateNumMembersKilled(uint32(1))
+						}
+					// Additional way out of the loop in case killer isn't able to send event into channel
+					case <-time.After(maxSleepTime):
+						lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
+						break
+					}
+				}
+				if numKillInvocationsInRun == numMembersToKill {
+					// If all killer goroutines have sent events, we know it's safe to close the channel
+					lp.LogChaosMonkeyEvent("closing members killed channel", log.InfoLevel)
+					close(membersKilled)
+				}
 			}
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
