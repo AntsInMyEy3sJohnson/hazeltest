@@ -71,7 +71,7 @@ type (
 		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) (int, chan bool, error)
+		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error)
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -108,13 +108,14 @@ type (
 		evaluationMode activityEvaluationMode
 	}
 	monkeyConfig struct {
-		enabled         bool
-		numRuns         uint32
-		chaosConfig     *chaosProbabilityConfig
-		selectionConfig *memberSelectionConfig
-		accessConfig    *memberAccessConfig
-		sleep           *sleepConfig
-		memberGrace     *sleepConfig
+		enabled           bool
+		numRuns           uint32
+		chaosConfig       *chaosProbabilityConfig
+		selectionConfig   *memberSelectionConfig
+		accessConfig      *memberAccessConfig
+		terminationConfig *memberTerminationConfig
+		sleep             *sleepConfig
+		memberGrace       *sleepConfig
 	}
 	defaultSleeper          struct{}
 	raiseReady              func()
@@ -214,33 +215,33 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			maxSleepTime := (2 + 1) * time.Second
-			numMembersToKill, membersKilled, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig)
+			maxDelay := time.Duration(mc.terminationConfig.delaySeconds+1) * time.Second
+			numMembersToKill, killEvents, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig, mc.terminationConfig)
 			if err != nil {
 				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
-				if membersKilled != nil {
-					close(membersKilled)
+				if killEvents != nil {
+					close(killEvents)
 				}
 			} else {
 				numKillInvocationsInRun := 0
 				for numKillInvocationsInRun < numMembersToKill {
 					select {
-					case success := <-membersKilled:
+					case success := <-killEvents:
 						numKillInvocationsInRun++
 						if success {
-							lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.InfoLevel)
+							lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
 							m.updateNumMembersKilled(uint32(1))
 						}
 					// Additional way out of the loop in case killer isn't able to send event into channel
-					case <-time.After(maxSleepTime):
+					case <-time.After(maxDelay):
 						lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
 						break
 					}
 				}
 				if numKillInvocationsInRun == numMembersToKill {
 					// If all killer goroutines have sent events, we know it's safe to close the channel
-					lp.LogChaosMonkeyEvent("closing members killed channel", log.InfoLevel)
-					close(membersKilled)
+					lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
+					close(killEvents)
 				}
 			}
 		} else {
@@ -393,12 +394,18 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		return nil, err
 	}
 
+	tc, err := b.populateMemberTerminationConfig(a)
+	if err != nil {
+		return nil, err
+	}
+
 	return &monkeyConfig{
-		enabled:         enabled,
-		numRuns:         numRuns,
-		chaosConfig:     cc,
-		selectionConfig: sc,
-		accessConfig:    ac,
+		enabled:           enabled,
+		numRuns:           numRuns,
+		chaosConfig:       cc,
+		selectionConfig:   sc,
+		accessConfig:      ac,
+		terminationConfig: tc,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
@@ -409,6 +416,45 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 			durationSeconds:  memberGraceDurationSeconds,
 			enableRandomness: memberGraceEnableRandomness,
 		},
+	}, nil
+
+}
+
+func (b monkeyConfigBuilder) populateMemberTerminationConfig(a client.ConfigPropertyAssigner) (*memberTerminationConfig, error) {
+
+	var assignmentOps []func() error
+
+	var mode string
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.mode", client.ValidateString, func(a any) {
+			mode = a.(string)
+		})
+	})
+
+	var delaySeconds uint8
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.delayed.delaySeconds", client.ValidateInt, func(a any) {
+			delaySeconds = uint8(a.(int))
+		})
+	})
+
+	var enableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.delayed.enableRandomness", client.ValidateBool, func(a any) {
+			enableRandomness = a.(bool)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &memberTerminationConfig{
+		mode:             hzMemberTerminationMode(mode),
+		delaySeconds:     delaySeconds,
+		enableRandomness: enableRandomness,
 	}, nil
 
 }

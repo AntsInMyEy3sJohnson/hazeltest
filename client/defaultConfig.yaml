@@ -16,6 +16,12 @@ chaosMonkeys:
     chaosProbability:
       percentage: 0.5
       evaluationMode: perMember
+    memberTermination:
+      mode: delayed
+      atOnce: { }
+      delayed:
+        delaySeconds: 20
+        enableRandomness: true
     # Specifies the strategy the monkey will use to select Hazelcast members in each run. (Note the difference to
     # 'memberAccess' below -- the "access" configuration is concerned with how to access the members in the first place,
     # whereas the "selection" configuration deals with how members should be selected once access was established).

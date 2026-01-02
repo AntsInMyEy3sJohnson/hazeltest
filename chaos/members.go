@@ -23,6 +23,11 @@ const (
 	k8sNamespaceEnvVariable = "POD_NAMESPACE"
 )
 
+const (
+	atOnce  hzMemberTerminationMode = "atOnce"
+	delayed hzMemberTerminationMode = "delayed"
+)
+
 var (
 	noMembersFoundError      = errors.New("no members found to be terminated")
 	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
@@ -68,6 +73,11 @@ type (
 		k8sOutOfCluster k8sOutOfClusterMemberAccess
 		k8sInCluster    k8sInClusterMemberAccess
 	}
+	memberTerminationConfig struct {
+		mode             hzMemberTerminationMode
+		delaySeconds     uint8
+		enableRandomness bool
+	}
 	defaultK8sConfigBuilder        struct{}
 	defaultK8sClientsetInitializer struct{}
 	defaultK8sClientsetProvider    struct {
@@ -90,6 +100,7 @@ type (
 		namespaceDiscoverer k8sNamespaceDiscoverer
 		podDeleter          k8sPodDeleter
 	}
+	hzMemberTerminationMode string
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
@@ -385,7 +396,7 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig) (int, chan bool, error) {
+func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error) {
 
 	if members == nil || len(members) == 0 {
 		return 0, nil, noMembersProvidedForKillingError
@@ -425,43 +436,80 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig
 
 		numMembersToKill++
 
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), log.TraceLevel)
 
-		var gracePeriod int
-		if memberGrace.enabled {
-			if memberGrace.enableRandomness {
-				gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
-			} else {
-				gracePeriod = memberGrace.durationSeconds
-			}
-		} else {
-			gracePeriod = 0
-		}
-
-		go func() {
-			timeToSleep := 2 * time.Second
-			time.Sleep(timeToSleep)
-
-			g := int64(gracePeriod)
-
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", g, m.identifier), log.TraceLevel)
-
-			ctx := context.TODO()
-			err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
-
-			if err != nil {
-				lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
-				membersKilled <- false
-			} else {
-				membersKilled <- true
-			}
-
-		}()
-
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+		gracePeriod := evaluatePodTerminationGracePeriod(memberGrace)
+		go invokePodDeletion(killer.podDeleter, clientset, namespace, m, gracePeriod, tc, membersKilled)
 
 	}
 
 	return numMembersToKill, membersKilled, nil
+
+}
+
+func invokePodDeletion(
+	deleter k8sPodDeleter,
+	clientset *kubernetes.Clientset,
+	namespace string,
+	m hzMember,
+	gracePeriod int64,
+	tc *memberTerminationConfig,
+	membersKilled chan bool,
+) {
+
+	delay := evaluateSecondsToDelayMemberTermination(tc)
+
+	if tc.mode == delayed {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("delaying termination of hazelcast member '%s' by %.f second/-s", m.identifier, delay.Seconds()), log.InfoLevel)
+		time.Sleep(delay)
+	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), log.InfoLevel)
+	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
+
+	ctx := context.TODO()
+	err := deleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
+		membersKilled <- false
+	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+		membersKilled <- true
+	}
+
+}
+
+func evaluateSecondsToDelayMemberTermination(tc *memberTerminationConfig) time.Duration {
+
+	delaySecondsToUse := 0
+
+	if tc.mode == delayed {
+		if tc.enableRandomness {
+			delaySecondsToUse = rand.Intn(int(tc.delaySeconds))
+		} else {
+			delaySecondsToUse = int(tc.delaySeconds)
+		}
+	}
+
+	return time.Duration(delaySecondsToUse) * time.Second
+
+}
+
+func evaluatePodTerminationGracePeriod(memberGrace *sleepConfig) int64 {
+
+	var gracePeriod int
+	if memberGrace.enabled {
+		if memberGrace.enableRandomness {
+			gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
+		} else {
+			gracePeriod = memberGrace.durationSeconds
+		}
+	} else {
+		gracePeriod = 0
+	}
+
+	return int64(gracePeriod)
 
 }
