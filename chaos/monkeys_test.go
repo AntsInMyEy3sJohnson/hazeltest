@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 )
 
 type (
@@ -29,6 +30,10 @@ type (
 	}
 	testSleeper struct {
 		secondsSlept int
+	}
+	testTimer struct {
+		numInvocations  int
+		timeoutOccurred bool
 	}
 )
 
@@ -61,6 +66,12 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 		s.secondsSlept += sc.durationSeconds
 	}
 
+}
+
+func (t *testTimer) after(d time.Duration) <-chan time.Time {
+	t.numInvocations++
+
+	return time.After(d)
 }
 
 func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig, _ *memberTerminationConfig) (int, chan bool, error) {
@@ -170,6 +181,213 @@ func TestDefaultSleeperSleep(t *testing.T) {
 
 }
 
+func TestMemberKillerMonkeyProcessKillIterationResults(t *testing.T) {
+
+	t.Log("given the member killer monkey and results of one iteration of killing hazelcast members")
+	{
+		t.Log("\twhen execution resulted in error")
+		{
+			t.Log("\t\twhen kill events channel is nil")
+			{
+				tt := &testTimer{}
+				waitCh := make(chan struct{})
+				panicOccurred := false
+				timeoutOccurred := false
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							panicOccurred = true
+						}
+						waitCh <- struct{}{}
+					}()
+					m := memberKillerMonkey{}
+					timeoutOccurred = m.processKillIterationResults(tt, []hzMember{}, nil, 0, nil, errors.New("some error"))
+				}()
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				<-waitCh
+				msg = "\t\t\tclosing channel must not be attempted"
+				if !panicOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+			t.Log("\t\twhen kill events channel is non-nil")
+			{
+				tt := &testTimer{}
+				killEvents := make(chan bool, 1)
+
+				m := memberKillerMonkey{}
+				timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, nil, 0, killEvents, errors.New("some error"))
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tchannel must have been closed"
+				channelClosed := wasChannelClosed(killEvents)
+
+				if channelClosed {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen error is nil")
+		{
+			t.Log("\t\twhen reported number of members to kill is zero")
+			{
+				tt := &testTimer{}
+				killEvents := make(chan bool, 1)
+				tc := &memberTerminationConfig{delaySeconds: 0}
+
+				m := memberKillerMonkey{}
+				timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, 0, killEvents, nil)
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkill events channel must have been closed"
+				if wasChannelClosed(killEvents) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen reported number of members to kill is greater than zero")
+			{
+				t.Log("\t\t\twhen no kill event is sent on channel")
+				{
+					tt := &testTimer{}
+					tc := &memberTerminationConfig{delaySeconds: 0}
+					killEvents := make(chan bool, 1)
+
+					m := memberKillerMonkey{}
+					timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, 1, killEvents, nil)
+
+					msg := "\t\t\ttimeout must have occurred"
+					if timeoutOccurred {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\ttimer must have one invocation"
+					if tt.numInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					// It's only safe to close the channel if we know for sure all pod deletion goroutines have
+					// sent events, but this test setup simulates a case where the reported number of members
+					// to kill is greater than the number of events received on the channel, so make sure
+					// the channel remains open
+					msg = "\t\t\t\tkill events channel must have remained open"
+					if !wasChannelClosed(killEvents) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+				t.Log("\t\t\twhen kill event is sent on channel")
+				{
+					tt := &testTimer{}
+					tc := &memberTerminationConfig{delaySeconds: 0}
+					numMembersToKill := 21
+					killEvents := make(chan bool, numMembersToKill)
+					g := status.NewGatherer()
+
+					m := memberKillerMonkey{}
+					listenReady := make(chan struct{})
+					go g.Listen(listenReady)
+					<-listenReady
+
+					m.g = g
+
+					for i := 0; i < numMembersToKill; i++ {
+						killEvents <- true
+					}
+					timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, numMembersToKill, killEvents, nil)
+
+					msg := "\t\t\tno timeout must have occurred"
+					if !timeoutOccurred {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					// Loop was entered, so select's branches were evaluated, too, which inevitably leads to one
+					// invocation on the timer regardless of whether the timer has actually fired
+					msg = "\t\t\tinvocations of timer must be equal to number of times event receive loop was executed"
+					if tt.numInvocations == numMembersToKill {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tkill events channel must have been closed"
+					if wasChannelClosed(killEvents) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					g.StopListen()
+					waitForStatusGatheringDone(g)
+
+					msg = "\t\t\tstatus gatherer must have received one member kill update for every member killed"
+					statusCopy := g.AssembleStatusCopy()
+					if v, ok := statusCopy[statusKeyNumMembersKilled]; ok && v.(uint32) == uint32(numMembersToKill) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
 	t.Log("given a member killer monkey with the ability to kill hazelcast members")
@@ -201,7 +419,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testTimer{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -261,7 +479,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testTimer{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -325,7 +543,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				testNotReadyFunc := func() {
 					raiseNotReadyInvoked = true
 				}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -399,7 +617,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				killer := &testHzMemberKiller{}
 				m := memberKillerMonkey{}
 
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, notReadyFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, notReadyFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -446,7 +664,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				chooser := &testHzMemberChooser{returnError: true}
 				killer := &testHzMemberKiller{}
 				m := memberKillerMonkey{}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -494,7 +712,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				chooser := &testHzMemberChooser{}
 				killer := &testHzMemberKiller{returnError: true}
 				m := memberKillerMonkey{}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -541,7 +759,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				chooser := &testHzMemberChooser{memberIDs: memberIDs}
 				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
 				m := memberKillerMonkey{}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -597,7 +815,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				chooser := &testHzMemberChooser{memberIDs: memberIDs}
 				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
 				m := memberKillerMonkey{}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -665,7 +883,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				chooser := &testHzMemberChooser{memberIDs: memberIDs}
 				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
 				m := memberKillerMonkey{}
-				m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 				m.causeChaos()
 				waitForStatusGatheringDone(m.g)
@@ -727,7 +945,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+			m.init(assigner, s, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -767,7 +985,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+			m.init(assigner, s, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 
@@ -1172,6 +1390,17 @@ func TestPopulateConfig(t *testing.T) {
 				}
 			}
 		}
+	}
+
+}
+
+func wasChannelClosed(ch chan bool) bool {
+
+	select {
+	case _, ok := <-ch:
+		return !ok
+	default:
+		return false
 	}
 
 }
