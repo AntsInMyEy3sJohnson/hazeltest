@@ -61,9 +61,10 @@ type (
 		numInvocations int
 	}
 	testK8sPodDeleter struct {
-		returnError        bool
-		numInvocations     int
-		gracePeriodSeconds int64
+		returnError          bool
+		returnErrorThreshold int
+		numInvocations       int
+		gracePeriodSeconds   int64
 	}
 )
 
@@ -151,7 +152,7 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 	d.numInvocations++
 	d.gracePeriodSeconds = *deleteOptions.GracePeriodSeconds
 
-	if d.returnError {
+	if d.returnError && d.numInvocations > d.returnErrorThreshold {
 		return podDeleteError
 	}
 
@@ -1891,7 +1892,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
-						podDeleter := &testK8sPodDeleter{false, 0, 42}
+						podDeleter := &testK8sPodDeleter{false, 0, 0, 42}
 						killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
 
 						numMembersKilled, err := killer.kill(
@@ -2101,7 +2102,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 					}
-					t.Log("\t\t\t\twhen pod deletion yields an error")
+					t.Log("\t\t\t\twhen pod deletion yields error after first pod")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
@@ -2150,6 +2151,61 @@ func TestKillMemberOnK8s(t *testing.T) {
 						// Loop aborts as soon as it encounters an error
 						msg = "\t\t\t\t\tdeleter must have one invocation"
 						if errDeleter.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+					}
+					t.Log("\t\t\t\twhen pod deletion yields error after a set of pods has already been terminated")
+					{
+						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
+						nsDiscoverer := &testK8sNamespaceDiscoverer{}
+						numMembers := 42
+						expectedNumMembersKilled := numMembers / 2
+						errDeleter := &testK8sPodDeleter{returnError: true, returnErrorThreshold: expectedNumMembersKilled}
+						killer := &k8sHzMemberKiller{
+							clientsetProvider:   csProvider,
+							namespaceDiscoverer: nsDiscoverer,
+							podDeleter:          errDeleter,
+						}
+
+						numMembersKilled, err := killer.kill(
+							assembleMemberList(numMembers),
+							assembleTestMemberAccessConfig(k8sInCluster, "default"),
+							assembleMemberGraceSleepConfig(false, false, 42),
+							chaosConfigHavingPerRunActivityMode,
+						)
+
+						msg := "\t\t\t\t\terror must be returned"
+						if err != nil && errors.Is(err, podDeleteError) {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tkiller must report expected non-zero number of members killed"
+						if numMembersKilled == expectedNumMembersKilled {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tclient set provider must have one invocation"
+						if csProvider.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tnamespace discoverer must have one invocation"
+						if nsDiscoverer.numInvocations == 1 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tdeleter must have expected number of invocations"
+						if errDeleter.numInvocations == expectedNumMembersKilled+1 {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
