@@ -63,29 +63,31 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 }
 
-func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig) (int, error) {
+func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig, _ *memberTerminationConfig) (int, chan bool, error) {
 
 	k.numInvocations++
 
 	if k.returnError {
-		return 0, errors.New("yet another error that should have been completely impossible")
+		return 0, nil, errors.New("yet another error that should have been completely impossible")
 	}
 
 	k.givenHzMembers = members
 
 	numMembersKilled := 0
+	killEvents := make(chan bool, len(k.givenHzMembers))
 	if k.useProbabilityToCalculateNumMembersKilled {
 		for range k.givenHzMembers {
 			f := rand.Float64()
 			if cc.percentage >= f {
 				numMembersKilled++
+				killEvents <- true
 			}
 		}
 	} else {
 		numMembersKilled = k.numMembersKilledToReturn
 	}
 
-	return numMembersKilled, nil
+	return numMembersKilled, killEvents, nil
 
 }
 
@@ -184,6 +186,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
+				delayed,
 				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
@@ -242,6 +245,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
+				delayed,
 				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
@@ -303,6 +307,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -385,6 +390,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -432,6 +438,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -479,6 +486,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -520,6 +528,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						numMembersAvailable,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -575,6 +584,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						1.0,
 						perMemberActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -642,6 +652,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 						0,
 						1.0,
 						perMemberActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -707,6 +718,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					0,
 					0.0,
 					perRunActivityEvaluation,
+					delayed,
 					k8sInCluster,
 					validLabelSelector,
 					sleepDisabled,
@@ -746,6 +758,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					0,
 					0.0,
 					perRunActivityEvaluation,
+					delayed,
 					k8sInCluster,
 					validLabelSelector,
 					sc,
@@ -1016,6 +1029,7 @@ func TestPopulateConfig(t *testing.T) {
 				0,
 				0.3,
 				perRunActivityEvaluation,
+				delayed,
 				k8sOutOfCluster,
 				validLabelSelector,
 				sleepDisabled,
@@ -1056,6 +1070,7 @@ func TestPopulateConfig(t *testing.T) {
 				0,
 				0.0,
 				perRunActivityEvaluation,
+				delayed,
 				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
@@ -1093,6 +1108,7 @@ func TestPopulateConfig(t *testing.T) {
 						invalidAbsoluteNumMembersToKill,
 						invalidRelativePercentageOfMembersToKill,
 						perRunActivityEvaluation,
+						delayed,
 						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
@@ -1132,6 +1148,7 @@ func TestPopulateConfig(t *testing.T) {
 						0,
 						0.0,
 						perRunActivityEvaluation,
+						delayed,
 						accessMode,
 						invalidLabelSelector,
 						sleepDisabled,
@@ -1237,6 +1254,7 @@ func assembleTestConfigAsMap(
 	absoluteNumMembersToKill int,
 	relativePercentageOfMembersToKill float32,
 	chaosEvaluationMode activityEvaluationMode,
+	terminationMode hzMemberTerminationMode,
 	memberAccessMode hzOnK8sMemberAccessMode,
 	labelSelector string,
 	sleep *sleepConfig,
@@ -1247,6 +1265,9 @@ func assembleTestConfigAsMap(
 		keyPath + ".numRuns":                                            numRuns,
 		keyPath + ".chaosProbability.percentage":                        chaosProbability,
 		keyPath + ".chaosProbability.evaluationMode":                    string(chaosEvaluationMode),
+		keyPath + ".memberTermination.mode":                             string(terminationMode),
+		keyPath + ".memberTermination.delayed.delaySeconds":             1, // Must be at least one, or else property validation will fail
+		keyPath + ".memberTermination.delayed.enableRandomness":         false,
 		keyPath + ".memberSelection.mode":                               memberSelectionMode,
 		keyPath + ".memberSelection.targetOnlyActive":                   targetOnlyActive,
 		keyPath + ".memberSelection.absolute.numMembersToKill":          absoluteNumMembersToKill,

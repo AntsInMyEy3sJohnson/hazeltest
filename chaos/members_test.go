@@ -31,6 +31,7 @@ var (
 	hazelcastNamespace                  = "hazelcastplatform"
 	testAccessConfig                    = assembleTestMemberAccessConfig(k8sInCluster, "")
 	testSelectionConfig                 = assembleTestMemberSelectionConfig(relativeMemberSelectionMode, true, 0.0, 0.0)
+	testAtOnceTerminationConfig         = assembleMemberTerminationConfig(atOnce, 0, false)
 )
 
 type (
@@ -1644,6 +1645,72 @@ func TestChooseMemberOnK8s(t *testing.T) {
 
 }
 
+func memberKillResultsAsExpectedWithRange(
+	totalNumMembers, reportedNumMembersToKill int,
+	chaosPercentage float64,
+	killEvents chan bool,
+) (bool, string) {
+
+	if math.Abs(float64(reportedNumMembersToKill)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
+		return false, "reported number of members to kill outside of expected range"
+	}
+
+	numMemberKillsAttempted, numMemberKillsSuccessful := drainMembersKilledChannel(reportedNumMembersToKill, killEvents)
+
+	if math.Abs(float64(numMemberKillsAttempted)-float64(totalNumMembers)*chaosPercentage) > float64(totalNumMembers)*0.1 {
+		return false, "reported number of member kills attempted outside of expected range"
+	}
+
+	if numMemberKillsAttempted != numMemberKillsSuccessful {
+		return false, "number of members kills attempted not equal to number of successful member kills"
+	}
+
+	return true, ""
+
+}
+
+func memberKillResultsAsExpected(
+	expectedNumMembersToKill, expectedNumKillsAttempted, expectedNumKillsSuccessful, reportedNumMembersToKill int,
+	killEvents chan bool,
+) (bool, string) {
+
+	if reportedNumMembersToKill != expectedNumMembersToKill {
+		return false, fmt.Sprintf("expected number of members to kill is not equal to reported number of members to kill: %d != %d", expectedNumMembersToKill, reportedNumMembersToKill)
+	}
+
+	reportedNumKillsAttempted, reportedNumKillsSuccessful := drainMembersKilledChannel(expectedNumKillsAttempted, killEvents)
+
+	if reportedNumKillsAttempted != expectedNumKillsAttempted {
+		return false, fmt.Sprintf("expected number of kill invocations is not equal to reported number of kill invocations: %d != %d", expectedNumKillsAttempted, reportedNumKillsAttempted)
+	}
+
+	if reportedNumKillsSuccessful != expectedNumKillsSuccessful {
+		return false, fmt.Sprintf("expected number of successful kills is not equal to reported number of successful kills: %d != %d", expectedNumKillsSuccessful, reportedNumKillsSuccessful)
+	}
+
+	return true, ""
+
+}
+
+func drainMembersKilledChannel(expectedNumKillAttempted int, ch chan bool) (int, int) {
+
+	numKillsAttempted := 0
+	numKillsSuccessful := 0
+
+	for numKillsAttempted < expectedNumKillAttempted {
+		select {
+		case success := <-ch:
+			numKillsAttempted++
+			if success {
+				numKillsSuccessful++
+			}
+		}
+	}
+
+	return numKillsAttempted, numKillsSuccessful
+
+}
+
 func TestKillMemberOnK8s(t *testing.T) {
 
 	t.Log("given the member killer monkey's method to kill a hazelcast member on kubernetes")
@@ -1655,7 +1722,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			numMembersKilled, err := killer.kill(nil, nil, nil, nil)
+			numMembersToKill, killEvents, err := killer.kill(nil, nil, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
@@ -1664,11 +1731,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\treported number of killed members must be zero"
-			if numMembersKilled == 0 {
+			msg = "\t\tmember kill results must be correct"
+			if ok, detail := memberKillResultsAsExpected(
+				0,
+				0,
+				0,
+				numMembersToKill,
+				killEvents,
+			); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tclient set provider must have no invocations"
@@ -1699,7 +1772,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 			deleter := &testK8sPodDeleter{}
 			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			numMembersKilled, err := killer.kill([]hzMember{}, nil, nil, nil)
+			numMembersToKill, killEvents, err := killer.kill([]hzMember{}, nil, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
@@ -1708,11 +1781,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\treported number of killed members must be zero"
-			if numMembersKilled == 0 {
+			msg = "\t\tmember kill results must be correct"
+			if ok, detail := memberKillResultsAsExpected(
+				0,
+				0,
+				0,
+				numMembersToKill,
+				killEvents,
+			); ok {
 				t.Log(msg, checkMark)
 			} else {
-				t.Fatal(msg, ballotX)
+				t.Fatal(msg, ballotX, detail)
 			}
 
 			msg = "\t\tclient set provider must have no invocations"
@@ -1750,11 +1829,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 						nsDiscoverer,
 						deleter,
 					}
-					numMembersKilled, err := killer.kill(
+					numMembersToKill, killEvents, err := killer.kill(
 						assembleMemberList(42),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						nil,
 						assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation),
+						nil,
 					)
 
 					msg := "\t\t\t\tno error must be returned"
@@ -1764,11 +1844,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\treported number of killed members must be zero"
-					if numMembersKilled == 0 {
+					msg = "\t\tmember kill results must be correct"
+					if ok, detail := memberKillResultsAsExpected(
+						0,
+						0,
+						0,
+						numMembersToKill,
+						killEvents,
+					); ok {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, detail)
 					}
 
 					msg = "\t\t\t\tclient set provider must have zero invocations"
@@ -1805,11 +1891,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 					numMembers := 500
 					chaosPercentage := 0.5
-					numMembersKilled, err := killer.kill(
+					numMembersToKill, killEvents, err := killer.kill(
 						assembleMemberList(numMembers),
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(false, false, 0),
 						assembleChaosProbabilityConfig(chaosPercentage, perMemberActivityEvaluation),
+						testAtOnceTerminationConfig,
 					)
 
 					msg := "\t\t\t\tno error must be returned"
@@ -1819,11 +1906,15 @@ func TestKillMemberOnK8s(t *testing.T) {
 						t.Fatal(msg, ballotX)
 					}
 
-					msg = "\t\t\t\treported number of killed members must be (roughly) half the number of members"
-					if math.Abs(float64(numMembersKilled)-float64(numMembers)*chaosPercentage) < float64(numMembers)*0.1 {
+					if ok, detail := memberKillResultsAsExpectedWithRange(
+						numMembers,
+						numMembersToKill,
+						chaosPercentage,
+						killEvents,
+					); ok {
 						t.Log(msg, checkMark)
 					} else {
-						t.Fatal(msg, ballotX)
+						t.Fatal(msg, ballotX, detail)
 					}
 
 					msg = "\t\t\t\tpod deleter's invocations must be equal to (roughly) half the number of members"
@@ -1846,11 +1937,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 							podDeleter:          deleter,
 						}
 
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(3),
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, true, 42),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\terror must be returned"
@@ -1860,11 +1952,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be zero"
-						if numMembersKilled == 0 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							0,
+							0,
+							0,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -1895,11 +1993,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 						podDeleter := &testK8sPodDeleter{false, 0, 0, 42}
 						killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
 
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(3),
 							testAccessConfig,
 							assembleMemberGraceSleepConfig(false, false, 0),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\terror must be returned"
@@ -1909,11 +2008,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be zero"
-						if numMembersKilled == 0 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							0,
+							0,
+							0,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -1949,11 +2054,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 						}
 
 						memberGraceSeconds := math.MaxInt - 1
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(1),
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\tno error must be returned"
@@ -1963,11 +2069,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be one"
-						if numMembersKilled == 1 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							1,
+							1,
+							1,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -2010,13 +2122,14 @@ func TestKillMemberOnK8s(t *testing.T) {
 						}
 
 						memberGraceSeconds := 42
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							[]hzMember{
 								{"hazelcastplatform-0"},
 							},
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\tno error must be returned"
@@ -2026,11 +2139,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be one"
-						if numMembersKilled == 1 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							1,
+							1,
+							1,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tdeletion must be invoked with number equal to pre-configured number"
@@ -2051,13 +2170,14 @@ func TestKillMemberOnK8s(t *testing.T) {
 							podDeleter:          deleter,
 						}
 
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							[]hzMember{
 								{"hazelcastplatform-0"},
 							},
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\tno error must be returned"
@@ -2067,11 +2187,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be one"
-						if numMembersKilled == 1 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							1,
+							1,
+							1,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -2114,11 +2240,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 						}
 
 						numMembers := 42
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(numMembers),
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\terror must be returned"
@@ -2128,11 +2255,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\treported number of killed members must be zero"
-						if numMembersKilled == 0 {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							1,
+							1,
+							1,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -2169,11 +2302,12 @@ func TestKillMemberOnK8s(t *testing.T) {
 							podDeleter:          errDeleter,
 						}
 
-						numMembersKilled, err := killer.kill(
+						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(numMembers),
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
+							testAtOnceTerminationConfig,
 						)
 
 						msg := "\t\t\t\t\terror must be returned"
@@ -2183,11 +2317,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\t\t\t\tkiller must report expected non-zero number of members killed"
-						if numMembersKilled == expectedNumMembersKilled {
+						msg = "\t\tmember kill results must be correct"
+						if ok, detail := memberKillResultsAsExpected(
+							expectedNumMembersKilled,
+							expectedNumMembersKilled,
+							expectedNumMembersKilled,
+							numMembersToKill,
+							killEvents,
+						); ok {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, detail)
 						}
 
 						msg = "\t\t\t\t\tclient set provider must have one invocation"
@@ -2283,6 +2423,16 @@ func assemblePod(name string, ready bool) v1.Pod {
 				},
 			},
 		},
+	}
+
+}
+
+func assembleMemberTerminationConfig(mode hzMemberTerminationMode, delaySeconds int, enableRandomness bool) *memberTerminationConfig {
+
+	return &memberTerminationConfig{
+		mode:             mode,
+		delaySeconds:     uint8(delaySeconds),
+		enableRandomness: enableRandomness,
 	}
 
 }
