@@ -77,9 +77,20 @@ type (
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
 	}
 	monkey interface {
-		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g status.Gatherer,
-			readyFunc raiseReady, notReadyFunc raiseNotReady)
+		init(
+			a client.ConfigPropertyAssigner,
+			s sleeper,
+			t timer,
+			c hzMemberChooser,
+			k hzMemberKiller,
+			g status.Gatherer,
+			readyFunc raiseReady,
+			notReadyFunc raiseNotReady,
+		)
 		causeChaos()
+	}
+	timer interface {
+		after(d time.Duration) <-chan time.Time
 	}
 	hzMember struct {
 		identifier string
@@ -88,6 +99,7 @@ type (
 		a                client.ConfigPropertyAssigner
 		stateList        []state
 		s                sleeper
+		t                timer
 		chooser          hzMemberChooser
 		killer           hzMemberKiller
 		g                status.Gatherer
@@ -118,6 +130,7 @@ type (
 		memberGrace       *sleepConfig
 	}
 	defaultSleeper          struct{}
+	defaultTimer            struct{}
 	raiseReady              func()
 	raiseNotReady           func()
 	state                   string
@@ -144,11 +157,16 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 }
 
-func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller,
+func (t *defaultTimer) after(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
+func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, t timer, c hzMemberChooser, k hzMemberKiller,
 	g status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
 
 	m.a = a
 	m.s = s
+	m.t = t
 	m.chooser = c
 	m.killer = k
 	m.g = g
@@ -215,35 +233,9 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			maxDelay := time.Duration(mc.terminationConfig.delaySeconds+1) * time.Second
 			numMembersToKill, killEvents, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig, mc.terminationConfig)
-			if err != nil {
-				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
-				if killEvents != nil {
-					close(killEvents)
-				}
-			} else {
-				numKillInvocationsInRun := 0
-				for numKillInvocationsInRun < numMembersToKill {
-					select {
-					case success := <-killEvents:
-						numKillInvocationsInRun++
-						if success {
-							lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
-							m.updateNumMembersKilled(uint32(1))
-						}
-					// Additional way out of the loop in case killer isn't able to send event into channel
-					case <-time.After(maxDelay):
-						lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
-						break
-					}
-				}
-				if numKillInvocationsInRun == numMembersToKill {
-					// If all killer goroutines have sent events, we know it's safe to close the channel
-					lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
-					close(killEvents)
-				}
-			}
+			m.processKillIterationResults(m.t, members, mc.terminationConfig, numMembersToKill, killEvents, err)
+
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
 		}
@@ -251,6 +243,55 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	m.appendState(chaosComplete)
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loop/-s", mc.numRuns), log.InfoLevel)
+
+}
+
+func (m *memberKillerMonkey) processKillIterationResults(
+	t timer,
+	members []hzMember,
+	tc *memberTerminationConfig,
+	numMembersToKill int,
+	killEvents chan bool,
+	err error,
+) bool {
+
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to kill chosen hazelcast members (%s) "+
+			"-- will try again in next iteration: %v", members, err), log.WarnLevel)
+		if killEvents != nil {
+			close(killEvents)
+		}
+		return false
+	}
+
+	numKillInvocationsInRun := 0
+
+	maxDelay := time.Duration(tc.delaySeconds+1) * time.Second
+	timeoutOccurred := false
+
+loop:
+	for numKillInvocationsInRun < numMembersToKill {
+		select {
+		case success := <-killEvents:
+			numKillInvocationsInRun++
+			if success {
+				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.InfoLevel)
+				m.updateNumMembersKilled(uint32(1))
+			}
+		// Additional way out of the loop in case killer isn't able to send event into channel
+		case <-t.after(maxDelay):
+			lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
+			timeoutOccurred = true
+			break loop
+		}
+	}
+	if numKillInvocationsInRun == numMembersToKill {
+		// If all killer goroutines have sent events, we know it's safe to close the channel
+		lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
+		close(killEvents)
+	}
+
+	return timeoutOccurred
 
 }
 
@@ -632,6 +673,7 @@ func RunMonkeys() {
 			m.init(
 				&client.DefaultConfigPropertyAssigner{},
 				&defaultSleeper{},
+				&defaultTimer{},
 				&k8sHzMemberChooser{
 					clientsetProvider:   clientsetProvider,
 					namespaceDiscoverer: namespaceDiscoverer,
