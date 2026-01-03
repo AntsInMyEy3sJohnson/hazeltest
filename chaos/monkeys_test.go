@@ -74,7 +74,7 @@ func (t *testTimer) after(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig, _ *memberTerminationConfig) (int, chan bool, error) {
+func (k *testHzMemberKiller) kill(members []hzMember, _ sleeper, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig, _ *memberTerminationConfig) (int, chan bool, error) {
 
 	k.numInvocations++
 

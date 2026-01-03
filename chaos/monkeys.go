@@ -71,7 +71,7 @@ type (
 		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
 	}
 	hzMemberKiller interface {
-		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error)
+		kill(members []hzMember, s sleeper, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error)
 	}
 	sleeper interface {
 		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
@@ -233,7 +233,7 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			numMembersToKill, killEvents, err := m.killer.kill(members, mc.accessConfig, mc.memberGrace, mc.chaosConfig, mc.terminationConfig)
+			numMembersToKill, killEvents, err := m.killer.kill(members, m.s, mc.accessConfig, mc.memberGrace, mc.chaosConfig, mc.terminationConfig)
 			m.processKillIterationResults(m.t, members, mc.terminationConfig, numMembersToKill, killEvents, err)
 
 		} else {

@@ -1655,9 +1655,11 @@ func TestKillMemberOnK8s(t *testing.T) {
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
+			ts := &testSleeper{}
+
 			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			numMembersToKill, killEvents, err := killer.kill(nil, nil, nil, nil, nil)
+			numMembersToKill, killEvents, err := killer.kill(nil, ts, nil, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
@@ -1695,6 +1697,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			msg = "\t\tdeleter must have no invocations"
 			if deleter.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have slept zero seconds"
+			if ts.secondsSlept == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1705,9 +1714,11 @@ func TestKillMemberOnK8s(t *testing.T) {
 			csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 			nsDiscoverer := &testK8sNamespaceDiscoverer{}
 			deleter := &testK8sPodDeleter{}
+			ts := &testSleeper{}
+
 			killer := &k8sHzMemberKiller{csProvider, nsDiscoverer, deleter}
 
-			numMembersToKill, killEvents, err := killer.kill([]hzMember{}, nil, nil, nil, nil)
+			numMembersToKill, killEvents, err := killer.kill([]hzMember{}, ts, nil, nil, nil, nil)
 
 			msg := "\t\terror must be returned"
 			if err != nil && errors.Is(err, noMembersProvidedForKillingError) {
@@ -1745,6 +1756,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 			msg = "\t\tdeleter must have no invocations"
 			if deleter.numInvocations == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\tsleeper must have slept zero seconds"
+			if ts.secondsSlept == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -1759,13 +1777,17 @@ func TestKillMemberOnK8s(t *testing.T) {
 					csProvider := &testK8sClientsetProvider{}
 					nsDiscoverer := &testK8sNamespaceDiscoverer{}
 					deleter := &testK8sPodDeleter{}
+					ts := &testSleeper{}
+
 					killer := &k8sHzMemberKiller{
 						csProvider,
 						nsDiscoverer,
 						deleter,
 					}
+
 					numMembersToKill, killEvents, err := killer.kill(
 						assembleMemberList(42),
+						ts,
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						nil,
 						assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation),
@@ -1812,12 +1834,21 @@ func TestKillMemberOnK8s(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX)
 					}
+
+					msg = "\t\t\t\tsleeper must have slept zero seconds"
+					if ts.secondsSlept == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
 				}
 				t.Log("\t\t\twhen chaos probability percentage is 50")
 				{
 					csProvider := &testK8sClientsetProvider{}
 					nsDiscoverer := &testK8sNamespaceDiscoverer{}
 					podDeleter := &testK8sPodDeleter{}
+					ts := &testSleeper{}
+
 					killer := &k8sHzMemberKiller{
 						clientsetProvider:   csProvider,
 						namespaceDiscoverer: nsDiscoverer,
@@ -1828,6 +1859,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 					chaosPercentage := 0.5
 					numMembersToKill, killEvents, err := killer.kill(
 						assembleMemberList(numMembers),
+						ts,
 						assembleTestMemberAccessConfig(k8sInCluster, "default"),
 						assembleMemberGraceSleepConfig(false, false, 0),
 						assembleChaosProbabilityConfig(chaosPercentage, perMemberActivityEvaluation),
@@ -1858,6 +1890,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 					} else {
 						t.Fatal(msg, ballotX)
 					}
+
+					msg = "\t\t\t\tsleeper must have slept zero seconds"
+					if ts.secondsSlept == 0 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
 				}
 				t.Log("\t\t\twhen chaos probability percentage is 100")
 				{
@@ -1866,6 +1905,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 						errCsProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, true, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
 						deleter := &testK8sPodDeleter{}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   errCsProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -1874,6 +1915,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(3),
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, true, 42),
 							chaosConfigHavingPerRunActivityMode,
@@ -1887,7 +1929,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							0,
 							0,
@@ -1920,16 +1962,26 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen namespace discovery is not successful")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						errNsDiscoverer := &testK8sNamespaceDiscoverer{true, 0}
 						podDeleter := &testK8sPodDeleter{false, 0, 0, 42}
+						ts := &testSleeper{}
+
 						killer := k8sHzMemberKiller{csProvider, errNsDiscoverer, podDeleter}
 
 						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(3),
+							ts,
 							testAccessConfig,
 							assembleMemberGraceSleepConfig(false, false, 0),
 							chaosConfigHavingPerRunActivityMode,
@@ -1943,7 +1995,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							0,
 							0,
@@ -1976,12 +2028,21 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen member grace is enabled with randomness")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
 						deleter := &testK8sPodDeleter{}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   csProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -1991,6 +2052,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						memberGraceSeconds := math.MaxInt - 1
 						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(1),
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, true, memberGraceSeconds),
 							chaosConfigHavingPerRunActivityMode,
@@ -2044,12 +2106,21 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen member grace is enabled without randomness")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
 						deleter := &testK8sPodDeleter{}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   csProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -2061,6 +2132,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							[]hzMember{
 								{"hazelcastplatform-0"},
 							},
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(true, false, memberGraceSeconds),
 							chaosConfigHavingPerRunActivityMode,
@@ -2074,7 +2146,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							1,
 							1,
@@ -2093,12 +2165,21 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen member grace is disabled")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
 						deleter := &testK8sPodDeleter{}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   csProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -2109,6 +2190,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							[]hzMember{
 								{"hazelcastplatform-0"},
 							},
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
@@ -2122,7 +2204,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							1,
 							1,
@@ -2162,12 +2244,21 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen pod deleter yields error upon attempt to delete first pod")
 					{
 						csProvider := &testK8sClientsetProvider{testBuilder, testClientsetInitializer, false, 0}
 						nsDiscoverer := &testK8sNamespaceDiscoverer{}
 						errDeleter := &testK8sPodDeleter{returnError: true}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   csProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -2177,6 +2268,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						numMembers := 42
 						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(numMembers),
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
@@ -2194,7 +2286,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							numMembers,
 							// Loop invoking pod deletion now has no way of knowing whether pod deletion was
@@ -2230,6 +2322,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 						} else {
 							t.Fatal(msg, ballotX)
 						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
 					}
 					t.Log("\t\t\t\twhen pod deletion yields error after a set of pods has already been terminated")
 					{
@@ -2238,6 +2337,8 @@ func TestKillMemberOnK8s(t *testing.T) {
 						numMembers := 42
 						expectedNumMembersKilled := numMembers / 2
 						errDeleter := &testK8sPodDeleter{returnError: true, returnErrorThreshold: expectedNumMembersKilled}
+						ts := &testSleeper{}
+
 						killer := &k8sHzMemberKiller{
 							clientsetProvider:   csProvider,
 							namespaceDiscoverer: nsDiscoverer,
@@ -2246,6 +2347,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 						numMembersToKill, killEvents, err := killer.kill(
 							assembleMemberList(numMembers),
+							ts,
 							assembleTestMemberAccessConfig(k8sInCluster, "default"),
 							assembleMemberGraceSleepConfig(false, false, 42),
 							chaosConfigHavingPerRunActivityMode,
@@ -2259,7 +2361,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 							t.Fatal(msg, ballotX)
 						}
 
-						msg = "\t\tmember kill results must be correct"
+						msg = "\t\t\t\t\tmember kill results must be correct"
 						if ok, detail := memberKillResultsAsExpected(
 							numMembers,
 							numMembers,
@@ -2288,6 +2390,13 @@ func TestKillMemberOnK8s(t *testing.T) {
 
 						msg = "\t\t\t\t\tnumber of pod deleter invocations must be equal to number of members to be terminated according to chaos probability"
 						if errDeleter.numInvocations == numMembersToKill {
+							t.Log(msg, checkMark)
+						} else {
+							t.Fatal(msg, ballotX)
+						}
+
+						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
+						if ts.secondsSlept == 0 {
 							t.Log(msg, checkMark)
 						} else {
 							t.Fatal(msg, ballotX)
