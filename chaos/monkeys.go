@@ -275,7 +275,7 @@ loop:
 		case success := <-killEvents:
 			numKillInvocationsInRun++
 			if success {
-				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.InfoLevel)
+				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
 				m.updateNumMembersKilled(uint32(1))
 			}
 		// Additional way out of the loop in case killer isn't able to send event into channel
