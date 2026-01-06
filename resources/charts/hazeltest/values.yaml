@@ -254,7 +254,7 @@ config:
               actionTowardsBoundaryProbability: 0.69
     load:
       enabled: true
-      numMaps: 10
+      numMaps: 100
       numEntriesPerMap: 10000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
@@ -303,7 +303,7 @@ config:
               enableRandomness: true
             afterChainAction:
               enabled: true
-              durationMs: 50
+              durationMs: 20
               enableRandomness: true
             uponModeChange:
               enabled: true
@@ -311,7 +311,7 @@ config:
               enableRandomness: false
           operationChain:
             length: 3000
-            resetAfterChain: false
+            resetAfterChain: true
             boundaryDefinition:
               upper:
                 mapFillPercentage: 0.9
