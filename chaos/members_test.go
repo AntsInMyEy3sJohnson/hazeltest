@@ -162,6 +162,118 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
+func TestInvokePodDeletion(t *testing.T) {
+
+	t.Log("given a pod deleter, a hazelcast member, a member termination config, and a channel to convey to the caller whether pod deletion has been successful")
+	{
+		t.Log("\twhen pod deletion does not yield error")
+		{
+			t.Log("\t\twhen delayed mode was enabled in termination config")
+			{
+				deleter := &testK8sPodDeleter{}
+				ts := &testSleeper{}
+				m := hzMember{identifier: "hazelcastplatform-0"}
+
+				delay := 1
+				tc := &memberTerminationConfig{
+					mode:             delayed,
+					delaySeconds:     uint8(delay),
+					enableRandomness: false,
+				}
+				membersKilled := make(chan bool, 1)
+
+				invokePodDeletion(deleter, ts, nil, m, tc, "some-namespace", 0, membersKilled)
+
+				msg := "\t\t\tsuccess of pod termination must be reported on channel"
+				success := <-membersKilled
+				if success {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tsleeper must exhibit sleep time"
+				if ts.secondsSlept == delay {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tdeleter must have been invoked once"
+				if deleter.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+			t.Log("\t\twhen at-once mode was enabled in termination config")
+			{
+				deleter := &testK8sPodDeleter{}
+				ts := &testSleeper{}
+				m := hzMember{identifier: "hazelcastplatform-0"}
+
+				delay := 1
+				tc := &memberTerminationConfig{
+					mode:             atOnce,
+					delaySeconds:     uint8(delay),
+					enableRandomness: false,
+				}
+				membersKilled := make(chan bool, 1)
+
+				invokePodDeletion(deleter, ts, nil, m, tc, "some-namespace", 0, membersKilled)
+
+				msg := "\t\t\tsuccess of pod termination must be reported on channel"
+				success := <-membersKilled
+				if success {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tsleeper must not have exhibited sleep time"
+				if ts.secondsSlept == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tdeleter must have been invoked once"
+				if deleter.numInvocations == 1 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+		}
+		t.Log("\twhen pod deletion yields error")
+		{
+			for _, mode := range []hzMemberTerminationMode{delayed, atOnce} {
+				deleter := &testK8sPodDeleter{returnError: true}
+				ts := &testSleeper{}
+
+				m := hzMember{identifier: "hazelcastplatform-0"}
+
+				tc := &memberTerminationConfig{
+					mode, 0, false,
+				}
+
+				membersKilled := make(chan bool, 1)
+				invokePodDeletion(deleter, ts, nil, m, tc, "some-namespace", 0, membersKilled)
+
+				msg := "\t\tfailure of pod termination must be reported on channel"
+				success := <-membersKilled
+				if !success {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+	}
+
+}
+
 func TestChooseTargetMembersFromPods(t *testing.T) {
 
 	t.Log("given a list of pods, a member selection config, and information whether the list contains only ready pods")

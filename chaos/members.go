@@ -438,7 +438,7 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, s sleeper, ac *memberA
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), log.TraceLevel)
 
 		gracePeriod := evaluatePodTerminationGracePeriod(memberGrace)
-		go invokePodDeletion(killer.podDeleter, s, clientset, namespace, m, gracePeriod, tc, memberKillEvents)
+		go invokePodDeletion(killer.podDeleter, s, clientset, m, tc, namespace, gracePeriod, memberKillEvents)
 
 	}
 
@@ -450,25 +450,22 @@ func invokePodDeletion(
 	d k8sPodDeleter,
 	s sleeper,
 	clientset *kubernetes.Clientset,
-	namespace string,
 	m hzMember,
-	gracePeriod int64,
 	tc *memberTerminationConfig,
+	namespace string,
+	gracePeriod int64,
 	membersKilled chan bool,
 ) {
 
-	delay := evaluateSecondsToDelayMemberTermination(tc)
-
 	if tc.mode == delayed {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("delaying termination of hazelcast member '%s' by %d second/-s", m.identifier, delay), log.InfoLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("delaying termination of hazelcast member '%s'", m.identifier), log.TraceLevel)
 		s.sleep(&sleepConfig{
 			enabled:          true,
-			durationSeconds:  delay,
-			enableRandomness: false,
-		},
+			durationSeconds:  int(tc.delaySeconds),
+			enableRandomness: tc.enableRandomness},
 			sleepTimeFunc)
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), log.InfoLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), log.TraceLevel)
 	}
 
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
@@ -483,22 +480,6 @@ func invokePodDeletion(
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
 		membersKilled <- true
 	}
-
-}
-
-func evaluateSecondsToDelayMemberTermination(tc *memberTerminationConfig) time.Duration {
-
-	delaySecondsToUse := 0
-
-	if tc.mode == delayed {
-		if tc.enableRandomness {
-			delaySecondsToUse = rand.Intn(int(tc.delaySeconds))
-		} else {
-			delaySecondsToUse = int(tc.delaySeconds)
-		}
-	}
-
-	return delaySecondsToUse
 
 }
 
