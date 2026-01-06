@@ -13,9 +13,19 @@ chaosMonkeys:
     # In each run, the monkey will strike with this probability. The provided number expresses
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
+    # Configuration of the chaos probability.
     chaosProbability:
-      percentage: 0.7
+      # Chaos probability can be evaluated either per-run ('perRun') or per member ('perMember)'. If 'perRun' is configured,
+      # the chaos probability setting decides whether the monkey becomes active at all in this run of its <numRuns>
+      # runs. If 'perMember' is configured, on the other hand, the decision of whether an action is necessary is deferred
+      # to the member-individual kill operation itself, and the monkey will become active regardless of the given chaos
+      # percentage. For example, if four members are chosen to be terminated (depending on how member selection is configured,
+      # see below) and evaluation mode is 'perMember', then the activity decision will be made for each of those four
+      # members individually, and the given percentage will determine how likely the kill operation is.
       evaluationMode: perMember
+      # The percentage represents the probability of an action being performed (either the monkey activity itself or the
+      # member-individual kill operation, see above).
+      percentage: 0.7
     # Specifies how chosen Hazelcast members will be terminated (if more than one was chosen) in terms of terminating
     # them all at once versus delaying the termination individually.
     memberTermination:
