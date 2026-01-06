@@ -14,7 +14,7 @@ chaosMonkeys:
     # a percentage, i.e., 1.0 corresponds to 100%. For this value to be semantically correct,
     # therefore, it must be within the closed interval [0,1].
     chaosProbability:
-      percentage: 0.5
+      percentage: 0.7
       evaluationMode: perMember
     # Specifies how chosen Hazelcast members will be terminated (if more than one was chosen) in terms of terminating
     # them all at once versus delaying the termination individually.
@@ -74,7 +74,7 @@ chaosMonkeys:
         # can be either the number of active (ready) members or the total number of members, regardless of their current
         # state. If 'targetOnlyActive' is enabled and no active members are present, the monkey will log an error and not
         # terminate the other members.
-        percentageOfMembersToKill: 1.0
+        percentageOfMembersToKill: 0.3
     # Configures how the monkey should access the target Hazelcast members.
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
@@ -90,7 +90,7 @@ chaosMonkeys:
         # the target Hazelcast members run on.
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.
-        kubeconfig: /Users/nkr/.kube/config-default
+        kubeconfig: default
         # The namespace in which to search for Hazelcast member Pods.
         namespace: hazelcastplatform
         # The label selector to use for identifying the Hazelcast member Pods.
@@ -116,11 +116,11 @@ chaosMonkeys:
       enabled: true
       # The duration, in seconds, to sleep. (Mind the difference between this sleep config's duration and the various
       # runner's sleeps, where the sleep is configured in milliseconds.)
-      durationSeconds: 30
+      durationSeconds: 600
       # Enables or disables randomness for this sleep configuration. If enabled, the amount of seconds to sleep will be
       # determined randomly in the closed interval [0, <durationSeconds>]. If disabled, the sleep will be static, i.e.
       # the monkey will simply sleep for the given amount of seconds.
-      enableRandomness: false
+      enableRandomness: true
     # Configures deletion behavior. When enabled, the member killer monkey will kill the selected Hazelcast member
     # using a grace period as defined by 'durationSeconds' and 'enableRandomness'.
     memberGrace:
@@ -222,7 +222,7 @@ queueTests:
   # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
     # The TweetRunner will not be run when this is set to 'false'.
-    enabled: false
+    enabled: true
     # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
     # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
     numQueues: 1
@@ -308,7 +308,7 @@ queueTests:
           durationMs: 2000
           enableRandomness: true
   load:
-    enabled: false
+    enabled: true
     numQueues: 5
     # Controls how many entries the queue load runner will use (this property is not available on the tweet runner because
     # the tweet runner works on a static data set, hence the number of elements as well as their size are given). The
@@ -362,7 +362,7 @@ queueTests:
 mapTests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
-    enabled: false
+    enabled: true
     # The runner will spawn one goroutine for each map
     numMaps: 10
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
@@ -559,7 +559,7 @@ mapTests:
             # reached to not violate this boundary), thus overriding the probability setting.
             actionTowardsBoundaryProbability: 1
   load:
-    enabled: false
+    enabled: true
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
