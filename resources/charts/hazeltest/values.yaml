@@ -10,10 +10,10 @@ image:
 
 resources:
   requests:
-    cpu: "100m"
+    cpu: "200m"
     memory: "75Mi"
   limits:
-    cpu: "200m"
+    cpu: "400m"
     memory: "150Mi"
 
 startupArgs:
@@ -254,7 +254,7 @@ config:
               actionTowardsBoundaryProbability: 0.69
     load:
       enabled: true
-      numMaps: 100
+      numMaps: 20
       numEntriesPerMap: 10000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
@@ -310,7 +310,7 @@ config:
               durationMs: 15000
               enableRandomness: false
           operationChain:
-            length: 3000
+            length: 100000
             resetAfterChain: true
             boundaryDefinition:
               upper:
