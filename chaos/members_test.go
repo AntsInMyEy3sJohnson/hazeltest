@@ -162,6 +162,60 @@ func (d *testK8sPodDeleter) delete(_ *kubernetes.Clientset, _ context.Context, _
 
 }
 
+func TestEvaluatePodTerminationGracePeriod(t *testing.T) {
+
+	t.Log("given a valid sleep config expressing the user's desired member grace behavior")
+	{
+		t.Log("\twhen member grace was enabled")
+		{
+			t.Log("\t\twhen randomness was enabled")
+			{
+				maxGracePeriod := 20
+				numSamples := maxGracePeriod * 100
+				msg := fmt.Sprintf("\t\t\tevaluated grace period must be in range of [0, %d]", maxGracePeriod)
+				for i := 0; i < numSamples; i++ {
+					evaluatedGracePeriod := evaluatePodTerminationGracePeriod(&sleepConfig{
+						true, maxGracePeriod, true,
+					})
+
+					if evaluatedGracePeriod >= 0 && evaluatedGracePeriod <= 20 {
+						t.Log(msg, checkMark, evaluatedGracePeriod)
+					} else {
+						t.Fatal(msg, ballotX, evaluatedGracePeriod)
+					}
+				}
+			}
+			t.Log("\t\twhen randomness was disabled")
+			{
+				gracePeriod := 10000
+				msg := fmt.Sprintf("\t\t\tevaluated grace period must be equal to given period, %d", gracePeriod)
+
+				evaluatedGracePeriod := evaluatePodTerminationGracePeriod(&sleepConfig{
+					true, gracePeriod, false,
+				})
+
+				if evaluatedGracePeriod == int64(gracePeriod) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, evaluatedGracePeriod)
+				}
+			}
+		}
+		t.Log("\twhen member grace was disabled")
+		{
+			evaluatedGracePeriod := evaluatePodTerminationGracePeriod(&sleepConfig{})
+
+			msg := "\t\tevaluated grace period must be zero"
+			if evaluatedGracePeriod == 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, evaluatedGracePeriod)
+			}
+		}
+	}
+
+}
+
 func TestInvokePodDeletion(t *testing.T) {
 
 	t.Log("given a pod deleter, a hazelcast member, a member termination config, and a channel to convey to the caller whether pod deletion has been successful")
