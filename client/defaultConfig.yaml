@@ -73,7 +73,8 @@ chaosMonkeys:
         # here, too, meaning the number of members to use as the baseline for calculating the number of members to terminate
         # can be either the number of active (ready) members or the total number of members, regardless of their current
         # state. If 'targetOnlyActive' is enabled and no active members are present, the monkey will log an error and not
-        # terminate the other members.
+        # terminate the other members. If the percentage calculation results in a non-integer number (which it likely will),
+        # the number of members to kill will be the next-highest integer.
         percentageOfMembersToKill: 0.3
     # Configures how the monkey should access the target Hazelcast members.
     memberAccess:
