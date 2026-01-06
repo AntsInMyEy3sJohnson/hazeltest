@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.18.0-dev0
-  digest: 83a555eb084459d9a792e24c056e81333950e35474cbf5656dc761297d5e1531
+  tag: 0.18.0
+  digest: f72fe249c2e2b510dc1be9dfc4ccc00baedd90a90a58a8123e3dc344812cbd76
   pullPolicy: IfNotPresent
 
 resources:
@@ -50,8 +50,8 @@ config:
       enabled: true
       numRuns: 100
       chaosProbability:
-        percentage: 0.7
         evaluationMode: perMember
+        percentage: 0.7
       memberTermination:
         mode: delayed
         delayed:
@@ -78,7 +78,7 @@ config:
       sleep:
         enabled: true
         durationSeconds: 300
-        enableRandomness: false
+        enableRandomness: true
       memberGrace:
         enabled: true
         durationSeconds: 30
