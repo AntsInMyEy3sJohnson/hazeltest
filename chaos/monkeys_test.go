@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"hazeltest/status"
+	"math"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 )
 
 type (
@@ -16,15 +19,21 @@ type (
 		numInvocations int
 	}
 	testHzMemberKiller struct {
-		returnError    bool
-		numInvocations int
-		givenHzMembers []hzMember
+		returnError                               bool
+		useProbabilityToCalculateNumMembersKilled bool
+		numMembersKilledToReturn                  int
+		numInvocations                            int
+		givenHzMembers                            []hzMember
 	}
 	testConfigPropertyAssigner struct {
 		testConfig map[string]any
 	}
 	testSleeper struct {
 		secondsSlept int
+	}
+	testTimer struct {
+		numInvocations  int
+		timeoutOccurred bool
 	}
 )
 
@@ -59,17 +68,37 @@ func (s *testSleeper) sleep(sc *sleepConfig, _ evaluateTimeToSleep) {
 
 }
 
-func (k *testHzMemberKiller) kill(members []hzMember, _ *memberAccessConfig, _ *sleepConfig) error {
+func (t *testTimer) after(d time.Duration) <-chan time.Time {
+	t.numInvocations++
+
+	return time.After(d)
+}
+
+func (k *testHzMemberKiller) kill(members []hzMember, _ sleeper, _ *memberAccessConfig, _ *sleepConfig, cc *chaosProbabilityConfig, _ *memberTerminationConfig) (int, chan bool, error) {
 
 	k.numInvocations++
 
 	if k.returnError {
-		return errors.New("yet another error that should have been completely impossible")
+		return 0, nil, errors.New("yet another error that should have been completely impossible")
 	}
 
 	k.givenHzMembers = members
 
-	return nil
+	numMembersKilled := 0
+	killEvents := make(chan bool, len(k.givenHzMembers))
+	if k.useProbabilityToCalculateNumMembersKilled {
+		for range k.givenHzMembers {
+			f := rand.Float64()
+			if cc.percentage >= f {
+				numMembersKilled++
+				killEvents <- true
+			}
+		}
+	} else {
+		numMembersKilled = k.numMembersKilledToReturn
+	}
+
+	return numMembersKilled, killEvents, nil
 
 }
 
@@ -152,6 +181,213 @@ func TestDefaultSleeperSleep(t *testing.T) {
 
 }
 
+func TestMemberKillerMonkeyProcessKillIterationResults(t *testing.T) {
+
+	t.Log("given the member killer monkey and results of one iteration of killing hazelcast members")
+	{
+		t.Log("\twhen execution resulted in error")
+		{
+			t.Log("\t\twhen kill events channel is nil")
+			{
+				tt := &testTimer{}
+				waitCh := make(chan struct{})
+				panicOccurred := false
+				timeoutOccurred := false
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							panicOccurred = true
+						}
+						waitCh <- struct{}{}
+					}()
+					m := memberKillerMonkey{}
+					timeoutOccurred = m.processKillIterationResults(tt, []hzMember{}, nil, 0, nil, errors.New("some error"))
+				}()
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				<-waitCh
+				msg = "\t\t\tclosing channel must not be attempted"
+				if !panicOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+			}
+			t.Log("\t\twhen kill events channel is non-nil")
+			{
+				tt := &testTimer{}
+				killEvents := make(chan bool, 1)
+
+				m := memberKillerMonkey{}
+				timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, nil, 0, killEvents, errors.New("some error"))
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tchannel must have been closed"
+				channelClosed := wasChannelClosed(killEvents)
+
+				if channelClosed {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+		}
+		t.Log("\twhen error is nil")
+		{
+			t.Log("\t\twhen reported number of members to kill is zero")
+			{
+				tt := &testTimer{}
+				killEvents := make(chan bool, 1)
+				tc := &memberTerminationConfig{delaySeconds: 0}
+
+				m := memberKillerMonkey{}
+				timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, 0, killEvents, nil)
+
+				msg := "\t\t\tno timeout must have occurred"
+				if !timeoutOccurred {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\ttimer must have zero invocations"
+				if tt.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkill events channel must have been closed"
+				if wasChannelClosed(killEvents) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen reported number of members to kill is greater than zero")
+			{
+				t.Log("\t\t\twhen no kill event is sent on channel")
+				{
+					tt := &testTimer{}
+					tc := &memberTerminationConfig{delaySeconds: 0}
+					killEvents := make(chan bool, 1)
+
+					m := memberKillerMonkey{}
+					timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, 1, killEvents, nil)
+
+					msg := "\t\t\ttimeout must have occurred"
+					if timeoutOccurred {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\ttimer must have one invocation"
+					if tt.numInvocations == 1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					// It's only safe to close the channel if we know for sure all pod deletion goroutines have
+					// sent events, but this test setup simulates a case where the reported number of members
+					// to kill is greater than the number of events received on the channel, so make sure
+					// the channel remains open
+					msg = "\t\t\t\tkill events channel must have remained open"
+					if !wasChannelClosed(killEvents) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+				t.Log("\t\t\twhen kill event is sent on channel")
+				{
+					tt := &testTimer{}
+					tc := &memberTerminationConfig{delaySeconds: 0}
+					numMembersToKill := 21
+					killEvents := make(chan bool, numMembersToKill)
+					g := status.NewGatherer()
+
+					m := memberKillerMonkey{}
+					listenReady := make(chan struct{})
+					go g.Listen(listenReady)
+					<-listenReady
+
+					m.g = g
+
+					for i := 0; i < numMembersToKill; i++ {
+						killEvents <- true
+					}
+					timeoutOccurred := m.processKillIterationResults(tt, []hzMember{}, tc, numMembersToKill, killEvents, nil)
+
+					msg := "\t\t\tno timeout must have occurred"
+					if !timeoutOccurred {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					// Loop was entered, so select's branches were evaluated, too, which inevitably leads to one
+					// invocation on the timer regardless of whether the timer has actually fired
+					msg = "\t\t\tinvocations of timer must be equal to number of times event receive loop was executed"
+					if tt.numInvocations == numMembersToKill {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					msg = "\t\t\tkill events channel must have been closed"
+					if wasChannelClosed(killEvents) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+
+					g.StopListen()
+					waitForStatusGatheringDone(g)
+
+					msg = "\t\t\tstatus gatherer must have received one member kill update for every member killed"
+					statusCopy := g.AssembleStatusCopy()
+					if v, ok := statusCopy[statusKeyNumMembersKilled]; ok && v.(uint32) == uint32(numMembersToKill) {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 
 	t.Log("given a member killer monkey with the ability to kill hazelcast members")
@@ -167,7 +403,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				false,
 				0,
 				0.0,
-				k8sInClusterAccessMode,
+				perRunActivityEvaluation,
+				delayed,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)}
@@ -181,7 +419,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testTimer{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -212,7 +450,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
 			}
 		}
-		genericMsg := "\t\tstate transitions must be correct"
+		genericMsg := "\t\t\tstate transitions must be correct"
 		t.Log("\twhen monkey is disabled")
 		{
 			testConfig := assembleTestConfigAsMap(
@@ -224,7 +462,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				false,
 				0,
 				0.0,
-				k8sInClusterAccessMode,
+				perRunActivityEvaluation,
+				delayed,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -239,7 +479,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			testNotReadyFunc := func() {
 				raiseNotReadyInvoked = true
 			}
-			m.init(assigner, &testSleeper{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+			m.init(assigner, &testSleeper{}, &testTimer{}, &testHzMemberChooser{}, &testHzMemberKiller{}, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -269,269 +509,419 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
 			}
 		}
-		t.Log("\twhen non-zero number of runs is configured and chaos probability is 100 %")
+		t.Log("\twhen activity mode is per-run")
 		{
-			numRuns := 9
-			assigner := &testConfigPropertyAssigner{
-				assembleTestConfigAsMap(
-					memberKillerKeyPath,
-					true,
-					1.0,
-					numRuns,
-					relativeMemberSelectionMode,
-					false,
-					0,
-					0.0,
-					k8sInClusterAccessMode,
-					validLabelSelector,
-					sleepDisabled,
-				)}
-			hzMemberID := "hazelcastplatform-0"
-			chooser := &testHzMemberChooser{memberIDs: []string{hzMemberID}}
-			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{}
+			t.Log("\t\twhen non-zero number of runs is configured and chaos probability is 100 %")
+			{
+				numRuns := 9
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						false,
+						0,
+						0.0,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					)}
+				hzMemberID := "hazelcastplatform-0"
+				chooser := &testHzMemberChooser{memberIDs: []string{hzMemberID}}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
 
-			raiseReadyInvoked := false
-			testReadyFunc := func() {
-				raiseReadyInvoked = true
-			}
-			raiseNotReadyInvoked := false
-			testNotReadyFunc := func() {
-				raiseNotReadyInvoked = true
-			}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
+				raiseReadyInvoked := false
+				testReadyFunc := func() {
+					raiseReadyInvoked = true
+				}
+				raiseNotReadyInvoked := false
+				testNotReadyFunc := func() {
+					raiseNotReadyInvoked = true
+				}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), testReadyFunc, testNotReadyFunc)
 
-			m.causeChaos()
-			waitForStatusGatheringDone(m.g)
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
 
-			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
-				t.Log(genericMsg, checkMark)
-			} else {
-				t.Fatal(genericMsg, ballotX, detail)
-			}
+				if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
+					t.Log(genericMsg, checkMark)
+				} else {
+					t.Fatal(genericMsg, ballotX, detail)
+				}
 
-			msg := "\t\tmember chooser must have expected number of invocations"
-			if chooser.numInvocations == numRuns {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", chooser.numInvocations, numRuns))
-			}
+				msg := "\t\t\tmember chooser must have expected number of invocations"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", chooser.numInvocations, numRuns))
+				}
 
-			msg = "\t\tmember killer must have expected number of invocations"
-			if killer.numInvocations == numRuns {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", killer.numInvocations, numRuns))
-			}
+				msg = "\t\t\tmember killer must have expected number of invocations"
+				if killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%d != %d", killer.numInvocations, numRuns))
+				}
 
-			msg = "\t\tkiller's invocation argument must contain previously chosen hazelcast member"
-			if killer.givenHzMembers[0].identifier == hzMemberID {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, killer.givenHzMembers[0].identifier)
-			}
+				msg = "\t\t\tkiller's invocation argument must contain previously chosen hazelcast member"
+				if killer.givenHzMembers[0].identifier == hzMemberID {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, killer.givenHzMembers[0].identifier)
+				}
 
-			msg = "\t\tmonkey status must contain expected values"
-			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, numRuns, true); ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, key, detail)
-			}
+				msg = "\t\t\tmonkey status must contain expected values"
+				if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, numRuns, true); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, key, detail)
+				}
 
-			msg = "\t\tapi status function must have been invoked"
-			if raiseReadyInvoked {
-				t.Log(msg, checkMark, "raiseReadyFunc")
-			} else {
-				t.Fatal(msg, ballotX, "raiseReadyFunc")
+				msg = "\t\t\tapi status function must have been invoked"
+				if raiseReadyInvoked {
+					t.Log(msg, checkMark, "raiseReadyFunc")
+				} else {
+					t.Fatal(msg, ballotX, "raiseReadyFunc")
+				}
+				if raiseNotReadyInvoked {
+					t.Log(msg, checkMark, "raiseNotReadyFunc")
+				} else {
+					t.Fatal(msg, ballotX, "raiseNotReadyFunc")
+				}
 			}
-			if raiseNotReadyInvoked {
-				t.Log(msg, checkMark, "raiseNotReadyFunc")
-			} else {
-				t.Fatal(msg, ballotX, "raiseNotReadyFunc")
+			t.Log("\t\twhen chaos probability is set to zero")
+			{
+				numRuns := 9
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						0.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						false,
+						0,
+						0.0,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					)}
+				chooser := &testHzMemberChooser{}
+				killer := &testHzMemberKiller{}
+				m := memberKillerMonkey{}
+
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, notReadyFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
+					t.Log(genericMsg, checkMark)
+				} else {
+					t.Fatal(genericMsg, ballotX, detail)
+				}
+
+				msg := "\t\t\truns must be skipped"
+				if chooser.numInvocations == 0 && killer.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tmonkey status must contain expected values"
+				if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, key, detail)
+				}
+			}
+			t.Log("\t\twhen chooser yields error")
+			{
+				numRuns := 3
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						false,
+						0,
+						0.0,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					)}
+				chooser := &testHzMemberChooser{returnError: true}
+				killer := &testHzMemberKiller{}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tchooser invocation must be re-tried in next run"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkiller must not be invoked"
+				if killer.numInvocations == 0 {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tmonkey status must contain expected values"
+				if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, key, detail)
+				}
+			}
+			t.Log("\t\twhen killer yields an error")
+			{
+				numRuns := 3
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						false,
+						0,
+						0.0,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					)}
+				chooser := &testHzMemberChooser{}
+				killer := &testHzMemberKiller{returnError: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tinvocations of both chooser and killer must be retried in next run"
+				if chooser.numInvocations == numRuns && killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tmonkey status must contain expected values"
+				if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX, key, detail)
+				}
+			}
+			t.Log("\t\twhen killer does not yield error and terminates more than one member")
+			{
+				numRuns := 2
+				numMembersAvailable := 3
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						absoluteMemberSelectionMode,
+						false,
+						numMembersAvailable,
+						0.0,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					)}
+
+				memberIDs := make([]string, numMembersAvailable)
+				for i := 0; i < numMembersAvailable; i++ {
+					memberIDs[i] = uuid.New().String()
+				}
+				chooser := &testHzMemberChooser{memberIDs: memberIDs}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tlist of hazelcast members passed to killer must be correct"
+				passedMemberIDs := make([]string, len(memberIDs))
+				for i := 0; i < len(memberIDs); i++ {
+					passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+				}
+				if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have been informed about correct number of members killed"
+				statusCopy := m.g.AssembleStatusCopy()
+
+				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
 		}
-		t.Log("\twhen chaos probability is set to zero")
+		t.Log("\twhen activity mode is per-member")
 		{
-			numRuns := 9
-			assigner := &testConfigPropertyAssigner{
-				assembleTestConfigAsMap(
-					memberKillerKeyPath,
-					true,
-					0.0,
-					numRuns,
-					relativeMemberSelectionMode,
-					false,
-					0,
-					0.0,
-					k8sInClusterAccessMode,
-					validLabelSelector,
-					sleepDisabled,
-				)}
-			chooser := &testHzMemberChooser{}
-			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{}
+			t.Log("\t\twhen non-zero number of runs is configured and chaos probability is 100 %")
+			{
+				numRuns := 21
+				numMembersAvailable := 12
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						true,
+						0,
+						1.0,
+						perMemberActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					),
+				}
+				memberIDs := make([]string, numMembersAvailable)
+				for i := 0; i < len(memberIDs); i++ {
+					memberIDs[i] = uuid.New().String()
+				}
+				chooser := &testHzMemberChooser{memberIDs: memberIDs}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, notReadyFunc)
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
 
-			m.causeChaos()
-			waitForStatusGatheringDone(m.g)
+				msg := "\t\t\tlist of hazelcast members passed to killer must be correct"
+				passedMemberIDs := make([]string, len(memberIDs))
+				for i := 0; i < len(memberIDs); i++ {
+					passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+				}
+				if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 
-			if detail, ok := checkMonkeyStateTransitions(completeRunStateList, m.stateList); ok {
-				t.Log(genericMsg, checkMark)
-			} else {
-				t.Fatal(genericMsg, ballotX, detail)
+				msg = "\t\t\tchooser must have experienced expected number of invocations"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkiller must have experienced expected number of invocations"
+				if killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have been informed about correct number of members killed"
+				statusCopy := m.g.AssembleStatusCopy()
+
+				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
 			}
+			t.Log("\t\twhen non-zero number of runs is configured and chaos probability is 0 %")
+			{
+				numRuns := 21
+				numMembersAvailable := 12
+				assigner := &testConfigPropertyAssigner{
+					assembleTestConfigAsMap(
+						memberKillerKeyPath,
+						true,
+						1.0,
+						numRuns,
+						relativeMemberSelectionMode,
+						true,
+						0,
+						1.0,
+						perMemberActivityEvaluation,
+						delayed,
+						k8sInCluster,
+						validLabelSelector,
+						sleepDisabled,
+					),
+				}
+				memberIDs := make([]string, numMembersAvailable)
+				for i := 0; i < len(memberIDs); i++ {
+					memberIDs[i] = uuid.New().String()
+				}
+				chooser := &testHzMemberChooser{memberIDs: memberIDs}
+				killer := &testHzMemberKiller{useProbabilityToCalculateNumMembersKilled: true}
+				m := memberKillerMonkey{}
+				m.init(assigner, &testSleeper{}, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
-			msg := "\t\truns must be skipped"
-			if chooser.numInvocations == 0 && killer.numInvocations == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				m.causeChaos()
+				waitForStatusGatheringDone(m.g)
+
+				msg := "\t\t\tlist of hazelcast members passed to killer must be correct"
+				passedMemberIDs := make([]string, len(memberIDs))
+				for i := 0; i < len(memberIDs); i++ {
+					passedMemberIDs[i] = killer.givenHzMembers[i].identifier
+				}
+				if hasSameMemberIDs(memberIDs, passedMemberIDs) {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tchooser must have experienced expected number of invocations"
+				if chooser.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tkiller must have experienced expected number of invocations"
+				if killer.numInvocations == numRuns {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = "\t\t\tstatus gatherer must have recorded zero terminated members"
+				statusCopy := m.g.AssembleStatusCopy()
+
+				if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
 			}
-
-			msg = "\t\tmonkey status must contain expected values"
-			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, key, detail)
-			}
-		}
-		t.Log("\twhen chooser yields error")
-		{
-			numRuns := 3
-			assigner := &testConfigPropertyAssigner{
-				assembleTestConfigAsMap(
-					memberKillerKeyPath,
-					true,
-					1.0,
-					numRuns,
-					relativeMemberSelectionMode,
-					false,
-					0,
-					0.0,
-					k8sInClusterAccessMode,
-					validLabelSelector,
-					sleepDisabled,
-				)}
-			chooser := &testHzMemberChooser{returnError: true}
-			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
-
-			m.causeChaos()
-			waitForStatusGatheringDone(m.g)
-
-			msg := "\t\tchooser invocation must be re-tried in next run"
-			if chooser.numInvocations == numRuns {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tkiller must not be invoked"
-			if killer.numInvocations == 0 {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tmonkey status must contain expected values"
-			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, key, detail)
-			}
-		}
-		t.Log("\twhen killer yields an error")
-		{
-			numRuns := 3
-			assigner := &testConfigPropertyAssigner{
-				assembleTestConfigAsMap(
-					memberKillerKeyPath,
-					true,
-					1.0,
-					numRuns,
-					relativeMemberSelectionMode,
-					false,
-					0,
-					0.0,
-					k8sInClusterAccessMode,
-					validLabelSelector,
-					sleepDisabled,
-				)}
-			chooser := &testHzMemberChooser{}
-			killer := &testHzMemberKiller{returnError: true}
-			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
-
-			m.causeChaos()
-			waitForStatusGatheringDone(m.g)
-
-			msg := "\t\tinvocations of both chooser and killer must be retried in next run"
-			if chooser.numInvocations == numRuns && killer.numInvocations == numRuns {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tmonkey status must contain expected values"
-			if ok, key, detail := statusContainsExpectedValues(m.g.AssembleStatusCopy(), numRuns, 0, true); ok {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX, key, detail)
-			}
-		}
-		t.Log("\twhen killer does not yield error and terminates more than one member")
-		{
-			numRuns := 2
-			numMembersAvailable := 3
-			assigner := &testConfigPropertyAssigner{
-				assembleTestConfigAsMap(
-					memberKillerKeyPath,
-					true,
-					1.0,
-					numRuns,
-					absoluteMemberSelectionMode,
-					false,
-					numMembersAvailable,
-					0.0,
-					k8sInClusterAccessMode,
-					validLabelSelector,
-					sleepDisabled,
-				)}
-
-			memberIDs := make([]string, numMembersAvailable)
-			for i := 0; i < numMembersAvailable; i++ {
-				memberIDs[i] = uuid.New().String()
-			}
-			chooser := &testHzMemberChooser{memberIDs: memberIDs}
-			killer := &testHzMemberKiller{}
-			m := memberKillerMonkey{}
-			m.init(assigner, &testSleeper{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
-
-			m.causeChaos()
-			waitForStatusGatheringDone(m.g)
-
-			msg := "\t\tlist of hazelcast members passed to killer must be correct"
-			passedMemberIDs := make([]string, len(memberIDs))
-			for i := 0; i < len(memberIDs); i++ {
-				passedMemberIDs[i] = killer.givenHzMembers[i].identifier
-			}
-			if hasSameMemberIDs(memberIDs, passedMemberIDs) {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
-			msg = "\t\tstatus gatherer must have been informed about correct number of members killed"
-			statusCopy := m.g.AssembleStatusCopy()
-
-			if v, _ := statusCopy[statusKeyNumMembersKilled]; int(v.(uint32)) == numRuns*numMembersAvailable {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
-			}
-
 		}
 		t.Log("\twhen sleep has been disabled")
 		{
@@ -545,7 +935,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					false,
 					0,
 					0.0,
-					k8sInClusterAccessMode,
+					perRunActivityEvaluation,
+					delayed,
+					k8sInCluster,
 					validLabelSelector,
 					sleepDisabled,
 				)}
@@ -553,7 +945,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+			m.init(assigner, s, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 			waitForStatusGatheringDone(m.g)
@@ -583,7 +975,9 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 					false,
 					0,
 					0.0,
-					k8sInClusterAccessMode,
+					perRunActivityEvaluation,
+					delayed,
+					k8sInCluster,
 					validLabelSelector,
 					sc,
 				)}
@@ -591,7 +985,7 @@ func TestMemberKillerMonkeyCauseChaos(t *testing.T) {
 			chooser := &testHzMemberChooser{}
 			killer := &testHzMemberKiller{returnError: true}
 			m := memberKillerMonkey{}
-			m.init(assigner, s, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
+			m.init(assigner, s, &testTimer{}, chooser, killer, status.NewGatherer(), noOpFunc, noOpFunc)
 
 			m.causeChaos()
 
@@ -696,12 +1090,12 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 	t.Log("given the config builder's method to populate the member access config")
 	{
 		b := monkeyConfigBuilder{monkeyKeyPath: testMonkeyKeyPath}
-		for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+		for _, accessMode := range []hzOnK8sMemberAccessMode{k8sOutOfCluster, k8sInCluster} {
 			t.Logf("\twhen access mode '%s' is given", accessMode)
 			{
 				t.Log("\t\twhen all properties are valid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, validLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, validLabelSelector, accessMode)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -728,7 +1122,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 				}
 				t.Log("\t\twhen at least one property is invalid")
 				{
-					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, accessMode, invalidLabelSelector)
+					testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, invalidLabelSelector, accessMode)
 					assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 					ac, err := b.populateMemberAccessConfig(assigner, accessMode)
 
@@ -750,8 +1144,8 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 		}
 		t.Log("\twhen unknown member access mode is given")
 		{
-			unknownAccessMode := "someUnknownAccessMode"
-			testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, unknownAccessMode, validLabelSelector)
+			unknownAccessMode := hzOnK8sMemberAccessMode("someUnknownAccessMode")
+			testMemberAccessConfig := assembleTestMemberAccessConfigAsMap(testMonkeyKeyPath, validLabelSelector, unknownAccessMode)
 			assigner := testConfigPropertyAssigner{testMemberAccessConfig}
 			ac, err := b.populateMemberAccessConfig(assigner, unknownAccessMode)
 
@@ -763,7 +1157,7 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 			}
 
 			msg = "\t\terror must contain information on unknown access mode"
-			if strings.Contains(err.Error(), unknownAccessMode) {
+			if strings.Contains(err.Error(), string(unknownAccessMode)) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX, err, unknownAccessMode)
@@ -776,6 +1170,62 @@ func TestPopulateMemberAccessConfig(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 		}
+	}
+
+}
+
+func TestMonkeyInvocationNecessary(t *testing.T) {
+
+	t.Log("given a function to check whether the invocation of the given monkey is necessary")
+	{
+		t.Log("\twhen evaluation mode is set to per-member evaluation")
+		{
+			invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(0.0, perMemberActivityEvaluation))
+
+			msg := "\t\tresult must be that monkey invocation is necessary"
+			if invocationNecessary {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log("\twhen evaluation mode is set to per-run evaluation")
+		{
+			t.Log("\t\twhen chaos percentage is zero")
+			{
+				invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(0.0, perRunActivityEvaluation))
+
+				msg := "\t\t\tresult must be that monkey invocation is not necessary"
+				if !invocationNecessary {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+			}
+
+			t.Log("\t\twhen chaos percentage is greater than zero")
+			{
+				percentages := []float64{0.1, 0.3, 0.5, 0.8, 1.0}
+				numInvocations := 100
+				for _, p := range percentages {
+					trueCounter := 0
+					for i := 0; i < numInvocations; i++ {
+						invocationNecessary := monkeyInvocationNecessary(assembleChaosProbabilityConfig(p, perRunActivityEvaluation))
+						if invocationNecessary {
+							trueCounter++
+						}
+					}
+					msg := fmt.Sprintf("\t\t\tnumber of times evaluation concluded positively must (roughly) correspond to number of invocations by given percentage: %d * %.2f", numInvocations, p)
+					if math.Abs(float64(trueCounter)-float64(numInvocations)*p) < float64(numInvocations)*0.1 {
+						t.Log(msg, checkMark)
+					} else {
+						t.Fatal(msg, ballotX)
+					}
+				}
+			}
+		}
+
 	}
 
 }
@@ -796,7 +1246,9 @@ func TestPopulateConfig(t *testing.T) {
 				true,
 				0,
 				0.3,
-				k8sOutOfClusterAccessMode,
+				perRunActivityEvaluation,
+				delayed,
+				k8sOutOfCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -835,7 +1287,9 @@ func TestPopulateConfig(t *testing.T) {
 				false,
 				0,
 				0.0,
-				k8sInClusterAccessMode,
+				perRunActivityEvaluation,
+				delayed,
+				k8sInCluster,
 				validLabelSelector,
 				sleepDisabled,
 			)
@@ -871,7 +1325,9 @@ func TestPopulateConfig(t *testing.T) {
 						true,
 						invalidAbsoluteNumMembersToKill,
 						invalidRelativePercentageOfMembersToKill,
-						k8sInClusterAccessMode,
+						perRunActivityEvaluation,
+						delayed,
+						k8sInCluster,
 						validLabelSelector,
 						sleepDisabled,
 					)
@@ -897,7 +1353,7 @@ func TestPopulateConfig(t *testing.T) {
 
 		t.Log("\twhen k8s access mode property assignment yields an error")
 		{
-			for _, accessMode := range []string{k8sOutOfClusterAccessMode, k8sInClusterAccessMode} {
+			for _, accessMode := range []hzOnK8sMemberAccessMode{k8sOutOfCluster, k8sInCluster} {
 				t.Logf("\t\t%s", accessMode)
 				{
 					testConfig := assembleTestConfigAsMap(
@@ -909,6 +1365,8 @@ func TestPopulateConfig(t *testing.T) {
 						false,
 						0,
 						0.0,
+						perRunActivityEvaluation,
+						delayed,
 						accessMode,
 						invalidLabelSelector,
 						sleepDisabled,
@@ -932,6 +1390,17 @@ func TestPopulateConfig(t *testing.T) {
 				}
 			}
 		}
+	}
+
+}
+
+func wasChannelClosed(ch chan bool) bool {
+
+	select {
+	case _, ok := <-ch:
+		return !ok
+	default:
+		return false
 	}
 
 }
@@ -992,10 +1461,10 @@ func assembleTestMemberSelectionConfigAsMap(keyPath, memberSelectionMode string,
 
 }
 
-func assembleTestMemberAccessConfigAsMap(keyPath, memberAccessMode, labelSelector string) map[string]any {
+func assembleTestMemberAccessConfigAsMap(keyPath, labelSelector string, memberAccessMode hzOnK8sMemberAccessMode) map[string]any {
 
 	return map[string]any{
-		keyPath + ".memberAccess.mode":                          memberAccessMode,
+		keyPath + ".memberAccess.mode":                          string(memberAccessMode),
 		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":    "default",
 		keyPath + ".memberAccess.k8sOutOfCluster.namespace":     "hazelcastplatform",
 		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector": labelSelector,
@@ -1013,19 +1482,26 @@ func assembleTestConfigAsMap(
 	targetOnlyActive bool,
 	absoluteNumMembersToKill int,
 	relativePercentageOfMembersToKill float32,
-	memberAccessMode, labelSelector string,
+	chaosEvaluationMode activityEvaluationMode,
+	terminationMode hzMemberTerminationMode,
+	memberAccessMode hzOnK8sMemberAccessMode,
+	labelSelector string,
 	sleep *sleepConfig,
 ) map[string]any {
 
 	return map[string]any{
 		keyPath + ".enabled":                                            enabled,
 		keyPath + ".numRuns":                                            numRuns,
-		keyPath + ".chaosProbability":                                   chaosProbability,
+		keyPath + ".chaosProbability.percentage":                        chaosProbability,
+		keyPath + ".chaosProbability.evaluationMode":                    string(chaosEvaluationMode),
+		keyPath + ".memberTermination.mode":                             string(terminationMode),
+		keyPath + ".memberTermination.delayed.delaySeconds":             1, // Must be at least one, or else property validation will fail
+		keyPath + ".memberTermination.delayed.enableRandomness":         false,
 		keyPath + ".memberSelection.mode":                               memberSelectionMode,
 		keyPath + ".memberSelection.targetOnlyActive":                   targetOnlyActive,
 		keyPath + ".memberSelection.absolute.numMembersToKill":          absoluteNumMembersToKill,
 		keyPath + ".memberSelection.relative.percentageOfMembersToKill": relativePercentageOfMembersToKill,
-		keyPath + ".memberAccess.mode":                                  memberAccessMode,
+		keyPath + ".memberAccess.mode":                                  string(memberAccessMode),
 		keyPath + ".memberAccess.k8sOutOfCluster.kubeconfig":            "default",
 		keyPath + ".memberAccess.k8sOutOfCluster.namespace":             "hazelcastplatform",
 		keyPath + ".memberAccess.k8sOutOfCluster.labelSelector":         labelSelector,
@@ -1044,7 +1520,8 @@ func configValuesAsExpected(mc *monkeyConfig, expected map[string]any) bool {
 
 	allExceptSelectionModeAndAccessModeAsExpected := mc.enabled == expected[testMonkeyKeyPath+".enabled"] &&
 		mc.numRuns == uint32(expected[testMonkeyKeyPath+".numRuns"].(int)) &&
-		mc.chaosProbability == expected[testMonkeyKeyPath+".chaosProbability"] &&
+		mc.chaosConfig.percentage == expected[testMonkeyKeyPath+".chaosProbability.percentage"] &&
+		mc.chaosConfig.evaluationMode == activityEvaluationMode(expected[testMonkeyKeyPath+".chaosProbability.evaluationMode"].(string)) &&
 		mc.selectionConfig.selectionMode == expected[testMonkeyKeyPath+".memberSelection.mode"] &&
 		mc.selectionConfig.targetOnlyActive == expected[testMonkeyKeyPath+".memberSelection.targetOnlyActive"] &&
 		mc.sleep.enabled == expected[testMonkeyKeyPath+".sleep.enabled"] &&
@@ -1080,17 +1557,17 @@ func memberSelectionConfigAsExpected(sc *memberSelectionConfig, expected map[str
 
 func memberAccessConfigAsExpected(ac *memberAccessConfig, expected map[string]any) bool {
 
-	modeAsExpected := ac.accessMode == expected[testMonkeyKeyPath+".memberAccess.mode"]
+	modeAsExpected := ac.accessMode == hzOnK8sMemberAccessMode(expected[testMonkeyKeyPath+".memberAccess.mode"].(string))
 
 	if !modeAsExpected {
 		return false
 	}
 
-	if ac.accessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfCluster {
 		return ac.k8sOutOfCluster.kubeconfig == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.kubeconfig"] &&
 			ac.k8sOutOfCluster.namespace == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.namespace"] &&
 			ac.k8sOutOfCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sOutOfCluster.labelSelector"]
-	} else if ac.accessMode == k8sInClusterAccessMode {
+	} else if ac.accessMode == k8sInCluster {
 		return ac.k8sInCluster.labelSelector == expected[testMonkeyKeyPath+".memberAccess.k8sInCluster.labelSelector"]
 	}
 

@@ -13,67 +13,19 @@ import (
 	"time"
 )
 
-type (
-	evaluateTimeToSleep func(sc *sleepConfig) int
-	hzMemberChooser     interface {
-		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
-	}
-	hzMemberKiller interface {
-		kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error
-	}
-	sleeper interface {
-		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
-	}
-	monkey interface {
-		init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller, g status.Gatherer,
-			readyFunc raiseReady, notReadyFunc raiseNotReady)
-		causeChaos()
-	}
-	hzMember struct {
-		identifier string
-	}
-	memberKillerMonkey struct {
-		a                client.ConfigPropertyAssigner
-		stateList        []state
-		s                sleeper
-		chooser          hzMemberChooser
-		killer           hzMemberKiller
-		g                status.Gatherer
-		readyFunc        raiseReady
-		notReadyFunc     raiseNotReady
-		numMembersKilled uint32
-	}
-	monkeyConfigBuilder struct {
-		monkeyKeyPath string
-	}
-	sleepConfig struct {
-		enabled          bool
-		durationSeconds  int
-		enableRandomness bool
-	}
-	monkeyConfig struct {
-		enabled          bool
-		numRuns          uint32
-		chaosProbability float64
-		selectionConfig  *memberSelectionConfig
-		accessConfig     *memberAccessConfig
-		sleep            *sleepConfig
-		memberGrace      *sleepConfig
-	}
-	defaultSleeper struct{}
-	state          string
-	raiseReady     func()
-	raiseNotReady  func()
-)
-
 const (
 	absoluteMemberSelectionMode = "absolute"
 	relativeMemberSelectionMode = "relative"
 )
 
 const (
-	k8sOutOfClusterAccessMode = "k8sOutOfCluster"
-	k8sInClusterAccessMode    = "k8sInCluster"
+	perMemberActivityEvaluation activityEvaluationMode = "perMember"
+	perRunActivityEvaluation    activityEvaluationMode = "perRun"
+)
+
+const (
+	k8sOutOfCluster hzOnK8sMemberAccessMode = "k8sOutOfCluster"
+	k8sInCluster    hzOnK8sMemberAccessMode = "k8sInCluster"
 )
 
 const (
@@ -113,6 +65,79 @@ var (
 	}
 )
 
+type (
+	evaluateTimeToSleep func(sc *sleepConfig) int
+	hzMemberChooser     interface {
+		choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error)
+	}
+	hzMemberKiller interface {
+		kill(members []hzMember, s sleeper, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error)
+	}
+	sleeper interface {
+		sleep(sc *sleepConfig, sf evaluateTimeToSleep)
+	}
+	monkey interface {
+		init(
+			a client.ConfigPropertyAssigner,
+			s sleeper,
+			t timer,
+			c hzMemberChooser,
+			k hzMemberKiller,
+			g status.Gatherer,
+			readyFunc raiseReady,
+			notReadyFunc raiseNotReady,
+		)
+		causeChaos()
+	}
+	timer interface {
+		after(d time.Duration) <-chan time.Time
+	}
+	hzMember struct {
+		identifier string
+	}
+	memberKillerMonkey struct {
+		a                client.ConfigPropertyAssigner
+		stateList        []state
+		s                sleeper
+		t                timer
+		chooser          hzMemberChooser
+		killer           hzMemberKiller
+		g                status.Gatherer
+		readyFunc        raiseReady
+		notReadyFunc     raiseNotReady
+		numMembersKilled uint32
+	}
+	monkeyConfigBuilder struct {
+		monkeyKeyPath string
+	}
+	sleepConfig struct {
+		enabled          bool
+		durationSeconds  int
+		enableRandomness bool
+	}
+	chaosProbabilityConfig struct {
+		percentage     float64
+		evaluationMode activityEvaluationMode
+	}
+	monkeyConfig struct {
+		enabled           bool
+		numRuns           uint32
+		chaosConfig       *chaosProbabilityConfig
+		selectionConfig   *memberSelectionConfig
+		accessConfig      *memberAccessConfig
+		terminationConfig *memberTerminationConfig
+		sleep             *sleepConfig
+		memberGrace       *sleepConfig
+	}
+	defaultSleeper          struct{}
+	defaultTimer            struct{}
+	raiseReady              func()
+	raiseNotReady           func()
+	state                   string
+	activityEvaluationMode  string
+	hzOnK8sMemberAccessMode string
+)
+
 func init() {
 	lp = logging.GetLogProviderInstance(client.ID())
 	register(&memberKillerMonkey{})
@@ -132,11 +157,16 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 }
 
-func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, c hzMemberChooser, k hzMemberKiller,
+func (t *defaultTimer) after(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
+func (m *memberKillerMonkey) init(a client.ConfigPropertyAssigner, s sleeper, t timer, c hzMemberChooser, k hzMemberKiller,
 	g status.Gatherer, readyFunc raiseReady, notReadyFunc raiseNotReady) {
 
 	m.a = a
 	m.s = s
+	m.t = t
 	m.chooser = c
 	m.killer = k
 	m.g = g
@@ -187,8 +217,7 @@ func (m *memberKillerMonkey) causeChaos() {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
 		}
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.TraceLevel)
-		f := rand.Float64()
-		if f <= mc.chaosProbability {
+		if monkeyInvocationNecessary(mc.chaosConfig) {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
 			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
@@ -204,12 +233,9 @@ func (m *memberKillerMonkey) causeChaos() {
 				continue
 			}
 
-			err = m.killer.kill(members, mc.accessConfig, mc.memberGrace)
-			if err != nil {
-				lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill chosen hazelcast members (%s) -- will try again in next iteration", members), log.WarnLevel)
-			} else {
-				m.updateNumMembersKilled(uint32(len(members)))
-			}
+			numMembersToKill, killEvents, err := m.killer.kill(members, m.s, mc.accessConfig, mc.memberGrace, mc.chaosConfig, mc.terminationConfig)
+			m.processKillIterationResults(m.t, members, mc.terminationConfig, numMembersToKill, killEvents, err)
+
 		} else {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
 		}
@@ -217,6 +243,55 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	m.appendState(chaosComplete)
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loop/-s", mc.numRuns), log.InfoLevel)
+
+}
+
+func (m *memberKillerMonkey) processKillIterationResults(
+	t timer,
+	members []hzMember,
+	tc *memberTerminationConfig,
+	numMembersToKill int,
+	killEvents chan bool,
+	err error,
+) bool {
+
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to kill chosen hazelcast members (%s) "+
+			"-- will try again in next iteration: %v", members, err), log.WarnLevel)
+		if killEvents != nil {
+			close(killEvents)
+		}
+		return false
+	}
+
+	numKillInvocationsInRun := 0
+
+	maxDelay := time.Duration(tc.delaySeconds+1) * time.Second
+	timeoutOccurred := false
+
+loop:
+	for numKillInvocationsInRun < numMembersToKill {
+		select {
+		case success := <-killEvents:
+			numKillInvocationsInRun++
+			if success {
+				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
+				m.updateNumMembersKilled(uint32(1))
+			}
+		// Additional way out of the loop in case killer isn't able to send event into channel
+		case <-t.after(maxDelay):
+			lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
+			timeoutOccurred = true
+			break loop
+		}
+	}
+	if numKillInvocationsInRun == numMembersToKill {
+		// If all killer goroutines have sent events, we know it's safe to close the channel
+		lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
+		close(killEvents)
+	}
+
+	return timeoutOccurred
 
 }
 
@@ -237,6 +312,21 @@ func (m *memberKillerMonkey) insertInitialStatus() {
 func (m *memberKillerMonkey) appendState(s state) {
 
 	m.stateList = append(m.stateList, s)
+
+}
+
+func monkeyInvocationNecessary(chaosConfig *chaosProbabilityConfig) bool {
+
+	if chaosConfig.evaluationMode == perMemberActivityEvaluation {
+		return true
+	}
+
+	if chaosConfig.evaluationMode == perRunActivityEvaluation {
+		f := rand.Float64()
+		return f <= chaosConfig.percentage
+	}
+
+	return false
 
 }
 
@@ -265,22 +355,6 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 	assignmentOps = append(assignmentOps, func() error {
 		return a.Assign(b.monkeyKeyPath+".numRuns", client.ValidateInt, func(a any) {
 			numRuns = uint32(a.(int))
-		})
-	})
-
-	var chaosProbability float64
-	assignmentOps = append(assignmentOps, func() error {
-		return a.Assign(b.monkeyKeyPath+".chaosProbability", client.ValidatePercentage, func(a any) {
-			// TODO Refactor config assignment mechanism so it returns the parsed and validated value
-			// The assignment itself shouldn't have to parse the value again if it has already
-			// been parsed in the validation function
-			if v, ok := a.(int); ok {
-				chaosProbability = float64(v)
-			} else if v, ok := a.(float32); ok {
-				chaosProbability = float64(v)
-			} else if v, ok := a.(float64); ok {
-				chaosProbability = v
-			}
 		})
 	})
 
@@ -351,17 +425,28 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 		return nil, err
 	}
 
-	ac, err := b.populateMemberAccessConfig(a, hzMemberAccessMode)
+	ac, err := b.populateMemberAccessConfig(a, hzOnK8sMemberAccessMode(hzMemberAccessMode))
+	if err != nil {
+		return nil, err
+	}
+
+	cc, err := b.populateChaosProbabilityConfig(a)
+	if err != nil {
+		return nil, err
+	}
+
+	tc, err := b.populateMemberTerminationConfig(a)
 	if err != nil {
 		return nil, err
 	}
 
 	return &monkeyConfig{
-		enabled:          enabled,
-		numRuns:          numRuns,
-		chaosProbability: chaosProbability,
-		selectionConfig:  sc,
-		accessConfig:     ac,
+		enabled:           enabled,
+		numRuns:           numRuns,
+		chaosConfig:       cc,
+		selectionConfig:   sc,
+		accessConfig:      ac,
+		terminationConfig: tc,
 		sleep: &sleepConfig{
 			enabled:          sleepEnabled,
 			durationSeconds:  sleepDurationSeconds,
@@ -372,6 +457,82 @@ func (b monkeyConfigBuilder) populateConfig(a client.ConfigPropertyAssigner) (*m
 			durationSeconds:  memberGraceDurationSeconds,
 			enableRandomness: memberGraceEnableRandomness,
 		},
+	}, nil
+
+}
+
+func (b monkeyConfigBuilder) populateMemberTerminationConfig(a client.ConfigPropertyAssigner) (*memberTerminationConfig, error) {
+
+	var assignmentOps []func() error
+
+	var mode string
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.mode", client.ValidateString, func(a any) {
+			mode = a.(string)
+		})
+	})
+
+	var delaySeconds uint8
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.delayed.delaySeconds", client.ValidateInt, func(a any) {
+			delaySeconds = uint8(a.(int))
+		})
+	})
+
+	var enableRandomness bool
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".memberTermination.delayed.enableRandomness", client.ValidateBool, func(a any) {
+			enableRandomness = a.(bool)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &memberTerminationConfig{
+		mode:             hzMemberTerminationMode(mode),
+		delaySeconds:     delaySeconds,
+		enableRandomness: enableRandomness,
+	}, nil
+
+}
+
+func (b monkeyConfigBuilder) populateChaosProbabilityConfig(a client.ConfigPropertyAssigner) (*chaosProbabilityConfig, error) {
+
+	var assignmentOps []func() error
+
+	var percentage float64
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".chaosProbability.percentage", client.ValidatePercentage, func(a any) {
+			if v, ok := a.(int); ok {
+				percentage = float64(v)
+			} else if v, ok := a.(float32); ok {
+				percentage = float64(v)
+			} else if v, ok := a.(float64); ok {
+				percentage = v
+			}
+		})
+	})
+
+	var evaluationMode string
+	assignmentOps = append(assignmentOps, func() error {
+		return a.Assign(b.monkeyKeyPath+".chaosProbability.evaluationMode", client.ValidateString, func(a any) {
+			evaluationMode = a.(string)
+		})
+	})
+
+	for _, f := range assignmentOps {
+		if err := f(); err != nil {
+			return nil, err
+		}
+	}
+
+	return &chaosProbabilityConfig{
+		percentage:     percentage,
+		evaluationMode: activityEvaluationMode(evaluationMode),
 	}, nil
 
 }
@@ -429,7 +590,7 @@ func (b monkeyConfigBuilder) populateMemberSelectionConfig(a client.ConfigProper
 
 }
 
-func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode string) (*memberAccessConfig, error) {
+func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyAssigner, accessMode hzOnK8sMemberAccessMode) (*memberAccessConfig, error) {
 
 	var assignmentOps []func() error
 
@@ -438,22 +599,22 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 	}
 
 	switch accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		var kubeconfig string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".kubeconfig", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".kubeconfig", client.ValidateString, func(a any) {
 				kubeconfig = a.(string)
 			})
 		})
 		var namespace string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".namespace", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".namespace", client.ValidateString, func(a any) {
 				namespace = a.(string)
 			})
 		})
 		var labelSelector string
 		assignmentOps = append(assignmentOps, func() error {
-			return a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+			return a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".labelSelector", client.ValidateString, func(a any) {
 				labelSelector = a.(string)
 			})
 		})
@@ -467,9 +628,9 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 			namespace:     namespace,
 			labelSelector: labelSelector,
 		}
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		var labelSelector string
-		if err := a.Assign(b.monkeyKeyPath+".memberAccess."+accessMode+".labelSelector", client.ValidateString, func(a any) {
+		if err := a.Assign(b.monkeyKeyPath+".memberAccess."+string(accessMode)+".labelSelector", client.ValidateString, func(a any) {
 			labelSelector = a.(string)
 		}); err != nil {
 			return nil, err
@@ -512,6 +673,7 @@ func RunMonkeys() {
 			m.init(
 				&client.DefaultConfigPropertyAssigner{},
 				&defaultSleeper{},
+				&defaultTimer{},
 				&k8sHzMemberChooser{
 					clientsetProvider:   clientsetProvider,
 					namespaceDiscoverer: namespaceDiscoverer,

@@ -4,16 +4,16 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.17.0
-  digest: ae3d1f1b848fd069b089851f85e287555672c678ca7565fb5abfeac42fa51cba
+  tag: 0.18.0
+  digest: f72fe249c2e2b510dc1be9dfc4ccc00baedd90a90a58a8123e3dc344812cbd76
   pullPolicy: IfNotPresent
 
 resources:
   requests:
-    cpu: "100m"
+    cpu: "200m"
     memory: "75Mi"
   limits:
-    cpu: "200m"
+    cpu: "400m"
     memory: "150Mi"
 
 startupArgs:
@@ -49,7 +49,14 @@ config:
     memberKiller:
       enabled: true
       numRuns: 100
-      chaosProbability: 1.0
+      chaosProbability:
+        evaluationMode: perMember
+        percentage: 0.7
+      memberTermination:
+        mode: delayed
+        delayed:
+          delaySeconds: 20
+          enableRandomness: true
       memberSelection:
         targetOnlyActive: true
         mode: relative
@@ -71,7 +78,7 @@ config:
       sleep:
         enabled: true
         durationSeconds: 300
-        enableRandomness: false
+        enableRandomness: true
       memberGrace:
         enabled: true
         durationSeconds: 30
@@ -247,7 +254,7 @@ config:
               actionTowardsBoundaryProbability: 0.69
     load:
       enabled: true
-      numMaps: 10
+      numMaps: 20
       numEntriesPerMap: 10000
       appendMapIndexToMapName: true
       appendClientIdToMapName: false
@@ -296,15 +303,15 @@ config:
               enableRandomness: true
             afterChainAction:
               enabled: true
-              durationMs: 50
+              durationMs: 20
               enableRandomness: true
             uponModeChange:
               enabled: true
               durationMs: 15000
               enableRandomness: false
           operationChain:
-            length: 3000
-            resetAfterChain: false
+            length: 100000
+            resetAfterChain: true
             boundaryDefinition:
               upper:
                 mapFillPercentage: 0.9

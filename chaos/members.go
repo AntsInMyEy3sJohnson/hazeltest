@@ -18,6 +18,23 @@ import (
 	"strings"
 )
 
+const (
+	k8sNamespaceEnvVariable = "POD_NAMESPACE"
+)
+
+const (
+	atOnce  hzMemberTerminationMode = "atOnce"
+	delayed hzMemberTerminationMode = "delayed"
+)
+
+var (
+	noMembersFoundError      = errors.New("no members found to be terminated")
+	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
+
+	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
+	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
+)
+
 type (
 	k8sConfigBuilder interface {
 		buildForOutOfClusterAccess(masterUrl, kubeconfigPath string) (*rest.Config, error)
@@ -51,9 +68,14 @@ type (
 		relativePercentageOfMembersToKill float32
 	}
 	memberAccessConfig struct {
-		accessMode      string
+		accessMode      hzOnK8sMemberAccessMode
 		k8sOutOfCluster k8sOutOfClusterMemberAccess
 		k8sInCluster    k8sInClusterMemberAccess
+	}
+	memberTerminationConfig struct {
+		mode             hzMemberTerminationMode
+		delaySeconds     uint8
+		enableRandomness bool
 	}
 	defaultK8sConfigBuilder        struct{}
 	defaultK8sClientsetInitializer struct{}
@@ -77,26 +99,15 @@ type (
 		namespaceDiscoverer k8sNamespaceDiscoverer
 		podDeleter          k8sPodDeleter
 	}
-)
-
-const (
-	k8sNamespaceEnvVariable = "POD_NAMESPACE"
-)
-
-var (
-	noMembersFoundError      = errors.New("no members found to be terminated")
-	noReadyMembersFoundError = errors.New("no active (ready) members found to be terminated")
-
-	noMembersProvidedForKillingError   = errors.New("cannot kill hazelcast members because given list of members was nil or empty")
-	noMembersProvidedToChooseFromError = errors.New("cannot choose hazelcast members to kill because list of members to choose from was either nil or empty")
+	hzMemberTerminationMode string
 )
 
 func labelSelectorFromConfig(ac *memberAccessConfig) (string, error) {
 
 	switch ac.accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		return ac.k8sOutOfCluster.labelSelector, nil
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		return ac.k8sInCluster.labelSelector, nil
 	default:
 		return "", fmt.Errorf("encountered unknown k8s access mode: %s", ac.accessMode)
@@ -134,9 +145,9 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (s
 	var namespace string
 
 	switch ac.accessMode {
-	case k8sOutOfClusterAccessMode:
+	case k8sOutOfCluster:
 		namespace = ac.k8sOutOfCluster.namespace
-	case k8sInClusterAccessMode:
+	case k8sInCluster:
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), log.TraceLevel)
 		if ns, ok := os.LookupEnv(k8sNamespaceEnvVariable); ok {
 			namespace = ns
@@ -195,7 +206,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
 
 	var config *rest.Config
-	if ac.accessMode == k8sOutOfClusterAccessMode {
+	if ac.accessMode == k8sOutOfCluster {
 		var kubeconfig string
 		if ac.k8sOutOfCluster.kubeconfig == "default" {
 			kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
@@ -209,7 +220,7 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 		} else {
 			config = c
 		}
-	} else if ac.accessMode == k8sInClusterAccessMode {
+	} else if ac.accessMode == k8sInCluster {
 		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
 			return nil, err
@@ -260,7 +271,7 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 		labelSelector = s
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.TraceLevel)
 
 	ctx := context.TODO()
 	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
@@ -278,7 +289,7 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.TraceLevel)
 
 	if hzMembers, err := chooseTargetMembersFromPods(pods, sc, false); err == nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose %d hazelcast members to kill from given list of %d pod/-s", len(hzMembers), len(pods)), log.InfoLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose %d hazelcast member/-s to kill from given list of %d pod/-s", len(hzMembers), len(pods)), log.InfoLevel)
 		return hzMembers, nil
 	} else {
 		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to choose target members from given list of %d pod/-s: %s", len(pods), err.Error()), log.WarnLevel)
@@ -290,11 +301,14 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
 	if pods == nil || len(pods) == 0 {
+		lp.LogChaosMonkeyEvent("cannot select target members from given list of pods because list was either nil or empty", log.WarnLevel)
 		return nil, noMembersProvidedToChooseFromError
 	}
 
-	// TODO Add logging
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("selecting target members from given list of %d pod/-s", len(pods)), log.TraceLevel)
+
 	if sc.targetOnlyActive && !listWasCheckedForReadyPods {
+		lp.LogChaosMonkeyEvent("target-only-active setting was enabled, but list hasn't been checked for ready pods yet -- performing check", log.TraceLevel)
 		var onlyReadyPods []v1.Pod
 		for _, p := range pods {
 			if isPodReady(p) {
@@ -302,12 +316,15 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 			}
 		}
 		if len(onlyReadyPods) == 0 {
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("target-only-active setting was enabled, but ouf of %d given pod/-s, none were active (ready)", len(pods)), log.WarnLevel)
 			return nil, noReadyMembersFoundError
 		}
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("out of %d given pod/-s, %d are currently posting readiness -- entering next iteration of pod selection", len(pods), len(onlyReadyPods)), log.TraceLevel)
 		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
 
 	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("evaluated number of pods to select from given list of %d pod/-s to be %d", len(pods), numPodsToSelect), log.TraceLevel)
 
 	if err != nil {
 		return nil, err
@@ -326,6 +343,8 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 	for _, v := range selectedPods {
 		hzMembers = append(hzMembers, hzMember{v.Name})
 	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("selected the following pods for termination: %v", hzMembers), log.InfoLevel)
 
 	return hzMembers, nil
 
@@ -376,55 +395,107 @@ func isPodReady(p v1.Pod) bool {
 
 }
 
-func (killer *k8sHzMemberKiller) kill(members []hzMember, ac *memberAccessConfig, memberGrace *sleepConfig) error {
+func (killer *k8sHzMemberKiller) kill(members []hzMember, s sleeper, ac *memberAccessConfig, memberGrace *sleepConfig, cc *chaosProbabilityConfig, tc *memberTerminationConfig) (int, chan bool, error) {
 
 	if members == nil || len(members) == 0 {
-		return noMembersProvidedForKillingError
+		return 0, nil, noMembersProvidedForKillingError
 	}
 
+	if cc.evaluationMode == perMemberActivityEvaluation && cc.percentage == 0.0 {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer was given set of %d member/-s, but per-member activity evaluation "+
+			"mode was enabled with a chaos percentage of zero, so cannot kill members", len(members)), log.InfoLevel)
+		return 0, nil, nil
+	}
+
+	clientset, err := killer.clientsetProvider.getOrInit(ac)
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+		return 0, nil, err
+	}
+
+	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+		return 0, nil, err
+	}
+
+	memberKillEvents := make(chan bool, len(members))
+	numMembersToKill := 0
 	for _, m := range members {
 
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s'", m.identifier), log.InfoLevel)
-
-		clientset, err := killer.clientsetProvider.getOrInit(ac)
-		if err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
-			return err
-		}
-
-		namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
-		if err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast member: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
-			return err
-		}
-
-		ctx := context.TODO()
-
-		var gracePeriod int
-		if memberGrace.enabled {
-			if memberGrace.enableRandomness {
-				gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
-			} else {
-				gracePeriod = memberGrace.durationSeconds
+		if cc.evaluationMode == perMemberActivityEvaluation {
+			f := rand.Float64()
+			if cc.percentage < f {
+				lp.LogChaosMonkeyEvent(fmt.Sprintf("not killing hazelcast member '%s' as per-member evaluation "+
+					"mode was enabled and evaluated random number did not fall within range of chaos probability",
+					m.identifier), log.InfoLevel)
+				continue
 			}
-		} else {
-			gracePeriod = 0
 		}
 
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
+		numMembersToKill++
 
-		g := int64(gracePeriod)
-		err = killer.podDeleter.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &g})
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), log.TraceLevel)
 
-		if err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
-			return err
-		}
-
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+		gracePeriod := evaluatePodTerminationGracePeriod(memberGrace)
+		go invokePodDeletion(killer.podDeleter, s, clientset, m, tc, namespace, gracePeriod, memberKillEvents)
 
 	}
 
-	return nil
+	return numMembersToKill, memberKillEvents, nil
+
+}
+
+func invokePodDeletion(
+	d k8sPodDeleter,
+	s sleeper,
+	clientset *kubernetes.Clientset,
+	m hzMember,
+	tc *memberTerminationConfig,
+	namespace string,
+	gracePeriod int64,
+	membersKilled chan bool,
+) {
+
+	if tc.mode == delayed {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("delaying termination of hazelcast member '%s'", m.identifier), log.TraceLevel)
+		s.sleep(&sleepConfig{
+			enabled:          true,
+			durationSeconds:  int(tc.delaySeconds),
+			enableRandomness: tc.enableRandomness},
+			sleepTimeFunc)
+	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), log.TraceLevel)
+	}
+
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.TraceLevel)
+
+	ctx := context.TODO()
+	err := d.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+
+	if err != nil {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
+		membersKilled <- false
+	} else {
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+		membersKilled <- true
+	}
+
+}
+
+func evaluatePodTerminationGracePeriod(memberGrace *sleepConfig) int64 {
+
+	var gracePeriod int
+	if memberGrace.enabled {
+		if memberGrace.enableRandomness {
+			gracePeriod = rand.Intn(memberGrace.durationSeconds + 1)
+		} else {
+			gracePeriod = memberGrace.durationSeconds
+		}
+	} else {
+		gracePeriod = 0
+	}
+
+	return int64(gracePeriod)
 
 }
