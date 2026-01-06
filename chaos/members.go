@@ -271,7 +271,7 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 		labelSelector = s
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.InfoLevel)
+	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.TraceLevel)
 
 	ctx := context.TODO()
 	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
