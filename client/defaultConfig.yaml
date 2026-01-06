@@ -16,11 +16,31 @@ chaosMonkeys:
     chaosProbability:
       percentage: 0.5
       evaluationMode: perMember
+    # Specifies how chosen Hazelcast members will be terminated (if more than one was chosen) in terms of terminating
+    # them all at once versus delaying the termination individually.
     memberTermination:
+      # The termination mode. Can be one of 'delayed' or 'atOnce', where the former will cause termination to be
+      # individually delayed, whereas the latter will cause all chosen members to be terminated at once.
       mode: delayed
+      # No further properties here for the 'atOnce' termination mode, so this sub object only exists as an additional
+      # piece of documentation that one of the possible termination modes is 'atOnce'.
       atOnce: { }
+      # Configuration for the 'delayed' termination mode.
       delayed:
+        # The delay to apply to each member termination. There are two important aspects to note here:
+        # (1) Member termination is executed in parallel, not in sequence, i.e., the sequential termination of
+        # Hazelcast members you can observe in Kubernetes is not a result of sequential member termination invocation
+        # by the member killer monkey, but a consequence of different delay times applied to each member-terminating
+        # actor. In other words, the maximum time to wait for all chosen members to be terminated is not
+        # terminationDelay(member 1) + terminationDelay(member 2 ) + ... + terminationDelay(member n),
+        ## but max(terminationDelay(member 1 ... n)).
+        # (2) In each of its <numRuns> runs, the member killer monkey waits until all member-terminating actors have
+        # signaled they're done performing the termination (successfully or not), so it's not possible for a delay time
+        # greater than the monkey's sleep time to lead to runs being skipped or queued internally.
         delaySeconds: 20
+        # Whether to apply randomness to evaluating the delay to wait for each member. (Enabling this makes sense because
+        # without randomness applied to the individual delays, the result will be a delayed termination of all members at
+        # the same time, which, as far as those members are concerned, is the same as specifying 'atOnce' termination mode.)
         enableRandomness: true
     # Specifies the strategy the monkey will use to select Hazelcast members in each run. (Note the difference to
     # 'memberAccess' below -- the "access" configuration is concerned with how to access the members in the first place,
@@ -54,11 +74,11 @@ chaosMonkeys:
         # can be either the number of active (ready) members or the total number of members, regardless of their current
         # state. If 'targetOnlyActive' is enabled and no active members are present, the monkey will log an error and not
         # terminate the other members.
-        percentageOfMembersToKill: 0.3
+        percentageOfMembersToKill: 1.0
     # Configures how the monkey should access the target Hazelcast members.
     memberAccess:
       # Can take the value of one of its immediate object-type sub-keys, i.e. 'k8sOutOfCluster' or 'k8sInCluster'
-      mode: k8sInCluster
+      mode: k8sOutOfCluster
       # Mode for accessing Hazelcast members from outside the Kubernetes cluster. To connect to the Kubernetes cluster,
       # a kubeconfig file is used.
       # Handy when testing Hazeltest configurations locally prior to a deployment via Helm. However, since the absolute
@@ -70,7 +90,7 @@ chaosMonkeys:
         # the target Hazelcast members run on.
         # If 'default' is given, Hazeltest will look for the Kubeconfig in $HOME/.kube/config.
         # In non-default cases, the absolute path of the file to be used can be specified.
-        kubeconfig: default
+        kubeconfig: /Users/nkr/.kube/config-default
         # The namespace in which to search for Hazelcast member Pods.
         namespace: hazelcastplatform
         # The label selector to use for identifying the Hazelcast member Pods.
@@ -96,11 +116,11 @@ chaosMonkeys:
       enabled: true
       # The duration, in seconds, to sleep. (Mind the difference between this sleep config's duration and the various
       # runner's sleeps, where the sleep is configured in milliseconds.)
-      durationSeconds: 1800
+      durationSeconds: 30
       # Enables or disables randomness for this sleep configuration. If enabled, the amount of seconds to sleep will be
       # determined randomly in the closed interval [0, <durationSeconds>]. If disabled, the sleep will be static, i.e.
       # the monkey will simply sleep for the given amount of seconds.
-      enableRandomness: true
+      enableRandomness: false
     # Configures deletion behavior. When enabled, the member killer monkey will kill the selected Hazelcast member
     # using a grace period as defined by 'durationSeconds' and 'enableRandomness'.
     memberGrace:
@@ -202,7 +222,7 @@ queueTests:
   # which you can find here: https://www.kaggle.com/datasets/kavita5/twitter-dataset-avengersendgame
   tweets:
     # The TweetRunner will not be run when this is set to 'false'.
-    enabled: true
+    enabled: false
     # The number of goroutines the TweetRunner will spawn to work on queues. (Depending on the configuration of the queue
     # names using the 'append*' properties, this may or may not correspond to a higher number of queues the runner will work on.)
     numQueues: 1
@@ -288,7 +308,7 @@ queueTests:
           durationMs: 2000
           enableRandomness: true
   load:
-    enabled: true
+    enabled: false
     numQueues: 5
     # Controls how many entries the queue load runner will use (this property is not available on the tweet runner because
     # the tweet runner works on a static data set, hence the number of elements as well as their size are given). The
@@ -342,7 +362,7 @@ queueTests:
 mapTests:
   pokedex:
     # If set to 'false', the PokedexRunner will not be executed
-    enabled: true
+    enabled: false
     # The runner will spawn one goroutine for each map
     numMaps: 10
     # If set to 'true', each of the <numMaps> goroutines will use its own map name, thus effectively accessing its own map
@@ -539,7 +559,7 @@ mapTests:
             # reached to not violate this boundary), thus overriding the probability setting.
             actionTowardsBoundaryProbability: 1
   load:
-    enabled: true
+    enabled: false
     numMaps: 10
     # In contrast to the PokedexRunner, whose data set is limited by the number of Pokémon contained in the first-generation Pokédex (151), the LoadRunner can create
     # arbitrarily many entries, and the 'numEntriesPerMap' controls how many entries it will create
