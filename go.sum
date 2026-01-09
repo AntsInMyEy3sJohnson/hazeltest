@@ -36,8 +36,8 @@ github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 h1:BHT72Gu3keYf3ZEu2J
 github.com/google/pprof v0.0.0-20250403155104-27863c87afa6/go.mod h1:boTsfXsheKC2y+lKOCMpSfarhxDeIzfZG1jqGcPl3cA=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/hazelcast/hazelcast-go-client v1.4.2 h1:5WFTm40Sor7Ku0fbhzlCqAq7UXP3sD8WoG7iln3aCTk=
-github.com/hazelcast/hazelcast-go-client v1.4.2/go.mod h1:PJ38lqXJ18S0YpkrRznPDlUH8GnnMAQCx3jpQtBPZ6Q=
+github.com/hazelcast/hazelcast-go-client v1.5.0 h1:R4+hgk2dJqYTWBIIqcSC2CEhKPK5Va93KuqRaQLLuuM=
+github.com/hazelcast/hazelcast-go-client v1.5.0/go.mod h1:0eUICYoxx49awAuKmbhUW8bnmE7/AKlqDX3s+S6onfk=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
