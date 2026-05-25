@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/hazelcast/hazelcast-go-client v1.5.0
+	github.com/hazelcast/hazelcast-go-client v1.6.0
 	github.com/sirupsen/logrus v1.9.4
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.35.1
