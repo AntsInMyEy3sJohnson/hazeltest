@@ -1,4 +1,4 @@
-FROM golang:1.26.0 AS builder
+FROM golang:1.26.3 AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o $APP_EXECUTABLE 
 # See: https://docs.openshift.com/container-platform/4.17/openshift_images/create-images.html#use-uid_create-images
 RUN chgrp 0 $APP_EXECUTABLE && chmod g=u $APP_EXECUTABLE
 
-FROM alpine:3.23.3 AS runner
+FROM alpine:3.23.4 AS runner
 
 ARG APP_DIR=/app
 
