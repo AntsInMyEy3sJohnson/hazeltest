@@ -453,7 +453,12 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
 			return err
 		}
-		if err := m.Set(l.tle.ctx, key, pw.Payload); err != nil {
+
+		beforeSet := time.Now()
+		err = m.Set(l.tle.ctx, key, pw.Payload)
+		lp.LogTimingEvent(string(insert), mapName, time.Since(beforeSet).Milliseconds(), log.TraceLevel)
+
+		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
 			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -462,7 +467,12 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 			return nil
 		}
 	case remove:
-		if _, err := m.Remove(l.tle.ctx, key); err != nil {
+
+		beforeRemove := time.Now()
+		_, err := m.Remove(l.tle.ctx, key)
+		lp.LogTimingEvent(string(remove), mapName, time.Since(beforeRemove).Milliseconds(), log.TraceLevel)
+
+		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedRemoves)
 			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -471,7 +481,12 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 			return nil
 		}
 	case read:
-		if v, err := m.Get(l.tle.ctx, key); err != nil {
+
+		beforeGet := time.Now()
+		v, err := m.Get(l.tle.ctx, key)
+		lp.LogTimingEvent(string(read), mapName, time.Since(beforeGet).Milliseconds(), log.TraceLevel)
+
+		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedReads)
 			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
 			return err
@@ -607,7 +622,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			defer wg.Done()
 			mapName := assembleMapNameFunc(tle.runnerConfig, i)
 			lp.LogMapRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), tle.runnerName, log.InfoLevel)
-			start := time.Now()
+			beforeGetMap := time.Now()
 			m, err := tle.hzMapStore.GetMap(tle.ctx, mapName)
 			if err != nil {
 				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
@@ -616,8 +631,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			defer func() {
 				_ = m.Destroy(tle.ctx)
 			}()
-			elapsed := time.Since(start).Milliseconds()
-			lp.LogTimingEvent("getMap()", mapName, int(elapsed), log.InfoLevel)
+			lp.LogTimingEvent("getMap()", mapName, time.Since(beforeGetMap).Milliseconds(), log.InfoLevel)
 			if tle.runnerConfig.preRunClean.enabled {
 				if stateCleaner == nil || hzService == "" {
 					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
@@ -757,7 +771,12 @@ func (l *batchTestLoop[t]) performSingleIngest(m hazelcastwrapper.Map, elementID
 	if err != nil {
 		return err
 	}
-	if err = m.Set(l.tle.ctx, key, pw.Payload); err != nil {
+
+	beforeSet := time.Now()
+	err = m.Set(l.tle.ctx, key, pw.Payload)
+	lp.LogTimingEvent(string(insert), mapName, time.Since(beforeSet).Milliseconds(), log.TraceLevel)
+
+	if err != nil {
 		l.ct.increaseCounter(statusKeyNumFailedInserts)
 		return err
 	}
@@ -793,7 +812,10 @@ func (l *batchTestLoop[t]) performSingleRead(m hazelcastwrapper.Map, elementID, 
 	}()
 
 	key := assembleMapKey(mapName, mapNumber, elementID)
+	beforeRead := time.Now()
 	valueFromHZ, err := m.Get(l.tle.ctx, key)
+	lp.LogTimingEvent(string(read), mapName, time.Since(beforeRead).Milliseconds(), log.TraceLevel)
+
 	if err != nil {
 		l.ct.increaseCounter(statusKeyNumFailedReads)
 		return err
@@ -844,7 +866,11 @@ func (l *batchTestLoop[t]) performSingleRemove(m hazelcastwrapper.Map, elementID
 	if !containsKey {
 		return nil
 	}
+
+	beforeRemove := time.Now()
 	_, err = m.Remove(l.tle.ctx, key)
+	lp.LogTimingEvent(string(remove), mapName, time.Since(beforeRemove).Milliseconds(), log.TraceLevel)
+
 	if err != nil {
 		l.ct.increaseCounter(statusKeyNumFailedRemoves)
 		return err
