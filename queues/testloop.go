@@ -135,7 +135,7 @@ func (l *testLoop[t]) run() {
 
 			queueName := l.assembleQueueName(i)
 			lp.LogQueueRunnerEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), l.tle.runnerName, log.InfoLevel)
-			start := time.Now()
+			beforeGetQueue := time.Now()
 			q, err := l.tle.hzQueueStore.GetQueue(l.tle.ctx, queueName)
 			if err != nil {
 				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
@@ -143,8 +143,8 @@ func (l *testLoop[t]) run() {
 			defer func() {
 				_ = q.Destroy(l.tle.ctx)
 			}()
-			elapsed := time.Since(start).Milliseconds()
-			lp.LogTimingEvent("getQueue()", queueName, int(elapsed), log.InfoLevel)
+
+			lp.LogTimingEvent("getQueue()", queueName, time.Since(beforeGetQueue).Milliseconds(), log.InfoLevel)
 
 			// TODO Check whether queue should be cleaned prior to starting put and pull operations
 			// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/69

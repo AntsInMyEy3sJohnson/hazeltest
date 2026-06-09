@@ -432,7 +432,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	}
 	sc, _ := b.Build(bv)
 
-	start := time.Now()
+	beforeBatchClean := time.Now()
 	numCleanedMaps, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
@@ -440,8 +440,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 		c.cfg,
 		sc,
 	)
-	elapsed := time.Since(start).Milliseconds()
-	lp.LogTimingEvent("batch map clean", "N/A", int(elapsed), log.InfoLevel)
+	lp.LogTimingEvent("batch map clean", "N/A", time.Since(beforeBatchClean).Milliseconds(), log.InfoLevel)
 
 	return numCleanedMaps, err
 
@@ -869,7 +868,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		cleanMode: c.cfg.cleanMode,
 	})
 
-	start := time.Now()
+	beforeBatchClean := time.Now()
 	numCleaned, err := runGenericBatchClean(
 		c.ctx,
 		c.ois,
@@ -877,8 +876,8 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 		c.cfg,
 		sc,
 	)
-	elapsed := time.Since(start).Milliseconds()
-	lp.LogTimingEvent("batch queue clean", "N/A", int(elapsed), log.InfoLevel)
+
+	lp.LogTimingEvent("batch queue clean", "N/A", time.Since(beforeBatchClean).Milliseconds(), log.InfoLevel)
 
 	return numCleaned, err
 
