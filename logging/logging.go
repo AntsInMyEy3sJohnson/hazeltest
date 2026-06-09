@@ -113,7 +113,7 @@ func (lp *LogProvider) LogInternalStateInfo(msg string, level log.Level) {
 
 }
 
-func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int, level log.Level) {
+func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int64, level log.Level) {
 
 	fields := log.Fields{
 		"kind":              TimingEvent,
