@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.18.1
-  digest: 7d0c1e6c500c7f5a84b61a6cfad3bbb944f17c3a1aac6ef0ff0c1a0be0d57999
+  tag: 0.18.2
+  digest: 998cd9ac9e911405530265d143220a89e40fe789bc1ea0e31a7771a373157f45
   pullPolicy: IfNotPresent
 
 resources:
@@ -27,7 +27,7 @@ env:
   # Accepts multiple comma-separated values ("service1,service2,service3")
   hzMembers: "hazelcastplatform"
   # Set this to TRACE if you want to make the people running your IT department's logging platform very upset
-  logLevel: INFO
+  logLevel: TRACE
 
 features:
   # Only set this to false if no chaos monkey runs with the 'k8sInCluster' hazelcast member access mode
