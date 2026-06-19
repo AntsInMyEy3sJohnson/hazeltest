@@ -2486,7 +2486,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						if errDeleter.numInvocations == numMembersToKill {
 							t.Log(msg, checkMark)
 						} else {
-							t.Fatal(msg, ballotX)
+							t.Fatal(msg, ballotX, fmt.Sprintf("number of pod deleter invocations: %d; expected number of members to be killed: %d\n", errDeleter.numInvocations, numMembersToKill))
 						}
 
 						msg = "\t\t\t\t\tsleeper must have slept zero seconds"
@@ -2555,6 +2555,7 @@ func TestKillMemberOnK8s(t *testing.T) {
 						}
 
 						msg = "\t\t\t\t\tnumber of pod deleter invocations must be equal to number of members to be terminated according to chaos probability"
+
 						if errDeleter.numInvocations == numMembersToKill {
 							t.Log(msg, checkMark)
 						} else {
@@ -2635,7 +2636,7 @@ loop:
 			if success {
 				numKillsSuccessful++
 			}
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			break loop
 		}
 	}
