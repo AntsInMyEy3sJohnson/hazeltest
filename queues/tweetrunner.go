@@ -6,13 +6,14 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/status"
 	"io/fs"
+
+	"github.com/google/uuid"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (

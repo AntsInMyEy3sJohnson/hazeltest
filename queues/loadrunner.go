@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/status"
+
+	"github.com/google/uuid"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (

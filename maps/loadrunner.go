@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
+
+	"github.com/google/uuid"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -132,13 +133,13 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	r.payloadProvider = r.providerFunctions.payloads()
 	if useFixedPayload {
-		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.TraceLevel)
+		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.DebugLevel)
 		r.payloadProvider.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
 			UseFixedSize: useFixedPayload,
 			FixedSize:    loadsupport.FixedSizePayloadDefinition{SizeBytes: fixedPayloadSizeBytes},
 		})
 	} else if useVariablePayload {
-		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.TraceLevel)
+		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.DebugLevel)
 		r.payloadProvider.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
 			UseVariableSize: useVariablePayload,
 			VariableSize: loadsupport.VariableSizePayloadDefinition{

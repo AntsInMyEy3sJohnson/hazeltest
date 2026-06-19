@@ -5,18 +5,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"hazeltest/logging"
 	"io"
 	"os"
 	"strings"
+
+	log "go.uber.org/zap/zapcore"
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	ArgUseUniSocketClient = "use-unisocket-client"
 	ArgConfigFilePath     = "config-file"
 	defaultConfigFilePath = "defaultConfig.yaml"
+	loggingComponent      = "config"
 )
 
 type DefaultConfigPropertyAssigner struct{}
@@ -65,7 +67,12 @@ var (
 )
 
 func init() {
-	lp = logging.GetLogProviderInstance(ID())
+	var err error
+	lp, err = logging.GetLogProviderInstance(ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
@@ -215,12 +222,12 @@ func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(stri
 func retrieveConfigValue(keyPath string) (any, error) {
 
 	if value, err := retrieveConfigValueFromMap(userSuppliedConfig, keyPath); err == nil {
-		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.TraceLevel)
+		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.DebugLevel)
 		return value, nil
 	}
 
 	if value, err := retrieveConfigValueFromMap(defaultConfig, keyPath); err == nil {
-		lp.LogConfigEvent(keyPath, "config file", "found value in default config file", log.TraceLevel)
+		lp.LogConfigEvent(keyPath, "config file", "found value in default config file", log.DebugLevel)
 		return value, nil
 	}
 

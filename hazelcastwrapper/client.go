@@ -3,11 +3,12 @@ package hazelcastwrapper
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hazelcast/hazelcast-go-client"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/logging"
+
+	"github.com/google/uuid"
+	"github.com/hazelcast/hazelcast-go-client"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -35,6 +36,8 @@ type (
 	}
 )
 
+const loggingComponent = "hzclientassembler"
+
 func (ch *DefaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
 	ch.hzClient = NewHzClientHelper().Assemble(ctx, clientName, hzCluster, hzMembers)
 }
@@ -56,7 +59,14 @@ func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
 }
 
 func NewHzClientHelper() HzClientAssembler {
-	return HzClientAssembler{client.ID(), logging.GetLogProviderInstance(client.ID())}
+
+	lp, err := logging.GetLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return HzClientAssembler{client.ID(), lp}
 }
 
 func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {

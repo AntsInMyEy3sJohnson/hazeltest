@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/chaos"
 	"hazeltest/client"
@@ -13,11 +12,17 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	log "go.uber.org/zap/zapcore"
 )
 
 func main() {
 
-	lp := logging.GetLogProviderInstance(client.ID())
+	lp, err := logging.GetLogProviderInstance(client.ID(), "main")
+
+	if err != nil {
+		panic(err)
+	}
 
 	if err := client.ParseConfigs(); err != nil {
 		// Logging with fatal level will cause the application to exit.
