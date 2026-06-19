@@ -2,216 +2,206 @@ package logging
 
 import (
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-	"io"
-	"os"
+	"hash/fnv"
 	"runtime"
-	"strings"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-const ApiEvent = "api event"
-const RunnerEvent = "runner event"
-const StateCleanerEvent = "state cleaner event"
-const ChaosMonkeyEvent = "chaos monkey event"
-const TimingEvent = "timing event"
-const IoEvent = "io event"
-const HzEvent = "hazelcast event"
-const ConfigurationEvent = "configuration event"
-const InternalStateEvent = "internal state event"
-const PayloadGeneratorEvent = "payload generator event"
+const (
+	ApiEvent              = "api event"
+	RunnerEvent           = "runner event"
+	StateCleanerEvent     = "state cleaner event"
+	ChaosMonkeyEvent      = "chaos monkey event"
+	TimingEvent           = "timing event"
+	IoEvent               = "io event"
+	HzEvent               = "hazelcast event"
+	ConfigurationEvent    = "configuration event"
+	InternalStateEvent    = "internal state event"
+	PayloadGeneratorEvent = "payload generator event"
+)
+
+var loggers = make(map[uint64]*LogProvider)
 
 type LogProvider struct {
-	ClientID uuid.UUID
+	ClientID  uuid.UUID
+	logger    *zap.Logger
+	component string
 }
 
-var lp *LogProvider
+func GetLogProviderInstance(clientID uuid.UUID, component string) (*LogProvider, error) {
 
-func init() {
+	h := fnv.New64a()
 
-	log.SetFormatter(&log.JSONFormatter{})
-
-	definedLogLevel := os.Getenv("LOG_LEVEL")
-
-	var logLevel log.Level
-	var out io.Writer
-
-	switch strings.ToLower(definedLogLevel) {
-	case "trace":
-		logLevel = log.TraceLevel
-		out = os.Stdout
-	case "debug":
-		logLevel = log.DebugLevel
-		out = os.Stdout
-	case "info":
-		logLevel = log.InfoLevel
-		out = os.Stdout
-	case "warn":
-		logLevel = log.WarnLevel
-		out = os.Stderr
-	case "error":
-		logLevel = log.ErrorLevel
-		out = os.Stderr
-	default:
-		logLevel = log.InfoLevel
-		out = os.Stdout
+	if _, err := h.Write([]byte(clientID.String() + component)); err != nil {
+		return nil, err
 	}
 
-	log.SetLevel(logLevel)
-	log.SetOutput(out)
-	log.SetReportCaller(false)
+	sum := h.Sum64()
 
-}
-
-func GetLogProviderInstance(clientID uuid.UUID) *LogProvider {
-
-	if lp == nil {
-		lp = &LogProvider{ClientID: clientID}
+	if _, ok := loggers[sum]; !ok {
+		logger, err := zap.NewProduction()
+		if err != nil {
+			return nil, err
+		}
+		loggers[sum] = &LogProvider{
+			ClientID:  clientID,
+			logger:    logger,
+			component: component,
+		}
 	}
 
-	return lp
+	return loggers[sum], nil
 
 }
 
-func (lp *LogProvider) LogPayloadGeneratorEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogPayloadGeneratorEvent(msg string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind": PayloadGeneratorEvent,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(msg, level, assembleLogMessageKindField(PayloadGeneratorEvent))
 
 }
 
-func (lp *LogProvider) LogIoEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogIoEvent(msg string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind": IoEvent,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(msg, level, assembleLogMessageKindField(IoEvent))
 
 }
 
-func (lp *LogProvider) LogApiEvent(msg string, level log.Level) {
+func (lp *LogProvider) LogApiEvent(msg string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind": ApiEvent,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(msg, level, assembleLogMessageKindField(ApiEvent))
 
 }
 
-func (lp *LogProvider) LogInternalStateInfo(msg string, level log.Level) {
+func (lp *LogProvider) LogInternalStateInfo(msg string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind": InternalStateEvent,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(msg, level, assembleLogMessageKindField(InternalStateEvent))
 
 }
 
-func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName string, tookMs int64, level log.Level) {
+func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName, dataStructureKind string, tookMs int64, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind":              TimingEvent,
-		"operation":         operation,
-		"dataStructureName": dataStructureName,
-		"tookMs":            tookMs,
-	}
-
-	lp.doLog(fmt.Sprintf("'%s' took %d ms", operation, tookMs), fields, level)
-
-}
-
-func (lp *LogProvider) LogChaosMonkeyEvent(msg string, level log.Level) {
-
-	fields := log.Fields{
-		"kind": ChaosMonkeyEvent,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(
+		fmt.Sprintf("'%s' took %d ms", operation, tookMs),
+		level,
+		assembleLogMessageKindField(TimingEvent),
+		zap.String("operation", operation),
+		zap.String("dataStructureName", dataStructureName),
+		zap.String("dataStructureKind", dataStructureKind),
+		zap.Int64("tookMs", tookMs),
+	)
 
 }
 
-func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level log.Level) {
-	fields := log.Fields{
-		"kind":      StateCleanerEvent,
-		"hzService": hzService,
-	}
+func (lp *LogProvider) LogChaosMonkeyEvent(msg string, level zapcore.Level) {
 
-	lp.doLog(msg, fields, level)
-}
-
-func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level log.Level) {
-
-	fields := log.Fields{
-		"kind":       RunnerEvent,
-		"runnerName": runnerName,
-		"runnerKind": "map",
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(msg, level, assembleLogMessageKindField(ChaosMonkeyEvent))
 
 }
 
-func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level log.Level) {
+func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind":       RunnerEvent,
-		"runnerName": runnerName,
-		"runnerKind": "queue",
-	}
-
-	lp.doLog(msg, fields, level)
-
-}
-
-func (lp *LogProvider) LogHzEvent(msg string, level log.Level) {
-
-	fields := log.Fields{
-		"kind": HzEvent,
-	}
-
-	lp.doLog(msg, fields, level)
-}
-
-func (lp *LogProvider) LogErrUponConfigRetrieval(keyPath string, err error, level log.Level) {
-
-	lp.LogConfigEvent(keyPath, "config file", fmt.Sprintf("encountered error upon attempt to extract config value: %v", err), level)
+	lp.doLog(
+		msg,
+		level,
+		assembleLogMessageKindField(StateCleanerEvent),
+		zap.String("hzService", hzService),
+	)
 
 }
 
-func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level log.Level) {
+func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level zapcore.Level) {
 
-	fields := log.Fields{
-		"kind":   ConfigurationEvent,
-		"value":  configValue,
-		"source": source,
-	}
-
-	lp.doLog(msg, fields, level)
+	lp.doLog(
+		msg,
+		level,
+		assembleLogMessageKindField(RunnerEvent),
+		assembleRunnerNameField(runnerName),
+		assembleRunnerKindField("map"),
+	)
 
 }
 
-func (lp *LogProvider) doLog(msg string, fields log.Fields, level log.Level) {
+func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level zapcore.Level) {
 
-	fields["caller"] = getCaller()
-	fields["client"] = lp.ClientID
+	lp.doLog(
+		msg,
+		level,
+		assembleLogMessageKindField(RunnerEvent),
+		assembleRunnerNameField(runnerName),
+		assembleRunnerKindField("queue"),
+	)
 
-	if level == log.FatalLevel {
-		log.WithFields(fields).Fatal(msg)
-	} else if level == log.ErrorLevel {
-		log.WithFields(fields).Error(msg)
-	} else if level == log.WarnLevel {
-		log.WithFields(fields).Warn(msg)
-	} else if level == log.InfoLevel {
-		log.WithFields(fields).Info(msg)
+}
+
+func (lp *LogProvider) LogHzEvent(msg string, level zapcore.Level) {
+
+	lp.doLog(msg, level, assembleLogMessageKindField(HzEvent))
+
+}
+
+func (lp *LogProvider) LogErrUponConfigRetrieval(keyPath string, err error, level zapcore.Level) {
+
+	lp.LogConfigEvent(
+		keyPath,
+		"config file",
+		fmt.Sprintf("encountered error upon attempt to extract config value: %v", err),
+		level,
+	)
+
+}
+
+func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level zapcore.Level) {
+
+	lp.doLog(
+		msg,
+		level,
+		assembleLogMessageKindField(ConfigurationEvent),
+		zap.String("value", configValue),
+		zap.String("source", source),
+	)
+
+}
+
+func (lp *LogProvider) doLog(msg string, level zapcore.Level, fields ...zapcore.Field) {
+
+	fieldCaller := zap.String("caller", getCaller())
+	fieldClient := zap.String("client", lp.ClientID.String())
+	fieldComponent := zap.String("component", lp.component)
+
+	enrichedFields := append([]zapcore.Field{fieldCaller, fieldClient, fieldComponent}, fields...)
+
+	if level == zapcore.FatalLevel {
+		lp.logger.Fatal(msg, enrichedFields...)
+	} else if level == zapcore.ErrorLevel {
+		lp.logger.Error(msg, enrichedFields...)
+	} else if level == zapcore.WarnLevel {
+		lp.logger.Warn(msg, enrichedFields...)
+	} else if level == zapcore.InfoLevel {
+		lp.logger.Info(msg, enrichedFields...)
 	} else {
-		log.WithFields(fields).Trace(msg)
+		lp.logger.Debug(msg, enrichedFields...)
 	}
+
+}
+
+func assembleRunnerKindField(runnerKind string) zap.Field {
+
+	return zap.String("runnerKind", runnerKind)
+
+}
+
+func assembleRunnerNameField(runnerName string) zap.Field {
+
+	return zap.String("runnerName", runnerName)
+
+}
+
+func assembleLogMessageKindField(kind string) zap.Field {
+
+	return zap.String("kind", kind)
 
 }
 
