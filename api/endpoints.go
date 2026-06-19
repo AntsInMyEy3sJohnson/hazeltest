@@ -3,15 +3,19 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
 	"hazeltest/logging"
 	"net/http"
 	"strconv"
 	"sync"
+
+	log "go.uber.org/zap/zapcore"
 )
 
-const methodGet = "GET"
+const (
+	methodGet        = "GET"
+	loggingComponent = "api"
+)
 
 type liveness struct {
 	Up bool
@@ -35,7 +39,12 @@ func init() {
 	l = &liveness{true}
 	r = &readiness{false, false, 0}
 
-	lp = logging.GetLogProviderInstance(client.ID())
+	var err error
+	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
 
 }
 

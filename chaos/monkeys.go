@@ -3,7 +3,6 @@ package chaos
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/logging"
@@ -11,6 +10,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	log "go.uber.org/zap/zapcore"
 )
 
 const (
@@ -41,6 +42,8 @@ const (
 	statusKeyNumRuns          = "numRuns"
 	statusKeyNumMembersKilled = "numMembersKilled"
 )
+
+const loggingComponent = "chaosmonkey"
 
 var (
 	monkeys []monkey
@@ -139,7 +142,13 @@ type (
 )
 
 func init() {
-	lp = logging.GetLogProviderInstance(client.ID())
+	var err error
+	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
+
 	register(&memberKillerMonkey{})
 }
 
@@ -151,7 +160,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.DebugLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Second)
 	}
 
@@ -216,9 +225,9 @@ func (m *memberKillerMonkey) causeChaos() {
 		if i > 0 && i%updateStep == 0 {
 			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
 		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.TraceLevel)
+		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.DebugLevel)
 		if monkeyInvocationNecessary(mc.chaosConfig) {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
+			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.DebugLevel)
 			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
 				var msg string
@@ -275,7 +284,7 @@ loop:
 		case success := <-killEvents:
 			numKillInvocationsInRun++
 			if success {
-				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
+				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.DebugLevel)
 				m.updateNumMembersKilled(uint32(1))
 			}
 		// Additional way out of the loop in case killer isn't able to send event into channel
@@ -287,7 +296,7 @@ loop:
 	}
 	if numKillInvocationsInRun == numMembersToKill {
 		// If all killer goroutines have sent events, we know it's safe to close the channel
-		lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
+		lp.LogChaosMonkeyEvent("closing members killed channel", log.DebugLevel)
 		close(killEvents)
 	}
 

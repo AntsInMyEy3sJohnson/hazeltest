@@ -5,8 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
@@ -14,6 +12,9 @@ import (
 	"hazeltest/state"
 	"hazeltest/status"
 	"strconv"
+
+	"github.com/google/uuid"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -238,7 +239,7 @@ func parsePokedexFile(runnerName string) (*pokedex, error) {
 		return nil, err
 	}
 
-	lp.LogMapRunnerEvent("parsed pokedex file", runnerName, log.TraceLevel)
+	lp.LogMapRunnerEvent("parsed pokedex file", runnerName, log.DebugLevel)
 
 	return &pokedex, nil
 
