@@ -1,0 +1,3 @@
+logging:
+  defaultLevel: INFO
+  components: { }
