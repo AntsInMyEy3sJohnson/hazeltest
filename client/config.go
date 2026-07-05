@@ -16,9 +16,12 @@ import (
 
 const (
 	ArgUseUniSocketClient = "use-unisocket-client"
-	ArgConfigFilePath     = "config-file"
-	defaultConfigFilePath = "defaultConfig.yaml"
-	loggingComponent      = "config"
+	// TODO Rename load config file to distinct clearly between load config and logging config
+	ArgConfigFilePath            = "config-file"
+	ArgLoggingConfigFile         = "logging-config-file"
+	defaultConfigFilePath        = "defaultConfig.yaml"
+	defaultLoggingConfigFilePath = "defaultLoggingConfig.yaml"
+	loggingComponent             = "config"
 )
 
 type DefaultConfigPropertyAssigner struct{}
@@ -271,7 +274,8 @@ func parseCommandLineArgs() (map[string]any, error) {
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
 	useUniSocketClient := flagSet.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
-	configFilePath := flagSet.String(ArgConfigFilePath, "defaultConfig.yaml", "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+	configFilePath := flagSet.String(ArgConfigFilePath, defaultConfigFilePath, "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+	loggingConfigFilePath := flagSet.String(ArgLoggingConfigFile, defaultLoggingConfigFilePath, "File path of the logging config file to use. If unprovided, the embedded default logging config will be applied.")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return nil, err
@@ -280,6 +284,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	target := make(map[string]any)
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgConfigFilePath] = *configFilePath
+	target[ArgLoggingConfigFile] = *loggingConfigFilePath
 
 	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
 
