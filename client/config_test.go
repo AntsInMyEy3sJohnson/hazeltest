@@ -472,15 +472,20 @@ func TestRetrieveArgValue(t *testing.T) {
 
 			commandLineArgs = args
 
-			actual := RetrieveArgValue(ArgConfigFilePath)
-
 			msg = "\t\texpected value should be returned"
-			expected := "defaultConfig.yaml"
+			for arg, expected := range map[string]string{
+				ArgConfigFilePath:    defaultConfigFilePath,
+				ArgLoggingConfigFile: defaultLoggingConfigFilePath,
+			} {
 
-			if actual == expected {
-				t.Log(msg, checkMark)
-			} else {
-				t.Fatal(msg, ballotX)
+				actual := RetrieveArgValue(arg)
+
+				if actual == expected {
+					t.Log(msg, checkMark, expected)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", actual, expected))
+				}
+
 			}
 		}
 
