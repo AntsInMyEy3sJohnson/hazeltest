@@ -23,7 +23,10 @@ const (
 	PayloadGeneratorEvent = "payload generator event"
 )
 
-var loggers = make(map[uint64]*LogProvider)
+var (
+	loggers       = make(map[uint64]*LogProvider)
+	loggingConfig map[string]any
+)
 
 type LogProvider struct {
 	ClientID  uuid.UUID

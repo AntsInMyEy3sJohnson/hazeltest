@@ -49,8 +49,8 @@ type (
 
 var (
 	ErrFailedParseCommandLineArgs        = errors.New("unable to parse commandline-supplied arguments")
-	ErrFailedParseDefaultConfigFile      = errors.New("unable to parse default config file")
-	ErrFailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied config file")
+	ErrFailedParseDefaultConfigFile      = errors.New("unable to parse default load config file")
+	ErrFailedParseUserSuppliedConfigFile = errors.New("unable to parse user-supplied load config file")
 )
 
 var (
@@ -182,16 +182,25 @@ func ParseConfigs() error {
 	}
 
 	if config, err := parseDefaultConfigFile(d); err != nil {
+		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
 		return ErrFailedParseDefaultConfigFile
 	} else {
 		defaultLoadConfig = config
 	}
 
 	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgLoadConfigFile).(string)); err != nil {
-		lp.LogConfigEvent("N/A", "config file", err.Error(), log.ErrorLevel)
+		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
 		return ErrFailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedLoadConfig = config
+	}
+
+	loggingConfigFilePath := RetrieveArgValue(ArgLoggingConfigFile).(string)
+	if config, err := decodeConfigFile(loggingConfigFilePath, d.open); err != nil {
+		lp.LogConfigEvent("N/A", "logging config file", err.Error(), log.ErrorLevel)
+		return fmt.Errorf("unable to parse logging config file given at path '%s", loggingConfigFilePath)
+	} else {
+		loggingConfig = config
 	}
 
 	return nil

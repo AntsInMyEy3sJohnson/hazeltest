@@ -16,8 +16,10 @@ type (
 	testConfigOpener struct {
 		m map[string]any
 	}
-	erroneousTestConfigOpener struct{}
-	testReadCloser            struct {
+	erroneousTestConfigOpener struct {
+		filePathToReturnErrorFor string
+	}
+	testReadCloser struct {
 		io.Reader
 		io.Closer
 	}
@@ -44,7 +46,20 @@ var (
 			},
 		},
 	}
-	defaultArgs = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, defaultLoadConfigFilePath)}
+	loggingConfigHavingDefaultValues = map[string]any{
+		"logging": map[string]any{
+			"level": map[string]any{
+				"root":       "INFO",
+				"components": map[string]any{},
+			},
+		},
+	}
+	defaultArgs = []string{
+		os.Args[0],
+		fmt.Sprintf("--%s=false", ArgUseUniSocketClient),
+		fmt.Sprintf("--%s=%s", ArgLoadConfigFile, defaultLoadConfigFilePath),
+		fmt.Sprintf("--%s=%s", ArgLoggingConfigFile, defaultLoggingConfigFilePath),
+	}
 )
 
 func (o testConfigOpener) open(_ string) (io.ReadCloser, error) {
@@ -57,9 +72,18 @@ func (o testConfigOpener) open(_ string) (io.ReadCloser, error) {
 
 }
 
-func (o erroneousTestConfigOpener) open(_ string) (io.ReadCloser, error) {
+func (o erroneousTestConfigOpener) open(filePath string) (io.ReadCloser, error) {
 
-	return nil, errors.New("lo and behold, here i am, a test error")
+	if filePath == o.filePathToReturnErrorFor {
+
+		return nil, errors.New("lo and behold, here i am, a test error")
+	}
+
+	b, _ := yaml.Marshal(map[string]any{})
+	return testReadCloser{
+		Reader: bytes.NewReader(b),
+		Closer: testCloser{},
+	}, nil
 
 }
 
@@ -348,7 +372,7 @@ func TestParseConfigs(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen providing a valid file opener to parse the default config file and no user-supplied config file")
+		t.Log("\twhen providing a valid file opener to parse the default load config file and no user-supplied load config file")
 		{
 			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 
@@ -363,14 +387,14 @@ func TestParseConfigs(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdefault config map should be populated"
+			msg = "\t\tdefault load config map should be populated"
 			if len(defaultLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tuser-supplied config map should not be populated"
+			msg = "\t\tuser-supplied load config map should not be populated"
 			if len(userSuppliedLoadConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
@@ -378,10 +402,10 @@ func TestParseConfigs(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen providing an error-throwing file opener to parse the default config file")
+		t.Log("\twhen providing an error-yielding file opener to parse the default load config file")
 		{
 			defaultLoadConfig = nil
-			d = erroneousTestConfigOpener{}
+			d = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoadConfigFilePath}
 
 			err := ParseConfigs()
 
@@ -392,7 +416,7 @@ func TestParseConfigs(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdefault config map should be empty"
+			msg = "\t\tdefault load config map should be empty"
 			if len(defaultLoadConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
@@ -400,7 +424,7 @@ func TestParseConfigs(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen providing valid file openers for parsing both the default and the user-supplied config file, and a user-supplied config file path")
+		t.Log("\twhen providing valid file openers for parsing both the default and the user-supplied load config file, and a user-supplied load config file path")
 		{
 			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 			u = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
@@ -415,14 +439,14 @@ func TestParseConfigs(t *testing.T) {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tdefault config map should be populated"
+			msg = "\t\tdefault load config map should be populated"
 			if len(defaultLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\tuser-supplied config map should be populated"
+			msg = "\t\tuser-supplied load config map should be populated"
 			if len(userSuppliedLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
@@ -430,10 +454,12 @@ func TestParseConfigs(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen providing a valid file opener for the default config file, but one that throws an error for the user-supplied config file")
+		t.Log("\twhen providing a valid file opener for the default load config file, but one that throws an error for the user-supplied load config file")
 		{
-			u = erroneousTestConfigOpener{}
+			userSuppliedLoadConfigFilePath := "some-user-supplied-config-file.yaml"
+			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, userSuppliedLoadConfigFilePath)}
 
+			u = erroneousTestConfigOpener{filePathToReturnErrorFor: userSuppliedLoadConfigFilePath}
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
@@ -442,6 +468,56 @@ func TestParseConfigs(t *testing.T) {
 			} else {
 				t.Fatal(msg, ballotX)
 			}
+		}
+
+		t.Log("\twhen providing a valid file opener to parse the default logging file")
+		{
+
+			loggingConfig = nil
+			d = testConfigOpener{m: loggingConfigHavingDefaultValues}
+
+			os.Args = defaultArgs
+			err := ParseConfigs()
+
+			msg := "\t\tno error must be returned"
+			if err == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX, err)
+			}
+
+			msg = "\t\tlogging config must be populated"
+			if len(loggingConfig) > 0 {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+
+		t.Log("\twhen providing an error-returning file opener to parse the default logging file")
+		{
+
+			loggingConfig = nil
+
+			d = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoggingConfigFilePath}
+
+			err := ParseConfigs()
+
+			msg := "\t\terror must be returned"
+			if err != nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+			msg = "\t\terror message must contain path of logging config file"
+			if strings.Contains(err.Error(), defaultLoggingConfigFilePath) {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
 		}
 
 	}
