@@ -44,7 +44,7 @@ var (
 			},
 		},
 	}
-	defaultArgs = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, defaultConfigFilePath)}
+	defaultArgs = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, defaultLoadConfigFilePath)}
 )
 
 func (o testConfigOpener) open(_ string) (io.ReadCloser, error) {
@@ -364,14 +364,14 @@ func TestParseConfigs(t *testing.T) {
 			}
 
 			msg = "\t\tdefault config map should be populated"
-			if len(defaultConfig) > 0 {
+			if len(defaultLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tuser-supplied config map should not be populated"
-			if len(userSuppliedConfig) == 0 {
+			if len(userSuppliedLoadConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -380,7 +380,7 @@ func TestParseConfigs(t *testing.T) {
 
 		t.Log("\twhen providing an error-throwing file opener to parse the default config file")
 		{
-			defaultConfig = nil
+			defaultLoadConfig = nil
 			d = erroneousTestConfigOpener{}
 
 			err := ParseConfigs()
@@ -393,7 +393,7 @@ func TestParseConfigs(t *testing.T) {
 			}
 
 			msg = "\t\tdefault config map should be empty"
-			if len(defaultConfig) == 0 {
+			if len(defaultLoadConfig) == 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -405,7 +405,7 @@ func TestParseConfigs(t *testing.T) {
 			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 			u = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
 
-			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgConfigFilePath, "a-user-supplied-config-file.yaml")}
+			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, "a-user-supplied-config-file.yaml")}
 			err := ParseConfigs()
 
 			msg := "\t\tno error should be returned"
@@ -416,14 +416,14 @@ func TestParseConfigs(t *testing.T) {
 			}
 
 			msg = "\t\tdefault config map should be populated"
-			if len(defaultConfig) > 0 {
+			if len(defaultLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
 			msg = "\t\tuser-supplied config map should be populated"
-			if len(userSuppliedConfig) > 0 {
+			if len(userSuppliedLoadConfig) > 0 {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -475,7 +475,7 @@ func TestRetrieveArgValue(t *testing.T) {
 
 			msg = "\t\texpected value should be returned"
 			for arg, expected := range map[string]string{
-				ArgConfigFilePath:    defaultConfigFilePath,
+				ArgLoadConfigFile:    defaultLoadConfigFilePath,
 				ArgLoggingConfigFile: defaultLoggingConfigFilePath,
 			} {
 
@@ -520,7 +520,7 @@ func TestPopulateConfigProperty(t *testing.T) {
 	{
 		t.Log("\twhen providing an assignment function and a map containing the desired key")
 		{
-			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			defaultLoadConfig = mapTestsPokedexWithNumMapsDefault
 
 			var target int
 			err := a.Assign("mapTests.pokedex.numMaps", func(_ string, a any) error {
@@ -609,7 +609,7 @@ func TestParseUserSuppliedConfig(t *testing.T) {
 	{
 		t.Log("\twhen providing the default config file path")
 		{
-			config, err := parseUserSuppliedConfigFile(testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}, defaultConfigFilePath)
+			config, err := parseUserSuppliedConfigFile(testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}, defaultLoadConfigFilePath)
 
 			msg := "\t\tno error should occur"
 			if err == nil {
@@ -660,7 +660,7 @@ func TestDecodeConfigFile(t *testing.T) {
 	{
 		t.Log("\twhen providing a target map and a file open function that returns a valid io.Reader")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
+			target, err := decodeConfigFile(defaultLoadConfigFilePath, func(path string) (io.ReadCloser, error) {
 				b, _ := yaml.Marshal(mapTestsPokedexWithNumMapsDefault)
 				return testReadCloser{
 					Reader: bytes.NewReader(b),
@@ -685,7 +685,7 @@ func TestDecodeConfigFile(t *testing.T) {
 
 		t.Log("\twhen providing a target map and a file open function that returns an error")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
+			target, err := decodeConfigFile(defaultLoadConfigFilePath, func(path string) (io.ReadCloser, error) {
 				return nil, errors.New("lo and behold, an error")
 			})
 
@@ -706,7 +706,7 @@ func TestDecodeConfigFile(t *testing.T) {
 
 		t.Log("\twhen providing a target map and a file open function that returns an io.Reader producing invalid yaml")
 		{
-			target, err := decodeConfigFile(defaultConfigFilePath, func(path string) (io.ReadCloser, error) {
+			target, err := decodeConfigFile(defaultLoadConfigFilePath, func(path string) (io.ReadCloser, error) {
 				return testReadCloser{
 					Reader: bytes.NewReader([]byte("this is not yaml")),
 					Closer: testCloser{},
@@ -743,8 +743,8 @@ func TestRetrieveConfigValue(t *testing.T) {
 	{
 		t.Log("\twhen providing a default and a user-supplied config map")
 		{
-			defaultConfig = mapTestsPokedexWithNumMapsDefault
-			userSuppliedConfig = mapTestsPokedexWithNumMapsUserSupplied
+			defaultLoadConfig = mapTestsPokedexWithNumMapsDefault
+			userSuppliedLoadConfig = mapTestsPokedexWithNumMapsUserSupplied
 
 			expected := 10
 			actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
@@ -766,10 +766,10 @@ func TestRetrieveConfigValue(t *testing.T) {
 
 		t.Log("\twhen providing a config map not containing a nested map")
 		{
-			defaultConfig = map[string]any{
+			defaultLoadConfig = map[string]any{
 				"mapTests": []int{1, 2, 3, 4, 5},
 			}
-			userSuppliedConfig = nil
+			userSuppliedLoadConfig = nil
 
 			_, err := retrieveConfigValue("mapTests.pokedex")
 
@@ -783,7 +783,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 
 		t.Log("\twhen providing a config map not containing the desired key")
 		{
-			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			defaultLoadConfig = mapTestsPokedexWithNumMapsDefault
 			_, err := retrieveConfigValue("mapTests.load")
 
 			msg := "\t\tan error should be returned"
@@ -797,7 +797,7 @@ func TestRetrieveConfigValue(t *testing.T) {
 		t.Log("\twhen providing a config map containing the desired key in a nested sub-map")
 		{
 
-			defaultConfig = mapTestsPokedexWithNumMapsDefault
+			defaultLoadConfig = mapTestsPokedexWithNumMapsDefault
 			expected := 5
 			actual, err := retrieveConfigValue("mapTests.pokedex.numMaps")
 
@@ -824,7 +824,7 @@ func teardown(oldArgs []string) {
 
 	os.Args = oldArgs
 
-	defaultConfig = nil
-	userSuppliedConfig = nil
+	defaultLoadConfig = nil
+	userSuppliedLoadConfig = nil
 
 }

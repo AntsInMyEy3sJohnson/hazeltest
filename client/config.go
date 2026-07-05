@@ -15,11 +15,10 @@ import (
 )
 
 const (
-	ArgUseUniSocketClient = "use-unisocket-client"
-	// TODO Rename load config file to distinct clearly between load config and logging config
-	ArgConfigFilePath            = "config-file"
+	ArgUseUniSocketClient        = "use-unisocket-client"
+	ArgLoadConfigFile            = "load-config-file"
 	ArgLoggingConfigFile         = "logging-config-file"
-	defaultConfigFilePath        = "defaultConfig.yaml"
+	defaultLoadConfigFilePath    = "defaultLoadConfig.yaml"
 	defaultLoggingConfigFilePath = "defaultLoggingConfig.yaml"
 	loggingComponent             = "config"
 )
@@ -62,11 +61,11 @@ var (
 
 var (
 	commandLineArgs map[string]any
-	//go:embed defaultConfig.yaml
-	defaultConfigFile  embed.FS
-	defaultConfig      map[string]any
-	userSuppliedConfig map[string]any
-	lp                 *logging.LogProvider
+	//go:embed defaultLoadConfig.yaml
+	defaultLoadConfigFile  embed.FS
+	defaultLoadConfig      map[string]any
+	userSuppliedLoadConfig map[string]any
+	lp                     *logging.LogProvider
 )
 
 func init() {
@@ -80,7 +79,7 @@ func init() {
 
 func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
 
-	if file, err := defaultConfigFile.Open(path); err != nil {
+	if file, err := defaultLoadConfigFile.Open(path); err != nil {
 		return nil, err
 	} else {
 		return file, nil
@@ -186,14 +185,14 @@ func ParseConfigs() error {
 	if config, err := parseDefaultConfigFile(d); err != nil {
 		return ErrFailedParseDefaultConfigFile
 	} else {
-		defaultConfig = config
+		defaultLoadConfig = config
 	}
 
-	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgConfigFilePath).(string)); err != nil {
+	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgLoadConfigFile).(string)); err != nil {
 		lp.LogConfigEvent("N/A", "config file", err.Error(), log.ErrorLevel)
 		return ErrFailedParseUserSuppliedConfigFile
 	} else {
-		userSuppliedConfig = config
+		userSuppliedLoadConfig = config
 	}
 
 	return nil
@@ -224,12 +223,12 @@ func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(stri
 
 func retrieveConfigValue(keyPath string) (any, error) {
 
-	if value, err := retrieveConfigValueFromMap(userSuppliedConfig, keyPath); err == nil {
+	if value, err := retrieveConfigValueFromMap(userSuppliedLoadConfig, keyPath); err == nil {
 		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.DebugLevel)
 		return value, nil
 	}
 
-	if value, err := retrieveConfigValueFromMap(defaultConfig, keyPath); err == nil {
+	if value, err := retrieveConfigValueFromMap(defaultLoadConfig, keyPath); err == nil {
 		lp.LogConfigEvent(keyPath, "config file", "found value in default config file", log.DebugLevel)
 		return value, nil
 	}
@@ -274,7 +273,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
 	useUniSocketClient := flagSet.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
-	configFilePath := flagSet.String(ArgConfigFilePath, defaultConfigFilePath, "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
+	configFilePath := flagSet.String(ArgLoadConfigFile, defaultLoadConfigFilePath, "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
 	loggingConfigFilePath := flagSet.String(ArgLoggingConfigFile, defaultLoggingConfigFilePath, "File path of the logging config file to use. If unprovided, the embedded default logging config will be applied.")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
@@ -283,7 +282,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 
 	target := make(map[string]any)
 	target[ArgUseUniSocketClient] = *useUniSocketClient
-	target[ArgConfigFilePath] = *configFilePath
+	target[ArgLoadConfigFile] = *configFilePath
 	target[ArgLoggingConfigFile] = *loggingConfigFilePath
 
 	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
@@ -294,13 +293,13 @@ func parseCommandLineArgs() (map[string]any, error) {
 
 func parseDefaultConfigFile(o fileOpener) (map[string]any, error) {
 
-	return decodeConfigFile(defaultConfigFilePath, o.open)
+	return decodeConfigFile(defaultLoadConfigFilePath, o.open)
 
 }
 
 func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]any, error) {
 
-	if filePath == defaultConfigFilePath {
+	if filePath == defaultLoadConfigFilePath {
 		lp.LogConfigEvent("N/A", "command-line", "user did not supply custom configuration file", log.InfoLevel)
 		return map[string]any{}, nil
 	}

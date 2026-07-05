@@ -72,8 +72,10 @@ it (bonus luck points if the Kubernetes cluster in question has some juice in te
 makes everything so much more interesting!).
 
 > :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that
-> require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously -- d'uh).
-> I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs
+> require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously --
+> d'uh).
+> I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6
+> CPUs
 > and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and
 > limits might not be optimally suited for your environment, so please feel free to adjust as needed in your local clone
 > of this repository.
@@ -257,7 +259,7 @@ you can find an example invocation making use of both the former and the latter 
 
 * ``-config-file``: Allows you to specify a custom configuration file, thus represents the means through which custom
   configuration for load creation behavior can be injected. To build your own configuration, I suggest you take the [
-  ``defaultConfig.yaml``](./client/defaultConfig.yaml) as a starting point and iteratively adjust configuration as
+  ``defaultLoadConfig.yaml``](client/defaultLoadConfig.yaml) as a starting point and iteratively adjust configuration as
   required.
 * ``-use-unisocket-client``: Enables or disables usage of the uni-socket routing mode on the Hazelcast client (also
   known as "single-member routing mode"). The default is the smart-routing (or all-member routing) mode (i.e.,
@@ -464,7 +466,7 @@ as possible (and potentially measure operation times), the Pokédex Runner/Batch
 job!
 
 The following excerpt shows a possible configuration for the Pokédex Runner in combination with the Batch Test Loop (for
-explanations on those properties, please refer to the [`defaultConfig.yaml` file](./client/defaultConfig.yaml)):
+explanations on those properties, please refer to the [`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml)):
 
 ```yaml
 mapTests:
@@ -538,7 +540,8 @@ If you prefer a video over reading the following text, the following video has y
 To offer adjustability of load dimensions 1 and 2, the Load Runner doesn't work on a fixed dataset but creates a random
 string payload according to the desired specifications. Therefore, the Load Runner's configuration comes with some
 additional properties, as the following complete example configuration making use of the Batch Test Loop highlights (
-again, the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) has explanations on all properties in store for
+again, the [`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml) has explanations on all properties in store
+for
 you):
 
 ```yaml
@@ -1100,7 +1103,7 @@ Pokédex Runner in that it does not offer adjustability of load dimensions 1 and
 started with than the Queue Load Runner (whose acquaintance you'll make a bit further down the line).
 
 The following is a sample configuration for the Tweets Runner (please refer to the [
-`defaultConfig.yaml` file](./client/defaultConfig.yaml) for explanations on every property):
+`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml) for explanations on every property):
 
 ```yaml
 queueTests:
@@ -1195,7 +1198,7 @@ the release candidate having spawned them exhibits the desired fitness level, an
 production), although it comes at the cost of the Load Runner being a tad more complex to configure.
 
 Consider the following sample configuration (you can find explanations on the additional properties in the [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml)):
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml)):
 
 ```yaml
 queueTests:
@@ -1316,7 +1319,8 @@ that matter has you covered:
 
 On the other hand, if you require only a small configuration to get you started, look no further than the next section.
 
-The following is the default configuration taken from the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) --
+The following is the default configuration taken from the [
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml) --
 refer to that file, or the aforementioned blog post, for elaborate explanations on all properties:
 
 ```yaml
@@ -1354,7 +1358,8 @@ specification).
 
 #### State Cleaners
 
-In case you have already taken a peek at the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml),
+In case you have already taken a peek at the application's [
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml),
 you may have noticed a top-level object called ``stateCleaners``, and perhaps an object called ``performPreRunClean``
 nested within each of the Map Runner's configurations. The naming of these objects indicates they must relate to "
 cleaning" functionality, but what exactly gets cleaned, and why would you want that in the first place?
@@ -1395,7 +1400,7 @@ structures (or destroy them altogether) before any load-creating actor starts do
 In their current iteration, state cleaners are available in two flavors: standalone and runner-related (the latter
 currently only for Map Runners). The following is an example of how to configure standalone cleaners (which are
 available both for maps and for queues), again taken from the application's [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml):
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml):
 
 ```yaml
 stateCleaners:
@@ -1434,7 +1439,7 @@ process when the target Hazelcast cluster contains many (thousands of) data stru
 
 (For a more in-depth explanation of these properties and how they work, please refer to the
 aforementioned [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) or the good ol' [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml).)
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml).)
 
 As mentioned previously, Runner-related state cleaners are available, too, but only for Map Runners as of now. The
 following excerpt contains an example configuration for the Map-Runner-related cleaner, making use of the
@@ -1467,14 +1472,15 @@ convenient to use.
 ### Configuration
 
 Hazeltest sources its default configuration from a file you're probably acquainted with by now; the [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml). This file contains all properties along with an elaborate
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml). This file contains all properties along with an
+elaborate
 explanation of what each one does, so we won't repeat that here. There are two things worth mentioning concerning
 application configuration that aren't described in said file, though, simply because they don't refer to properties
 themselves. Let's take a look!
 
 #### Overwriting The Default Configuration
 
-The [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) is baked into the application itself, hence the
+The [``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml) is baked into the application itself, hence the
 configuration it contains cannot be altered. However, the application can be instructed to source configuration from a
 custom config file using the ``-config-file`` command-line argument. The approach for weighting the priority of
 configuration properties internally is "the more explicit one wins", so if you provided, say,

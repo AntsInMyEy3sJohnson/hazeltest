@@ -44,7 +44,7 @@ reachability:
     port: 8080
 
 config:
-  # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
+  # For documentation on these properties, please refer to <repo root>/client/defaultLoadConfig.yaml
   chaosMonkeys:
     memberKiller:
       enabled: true
