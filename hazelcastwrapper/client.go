@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hazeltest/client"
-	"hazeltest/logging"
 
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
@@ -32,7 +31,7 @@ type (
 	}
 	HzClientAssembler struct {
 		clientID uuid.UUID
-		lp       *logging.LogProvider
+		lp       *client.LogProvider
 	}
 )
 
@@ -60,7 +59,7 @@ func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
 
 func NewHzClientHelper() HzClientAssembler {
 
-	lp, err := logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err := client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"math/rand"
 	"strings"
 	"sync"
@@ -56,7 +55,7 @@ const (
 const loggingComponent = "payloadgenerator"
 
 var (
-	lp                     *logging.LogProvider
+	lp                     *client.LogProvider
 	payloadConsumingActors sync.Map
 	fixedSizePayloads      = fixedSizePayloadsWrapper{
 		p: make(map[int]*PayloadWrapper),
@@ -67,7 +66,7 @@ var (
 func init() {
 
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

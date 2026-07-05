@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"hazeltest/status"
 	"math/rand"
 	"sync"
@@ -47,7 +46,7 @@ const loggingComponent = "chaosmonkey"
 
 var (
 	monkeys []monkey
-	lp      *logging.LogProvider
+	lp      *client.LogProvider
 )
 
 var (
@@ -143,7 +142,7 @@ type (
 
 func init() {
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

@@ -5,7 +5,6 @@ import (
 	"hazeltest/api"
 	"hazeltest/chaos"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"hazeltest/maps"
 	"hazeltest/queues"
 	"hazeltest/state"
@@ -18,7 +17,7 @@ import (
 
 func main() {
 
-	lp, err := logging.GetLogProviderInstance(client.ID(), "main")
+	lp, err := client.GetLogProviderInstance(client.ID(), "main")
 
 	if err != nil {
 		panic(err)

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"net/http"
 	"strconv"
 	"sync"
@@ -30,7 +29,7 @@ type readiness struct {
 var (
 	l  *liveness
 	r  *readiness
-	lp *logging.LogProvider
+	lp *client.LogProvider
 	m  sync.Mutex
 )
 
@@ -40,7 +39,7 @@ func init() {
 	r = &readiness{false, false, 0}
 
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

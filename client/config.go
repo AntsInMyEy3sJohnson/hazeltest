@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"hazeltest/logging"
 	"io"
 	"os"
 	"strings"
@@ -65,12 +64,12 @@ var (
 	defaultLoadConfigFile  embed.FS
 	defaultLoadConfig      map[string]any
 	userSuppliedLoadConfig map[string]any
-	lp                     *logging.LogProvider
+	lp                     *LogProvider
 )
 
 func init() {
 	var err error
-	lp, err = logging.GetLogProviderInstance(ID(), loggingComponent)
+	lp, err = GetLogProviderInstance(ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

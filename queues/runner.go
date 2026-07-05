@@ -5,7 +5,6 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
-	"hazeltest/logging"
 	"hazeltest/status"
 	"sync"
 
@@ -72,7 +71,7 @@ const loggingComponent = "queueRunner"
 
 var (
 	runners               []runner
-	lp                    *logging.LogProvider
+	lp                    *client.LogProvider
 	initDefaultQueueStore initQueueStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
 		return &hazelcastwrapper.DefaultQueueStore{Client: ch.GetClient()}
 	}
@@ -85,7 +84,7 @@ func register(r runner) {
 func init() {
 
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

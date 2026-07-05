@@ -7,7 +7,6 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
-	"hazeltest/logging"
 	"hazeltest/status"
 	"math"
 	"strings"
@@ -226,7 +225,7 @@ const (
 
 var (
 	builders         []BatchCleanerBuilder
-	lp               *logging.LogProvider
+	lp               *client.LogProvider
 	emptyMapLockInfo = mapLockInfo{}
 )
 
@@ -235,7 +234,7 @@ func init() {
 	register(newQueueCleanerBuilder())
 
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

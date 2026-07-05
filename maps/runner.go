@@ -6,7 +6,6 @@ import (
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
-	"hazeltest/logging"
 	"hazeltest/state"
 	"hazeltest/status"
 	"sync"
@@ -109,7 +108,7 @@ const loggingComponent = "mapRunner"
 
 var (
 	runners            []runner
-	lp                 *logging.LogProvider
+	lp                 *client.LogProvider
 	newDefaultMapStore newMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
 		return &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
 	}
@@ -122,7 +121,7 @@ func register(r runner) {
 func init() {
 
 	var err error
-	lp, err = logging.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)
