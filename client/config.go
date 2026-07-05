@@ -326,8 +326,8 @@ func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
 		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.ErrorLevel)
 		return nil, err
-	} else {
-		return target, nil
 	}
+
+	return target, nil
 
 }
