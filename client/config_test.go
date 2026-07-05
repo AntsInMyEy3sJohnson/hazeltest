@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 type (
@@ -340,7 +341,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == ErrFailedParseCommandLineArgs {
+			if err != nil && errors.Is(err, ErrFailedParseCommandLineArgs) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -385,7 +386,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == ErrFailedParseDefaultConfigFile {
+			if err != nil && errors.Is(err, ErrFailedParseDefaultConfigFile) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
@@ -436,7 +437,7 @@ func TestParseConfigs(t *testing.T) {
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
-			if err != nil && err == ErrFailedParseUserSuppliedConfigFile {
+			if err != nil && errors.Is(err, ErrFailedParseUserSuppliedConfigFile) {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
