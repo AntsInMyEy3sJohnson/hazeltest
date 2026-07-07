@@ -16,7 +16,7 @@ import (
 const (
 	ArgUseUniSocketClient        = "use-unisocket-client"
 	ArgLoadConfigFile            = "load-config-file"
-	ArgLoggingConfigFile         = "logging-config-file"
+	argLoggingConfigFile         = "logging-config-file"
 	defaultLoadConfigFilePath    = "defaultLoadConfig.yaml"
 	defaultLoggingConfigFilePath = "defaultLoggingConfig.yaml"
 	loggingComponent             = "config"
@@ -195,7 +195,7 @@ func ParseConfigs() error {
 		userSuppliedLoadConfig = config
 	}
 
-	loggingConfigFilePath := RetrieveArgValue(ArgLoggingConfigFile).(string)
+	loggingConfigFilePath := RetrieveArgValue(argLoggingConfigFile).(string)
 	if config, err := decodeConfigFile(loggingConfigFilePath, d.open); err != nil {
 		lp.LogConfigEvent("N/A", "logging config file", err.Error(), log.ErrorLevel)
 		return fmt.Errorf("unable to parse logging config file given at path '%s", loggingConfigFilePath)
@@ -282,7 +282,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 
 	useUniSocketClient := flagSet.Bool(ArgUseUniSocketClient, false, "Configures whether to use the client in unisocket mode. Using unisocket mode disables smart routing, hence translates to using the client as a \"dumb client\".")
 	configFilePath := flagSet.String(ArgLoadConfigFile, defaultLoadConfigFilePath, "File path of the config file to use. If unprovided, the program will use its embedded default config file.")
-	loggingConfigFilePath := flagSet.String(ArgLoggingConfigFile, defaultLoggingConfigFilePath, "File path of the logging config file to use. If unprovided, the embedded default logging config will be applied.")
+	loggingConfigFilePath := flagSet.String(argLoggingConfigFile, defaultLoggingConfigFilePath, "File path of the logging config file to use. If unprovided, the embedded default logging config will be applied.")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	target := make(map[string]any)
 	target[ArgUseUniSocketClient] = *useUniSocketClient
 	target[ArgLoadConfigFile] = *configFilePath
-	target[ArgLoggingConfigFile] = *loggingConfigFilePath
+	target[argLoggingConfigFile] = *loggingConfigFilePath
 
 	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
 

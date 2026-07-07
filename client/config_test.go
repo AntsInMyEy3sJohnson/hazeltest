@@ -58,7 +58,7 @@ var (
 		os.Args[0],
 		fmt.Sprintf("--%s=false", ArgUseUniSocketClient),
 		fmt.Sprintf("--%s=%s", ArgLoadConfigFile, defaultLoadConfigFilePath),
-		fmt.Sprintf("--%s=%s", ArgLoggingConfigFile, defaultLoggingConfigFilePath),
+		fmt.Sprintf("--%s=%s", argLoggingConfigFile, defaultLoggingConfigFilePath),
 	}
 )
 
@@ -552,7 +552,7 @@ func TestRetrieveArgValue(t *testing.T) {
 			msg = "\t\texpected value should be returned"
 			for arg, expected := range map[string]string{
 				ArgLoadConfigFile:    defaultLoadConfigFilePath,
-				ArgLoggingConfigFile: defaultLoggingConfigFilePath,
+				argLoggingConfigFile: defaultLoggingConfigFilePath,
 			} {
 
 				actual := RetrieveArgValue(arg)
