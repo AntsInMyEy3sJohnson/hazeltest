@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"runtime"
@@ -10,28 +11,112 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type logEvent string
+
 const (
-	ApiEvent              = "api event"
-	RunnerEvent           = "runner event"
-	StateCleanerEvent     = "state cleaner event"
-	ChaosMonkeyEvent      = "chaos monkey event"
-	TimingEvent           = "timing event"
-	IoEvent               = "io event"
-	HzEvent               = "hazelcast event"
-	ConfigurationEvent    = "configuration event"
-	InternalStateEvent    = "internal state event"
-	PayloadGeneratorEvent = "payload generator event"
+	ApiEvent              logEvent = "apiEvent"
+	RunnerEvent           logEvent = "runnerEvent"
+	StateCleanerEvent     logEvent = "stateCleanerEvent"
+	ChaosMonkeyEvent      logEvent = "chaosMonkeyEvent"
+	TimingEvent           logEvent = "timingEvent"
+	IoEvent               logEvent = "ioEvent"
+	HzEvent               logEvent = "hazelcastEvent"
+	ConfigurationEvent    logEvent = "configurationEvent"
+	InternalStateEvent    logEvent = "internalStateEvent"
+	PayloadGeneratorEvent logEvent = "payloadGeneratorEvent"
+)
+
+var (
+	loggingConfigNotSourcedError = errors.New("logging config hasn't been sourced yet")
+	emptyLoggingConfigError      = errors.New("encountered empty logging config")
 )
 
 var (
 	loggers       = make(map[uint64]*LogProvider)
 	loggingConfig map[string]any
+	logLevels     *loggingLevelsConfig
 )
 
-type LogProvider struct {
-	ClientID  uuid.UUID
-	logger    *zap.Logger
-	component string
+type (
+	LogProvider struct {
+		ClientID  uuid.UUID
+		logger    *zap.Logger
+		component string
+	}
+	loggingLevelsConfig struct {
+		componentsConfig map[string]*loggingComponentConfig
+	}
+	loggingComponentConfig struct {
+		eventLevels map[logEvent]zapcore.Level
+	}
+)
+
+func InitLoggingComponents() error {
+
+	if loggingConfig == nil {
+		return loggingConfigNotSourcedError
+	}
+
+	if len(loggingConfig) == 0 {
+		return emptyLoggingConfigError
+	}
+
+	componentsKeyPath := "logging.level.components"
+	components, err := retrieveConfigValueFromMap(loggingConfig, componentsKeyPath)
+
+	if err != nil {
+		return err
+	}
+
+	componentsMap, ok := components.(map[string]any)
+	if !ok {
+		return fmt.Errorf("encountered malformed logging config for keypath '%s'; expected 'map[string]any'", componentsKeyPath)
+	}
+
+	componentsConfig := make(map[string]*loggingComponentConfig)
+
+	for component, levels := range componentsMap {
+		eventLevels := make(map[logEvent]zapcore.Level)
+
+		eventsToLevel, ok := levels.(map[string]any)
+
+		if !ok {
+			return fmt.Errorf("encountered malformed logging config for keypath '%s.%s'; expected nested dict mapping log events to log levels", componentsKeyPath, component)
+		}
+
+		for k, v := range eventsToLevel {
+			// What happens if I pass an event that doesn't exist?
+			event := logEvent(k)
+
+			if level, ok := v.(string); !ok {
+				return fmt.Errorf("encountered malformed logging config for keypath '%s.%s'; expected value at keypath to be convertable to string", componentsKeyPath, k)
+			} else {
+				var zapLevel zapcore.Level
+				switch level {
+				case "DEBUG":
+					zapLevel = zapcore.DebugLevel
+				case "INFO":
+					zapLevel = zapcore.InfoLevel
+				case "WARN":
+					zapLevel = zapcore.WarnLevel
+				case "ERROR":
+					zapLevel = zapcore.ErrorLevel
+				default:
+					return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s.%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, componentsKeyPath, k)
+				}
+				eventLevels[event] = zapLevel
+			}
+
+		}
+
+		componentsConfig[component] = &loggingComponentConfig{eventLevels: eventLevels}
+
+	}
+
+	logLevels = &loggingLevelsConfig{componentsConfig: componentsConfig}
+
+	return nil
+
 }
 
 func GetLogProviderInstance(clientID uuid.UUID, component string) (*LogProvider, error) {
@@ -202,9 +287,9 @@ func assembleRunnerNameField(runnerName string) zap.Field {
 
 }
 
-func assembleLogMessageKindField(kind string) zap.Field {
+func assembleLogMessageKindField(kind logEvent) zap.Field {
 
-	return zap.String("kind", kind)
+	return zap.String("kind", string(kind))
 
 }
 
