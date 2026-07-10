@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -71,7 +72,7 @@ func TestInitLoggingComponents(t *testing.T) {
 				loggingConfig = map[string]any{
 					"logging": map[string]any{
 						"level": map[string]any{
-							"root": "INFO",
+							"root": "WARN",
 							"components": map[string]any{
 								mapRunnerComponent:   mapRunnerLoggingEvents,
 								queueRunnerComponent: queueRunnerLoggingEvents,
@@ -89,7 +90,14 @@ func TestInitLoggingComponents(t *testing.T) {
 					t.Fatal(msg, ballotX)
 				}
 
-				msg = threeTabs + "log levels must have been initialized"
+				msg = threeTabs + "root log level must have been initialized"
+				if logLevels.rootConfig == zapcore.WarnLevel {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = threeTabs + "component log levels must have been initialized"
 
 				// Given logging config contains event-to-log-level configuration for
 				// two components
@@ -154,8 +162,52 @@ func TestInitLoggingComponents(t *testing.T) {
 					}
 				}
 			}
-		}
 
+			t.Log(twoTabs + "when logging config content contains unsupported log level")
+			{
+				unsupportedLoggingLevel := "DPanicLevel"
+				keyPathLogging := "logging"
+				keyPathLevel := "level"
+				keyPathComponents := "components"
+				keyPathSomeComponent := "someComponent"
+				keyPathSomeEvent := "someEvent"
+				loggingConfig = map[string]any{
+					keyPathLogging: map[string]any{
+						keyPathLevel: map[string]any{
+							"root": "INFO",
+							keyPathComponents: map[string]any{
+								keyPathSomeComponent: map[string]any{
+									keyPathSomeEvent: "DPanicLevel",
+								},
+							},
+						},
+					},
+				}
+				err := InitLoggingComponents()
+
+				msg := twoTabs + "error must be returned"
+				if err != nil {
+					t.Log(msg, checkMark)
+				} else {
+					t.Fatal(msg, ballotX)
+				}
+
+				msg = twoTabs + "error message must contain information about given unsupported log level"
+				errorMessage := err.Error()
+				if strings.Contains(errorMessage, unsupportedLoggingLevel) {
+					t.Log(msg, checkMark, errorMessage)
+				} else {
+					t.Fatal(msg, ballotX, errorMessage)
+				}
+
+				msg = twoTabs + "error message must contain path to key configured with log level in question"
+				if strings.Contains(errorMessage, fmt.Sprintf("%s.%s.%s.%s.%s", keyPathLogging, keyPathLevel, keyPathComponents, keyPathSomeComponent, keyPathSomeEvent)) {
+					t.Log(msg, checkMark, errorMessage)
+				} else {
+					t.Fatal(msg, ballotX, errorMessage)
+				}
+			}
+		}
 	}
 
 }

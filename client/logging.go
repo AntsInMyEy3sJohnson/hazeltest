@@ -44,6 +44,7 @@ type (
 		component string
 	}
 	loggingLevelsConfig struct {
+		rootConfig       zapcore.Level
 		componentsConfig map[string]*loggingComponentConfig
 	}
 	loggingComponentConfig struct {
@@ -91,18 +92,9 @@ func InitLoggingComponents() error {
 			if level, ok := v.(string); !ok {
 				return fmt.Errorf("encountered malformed logging config for keypath '%s.%s'; expected value at keypath to be convertable to string", componentsKeyPath, k)
 			} else {
-				var zapLevel zapcore.Level
-				switch level {
-				case "DEBUG":
-					zapLevel = zapcore.DebugLevel
-				case "INFO":
-					zapLevel = zapcore.InfoLevel
-				case "WARN":
-					zapLevel = zapcore.WarnLevel
-				case "ERROR":
-					zapLevel = zapcore.ErrorLevel
-				default:
-					return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s.%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, componentsKeyPath, k)
+				zapLevel := asInternalLoggingLevel(v)
+				if zapLevel == zapcore.InvalidLevel {
+					return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s.%s.%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, componentsKeyPath, component, k)
 				}
 				eventLevels[event] = zapLevel
 			}
@@ -113,7 +105,23 @@ func InitLoggingComponents() error {
 
 	}
 
-	logLevels = &loggingLevelsConfig{componentsConfig: componentsConfig}
+	rootLevelKeyPath := "logging.level.root"
+	level, err := retrieveConfigValueFromMap(loggingConfig, rootLevelKeyPath)
+
+	if err != nil {
+		return err
+	}
+
+	levelInternal := asInternalLoggingLevel(level)
+
+	if levelInternal == zapcore.InvalidLevel {
+		return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, rootLevelKeyPath)
+	}
+
+	logLevels = &loggingLevelsConfig{
+		rootConfig:       levelInternal,
+		componentsConfig: componentsConfig,
+	}
 
 	return nil
 
@@ -142,6 +150,23 @@ func GetLogProviderInstance(clientID uuid.UUID, component string) (*LogProvider,
 	}
 
 	return loggers[sum], nil
+
+}
+
+func asInternalLoggingLevel(level any) zapcore.Level {
+
+	switch level {
+	case "DEBUG":
+		return zapcore.DebugLevel
+	case "INFO":
+		return zapcore.InfoLevel
+	case "WARN":
+		return zapcore.WarnLevel
+	case "ERROR":
+		return zapcore.ErrorLevel
+	default:
+		return zapcore.InvalidLevel
+	}
 
 }
 
