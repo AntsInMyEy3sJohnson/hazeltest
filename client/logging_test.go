@@ -9,19 +9,19 @@ func TestInitLoggingComponents(t *testing.T) {
 
 	t.Log("given functionality for initializing logging levels per logging components and nested log event")
 	{
-		t.Log("\twhen logging config is nil")
+		t.Log(oneTab + "when logging config is nil")
 		{
 			loggingConfig = nil
 			err := InitLoggingComponents()
 
-			msg := "\t\terror must be returned"
+			msg := twoTabs + "error must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\terror must be of expected kind"
+			msg = twoTabs + "error must be of expected kind"
 			if errors.Is(err, loggingConfigNotSourcedError) {
 				t.Log(msg, checkMark)
 			} else {
@@ -29,19 +29,19 @@ func TestInitLoggingComponents(t *testing.T) {
 			}
 		}
 
-		t.Log("\twhen logging config is empty")
+		t.Log(oneTab + "when logging config is empty")
 		{
 			loggingConfig = map[string]any{}
 			err := InitLoggingComponents()
 
-			msg := "\t\terror must be returned"
+			msg := twoTabs + "error must be returned"
 			if err != nil {
 				t.Log(msg, checkMark)
 			} else {
 				t.Fatal(msg, ballotX)
 			}
 
-			msg = "\t\terror must be of expected kind"
+			msg = twoTabs + "error must be of expected kind"
 			if errors.Is(err, emptyLoggingConfigError) {
 				t.Log(msg, checkMark)
 			} else {

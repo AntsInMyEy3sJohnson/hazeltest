@@ -29,6 +29,10 @@ type (
 const (
 	checkMark = "\u2713"
 	ballotX   = "\u2717"
+	oneTab    = "\t"
+	twoTabs   = oneTab + "\t"
+	threeTabs = twoTabs + "\t"
+	fourTabs  = threeTabs + "\t"
 )
 
 var (
