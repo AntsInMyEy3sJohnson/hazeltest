@@ -87,18 +87,11 @@ func InitLoggingComponents() error {
 
 		for k, v := range eventsToLevel {
 			// What happens if I pass an event that doesn't exist?
-			event := logEvent(k)
-
-			if level, ok := v.(string); !ok {
-				return fmt.Errorf("encountered malformed logging config for keypath '%s.%s'; expected value at keypath to be convertable to string", componentsKeyPath, k)
-			} else {
-				zapLevel := asInternalLoggingLevel(v)
-				if zapLevel == zapcore.InvalidLevel {
-					return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s.%s.%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, componentsKeyPath, component, k)
-				}
-				eventLevels[event] = zapLevel
+			zapLevel := asInternalLoggingLevel(v)
+			if zapLevel == zapcore.InvalidLevel {
+				return fmt.Errorf("encountered invalid logging level '%s' at keypath '%s.%s.%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", v, componentsKeyPath, component, k)
 			}
-
+			eventLevels[logEvent(k)] = zapLevel
 		}
 
 		componentsConfig[component] = &loggingComponentConfig{eventLevels: eventLevels}
@@ -115,7 +108,7 @@ func InitLoggingComponents() error {
 	levelInternal := asInternalLoggingLevel(level)
 
 	if levelInternal == zapcore.InvalidLevel {
-		return fmt.Errorf("encountered malformed logging level '%s' at keypath '%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, rootLevelKeyPath)
+		return fmt.Errorf("encountered invalid logging level '%s' at keypath '%s'; must be one of 'DEBUG', 'INFO', 'WARN', or 'ERROR'", level, rootLevelKeyPath)
 	}
 
 	logLevels = &loggingLevelsConfig{
