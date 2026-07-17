@@ -503,7 +503,7 @@ func TestParseConfigs(t *testing.T) {
 
 			loggingConfig = nil
 
-			foDefaultLoad = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoggingConfigFilePath}
+			foDefaultLogging = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoggingConfigFilePath}
 
 			err := ParseConfigs()
 
