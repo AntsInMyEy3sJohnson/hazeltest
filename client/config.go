@@ -43,7 +43,9 @@ type (
 	fileOpener interface {
 		open(string) (io.ReadCloser, error)
 	}
-	defaultConfigFileOpener      struct{}
+	defaultConfigFileOpener struct {
+		file embed.FS
+	}
 	userSuppliedConfigFileOpener struct{}
 )
 
@@ -54,17 +56,23 @@ var (
 )
 
 var (
-	d fileOpener = defaultConfigFileOpener{}
-	u fileOpener = userSuppliedConfigFileOpener{}
+	foDefaultLoad    fileOpener = defaultConfigFileOpener{defaultLoadConfigFile}
+	foDefaultLogging fileOpener = defaultConfigFileOpener{defaultLoggingConfigFile}
+	foUserSupplied   fileOpener = userSuppliedConfigFileOpener{}
 )
 
 var (
-	commandLineArgs map[string]any
-	//go:embed defaultLoadConfig.yaml
-	defaultLoadConfigFile  embed.FS
+	commandLineArgs        map[string]any
 	defaultLoadConfig      map[string]any
 	userSuppliedLoadConfig map[string]any
 	lp                     *LogProvider
+)
+
+var (
+	//go:embed defaultLoadConfig.yaml
+	defaultLoadConfigFile embed.FS
+	//go:embed defaultLoggingConfig.yaml
+	defaultLoggingConfigFile embed.FS
 )
 
 func init() {
@@ -78,7 +86,7 @@ func init() {
 
 func (o defaultConfigFileOpener) open(path string) (io.ReadCloser, error) {
 
-	if file, err := defaultLoadConfigFile.Open(path); err != nil {
+	if file, err := o.file.Open(path); err != nil {
 		return nil, err
 	} else {
 		return file, nil
@@ -181,14 +189,14 @@ func ParseConfigs() error {
 		commandLineArgs = args
 	}
 
-	if config, err := parseDefaultConfigFile(d); err != nil {
+	if config, err := parseDefaultConfigFile(foDefaultLoad); err != nil {
 		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
 		return ErrFailedParseDefaultConfigFile
 	} else {
 		defaultLoadConfig = config
 	}
 
-	if config, err := parseUserSuppliedConfigFile(u, RetrieveArgValue(ArgLoadConfigFile).(string)); err != nil {
+	if config, err := parseUserSuppliedConfigFile(foUserSupplied, RetrieveArgValue(ArgLoadConfigFile).(string)); err != nil {
 		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
 		return ErrFailedParseUserSuppliedConfigFile
 	} else {
@@ -196,9 +204,15 @@ func ParseConfigs() error {
 	}
 
 	loggingConfigFilePath := RetrieveArgValue(argLoggingConfigFile).(string)
-	if config, err := decodeConfigFile(loggingConfigFilePath, d.open); err != nil {
+	var openFileFunc func(path string) (io.ReadCloser, error)
+	if loggingConfigFilePath == defaultLoggingConfigFilePath {
+		openFileFunc = foDefaultLogging.open
+	} else {
+		openFileFunc = foUserSupplied.open
+	}
+	if config, err := decodeConfigFile(loggingConfigFilePath, openFileFunc); err != nil {
 		lp.LogConfigEvent("N/A", "logging config file", err.Error(), log.ErrorLevel)
-		return fmt.Errorf("unable to parse logging config file given at path '%s", loggingConfigFilePath)
+		return fmt.Errorf("unable to parse logging config file given at path '%s'", loggingConfigFilePath)
 	} else {
 		loggingConfig = config
 	}
@@ -216,7 +230,7 @@ func RetrieveArgValue(arg string) any {
 func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(string, any) error, assign func(any)) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
-		lp.LogErrUponConfigRetrieval(keyPath, err, log.ErrorLevel)
+		lp.LogConfigEvent(keyPath, "config file", fmt.Sprintf("encountered error upon attempt to extract config value: %v", err), log.ErrorLevel)
 		return fmt.Errorf("unable to populate config property: could not find value matching key path: %s", keyPath)
 	} else {
 		if err := validate(keyPath, value); err != nil {
@@ -321,19 +335,19 @@ func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser
 	r, err := openFileFunc(path)
 
 	if err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), IoEvent, log.ErrorLevel)
 		return nil, err
 	}
 	defer func(r io.ReadCloser) {
 		err := r.Close()
 		if err != nil {
-			lp.LogIoEvent(fmt.Sprintf("unable to close file '%s'", path), log.WarnLevel)
+			lp.Log(fmt.Sprintf("unable to close file '%s'", path), IoEvent, log.WarnLevel)
 		}
 	}(r)
 
 	target := make(map[string]any)
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), IoEvent, log.ErrorLevel)
 		return nil, err
 	}
 

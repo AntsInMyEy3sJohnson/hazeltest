@@ -120,7 +120,7 @@ func (r *pokedexRunner) runMapTests(ctx context.Context, hzCluster string, hzMem
 	pd, err := parsePokedexFile(r.name)
 
 	if err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to parse pokedex json file: %s", err), log.FatalLevel)
+		lp.Log(fmt.Sprintf("unable to parse pokedex json file: %s", err), client.IoEvent, log.FatalLevel)
 	}
 
 	initializePokemonElements(pd)

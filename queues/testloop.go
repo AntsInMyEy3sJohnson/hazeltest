@@ -141,7 +141,7 @@ func (l *testLoop[t]) run() {
 			beforeGetQueue := time.Now()
 			q, err := l.tle.hzQueueStore.GetQueue(l.tle.ctx, queueName)
 			if err != nil {
-				lp.LogHzEvent("unable to retrieve queue from hazelcast cluster", log.FatalLevel)
+				lp.Log(fmt.Sprintf("unable to retrieve queue '%s' from hazelcast cluster", queueName), client.HzEvent, log.FatalLevel)
 			}
 			defer func() {
 				_ = q.Destroy(l.tle.ctx)

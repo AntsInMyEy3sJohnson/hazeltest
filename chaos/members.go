@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hazeltest/client"
 	"math"
 	"math/rand"
 	"os"
@@ -137,11 +138,11 @@ func (i *defaultK8sClientsetInitializer) init(c *rest.Config) (*kubernetes.Clien
 func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (string, error) {
 
 	if d.discoveredNamespace != "" {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("namespace has already been populated -- returning '%s'", d.discoveredNamespace), log.DebugLevel)
+		lp.Log(fmt.Sprintf("namespace has already been populated -- returning '%s'", d.discoveredNamespace), client.ChaosMonkeyEvent, log.DebugLevel)
 		return d.discoveredNamespace, nil
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.accessMode), log.DebugLevel)
+	lp.Log(fmt.Sprintf("performing kubernetes namespace discovery for access mode '%s'", ac.accessMode), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	var namespace string
 
@@ -149,11 +150,11 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (s
 	case k8sOutOfCluster:
 		namespace = ac.k8sOutOfCluster.namespace
 	case k8sInCluster:
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), log.DebugLevel)
+		lp.Log(fmt.Sprintf("attempting to look up kubernetes namespace using env variable, '%s'", k8sNamespaceEnvVariable), client.ChaosMonkeyEvent, log.DebugLevel)
 		if ns, ok := os.LookupEnv(k8sNamespaceEnvVariable); ok {
 			namespace = ns
 		}
-		lp.LogChaosMonkeyEvent("attempting to look up kubernetes namespace using pod-mounted file", log.DebugLevel)
+		lp.Log("attempting to look up kubernetes namespace using pod-mounted file", client.ChaosMonkeyEvent, log.DebugLevel)
 		if data, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err != nil {
 			return "", err
 		} else {
@@ -163,12 +164,12 @@ func (d *defaultK8sNamespaceDiscoverer) getOrDiscover(ac *memberAccessConfig) (s
 		}
 		if namespace == "" {
 			msg := fmt.Sprintf("kubernetes namespace discovery failed: namespace neither present in environment variable '%s' nor in serviceaccount file", k8sNamespaceEnvVariable)
-			lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
+			lp.Log(msg, client.ChaosMonkeyEvent, log.ErrorLevel)
 			return "", errors.New(msg)
 		}
 	default:
 		msg := fmt.Sprintf("cannot perform kubernetes namespace discovery for member access mode '%s' -- access mode either unknown or unrelated to kubernetes", ac.accessMode)
-		lp.LogChaosMonkeyEvent(msg, log.ErrorLevel)
+		lp.Log(msg, client.ChaosMonkeyEvent, log.ErrorLevel)
 		return "", errors.New(msg)
 	}
 
@@ -200,11 +201,11 @@ func (d *defaultK8sPodDeleter) delete(cs *kubernetes.Clientset, ctx context.Cont
 func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubernetes.Clientset, error) {
 
 	if p.cs != nil {
-		lp.LogChaosMonkeyEvent("kubernetes clientset already present -- returning previously initialized state", log.DebugLevel)
+		lp.Log("kubernetes clientset already present -- returning previously initialized state", client.ChaosMonkeyEvent, log.DebugLevel)
 		return p.cs, nil
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
+	lp.Log(fmt.Sprintf("initializing kubernetes clientset for access mode '%s'", ac.accessMode), client.ChaosMonkeyEvent, log.InfoLevel)
 
 	var config *rest.Config
 	if ac.accessMode == k8sOutOfCluster {
@@ -214,35 +215,35 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 		} else {
 			kubeconfig = ac.k8sOutOfCluster.kubeconfig
 		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("using kubeconfig path '%s' to initialize kubernetes rest.config", kubeconfig), log.DebugLevel)
+		lp.Log(fmt.Sprintf("using kubeconfig path '%s' to initialize kubernetes rest.config", kubeconfig), client.ChaosMonkeyEvent, log.DebugLevel)
 		if c, err := p.configBuilder.buildForOutOfClusterAccess("", kubeconfig); err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
+			lp.Log(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
 	} else if ac.accessMode == k8sInCluster {
 		if c, err := p.configBuilder.buildForInClusterAccess(); err != nil {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), log.ErrorLevel)
+			lp.Log(fmt.Sprintf("unable to initialize rest.config for accessing kubernetes in mode '%s': %s", ac.accessMode, err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 			return nil, err
 		} else {
 			config = c
 		}
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("cannot initialize kubernetes clientset for unknown or unsupported access mode '%s'", ac.accessMode), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("cannot initialize kubernetes clientset for unknown or unsupported access mode '%s'", ac.accessMode), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return nil, fmt.Errorf("encountered unknown k8s access mode: %s", ac.accessMode)
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized rest.config for accessing kubernetes in mode '%s'", ac.accessMode), log.DebugLevel)
+	lp.Log(fmt.Sprintf("successfully initialized rest.config for accessing kubernetes in mode '%s'", ac.accessMode), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	if cs, err := p.clientsetInitializer.init(config); err != nil {
 		return nil, err
 	} else {
-		lp.LogChaosMonkeyEvent("initializing clientset using rest.config", log.DebugLevel)
+		lp.Log("initializing clientset using rest.config", client.ChaosMonkeyEvent, log.DebugLevel)
 		p.cs = cs
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully initialized kubernetes clientset for access mode '%s'", ac.accessMode), log.InfoLevel)
+	lp.Log(fmt.Sprintf("successfully initialized kubernetes clientset for access mode '%s'", ac.accessMode), client.ChaosMonkeyEvent, log.InfoLevel)
 
 	return p.cs, nil
 
@@ -250,50 +251,50 @@ func (p *defaultK8sClientsetProvider) getOrInit(ac *memberAccessConfig) (*kubern
 
 func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSelectionConfig) ([]hzMember, error) {
 
-	lp.LogChaosMonkeyEvent("choosing hazelcast members", log.InfoLevel)
+	lp.Log("choosing hazelcast members", client.ChaosMonkeyEvent, log.InfoLevel)
 
 	clientset, err := chooser.clientsetProvider.getOrInit(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to choose hazelcast members: clientset initialization failed: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return nil, err
 	}
 
 	namespace, err := chooser.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to choose hazelcast members: namespace to operate in could not be determined: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return nil, err
 	}
 
 	var labelSelector string
 	if s, err := labelSelectorFromConfig(ac); err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: could not determine label selector: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to choose hazelcast members: could not determine label selector: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return nil, err
 	} else {
 		labelSelector = s
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), log.DebugLevel)
+	lp.Log(fmt.Sprintf("using label selector '%s' in namespace '%s' to choose hazelcast members", labelSelector, namespace), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	ctx := context.TODO()
 	podList, err := chooser.podLister.list(clientset, ctx, namespace, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to choose hazelcast members: could not list pods: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to choose hazelcast members: could not list pods: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return nil, err
 	}
 
 	pods := podList.Items
 	if len(pods) == 0 {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), log.WarnLevel)
+		lp.Log(fmt.Sprintf("no hazelcast members found for label selector '%s' in namespace '%s'", labelSelector, namespace), client.ChaosMonkeyEvent, log.WarnLevel)
 		return nil, noMembersFoundError
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("found %d candidate pod/-s", len(pods)), log.DebugLevel)
+	lp.Log(fmt.Sprintf("found %d candidate pod/-s", len(pods)), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	if hzMembers, err := chooseTargetMembersFromPods(pods, sc, false); err == nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully chose %d hazelcast member/-s to kill from given list of %d pod/-s", len(hzMembers), len(pods)), log.InfoLevel)
+		lp.Log(fmt.Sprintf("successfully chose %d hazelcast member/-s to kill from given list of %d pod/-s", len(hzMembers), len(pods)), client.ChaosMonkeyEvent, log.InfoLevel)
 		return hzMembers, nil
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to choose target members from given list of %d pod/-s: %s", len(pods), err.Error()), log.WarnLevel)
+		lp.Log(fmt.Sprintf("encountered error upon attempt to choose target members from given list of %d pod/-s: %s", len(pods), err.Error()), client.ChaosMonkeyEvent, log.WarnLevel)
 		return nil, err
 	}
 
@@ -302,14 +303,14 @@ func (chooser *k8sHzMemberChooser) choose(ac *memberAccessConfig, sc *memberSele
 func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listWasCheckedForReadyPods bool) ([]hzMember, error) {
 
 	if pods == nil || len(pods) == 0 {
-		lp.LogChaosMonkeyEvent("cannot select target members from given list of pods because list was either nil or empty", log.WarnLevel)
+		lp.Log("cannot select target members from given list of pods because list was either nil or empty", client.ChaosMonkeyEvent, log.WarnLevel)
 		return nil, noMembersProvidedToChooseFromError
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("selecting target members from given list of %d pod/-s", len(pods)), log.DebugLevel)
+	lp.Log(fmt.Sprintf("selecting target members from given list of %d pod/-s", len(pods)), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	if sc.targetOnlyActive && !listWasCheckedForReadyPods {
-		lp.LogChaosMonkeyEvent("target-only-active setting was enabled, but list hasn't been checked for ready pods yet -- performing check", log.DebugLevel)
+		lp.Log("target-only-active setting was enabled, but list hasn't been checked for ready pods yet -- performing check", client.ChaosMonkeyEvent, log.DebugLevel)
 		var onlyReadyPods []v1.Pod
 		for _, p := range pods {
 			if isPodReady(p) {
@@ -317,15 +318,15 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 			}
 		}
 		if len(onlyReadyPods) == 0 {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("target-only-active setting was enabled, but ouf of %d given pod/-s, none were active (ready)", len(pods)), log.WarnLevel)
+			lp.Log(fmt.Sprintf("target-only-active setting was enabled, but ouf of %d given pod/-s, none were active (ready)", len(pods)), client.ChaosMonkeyEvent, log.WarnLevel)
 			return nil, noReadyMembersFoundError
 		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("out of %d given pod/-s, %d are currently posting readiness -- entering next iteration of pod selection", len(pods), len(onlyReadyPods)), log.DebugLevel)
+		lp.Log(fmt.Sprintf("out of %d given pod/-s, %d are currently posting readiness -- entering next iteration of pod selection", len(pods), len(onlyReadyPods)), client.ChaosMonkeyEvent, log.DebugLevel)
 		return chooseTargetMembersFromPods(onlyReadyPods, sc, true)
 	}
 
 	numPodsToSelect, err := evaluateNumPodsToSelect(pods, sc)
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("evaluated number of pods to select from given list of %d pod/-s to be %d", len(pods), numPodsToSelect), log.DebugLevel)
+	lp.Log(fmt.Sprintf("evaluated number of pods to select from given list of %d pod/-s to be %d", len(pods), numPodsToSelect), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	if err != nil {
 		return nil, err
@@ -345,7 +346,7 @@ func chooseTargetMembersFromPods(pods []v1.Pod, sc *memberSelectionConfig, listW
 		hzMembers = append(hzMembers, hzMember{v.Name})
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("selected the following pods for termination: %v", hzMembers), log.InfoLevel)
+	lp.Log(fmt.Sprintf("selected the following pods for termination: %v", hzMembers), client.ChaosMonkeyEvent, log.InfoLevel)
 
 	return hzMembers, nil
 
@@ -386,10 +387,10 @@ func isPodReady(p v1.Pod) bool {
 
 	for _, condition := range podConditions {
 		if condition.Type == v1.PodReady && condition.Status == v1.ConditionTrue {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("found ready pod: %s", p.Name), log.DebugLevel)
+			lp.Log(fmt.Sprintf("found ready pod: %s", p.Name), client.ChaosMonkeyEvent, log.DebugLevel)
 			return true
 		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("skipping condition type '%s' for pod '%s'", condition.Type, p.Name), log.DebugLevel)
+		lp.Log(fmt.Sprintf("skipping condition type '%s' for pod '%s'", condition.Type, p.Name), client.ChaosMonkeyEvent, log.DebugLevel)
 	}
 
 	return false
@@ -403,20 +404,20 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, s sleeper, ac *memberA
 	}
 
 	if cc.evaluationMode == perMemberActivityEvaluation && cc.percentage == 0.0 {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer was given set of %d member/-s, but per-member activity evaluation "+
-			"mode was enabled with a chaos percentage of zero, so cannot kill members", len(members)), log.InfoLevel)
+		lp.Log(fmt.Sprintf("member killer was given set of %d member/-s, but per-member activity evaluation "+
+			"mode was enabled with a chaos percentage of zero, so cannot kill members", len(members)), client.ChaosMonkeyEvent, log.InfoLevel)
 		return 0, nil, nil
 	}
 
 	clientset, err := killer.clientsetProvider.getOrInit(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: clientset initialization failed: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to kill hazelcast members: clientset initialization failed: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return 0, nil, err
 	}
 
 	namespace, err := killer.namespaceDiscoverer.getOrDiscover(ac)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("unable to kill hazelcast members: namespace to operate in could not be determined: %s", err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("unable to kill hazelcast members: namespace to operate in could not be determined: %s", err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		return 0, nil, err
 	}
 
@@ -427,16 +428,16 @@ func (killer *k8sHzMemberKiller) kill(members []hzMember, s sleeper, ac *memberA
 		if cc.evaluationMode == perMemberActivityEvaluation {
 			f := rand.Float64()
 			if cc.percentage < f {
-				lp.LogChaosMonkeyEvent(fmt.Sprintf("not killing hazelcast member '%s' as per-member evaluation "+
+				lp.Log(fmt.Sprintf("not killing hazelcast member '%s' as per-member evaluation "+
 					"mode was enabled and evaluated random number did not fall within range of chaos probability",
-					m.identifier), log.InfoLevel)
+					m.identifier), client.ChaosMonkeyEvent, log.InfoLevel)
 				continue
 			}
 		}
 
 		numMembersToKill++
 
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), log.DebugLevel)
+		lp.Log(fmt.Sprintf("invoking pod deletion for hazelcast member '%s'", m.identifier), client.ChaosMonkeyEvent, log.DebugLevel)
 
 		gracePeriod := evaluatePodTerminationGracePeriod(memberGrace)
 		go invokePodDeletion(killer.podDeleter, s, clientset, m, tc, namespace, gracePeriod, memberKillEvents)
@@ -459,26 +460,26 @@ func invokePodDeletion(
 ) {
 
 	if tc.mode == delayed {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("delaying termination of hazelcast member '%s'", m.identifier), log.DebugLevel)
+		lp.Log(fmt.Sprintf("delaying termination of hazelcast member '%s'", m.identifier), client.ChaosMonkeyEvent, log.DebugLevel)
 		s.sleep(&sleepConfig{
 			enabled:          true,
 			durationSeconds:  int(tc.delaySeconds),
 			enableRandomness: tc.enableRandomness},
 			sleepTimeFunc)
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), log.DebugLevel)
+		lp.Log(fmt.Sprintf("killing hazelcast member '%s' without delay", m.identifier), client.ChaosMonkeyEvent, log.DebugLevel)
 	}
 
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), log.DebugLevel)
+	lp.Log(fmt.Sprintf("using grace period seconds '%d' to kill hazelcast member '%s'", gracePeriod, m.identifier), client.ChaosMonkeyEvent, log.DebugLevel)
 
 	ctx := context.TODO()
 	err := d.delete(clientset, ctx, namespace, m.identifier, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), log.ErrorLevel)
+		lp.Log(fmt.Sprintf("killing hazelcast member '%s' unsuccessful: %s", m.identifier, err.Error()), client.ChaosMonkeyEvent, log.ErrorLevel)
 		membersKilled <- false
 	} else {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), log.InfoLevel)
+		lp.Log(fmt.Sprintf("successfully killed hazelcast member '%s' granting %d seconds of grace period", m.identifier, gracePeriod), client.ChaosMonkeyEvent, log.InfoLevel)
 		membersKilled <- true
 	}
 

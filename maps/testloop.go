@@ -289,7 +289,7 @@ func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, m
 	lp.LogMapRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), l.tle.runnerName, log.DebugLevel)
 	err := m.RemoveAll(l.tle.ctx, p)
 	if err != nil {
-		lp.LogHzEvent(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), log.WarnLevel)
+		lp.Log(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), client.HzEvent, log.WarnLevel)
 	} else {
 
 		*ic = indexCache{}
@@ -463,10 +463,10 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
-			lp.LogHzEvent(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), log.WarnLevel)
+			lp.Log(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
 			return err
 		} else {
-			lp.LogHzEvent(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), log.DebugLevel)
+			lp.Log(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
 			return nil
 		}
 	case remove:
@@ -477,10 +477,10 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedRemoves)
-			lp.LogHzEvent(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), log.WarnLevel)
+			lp.Log(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
 			return err
 		} else {
-			lp.LogHzEvent(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), log.DebugLevel)
+			lp.Log(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
 			return nil
 		}
 	case read:
@@ -491,13 +491,13 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedReads)
-			lp.LogHzEvent(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), log.WarnLevel)
+			lp.Log(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
 			return err
 		} else if v == nil {
 			l.ct.increaseCounter(statusKeyNumNilReads)
 			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
 		} else {
-			lp.LogHzEvent(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), log.DebugLevel)
+			lp.Log(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
 			return nil
 		}
 
@@ -628,7 +628,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			beforeGetMap := time.Now()
 			m, err := tle.hzMapStore.GetMap(tle.ctx, mapName)
 			if err != nil {
-				lp.LogHzEvent(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), log.ErrorLevel)
+				lp.Log(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), client.HzEvent, log.ErrorLevel)
 				return
 			}
 			defer func() {
@@ -694,19 +694,19 @@ func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, map
 		lp.LogMapRunnerEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), l.tle.runnerName, log.DebugLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
 		if err != nil {
-			lp.LogHzEvent(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
+			lp.Log(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
-			lp.LogHzEvent(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
+			lp.Log(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
-			lp.LogHzEvent(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), log.WarnLevel)
+			lp.Log(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)

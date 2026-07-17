@@ -80,7 +80,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 	tc, err := parseTweets()
 	if err != nil {
-		lp.LogIoEvent(fmt.Sprintf("unable to parse tweets json file: %v", err), log.FatalLevel)
+		lp.Log(fmt.Sprintf("unable to parse tweets json file: %v", err), client.IoEvent, log.FatalLevel)
 	}
 
 	ctx := context.TODO()
@@ -127,7 +127,7 @@ func parseTweets() (*tweetCollection, error) {
 	defer func(tweetsCsv fs.File) {
 		err := tweetsCsv.Close()
 		if err != nil {
-			lp.LogIoEvent(fmt.Sprintf("unable to close tweets json file: %v", err), log.WarnLevel)
+			lp.Log(fmt.Sprintf("unable to close tweets json file: %v", err), client.IoEvent, log.WarnLevel)
 		}
 	}(tweetsJson)
 

@@ -76,15 +76,14 @@ func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCl
 
 	hzConfig.Cluster.Unisocket = client.RetrieveArgValue(client.ArgUseUniSocketClient).(bool)
 
-	h.lp.LogInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig), log.InfoLevel)
+	h.lp.Log(fmt.Sprintf("hazelcast client config: %+v", hzConfig), client.InternalStateEvent, log.InfoLevel)
 
 	hzConfig.Cluster.Network.SetAddresses(hzMembers...)
 
 	hzClient, err := hazelcast.StartNewClientWithConfig(ctx, *hzConfig)
 
 	if err != nil {
-		// Causes log.Exit(1), which in turn calls os.Exit(1)
-		h.lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
+		h.lp.Log(fmt.Sprintf("unable to initialize hazelcast client: %s", err), client.HzEvent, log.FatalLevel)
 	}
 
 	return hzClient

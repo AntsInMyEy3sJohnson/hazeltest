@@ -128,7 +128,7 @@ func TestInitLoggingComponents(t *testing.T) {
 
 					for expectedEvent, expectedLevel := range expectedConfig {
 
-						if assembledLevel, ok := eventLevels[logEvent(expectedEvent)]; !ok {
+						if assembledLevel, ok := eventLevels[logEventKind(expectedEvent)]; !ok {
 							t.Fatal(msgEventAndLevelMatch, ballotX, component, expectedEvent)
 						} else {
 							expectedLevelString := expectedLevel.(string)

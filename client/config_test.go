@@ -32,7 +32,6 @@ const (
 	oneTab    = "\t"
 	twoTabs   = oneTab + "\t"
 	threeTabs = twoTabs + "\t"
-	fourTabs  = threeTabs + "\t"
 )
 
 var (
@@ -378,7 +377,7 @@ func TestParseConfigs(t *testing.T) {
 
 		t.Log("\twhen providing a valid file opener to parse the default load config file and no user-supplied load config file")
 		{
-			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
+			foDefaultLoad = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
 
 			os.Args = defaultArgs
 			err := ParseConfigs()
@@ -409,7 +408,7 @@ func TestParseConfigs(t *testing.T) {
 		t.Log("\twhen providing an error-yielding file opener to parse the default load config file")
 		{
 			defaultLoadConfig = nil
-			d = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoadConfigFilePath}
+			foDefaultLoad = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoadConfigFilePath}
 
 			err := ParseConfigs()
 
@@ -430,8 +429,8 @@ func TestParseConfigs(t *testing.T) {
 
 		t.Log("\twhen providing valid file openers for parsing both the default and the user-supplied load config file, and a user-supplied load config file path")
 		{
-			d = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
-			u = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
+			foDefaultLoad = testConfigOpener{m: mapTestsPokedexWithNumMapsDefault}
+			foUserSupplied = testConfigOpener{m: mapTestsPokedexWithNumMapsUserSupplied}
 
 			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, "a-user-supplied-config-file.yaml")}
 			err := ParseConfigs()
@@ -463,7 +462,7 @@ func TestParseConfigs(t *testing.T) {
 			userSuppliedLoadConfigFilePath := "some-user-supplied-config-file.yaml"
 			os.Args = []string{os.Args[0], fmt.Sprintf("--%s=false", ArgUseUniSocketClient), fmt.Sprintf("--%s=%s", ArgLoadConfigFile, userSuppliedLoadConfigFilePath)}
 
-			u = erroneousTestConfigOpener{filePathToReturnErrorFor: userSuppliedLoadConfigFilePath}
+			foUserSupplied = erroneousTestConfigOpener{filePathToReturnErrorFor: userSuppliedLoadConfigFilePath}
 			err := ParseConfigs()
 
 			msg := "\t\tcorrect type of error should be returned"
@@ -478,7 +477,7 @@ func TestParseConfigs(t *testing.T) {
 		{
 
 			loggingConfig = nil
-			d = testConfigOpener{m: loggingConfigHavingDefaultValues}
+			foDefaultLoad = testConfigOpener{m: loggingConfigHavingDefaultValues}
 
 			os.Args = defaultArgs
 			err := ParseConfigs()
@@ -504,7 +503,7 @@ func TestParseConfigs(t *testing.T) {
 
 			loggingConfig = nil
 
-			d = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoggingConfigFilePath}
+			foDefaultLoad = erroneousTestConfigOpener{filePathToReturnErrorFor: defaultLoggingConfigFilePath}
 
 			err := ParseConfigs()
 
