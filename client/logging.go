@@ -178,16 +178,16 @@ func asInternalLoggingLevel(level any) zapcore.Level {
 
 }
 
-func (lp *LogProvider) Log(msg string, eventKind logEventKind, level zapcore.Level) {
+func (lp *LogProvider) Log(msgFunc func() string, eventKind logEventKind, level zapcore.Level) {
 
-	lp.doLog(msg, eventKind, level)
+	lp.doLog(msgFunc, eventKind, level)
 
 }
 
 func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName, dataStructureKind string, tookMs int64, level zapcore.Level) {
 
 	lp.doLog(
-		fmt.Sprintf("'%s' took %d ms", operation, tookMs),
+		func() string { return fmt.Sprintf("'%s' took %d ms", operation, tookMs) },
 		TimingEvent,
 		level,
 		zap.String("operation", operation),
@@ -198,10 +198,10 @@ func (lp *LogProvider) LogTimingEvent(operation string, dataStructureName, dataS
 
 }
 
-func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level zapcore.Level) {
+func (lp *LogProvider) LogStateCleanerEvent(msgFunc func() string, hzService string, level zapcore.Level) {
 
 	lp.doLog(
-		msg,
+		msgFunc,
 		StateCleanerEvent,
 		level,
 		zap.String("hzService", hzService),
@@ -209,10 +209,10 @@ func (lp *LogProvider) LogStateCleanerEvent(msg, hzService string, level zapcore
 
 }
 
-func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level zapcore.Level) {
+func (lp *LogProvider) LogMapRunnerEvent(msgFunc func() string, runnerName string, level zapcore.Level) {
 
 	lp.doLog(
-		msg,
+		msgFunc,
 		RunnerEvent,
 		level,
 		assembleRunnerNameField(runnerName),
@@ -221,10 +221,10 @@ func (lp *LogProvider) LogMapRunnerEvent(msg, runnerName string, level zapcore.L
 
 }
 
-func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level zapcore.Level) {
+func (lp *LogProvider) LogQueueRunnerEvent(msgFunc func() string, runnerName string, level zapcore.Level) {
 
 	lp.doLog(
-		msg,
+		msgFunc,
 		RunnerEvent,
 		level,
 		assembleRunnerNameField(runnerName),
@@ -233,10 +233,10 @@ func (lp *LogProvider) LogQueueRunnerEvent(msg, runnerName string, level zapcore
 
 }
 
-func (lp *LogProvider) LogConfigEvent(configValue string, source string, msg string, level zapcore.Level) {
+func (lp *LogProvider) LogConfigEvent(configValue string, source string, msgFunc func() string, level zapcore.Level) {
 
 	lp.doLog(
-		msg,
+		msgFunc,
 		ConfigurationEvent,
 		level,
 		zap.String("value", configValue),
@@ -274,7 +274,7 @@ func (lp *LogProvider) evaluateLogLevel(event logEventKind) zapcore.Level {
 
 }
 
-func (lp *LogProvider) doLog(msg string, eventKind logEventKind, msgLevel zapcore.Level, fields ...zapcore.Field) {
+func (lp *LogProvider) doLog(msgFunc func() string, eventKind logEventKind, msgLevel zapcore.Level, fields ...zapcore.Field) {
 
 	lp.sourceEventLevels()
 
@@ -288,6 +288,8 @@ func (lp *LogProvider) doLog(msg string, eventKind logEventKind, msgLevel zapcor
 	fieldKind := zap.String("eventKind", string(eventKind))
 
 	enrichedFields := append([]zapcore.Field{fieldCaller, fieldClient, fieldComponent, fieldKind}, fields...)
+
+	msg := msgFunc()
 
 	switch msgLevel {
 	case zapcore.FatalLevel:

@@ -58,7 +58,7 @@ func Serve() {
 	http.HandleFunc("/status", statusHandler)
 	err := server.ListenAndServe()
 	if err != nil {
-		lp.Log(fmt.Sprintf("unable to serve api on port %d", port), client.ApiEvent, log.ErrorLevel)
+		lp.Log(func() string { return fmt.Sprintf("unable to serve api on port %d", port) }, client.ApiEvent, log.ErrorLevel)
 		return
 	}
 
@@ -73,7 +73,9 @@ func RaiseNotReady() {
 		if !r.atLeastOneActorRegistered {
 			r.atLeastOneActorRegistered = true
 		}
-		lp.Log(fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors), client.ApiEvent, log.InfoLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors)
+		}, client.ApiEvent, log.InfoLevel)
 	}
 	m.Unlock()
 
@@ -84,10 +86,12 @@ func RaiseReady() {
 	m.Lock()
 	{
 		r.numNonReadyActors--
-		lp.Log(fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors), client.ApiEvent, log.InfoLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors)
+		}, client.ApiEvent, log.InfoLevel)
 		if r.numNonReadyActors == 0 && r.atLeastOneActorRegistered && !r.Up {
 			r.Up = true
-			lp.Log("all actors ready", client.ApiEvent, log.InfoLevel)
+			lp.Log(func() string { return "all actors ready" }, client.ApiEvent, log.InfoLevel)
 		}
 	}
 	m.Unlock()

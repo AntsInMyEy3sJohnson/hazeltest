@@ -194,7 +194,7 @@ func evaluateNextMapElementIndex(runnerName string, action mapAction, cursor uin
 		return strconv.Itoa(int(cursor - 1)), nil
 	default:
 		msg := fmt.Sprintf("no such map action: %s", action)
-		lp.LogMapRunnerEvent(msg, runnerName, log.ErrorLevel)
+		lp.LogMapRunnerEvent(func() string { return msg }, runnerName, log.ErrorLevel)
 		return "", errors.New(msg)
 	}
 
@@ -213,7 +213,9 @@ func (l *boundaryTestLoop[t]) chooseNextMapElementKey(action mapAction, elements
 		// that all elements have already been stored in cache. This case should not occur,
 		// but when it does nonetheless, it is not sufficiently severe to report an error
 		// and abort execution. So, in this case, we simply choose an element from the source data randomly.
-		lp.LogMapRunnerEvent("cache already contains all elements of data source, so cannot pick element not yet contained -- using first element from runner source data", l.tle.runnerName, log.WarnLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return "cache already contains all elements of data source, so cannot pick element not yet contained -- using first element from runner source data"
+		}, l.tle.runnerName, log.WarnLevel)
 		return l.tle.getElementID(l.tle.elements[0]), nil
 	case read, remove:
 		if len(elementsInserted) == 0 {
@@ -227,7 +229,7 @@ func (l *boundaryTestLoop[t]) chooseNextMapElementKey(action mapAction, elements
 		return "", nil
 	default:
 		msg := fmt.Sprintf("no such map action: %s", action)
-		lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
+		lp.LogMapRunnerEvent(func() string { return msg }, l.tle.runnerName, log.ErrorLevel)
 		return "", errors.New(msg)
 	}
 
@@ -258,38 +260,54 @@ func (l *boundaryTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, 
 		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc, l.tle.runnerName)
 
 		if i > 0 && i%updateStep == 0 {
-			lp.LogMapRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.tle.runnerConfig.numRuns, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.tle.runnerConfig.numRuns, mapName, mapNumber)
+			}, l.tle.runnerName, log.InfoLevel)
 		}
 
 		if err := l.runOperationChain(i, m, mc, ac, ic, mapName, mapNumber, elementsInserted, availableElements); err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber), l.tle.runnerName, log.WarnLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("running operation chain unsuccessful in map run %d on map '%s' in goroutine %d -- retrying in next run", i, mapName, mapNumber)
+			}, l.tle.runnerName, log.WarnLevel)
 		} else {
-			lp.LogMapRunnerEvent(fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("successfully finished operation chain for map '%s' in goroutine %d in map run %d", mapName, mapNumber, i)
+			}, l.tle.runnerName, log.InfoLevel)
 		}
 
 		if l.tle.runnerConfig.boundary.resetAfterChain {
-			lp.LogMapRunnerEvent(fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("performing reset after operation chain on map '%s' in goroutine %d in map run %d", mapName, mapNumber, i)
+			}, l.tle.runnerName, log.InfoLevel)
 			l.resetAfterOperationChain(m, mapName, mapNumber, &elementsInserted, availableElements, mc, ac, ic)
 		}
 
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber)
+	}, l.tle.runnerName, log.InfoLevel)
 
 }
 
 func (l *boundaryTestLoop[t]) resetAfterOperationChain(m hazelcastwrapper.Map, mapName string, mapNumber uint16, elementsInserted *map[string]struct{}, availableElements *availableElementsWrapper, mc *modeCache, ac *actionCache, ic *indexCache) {
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber), l.tle.runnerName, log.DebugLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("resetting mode and action cache for map '%s' on goroutine %d", mapName, mapNumber)
+	}, l.tle.runnerName, log.DebugLevel)
 
 	*mc = modeCache{}
 	*ac = actionCache{}
 
 	p := assemblePredicate(client.ID(), mapName, mapNumber)
-	lp.LogMapRunnerEvent(fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p), l.tle.runnerName, log.DebugLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("removing all keys from map '%s' in goroutine %d having match for predicate '%s'", mapName, mapNumber, p)
+	}, l.tle.runnerName, log.DebugLevel)
 	err := m.RemoveAll(l.tle.ctx, p)
 	if err != nil {
-		lp.Log(fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error()), client.HzEvent, log.WarnLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("won't update local cache because removing all keys from map '%s' in goroutine %d having match for predicate '%s' failed due to error: '%s'", mapName, mapNumber, p, err.Error())
+		}, client.HzEvent, log.WarnLevel)
 	} else {
 
 		*ic = indexCache{}
@@ -344,34 +362,44 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 
 	chainLength := uint32(l.tle.runnerConfig.boundary.chainLength)
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("starting operation chain of length %d for map '%s' on goroutine %d", chainLength, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("starting operation chain of length %d for map '%s' on goroutine %d", chainLength, mapName, mapNumber)
+	}, l.tle.runnerName, log.InfoLevel)
 
 	l.s.sleep(l.tle.runnerConfig.boundary.sleepBetweenOperationChains, sleepTimeFunc, l.tle.runnerName)
 
 	upperBoundary, lowerBoundary := evaluateMapFillBoundaries(l.tle.runnerConfig.boundary)
 	actionProbability := l.tle.runnerConfig.boundary.actionTowardsBoundaryProbability
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("using upper boundary %f and lower boundary %f for map '%s' on goroutine %d", upperBoundary, lowerBoundary, mapName, mapNumber)
+	}, l.tle.runnerName, log.InfoLevel)
 
 	for j := uint32(0); j < chainLength; j++ {
 
 		if (actions.last == insert || actions.last == remove) && j > 0 && j%updateStep == 0 {
-			lp.LogMapRunnerEvent(fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("chain position %d of %d for map '%s' on goroutine %d", j, chainLength, mapName, mapNumber)
+			}, l.tle.runnerName, log.InfoLevel)
 		}
 
 		nextMode, forceActionTowardsMode := l.checkForModeChange(upperBoundary, lowerBoundary, index.current, availableElements.maxNum, modes.current)
 		if nextMode != modes.current && modes.current != "" {
-			lp.LogMapRunnerEvent(fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, index.current), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("detected mode change from '%s' to '%s' for map '%s' in chain position %d with %d map items currently under management", modes.current, nextMode, mapName, j, index.current)
+			}, l.tle.runnerName, log.InfoLevel)
 			l.s.sleep(l.tle.runnerConfig.boundary.sleepUponModeChange, sleepTimeFunc, l.tle.runnerName)
 		}
 		modes.current, modes.forceActionTowardsMode = nextMode, forceActionTowardsMode
 
 		actions.next = determineNextMapAction(modes, actions.last, actionProbability, index.current)
 
-		lp.LogMapRunnerEvent(fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next), l.tle.runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("for map '%s' in goroutine %d, current mode is '%s', and next map action was determined to be '%s'", mapName, mapNumber, modes.current, actions.next)
+		}, l.tle.runnerName, log.DebugLevel)
 		if actions.next == noop {
 			msg := fmt.Sprintf("encountered no-op case for map '%s' in goroutine %d in operation chain iteration %d -- assuming incorrect configuration, aborting", mapName, mapNumber, j)
-			lp.LogMapRunnerEvent(msg, l.tle.runnerName, log.ErrorLevel)
+			lp.LogMapRunnerEvent(func() string { return msg }, l.tle.runnerName, log.ErrorLevel)
 			return errors.New(msg)
 		}
 
@@ -384,20 +412,28 @@ func (l *boundaryTestLoop[t]) runOperationChain(
 		}
 
 		if err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error()), l.tle.runnerName, log.ErrorLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("unable to choose next map element to work on for map '%s' due to error ('%s') -- aborting operation chain to try in next run", mapName, err.Error())
+			}, l.tle.runnerName, log.ErrorLevel)
 			break
 		}
 
-		lp.LogMapRunnerEvent(fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next), l.tle.runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("successfully chose next map element for map '%s' in goroutine %d for map action '%s'", mapName, mapNumber, actions.next)
+		}, l.tle.runnerName, log.DebugLevel)
 
 		err = l.executeMapAction(m, mapName, mapNumber, nextMapElementKey, actions.next)
 		actions.last = actions.next
 		actions.next = ""
 
 		if err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err), l.tle.runnerName, log.WarnLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("encountered error upon execution of '%s' action on map '%s' in run '%d' (still moving to next loop iteration): %v", actions.last, mapName, currentRun, err)
+			}, l.tle.runnerName, log.WarnLevel)
 		} else {
-			lp.LogMapRunnerEvent(fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName), l.tle.runnerName, log.DebugLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("action '%s' successfully executed on map '%s', moving to next action in upcoming loop iteration", actions.last, mapName)
+			}, l.tle.runnerName, log.DebugLevel)
 			if l.tle.usePreInitializedElements {
 				updateKeysCache(nextMapElementKey, actions.last, elementsInserted, availableElements.pool, l.tle.runnerName)
 			}
@@ -438,9 +474,13 @@ func updateKeysCache(elementID string, lastSuccessfulAction mapAction, elementsI
 			delete(elementsInserted, elementID)
 			elementsAvailableForInsertion[elementID] = struct{}{}
 		}
-		lp.LogMapRunnerEvent(fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(elementsInserted)), runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("update on key cache successful for map action '%s', cache now containing %d element/-s", lastSuccessfulAction, len(elementsInserted))
+		}, runnerName, log.DebugLevel)
 	default:
-		lp.LogMapRunnerEvent(fmt.Sprintf("no action to perform on local cache for last successful action '%s'", lastSuccessfulAction), runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("no action to perform on local cache for last successful action '%s'", lastSuccessfulAction)
+		}, runnerName, log.DebugLevel)
 	}
 
 }
@@ -453,7 +493,9 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 	case insert:
 		pw, err := l.tle.getOrAssemblePayload(mapName, mapNumber, elementID)
 		if err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err), l.tle.runnerName, log.ErrorLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("unable to execute insert operation for map '%s' due to error upon generating payload: %v", mapName, err)
+			}, l.tle.runnerName, log.ErrorLevel)
 			return err
 		}
 
@@ -463,12 +505,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedInserts)
-			lp.Log(fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("failed to insert key '%s' into map '%s'", key, mapName) }, client.HzEvent, log.WarnLevel)
 			return err
-		} else {
-			lp.Log(fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
-			return nil
 		}
+		lp.Log(func() string { return fmt.Sprintf("successfully inserted key '%s' into map '%s'", key, mapName) }, client.HzEvent, log.DebugLevel)
+		return nil
 	case remove:
 
 		beforeRemove := time.Now()
@@ -477,12 +518,11 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedRemoves)
-			lp.Log(fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("failed to remove key '%s' from map '%s'", key, mapName) }, client.HzEvent, log.WarnLevel)
 			return err
-		} else {
-			lp.Log(fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
-			return nil
 		}
+		lp.Log(func() string { return fmt.Sprintf("successfully removed key '%s' from map '%s'", key, mapName) }, client.HzEvent, log.DebugLevel)
+		return nil
 	case read:
 
 		beforeGet := time.Now()
@@ -491,15 +531,14 @@ func (l *boundaryTestLoop[t]) executeMapAction(m hazelcastwrapper.Map, mapName s
 
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedReads)
-			lp.Log(fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("read for key '%s' failed for map '%s'", key, mapName) }, client.HzEvent, log.WarnLevel)
 			return err
 		} else if v == nil {
 			l.ct.increaseCounter(statusKeyNumNilReads)
 			return fmt.Errorf("read for key '%s' successful for map '%s', but associated value was nil", key, mapName)
-		} else {
-			lp.Log(fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName), client.HzEvent, log.DebugLevel)
-			return nil
 		}
+		lp.Log(func() string { return fmt.Sprintf("successfully read key '%s' in map '%s'", key, mapName) }, client.HzEvent, log.DebugLevel)
+		return nil
 
 	}
 
@@ -513,12 +552,11 @@ func determineNextMapAction(mc *modeCache, lastAction mapAction, actionProbabili
 		if actionProbability > 0 {
 			// If an action is desired, no action but an insert would make sense on an empty cache
 			return insert
-		} else {
-			// Case when cache is empty (e.g. initial state), but no action towards the boundary is desired
-			// (a runner thus configured can only ever execute no-ops, so this wouldn't make much sense config-wise,
-			// but this case still needs to be addressed)
-			return noop
 		}
+		// Case when cache is empty (e.g. initial state), but no action towards the boundary is desired
+		// (a runner thus configured can only ever execute no-ops, so this wouldn't make much sense config-wise,
+		// but this case still needs to be addressed)
+		return noop
 	}
 
 	if lastAction == insert || lastAction == remove {
@@ -564,12 +602,16 @@ func (l *boundaryTestLoop[t]) checkForModeChange(upperBoundary, lowerBoundary fl
 	currentNumElements := float64(currentIndex)
 
 	if currentNumElements <= math.Round(float64(maxNumElements)*float64(lowerBoundary)) {
-		lp.LogMapRunnerEvent(fmt.Sprintf("enforcing 'fill' mode -- current number of elements: %d; total number of elements: %d", currentIndex, len(l.tle.elements)), l.tle.runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("enforcing 'fill' mode -- current number of elements: %d; total number of elements: %d", currentIndex, len(l.tle.elements))
+		}, l.tle.runnerName, log.DebugLevel)
 		return fill, true
 	}
 
 	if currentNumElements >= math.Round(float64(maxNumElements)*float64(upperBoundary)) {
-		lp.LogMapRunnerEvent(fmt.Sprintf("enforcing 'drain' mode -- current number of elements: %d; total number of elements: %d", currentIndex, len(l.tle.elements)), l.tle.runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("enforcing 'drain' mode -- current number of elements: %d; total number of elements: %d", currentIndex, len(l.tle.elements))
+		}, l.tle.runnerName, log.DebugLevel)
 		return drain, true
 	}
 
@@ -624,11 +666,11 @@ func runWrapper[t any](tle *testLoopExecution[t],
 		go func(i uint16) {
 			defer wg.Done()
 			mapName := assembleMapNameFunc(tle.runnerConfig, i)
-			lp.LogMapRunnerEvent(fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i), tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string { return fmt.Sprintf("using map name '%s' in map goroutine %d", mapName, i) }, tle.runnerName, log.InfoLevel)
 			beforeGetMap := time.Now()
 			m, err := tle.hzMapStore.GetMap(tle.ctx, mapName)
 			if err != nil {
-				lp.Log(fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err), client.HzEvent, log.ErrorLevel)
+				lp.Log(func() string { return fmt.Sprintf("unable to retrieve map '%s' from hazelcast: %s", mapName, err) }, client.HzEvent, log.ErrorLevel)
 				return
 			}
 			defer func() {
@@ -637,22 +679,34 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			lp.LogTimingEvent("getMap()", mapName, dataStructureKind, time.Since(beforeGetMap).Milliseconds(), log.InfoLevel)
 			if tle.runnerConfig.preRunClean.enabled {
 				if stateCleaner == nil || hzService == "" {
-					lp.LogMapRunnerEvent("pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map", tle.runnerName, log.ErrorLevel)
+					lp.LogMapRunnerEvent(func() string {
+						return "pre-run map eviction enabled, but encountered uninitialized state cleaner -- won't start test run for this map"
+					}, tle.runnerName, log.ErrorLevel)
 					return
 				}
-				lp.LogMapRunnerEvent(fmt.Sprintf("invoking single map cleaner for map '%s' using clean mode '%s'", mapName, tle.runnerConfig.preRunClean.cleanMode), tle.runnerName, log.InfoLevel)
+				lp.LogMapRunnerEvent(func() string {
+					return fmt.Sprintf("invoking single map cleaner for map '%s' using clean mode '%s'", mapName, tle.runnerConfig.preRunClean.cleanMode)
+				}, tle.runnerName, log.InfoLevel)
 				if scResult := stateCleaner.Clean(mapName); scResult.Err != nil {
 					configuredErrorBehavior := tle.runnerConfig.preRunClean.errorBehavior
 					if state.Ignore == tle.runnerConfig.preRunClean.errorBehavior {
-						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction, but error behavior is '%s', so test loop will commence: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.WarnLevel)
+						lp.LogMapRunnerEvent(func() string {
+							return fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction, but error behavior is '%s', so test loop will commence: %v", mapName, configuredErrorBehavior, err)
+						}, tle.runnerName, log.WarnLevel)
 					} else {
-						lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction and error behavior is '%s' -- won't start test run for this map: %v", mapName, configuredErrorBehavior, err), tle.runnerName, log.ErrorLevel)
+						lp.LogMapRunnerEvent(func() string {
+							return fmt.Sprintf("encountered error upon attempt to clean single map '%s' in scope of pre-run eviction and error behavior is '%s' -- won't start test run for this map: %v", mapName, configuredErrorBehavior, err)
+						}, tle.runnerName, log.ErrorLevel)
 						return
 					}
 				} else if scResult.NumCleanedItems > 0 {
-					lp.LogMapRunnerEvent(fmt.Sprintf("successfully cleaned %d items from map '%s'", scResult.NumCleanedItems, mapName), tle.runnerName, log.InfoLevel)
+					lp.LogMapRunnerEvent(func() string {
+						return fmt.Sprintf("successfully cleaned %d items from map '%s'", scResult.NumCleanedItems, mapName)
+					}, tle.runnerName, log.InfoLevel)
 				} else {
-					lp.LogMapRunnerEvent(fmt.Sprintf("payload map '%s' either didn't contain elements to be cleaned, or wasn't susceptible to cleaning yet", mapName), tle.runnerName, log.InfoLevel)
+					lp.LogMapRunnerEvent(func() string {
+						return fmt.Sprintf("payload map '%s' either didn't contain elements to be cleaned, or wasn't susceptible to cleaning yet", mapName)
+					}, tle.runnerName, log.InfoLevel)
 				}
 			}
 			runFunc(m, mapName, i)
@@ -689,30 +743,38 @@ func (l *batchTestLoop[t]) runForMap(m hazelcastwrapper.Map, mapName string, map
 	for i := uint32(0); i < l.tle.runnerConfig.numRuns; i++ {
 		l.s.sleep(sleepBetweenRunsConfig, sleepTimeFunc, l.tle.runnerName)
 		if i > 0 && i%updateStep == 0 {
-			lp.LogMapRunnerEvent(fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.tle.runnerConfig.numRuns, mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("finished %d of %d runs for map %s in map goroutine %d", i, l.tle.runnerConfig.numRuns, mapName, mapNumber)
+			}, l.tle.runnerName, log.InfoLevel)
 		}
-		lp.LogMapRunnerEvent(fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber), l.tle.runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string { return fmt.Sprintf("in run %d on map %s in map goroutine %d", i, mapName, mapNumber) }, l.tle.runnerName, log.DebugLevel)
 		err := l.ingestAll(m, mapName, mapNumber)
 		if err != nil {
-			lp.Log(fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string {
+				return fmt.Sprintf("failed to ingest data into map '%s' in run %d: %s", mapName, i, err)
+			}, client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.readAll(m, mapName, mapNumber)
 		if err != nil {
-			lp.Log(fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("failed to read data from map '%s' in run %d: %s", mapName, i, err) }, client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 		err = l.removeSome(m, mapName, mapNumber)
 		if err != nil {
-			lp.Log(fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err), client.HzEvent, log.WarnLevel)
+			lp.Log(func() string {
+				return fmt.Sprintf("failed to delete data from map '%s' in run %d: %s", mapName, i, err)
+			}, client.HzEvent, log.WarnLevel)
 			continue
 		}
 		l.s.sleep(sleepAfterActionBatchConfig, sleepTimeFunc, l.tle.runnerName)
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber), l.tle.runnerName, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("map test loop done on map '%s' in map goroutine %d", mapName, mapNumber)
+	}, l.tle.runnerName, log.InfoLevel)
 
 }
 
@@ -720,9 +782,8 @@ func (l *batchTestLoop[t]) evaluateMaxIndex() uint32 {
 
 	if l.tle.usePreInitializedElements {
 		return uint32(len(l.tle.elements))
-	} else {
-		return l.tle.runnerConfig.numEntriesPerMap
 	}
+	return l.tle.runnerConfig.numEntriesPerMap
 
 }
 
@@ -730,9 +791,8 @@ func (l *batchTestLoop[t]) evaluateElementID(currentIndex uint32) string {
 
 	if l.tle.usePreInitializedElements {
 		return l.tle.getElementID(l.tle.elements[currentIndex])
-	} else {
-		return strconv.Itoa(int(currentIndex))
 	}
+	return strconv.Itoa(int(currentIndex))
 
 }
 
@@ -743,14 +803,17 @@ func (l *batchTestLoop[t]) ingestAll(m hazelcastwrapper.Map, mapName string, map
 	for i := uint32(0); i < maxIndex; i++ {
 		elementID := l.evaluateElementID(i)
 		if err := l.performSingleIngest(m, elementID, mapName, mapNumber); err != nil {
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to ingest map element with ID '%s' into map '%s' after having ingested %d element/-s: %v", elementID, mapName, numSuccessfullyIngested, err), l.tle.runnerName, log.ErrorLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("encountered error upon attempt to ingest map element with ID '%s' into map '%s' after having ingested %d element/-s: %v", elementID, mapName, numSuccessfullyIngested, err)
+			}, l.tle.runnerName, log.ErrorLevel)
 			return err
-		} else {
-			numSuccessfullyIngested++
 		}
+		numSuccessfullyIngested++
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("stored %d items in hazelcast map '%s'", numSuccessfullyIngested, mapName), l.tle.runnerName, log.DebugLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("stored %d items in hazelcast map '%s'", numSuccessfullyIngested, mapName)
+	}, l.tle.runnerName, log.DebugLevel)
 	return nil
 
 }
@@ -797,13 +860,17 @@ func (l *batchTestLoop[t]) readAll(m hazelcastwrapper.Map, mapName string, mapNu
 		if err := l.performSingleRead(m, elementID, mapName, mapNumber); err != nil {
 			// An error encountered during a read isn't as severe as one encountered upon set because the value could
 			// have simply expired or been simply evicted. Therefore, only log warning and continue.
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to read element with ID '%s' from map '%s': %v", elementID, mapName, err), l.tle.runnerName, log.WarnLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("encountered error upon attempt to read element with ID '%s' from map '%s': %v", elementID, mapName, err)
+			}, l.tle.runnerName, log.WarnLevel)
 		} else {
 			numSuccessfulReads++
 		}
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("successfully read %d items from hazelcast map '%s'", len(l.tle.elements), mapName), l.tle.runnerName, log.DebugLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("successfully read %d items from hazelcast map '%s'", len(l.tle.elements), mapName)
+	}, l.tle.runnerName, log.DebugLevel)
 	return nil
 
 }
@@ -843,13 +910,17 @@ func (l *batchTestLoop[t]) removeSome(m hazelcastwrapper.Map, mapName string, ma
 		if err := l.performSingleRemove(m, elementID, mapName, mapNumber); err != nil {
 			// Error upon removal less severe than for ingestion (value to be removed could have expired or been
 			// evicted), so merely log warning and continue
-			lp.LogMapRunnerEvent(fmt.Sprintf("encountered error upon attempt to remove element with ID '%s' from map '%s': %v", elementID, mapName, err), l.tle.runnerName, log.WarnLevel)
+			lp.LogMapRunnerEvent(func() string {
+				return fmt.Sprintf("encountered error upon attempt to remove element with ID '%s' from map '%s': %v", elementID, mapName, err)
+			}, l.tle.runnerName, log.WarnLevel)
 		} else {
 			numSuccessfullyRemoved++
 		}
 	}
 
-	lp.LogMapRunnerEvent(fmt.Sprintf("removed %d elements from hazelcast map '%s'", numSuccessfullyRemoved, mapName), l.tle.runnerName, log.DebugLevel)
+	lp.LogMapRunnerEvent(func() string {
+		return fmt.Sprintf("removed %d elements from hazelcast map '%s'", numSuccessfullyRemoved, mapName)
+	}, l.tle.runnerName, log.DebugLevel)
 	return nil
 
 }
@@ -904,7 +975,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, runnerNa
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
-		lp.LogMapRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds", sleepDuration), runnerName, log.DebugLevel)
+		lp.LogMapRunnerEvent(func() string { return fmt.Sprintf("sleeping for %d milliseconds", sleepDuration) }, runnerName, log.DebugLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 

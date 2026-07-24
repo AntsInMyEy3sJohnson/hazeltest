@@ -58,14 +58,16 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 
 	c, err := populateLoadConfig(r.assigner)
 	if err != nil {
-		lp.LogQueueRunnerEvent(fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error()), r.name, log.ErrorLevel)
+		lp.LogQueueRunnerEvent(func() string {
+			return fmt.Sprintf("aborting launch of queue load runner: unable to populate config due to error: %s", err.Error())
+		}, r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !c.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogQueueRunnerEvent("load runner not enabled -- won't run", r.name, log.InfoLevel)
+		lp.LogQueueRunnerEvent(func() string { return "load runner not enabled -- won't run" }, r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -83,8 +85,8 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogQueueRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
-	lp.LogQueueRunnerEvent("starting load test loop for queues", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "initialized hazelcast client" }, r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "starting load test loop for queues" }, r.name, log.InfoLevel)
 
 	lc := &testLoopExecution[loadElement]{id: uuid.New(), runnerName: r.name, source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: c, elements: populateLoadElements(), ctx: ctx}
 
@@ -94,7 +96,7 @@ func (r *loadRunner) runQueueTests(hzCluster string, hzMembers []string, gathere
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogQueueRunnerEvent("finished queue load test loop", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "finished queue load test loop" }, r.name, log.InfoLevel)
 
 }
 

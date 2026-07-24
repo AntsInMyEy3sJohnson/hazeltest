@@ -76,26 +76,28 @@ func init() {
 
 func (p *DefaultPayloadProvider) RegisterPayloadGenerationRequirement(actorBaseName string, r PayloadGenerationRequirement) {
 
-	lp.Log(fmt.Sprintf("registering variable payload generation requirement for actor with base name '%s': %v", actorBaseName, r), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string {
+		return fmt.Sprintf("registering variable payload generation requirement for actor with base name '%s': %v", actorBaseName, r)
+	}, client.PayloadGeneratorEvent, log.DebugLevel)
 	p.actorRequirements.Store(actorBaseName, r)
 
 }
 
 func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*PayloadWrapper, error) {
 
-	lp.Log(fmt.Sprintf("retrieving payload for actor '%s'", actorName), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string { return fmt.Sprintf("retrieving payload for actor '%s'", actorName) }, client.PayloadGeneratorEvent, log.DebugLevel)
 
 	r, err := p.findMatchingPayloadGenerationRequirement(actorName)
 
 	if err != nil {
-		msg := fmt.Sprintf("encountered error upon attempt to find maching payload generation requirement for actor '%s': %v", actorName, err)
-		lp.Log(msg, client.PayloadGeneratorEvent, log.ErrorLevel)
+		msg := fmt.Sprintf("encountered error upon attempt to find matching payload generation requirement for actor '%s': %v", actorName, err)
+		lp.Log(func() string { return msg }, client.PayloadGeneratorEvent, log.ErrorLevel)
 		return nil, errors.New(msg)
 	}
 
 	if r.UseVariableSize && r.UseFixedSize {
 		msg := fmt.Sprintf("instructions unclear: both variable-size and fixed-size payload enabled for actor '%s'", actorName)
-		lp.Log(msg, client.PayloadGeneratorEvent, log.ErrorLevel)
+		lp.Log(func() string { return msg }, client.PayloadGeneratorEvent, log.ErrorLevel)
 		return nil, errors.New(msg)
 	}
 
@@ -109,7 +111,9 @@ func (p *DefaultPayloadProvider) RetrievePayload(actorName string) (*PayloadWrap
 
 func (p *DefaultPayloadProvider) findMatchingPayloadGenerationRequirement(actorName string) (PayloadGenerationRequirement, error) {
 
-	lp.Log(fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string {
+		return fmt.Sprintf("attempting to find previously registered payload generation requirement for actor '%s'", actorName)
+	}, client.PayloadGeneratorEvent, log.DebugLevel)
 
 	var r PayloadGenerationRequirement
 	foundMatch := false
@@ -123,12 +127,14 @@ func (p *DefaultPayloadProvider) findMatchingPayloadGenerationRequirement(actorN
 	})
 
 	if foundMatch {
-		lp.Log(fmt.Sprintf("identified previously registered payload generation requirement for actor '%s': %v", actorName, r), client.PayloadGeneratorEvent, log.DebugLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("identified previously registered payload generation requirement for actor '%s': %v", actorName, r)
+		}, client.PayloadGeneratorEvent, log.DebugLevel)
 		return r, nil
 	}
 
 	msg := fmt.Sprintf("unable to find matching requirement for actor '%s'", actorName)
-	lp.Log(msg, client.PayloadGeneratorEvent, log.ErrorLevel)
+	lp.Log(func() string { return msg }, client.PayloadGeneratorEvent, log.ErrorLevel)
 	return r, errors.New(msg)
 
 }
@@ -138,7 +144,7 @@ func (p *DefaultPayloadProvider) findMatchingPayloadGenerationRequirement(actorN
 // May I just add that StackOverflow is such a highly fascinating place.
 func GenerateRandomStringPayload(n int) *PayloadWrapper {
 
-	lp.Log(fmt.Sprintf("generating random string payload having size of %d byte/-s", n), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string { return fmt.Sprintf("generating random string payload having size of %d byte/-s", n) }, client.PayloadGeneratorEvent, log.DebugLevel)
 
 	src := rand.NewSource(time.Now().UnixNano())
 
@@ -162,14 +168,16 @@ func GenerateRandomStringPayload(n int) *PayloadWrapper {
 
 func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRequirement) (*PayloadWrapper, error) {
 
-	lp.Log(fmt.Sprintf("initializing fixed-size payload for actor '%s'", actorName), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string { return fmt.Sprintf("initializing fixed-size payload for actor '%s'", actorName) }, client.PayloadGeneratorEvent, log.DebugLevel)
 
 	sizeBytes := r.FixedSize.SizeBytes
 	fixedSizePayloads.m.Lock()
 	defer fixedSizePayloads.m.Unlock()
 
 	if _, ok := fixedSizePayloads.p[r.FixedSize.SizeBytes]; !ok {
-		lp.Log(fmt.Sprintf("performing first-time initialization of fixed-size payload of %d bytes", sizeBytes), client.PayloadGeneratorEvent, log.InfoLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("performing first-time initialization of fixed-size payload of %d bytes", sizeBytes)
+		}, client.PayloadGeneratorEvent, log.InfoLevel)
 		payload := GenerateRandomStringPayload(sizeBytes)
 		fixedSizePayloads.p[sizeBytes] = payload
 	}
@@ -180,16 +188,18 @@ func initializeAndReturnFixedSizePayload(actorName string, r PayloadGenerationRe
 
 func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenerationRequirement) (*PayloadWrapper, error) {
 
-	lp.Log(fmt.Sprintf("generating random string payload for actor '%s' according to payload generation requirement: %v", actorName, r), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string {
+		return fmt.Sprintf("generating random string payload for actor '%s' according to payload generation requirement: %v", actorName, r)
+	}, client.PayloadGeneratorEvent, log.DebugLevel)
 
 	freshlyInserted := false
 	if _, ok := payloadConsumingActors.Load(actorName); !ok {
 		freshlyInserted = true
-		lp.Log(fmt.Sprintf("creating new payload generation info for actor '%s'", actorName), client.PayloadGeneratorEvent, log.InfoLevel)
+		lp.Log(func() string { return fmt.Sprintf("creating new payload generation info for actor '%s'", actorName) }, client.PayloadGeneratorEvent, log.InfoLevel)
 		payloadConsumingActors.Store(actorName, variablePayloadGenerationInfo{})
 	}
 
-	lp.Log(fmt.Sprintf("loading payload generation info for actor '%s'", actorName), client.PayloadGeneratorEvent, log.DebugLevel)
+	lp.Log(func() string { return fmt.Sprintf("loading payload generation info for actor '%s'", actorName) }, client.PayloadGeneratorEvent, log.DebugLevel)
 	v, _ := payloadConsumingActors.Load(actorName)
 
 	info := v.(variablePayloadGenerationInfo)
@@ -198,7 +208,9 @@ func generateRandomStringPayloadWithinBoundary(actorName string, r PayloadGenera
 	if info.numGeneratePayloadInvocations >= steps || freshlyInserted {
 		payloadSize := lower + rand.Intn(upper-lower+1)
 		if !freshlyInserted {
-			lp.Log(fmt.Sprintf("limit of %d invocation/-s for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize), client.PayloadGeneratorEvent, log.DebugLevel)
+			lp.Log(func() string {
+				return fmt.Sprintf("limit of %d invocation/-s for generating payload of same size reached for actor '%s' -- reset counter and determined new payload size of %d bytes", steps, actorName, payloadSize)
+			}, client.PayloadGeneratorEvent, log.DebugLevel)
 		}
 		info.numGeneratePayloadInvocations = 0
 		info.payloadSize = payloadSize

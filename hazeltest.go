@@ -25,21 +25,23 @@ func main() {
 
 	if err := client.ParseConfigs(); err != nil {
 		// Logging with fatal level will cause the application to exit.
-		lp.LogConfigEvent("N/A", "config file", fmt.Sprintf("encountered error upon attempt to parse client configs: %v", err), log.FatalLevel)
+		lp.LogConfigEvent("N/A", "config file", func() string { return fmt.Sprintf("encountered error upon attempt to parse client configs: %v", err) }, log.FatalLevel)
 	}
 
 	if err := client.InitLoggingComponents(); err != nil {
-		lp.LogConfigEvent("N/A", "config file", fmt.Sprintf("encountered error upon attempt to initialize logging components: %v", err), log.FatalLevel)
+		lp.LogConfigEvent("N/A", "config file", func() string {
+			return fmt.Sprintf("encountered error upon attempt to initialize logging components: %v", err)
+		}, log.FatalLevel)
 	}
 
 	hzCluster := os.Getenv("HZ_CLUSTER")
 	if hzCluster == "" {
-		lp.LogConfigEvent("HZ_CLUSTER", "environment variables", "HZ_CLUSTER environment variable must be provided", log.FatalLevel)
+		lp.LogConfigEvent("HZ_CLUSTER", "environment variables", func() string { return "environment variable 'HZ_CLUSTER' must be provided" }, log.FatalLevel)
 	}
 
 	hzMembers := os.Getenv("HZ_MEMBERS")
 	if hzMembers == "" {
-		lp.LogConfigEvent("HZ_MEMBERS", "environment variables", "HZ_MEMBERS environment variable must be provided", log.FatalLevel)
+		lp.LogConfigEvent("HZ_MEMBERS", "environment variables", func() string { return "environment variable 'HZ_MEMBERS' must be provided" }, log.FatalLevel)
 	}
 
 	hzMemberList := strings.Split(hzMembers, ",")
@@ -47,7 +49,9 @@ func main() {
 	// Cleaners have to be run synchronously to make sure state has been evicted from
 	// target Hazelcast cluster prior to start of load tests
 	if err := state.RunCleaners(hzCluster, hzMemberList); err != nil {
-		lp.Log(fmt.Sprintf("encountered error upon attempt to clean state in target Hazelcast cluster: %v", err), client.StateCleanerEvent, log.FatalLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("encountered error upon attempt to clean state in target Hazelcast cluster: %v", err)
+		}, client.StateCleanerEvent, log.FatalLevel)
 	}
 
 	var wg sync.WaitGroup

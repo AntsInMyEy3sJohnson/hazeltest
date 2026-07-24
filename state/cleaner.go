@@ -279,7 +279,9 @@ func (b *DefaultBatchMapCleanerBuilder) Build(ch hazelcastwrapper.HzClientHandle
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), HzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err)
+		}, HzMapService, log.ErrorLevel)
 		return nil, HzMapService, err
 	}
 
@@ -339,15 +341,19 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 	syncMap, err := cih.Ms.GetMap(cih.Ctx, syncMapName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to retrieve sync map '%s': %v", syncMapName, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("encountered error upon attempt to retrieve sync map '%s': %v", syncMapName, err)
+		}, hzService, log.ErrorLevel)
 		return emptyMapLockInfo, false, err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("successfully retrieved sync map '%s'", syncMapName) }, hzService, log.DebugLevel)
 	lockSucceeded, err := syncMap.TryLock(cih.Ctx, payloadDataStructureName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to acquire lock on sync map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("encountered error upon attempt to acquire lock on sync map '%s' for payload data structure '%s': %v", syncMapName, payloadDataStructureName, err)
+		}, hzService, log.ErrorLevel)
 		return emptyMapLockInfo, false, err
 	}
 
@@ -361,7 +367,9 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 		key:     payloadDataStructureName,
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("successfully acquired lock on sync map '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName)
+	}, hzService, log.DebugLevel)
 	if !cih.Cfg.UseCleanAgainThreshold {
 		// No need to check for the last cleaned timestamp if the cleaner was advised not to apply a clean again threshold
 		// (Caution: One might be tempted to check whether to apply a threshold right at the beginning of this method,
@@ -377,33 +385,43 @@ func (cih *DefaultLastCleanedInfoHandler) check(syncMapName, payloadDataStructur
 
 	v, err := syncMap.Get(cih.Ctx, payloadDataStructureName)
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon retrieving last updated info from sync map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("encountered error upon retrieving last updated info from sync map for '%s' for payload data structure '%s'", syncMapName, payloadDataStructureName)
+		}, hzService, log.ErrorLevel)
 		return lockInfo, false, err
 	}
 
 	// Value will be nil if key (name of payload map) was not present in sync map
 	if v == nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("determined that payload data structure '%s' was never cleaned before", payloadDataStructureName)
+		}, hzService, log.DebugLevel)
 		return lockInfo, true, nil
 	}
 
 	var lastCleanedAt int64
 	if lc, ok := v.(int64); !ok {
 		msg := fmt.Sprintf("unable to treat retrieved value '%v' for payload data structure '%s' as int64 timestamp", v, payloadDataStructureName)
-		lp.LogStateCleanerEvent(msg, hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string { return msg }, hzService, log.ErrorLevel)
 		return lockInfo, false, errors.New(msg)
 	} else {
 		lastCleanedAt = lc
 	}
 
 	cleanAgainThresholdMs := cih.Cfg.CleanAgainThresholdMs
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("successfully retrieved last updated info from sync map '%s' for payload data structure '%s'; last updated at %d", syncMapName, payloadDataStructureName, lastCleanedAt)
+	}, hzService, log.DebugLevel)
 	if time.Since(time.Unix(lastCleanedAt, 0)) < time.Millisecond*time.Duration(cleanAgainThresholdMs) {
-		lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' millisecond/-s for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("determined that difference between last cleaned timestamp and current time is less than configured threshold of '%d' millisecond/-s for payload data structure '%s'-- negative cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName)
+		}, hzService, log.DebugLevel)
 		return lockInfo, false, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' millisecond/-s for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("determined that difference between last cleaned timestamp and current time is greater than or equal to configured threshold of '%d' millisecond/-s for payload data structure '%s'-- positive cleaning suggestion", cleanAgainThresholdMs, payloadDataStructureName)
+	}, hzService, log.DebugLevel)
 	return lockInfo, true, nil
 
 }
@@ -426,7 +444,7 @@ func (c *DefaultBatchMapCleaner) Clean() (int, error) {
 	}()
 
 	if !c.cfg.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name), HzMapService, log.InfoLevel)
+		lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("map cleaner '%s' not enabled; won't run", c.name) }, HzMapService, log.InfoLevel)
 		return 0, nil
 	}
 
@@ -459,7 +477,9 @@ func (b *DefaultBatchQueueCleanerBuilder) Build(ch hazelcastwrapper.HzClientHand
 	config, err := b.cfb.populateConfig()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err), HzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("unable to populate state cleaner config for key path '%s' due to error: %v", b.cfb.keyPath, err)
+		}, HzQueueService, log.ErrorLevel)
 		return nil, HzQueueService, err
 	}
 
@@ -503,11 +523,15 @@ func releaseLock(ctx context.Context, lockInfo mapLockInfo, hzService string) er
 	}
 
 	if err := lockInfo.m.Unlock(ctx, lockInfo.key); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on sync map '%s' for key '%s' due to error: %v", lockInfo.mapName, lockInfo.key, err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("unable to release lock on sync map '%s' for key '%s' due to error: %v", lockInfo.mapName, lockInfo.key, err)
+		}, hzService, log.ErrorLevel)
 		return err
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key), hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("successfully released lock on sync map '%s' for key '%s'", lockInfo.mapName, lockInfo.key)
+	}, hzService, log.DebugLevel)
 	return nil
 
 }
@@ -544,39 +568,53 @@ func runGenericSingleClean(
 	// no matter the susceptibility of the payload map for cleaning.
 	defer func() {
 		if err := releaseLock(ctx, lockInfo, cfg.hzService); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", cfg.syncMapName, payloadDataStructureName, err), cfg.hzService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string {
+				return fmt.Sprintf("unable to release lock on '%s' for key '%s' due to error: %v", cfg.syncMapName, payloadDataStructureName, err)
+			}, cfg.hzService, log.ErrorLevel)
 		}
 	}()
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err), cfg.hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("unable to determine whether '%s' should be cleaned due to error: %v", payloadDataStructureName, err)
+		}, cfg.hzService, log.ErrorLevel)
 		return SingleCleanResult{0, err}
 	}
 
 	if !shouldClean {
-		lp.LogStateCleanerEvent(fmt.Sprintf("clean not required for '%s'", payloadDataStructureName), cfg.hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("clean not required for '%s'", payloadDataStructureName) }, cfg.hzService, log.DebugLevel)
 		return SingleCleanResult{0, nil}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName), cfg.hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("determined that '%s' should be cleaned of state, commencing...", payloadDataStructureName)
+	}, cfg.hzService, log.DebugLevel)
 	numItemsCleaned, err := retrieveAndCleanFunc(payloadDataStructureName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err), cfg.hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadDataStructureName, err)
+		}, cfg.hzService, log.ErrorLevel)
 		return SingleCleanResult{0, err}
 	}
 
 	if numItemsCleaned > 0 {
 		t.add(payloadDataStructureName, numItemsCleaned)
-		lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned), cfg.hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("successfully cleaned '%s', which held %d item/-s", payloadDataStructureName, numItemsCleaned)
+		}, cfg.hzService, log.DebugLevel)
 	}
 
 	if err := cih.update(lockInfo); err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to update last cleaned info for '%s': %v", payloadDataStructureName, err), cfg.hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("encountered error upon attempt to update last cleaned info for '%s': %v", payloadDataStructureName, err)
+		}, cfg.hzService, log.ErrorLevel)
 		return SingleCleanResult{numItemsCleaned, err}
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName), cfg.hzService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("last cleaned info successfully updated for '%s'", payloadDataStructureName)
+	}, cfg.hzService, log.DebugLevel)
 	return SingleCleanResult{numItemsCleaned, err}
 
 }
@@ -586,38 +624,44 @@ func (c *DefaultSingleMapCleaner) retrieveAndClean(payloadMapName string) (int, 
 	mapToClean, err := c.ms.GetMap(c.ctx, payloadMapName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err), HzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadMapName, err)
+		}, HzMapService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if mapToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because map retrieved from target Hazelcast cluster was nil", payloadMapName)
-		lp.LogStateCleanerEvent(msg, HzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string { return msg }, HzMapService, log.ErrorLevel)
 		return 0, errors.New(msg)
 	}
 
 	size, err := mapToClean.Size(c.ctx)
 	if err != nil {
 		msg := fmt.Sprintf("unable to clean '%s' because retrieval of current size returned with error: %v", payloadMapName, err)
-		lp.LogStateCleanerEvent(msg, HzMapService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string { return msg }, HzMapService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName), HzMapService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("payload map '%s' does not currently hold any items -- skipping", payloadMapName)
+		}, HzMapService, log.DebugLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size), HzMapService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("payload map '%s' currently holds %d elements -- proceeding to clean", payloadMapName, size)
+	}, HzMapService, log.DebugLevel)
 
 	if c.cfg.cleanMode == Destroy {
 		if err = mapToClean.Destroy(c.ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon destroying '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("encountered error upon destroying '%s': %v", payloadMapName, err) }, HzMapService, log.ErrorLevel)
 			return 0, err
 		}
 	} else {
 		if err = mapToClean.EvictAll(c.ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err), HzMapService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadMapName, err) }, HzMapService, log.ErrorLevel)
 			return 0, err
 		}
 	}
@@ -653,15 +697,21 @@ func runGenericBatchClean(
 	}
 
 	if len(candidateDataStructures) > 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("identified %d data structure candidate/-s to be considered for state cleaning", len(candidateDataStructures)), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("identified %d data structure candidate/-s to be considered for state cleaning", len(candidateDataStructures))
+		}, hzService, log.DebugLevel)
 	} else {
-		lp.LogStateCleanerEvent("no data structure candidates for state cleaning identified in target hazelcast cluster", hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return "no data structure candidates for state cleaning identified in target hazelcast cluster"
+		}, hzService, log.DebugLevel)
 		return 0, nil
 	}
 
 	var filteredDataStructures []hazelcastwrapper.ObjectInfo
 	if cfg.usePrefix {
-		lp.LogStateCleanerEvent(fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", cfg.prefix, len(candidateDataStructures)), hzService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("applying prefix '%s' to %d data structure candidate/-s identified for cleaning", cfg.prefix, len(candidateDataStructures))
+		}, hzService, log.DebugLevel)
 		for _, v := range candidateDataStructures {
 			if strings.HasPrefix(v.GetName(), cfg.prefix) {
 				filteredDataStructures = append(filteredDataStructures, v)
@@ -722,7 +772,9 @@ func performParallelSingleCleans(
 		return results
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures)), hzService, log.InfoLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("using %d worker/-s to perform parallel single clean on %d data structure/-s", numWorkers, len(filteredDataStructures))
+	}, hzService, log.InfoLevel)
 	cleanTasks := make(chan string, len(filteredDataStructures))
 	errorDuringProcessing := make(chan struct{})
 
@@ -745,15 +797,21 @@ func performParallelSingleCleans(
 				results <- result
 				if result.Err != nil {
 					if Fail == cfg.errorBehavior {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.Err), hzService, log.ErrorLevel)
+						lp.LogStateCleanerEvent(func() string {
+							return fmt.Sprintf("encountered error upon cleaning data structure with name '%s' and error behavior was set to '%s', hence aborting after error: %v", task, Fail, result.Err)
+						}, hzService, log.ErrorLevel)
 						once.Do(func() {
 							close(errorDuringProcessing)
 						})
 					} else {
-						lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err), hzService, log.DebugLevel)
+						lp.LogStateCleanerEvent(func() string {
+							return fmt.Sprintf("encountered error upon cleaning data structure with name '%s', but error behavior was set to '%s', hence commencing after error: %v", task, Ignore, result.Err)
+						}, hzService, log.DebugLevel)
 					}
 				} else {
-					lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task), hzService, log.DebugLevel)
+					lp.LogStateCleanerEvent(func() string {
+						return fmt.Sprintf("successfully cleaned %d element/-s from data structure with name '%s'", result.NumCleanedItems, task)
+					}, hzService, log.DebugLevel)
 				}
 			}
 		}()
@@ -801,38 +859,44 @@ func (c *DefaultSingleQueueCleaner) retrieveAndClean(payloadQueueName string) (i
 	queueToClean, err := c.qs.GetQueue(c.ctx, payloadQueueName)
 
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("cannot clean '%s' due to error upon retrieval of proxy object from Hazelcast cluster: %v", payloadQueueName, err)
+		}, HzQueueService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if queueToClean == nil {
 		msg := fmt.Sprintf("cannot clean '%s' because queue retrieved from target Hazelcast cluster was nil", payloadQueueName)
-		lp.LogStateCleanerEvent(msg, HzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string { return msg }, HzQueueService, log.ErrorLevel)
 		return 0, errors.New(msg)
 	}
 
 	size, err := queueToClean.Size(c.ctx)
 	if err != nil {
 		msg := fmt.Sprintf("unable to clean '%s' because size check failed with error: %v", payloadQueueName, err)
-		lp.LogStateCleanerEvent(msg, HzQueueService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string { return msg }, HzQueueService, log.ErrorLevel)
 		return 0, err
 	}
 
 	if size == 0 {
-		lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName), HzQueueService, log.DebugLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("payload queue '%s' does not currently hold any items -- skipping", payloadQueueName)
+		}, HzQueueService, log.DebugLevel)
 		return 0, nil
 	}
 
-	lp.LogStateCleanerEvent(fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size), HzQueueService, log.DebugLevel)
+	lp.LogStateCleanerEvent(func() string {
+		return fmt.Sprintf("payload queue '%s' currently holds %d elements -- proceeding to clean", payloadQueueName, size)
+	}, HzQueueService, log.DebugLevel)
 
 	if c.cfg.cleanMode == Destroy {
 		if err = queueToClean.Destroy(c.ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon destroying '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("encountered error upon destroying '%s': %v", payloadQueueName, err) }, HzQueueService, log.ErrorLevel)
 			return 0, err
 		}
 	} else {
 		if err = queueToClean.Clear(c.ctx); err != nil {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err), HzQueueService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("encountered error upon cleaning '%s': %v", payloadQueueName, err) }, HzQueueService, log.ErrorLevel)
 			return 0, err
 		}
 
@@ -862,7 +926,7 @@ func (c *DefaultBatchQueueCleaner) Clean() (int, error) {
 	}()
 
 	if !c.cfg.enabled {
-		lp.LogStateCleanerEvent(fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name), HzQueueService, log.InfoLevel)
+		lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("queue cleaner '%s' not enabled; won't run", c.name) }, HzQueueService, log.InfoLevel)
 		return 0, nil
 	}
 
@@ -895,7 +959,9 @@ func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g status.Gatherer, hzClus
 
 	c, hzService, err := b.Build(&hazelcastwrapper.DefaultHzClientHandler{}, context.TODO(), g, hzCluster, hzMembers)
 	if err != nil {
-		lp.LogStateCleanerEvent(fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err), hzService, log.ErrorLevel)
+		lp.LogStateCleanerEvent(func() string {
+			return fmt.Sprintf("unable to construct state cleaning builder for hazelcast due to error: %v", err)
+		}, hzService, log.ErrorLevel)
 		return err
 	}
 
@@ -907,16 +973,22 @@ func buildCleanerAndInvokeClean(b BatchCleanerBuilder, g status.Gatherer, hzClus
 
 	if numCleanedDataStructures, err := c.Clean(); err != nil {
 		if numCleanedDataStructures > 0 {
-			lp.LogStateCleanerEvent(fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err), hzService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string {
+				return fmt.Sprintf("%d data structure/-s were cleaned before encountering error: %v", numCleanedDataStructures, err)
+			}, hzService, log.ErrorLevel)
 		} else {
-			lp.LogStateCleanerEvent(fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err), hzService, log.ErrorLevel)
+			lp.LogStateCleanerEvent(func() string { return fmt.Sprintf("encountered error upon attempt to clean data structures: %v", err) }, hzService, log.ErrorLevel)
 		}
 		return err
 	} else {
 		if numCleanedDataStructures > 0 {
-			lp.LogStateCleanerEvent(fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures), hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(func() string {
+				return fmt.Sprintf("successfully cleaned state in %d data structure/-s", numCleanedDataStructures)
+			}, hzService, log.InfoLevel)
 		} else {
-			lp.LogStateCleanerEvent("cleaner either disabled or no payload data structures were susceptible to cleaning", hzService, log.InfoLevel)
+			lp.LogStateCleanerEvent(func() string {
+				return "cleaner either disabled or no payload data structures were susceptible to cleaning"
+			}, hzService, log.InfoLevel)
 		}
 	}
 

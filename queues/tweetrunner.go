@@ -65,13 +65,15 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 	config, err := populateConfig(r.assigner, "queueTests.tweets", "tweets")
 	if err != nil {
-		lp.LogQueueRunnerEvent(fmt.Sprintf("aborting launch of queue tweet runner: unable to populate config due to error: %s", err.Error()), r.name, log.ErrorLevel)
+		lp.LogQueueRunnerEvent(func() string {
+			return fmt.Sprintf("aborting launch of queue tweet runner: unable to populate config due to error: %s", err.Error())
+		}, r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
-		lp.LogQueueRunnerEvent("tweet runner not enabled -- won't run", r.name, log.InfoLevel)
+		lp.LogQueueRunnerEvent(func() string { return "tweet runner not enabled -- won't run" }, r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -80,7 +82,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 
 	tc, err := parseTweets()
 	if err != nil {
-		lp.Log(fmt.Sprintf("unable to parse tweets json file: %v", err), client.IoEvent, log.FatalLevel)
+		lp.Log(func() string { return fmt.Sprintf("unable to parse tweets json file: %v", err) }, client.IoEvent, log.FatalLevel)
 	}
 
 	ctx := context.TODO()
@@ -94,8 +96,8 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogQueueRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
-	lp.LogQueueRunnerEvent("started tweets queue loop", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "initialized hazelcast client" }, r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "started tweets queue loop" }, r.name, log.InfoLevel)
 
 	lc := &testLoopExecution[tweet]{id: uuid.New(), runnerName: r.name, source: r.source, hzQueueStore: r.hzQueueStore, runnerConfig: config, elements: tc.Tweets, ctx: ctx}
 	r.l.init(lc, &defaultSleeper{}, r.gatherer)
@@ -104,7 +106,7 @@ func (r *tweetRunner) runQueueTests(hzCluster string, hzMembers []string, gather
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogQueueRunnerEvent("finished tweet test loop", r.name, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string { return "finished tweet test loop" }, r.name, log.InfoLevel)
 
 }
 
@@ -127,7 +129,7 @@ func parseTweets() (*tweetCollection, error) {
 	defer func(tweetsCsv fs.File) {
 		err := tweetsCsv.Close()
 		if err != nil {
-			lp.Log(fmt.Sprintf("unable to close tweets json file: %v", err), client.IoEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("unable to close tweets json file: %v", err) }, client.IoEvent, log.WarnLevel)
 		}
 	}(tweetsJson)
 

@@ -190,14 +190,14 @@ func ParseConfigs() error {
 	}
 
 	if config, err := parseDefaultConfigFile(foDefaultLoad); err != nil {
-		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
+		lp.LogConfigEvent("N/A", "load config file", func() string { return err.Error() }, log.ErrorLevel)
 		return ErrFailedParseDefaultConfigFile
 	} else {
 		defaultLoadConfig = config
 	}
 
 	if config, err := parseUserSuppliedConfigFile(foUserSupplied, RetrieveArgValue(ArgLoadConfigFile).(string)); err != nil {
-		lp.LogConfigEvent("N/A", "load config file", err.Error(), log.ErrorLevel)
+		lp.LogConfigEvent("N/A", "load config file", func() string { return err.Error() }, log.ErrorLevel)
 		return ErrFailedParseUserSuppliedConfigFile
 	} else {
 		userSuppliedLoadConfig = config
@@ -211,7 +211,7 @@ func ParseConfigs() error {
 		openFileFunc = foUserSupplied.open
 	}
 	if config, err := decodeConfigFile(loggingConfigFilePath, openFileFunc); err != nil {
-		lp.LogConfigEvent("N/A", "logging config file", err.Error(), log.ErrorLevel)
+		lp.LogConfigEvent("N/A", "logging config file", func() string { return err.Error() }, log.ErrorLevel)
 		return fmt.Errorf("unable to parse logging config file given at path '%s'", loggingConfigFilePath)
 	} else {
 		loggingConfig = config
@@ -230,7 +230,7 @@ func RetrieveArgValue(arg string) any {
 func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(string, any) error, assign func(any)) error {
 
 	if value, err := retrieveConfigValue(keyPath); err != nil {
-		lp.LogConfigEvent(keyPath, "config file", fmt.Sprintf("encountered error upon attempt to extract config value: %v", err), log.ErrorLevel)
+		lp.LogConfigEvent(keyPath, "config file", func() string { return fmt.Sprintf("encountered error upon attempt to extract config value: %v", err) }, log.ErrorLevel)
 		return fmt.Errorf("unable to populate config property: could not find value matching key path: %s", keyPath)
 	} else {
 		if err := validate(keyPath, value); err != nil {
@@ -246,17 +246,17 @@ func (a DefaultConfigPropertyAssigner) Assign(keyPath string, validate func(stri
 func retrieveConfigValue(keyPath string) (any, error) {
 
 	if value, err := retrieveConfigValueFromMap(userSuppliedLoadConfig, keyPath); err == nil {
-		lp.LogConfigEvent(keyPath, "config file", "found value in user-supplied config file", log.DebugLevel)
+		lp.LogConfigEvent(keyPath, "config file", func() string { return "found value in user-supplied config file" }, log.DebugLevel)
 		return value, nil
 	}
 
 	if value, err := retrieveConfigValueFromMap(defaultLoadConfig, keyPath); err == nil {
-		lp.LogConfigEvent(keyPath, "config file", "found value in default config file", log.DebugLevel)
+		lp.LogConfigEvent(keyPath, "config file", func() string { return "found value in default config file" }, log.DebugLevel)
 		return value, nil
 	}
 
 	errMsg := fmt.Sprintf("no map provides value for key '%s'", keyPath)
-	lp.LogConfigEvent(keyPath, "config file", errMsg, log.WarnLevel)
+	lp.LogConfigEvent(keyPath, "config file", func() string { return errMsg }, log.WarnLevel)
 	return nil, errors.New(errMsg)
 
 }
@@ -307,7 +307,7 @@ func parseCommandLineArgs() (map[string]any, error) {
 	target[ArgLoadConfigFile] = *configFilePath
 	target[argLoggingConfigFile] = *loggingConfigFilePath
 
-	lp.LogConfigEvent("N/A", "command-line", fmt.Sprintf("parsed command-line args: %v\n", target), log.InfoLevel)
+	lp.LogConfigEvent("N/A", "command-line", func() string { return fmt.Sprintf("parsed command-line args: %v\n", target) }, log.InfoLevel)
 
 	return target, nil
 
@@ -322,7 +322,7 @@ func parseDefaultConfigFile(o fileOpener) (map[string]any, error) {
 func parseUserSuppliedConfigFile(o fileOpener, filePath string) (map[string]any, error) {
 
 	if filePath == defaultLoadConfigFilePath {
-		lp.LogConfigEvent("N/A", "command-line", "user did not supply custom configuration file", log.InfoLevel)
+		lp.LogConfigEvent("N/A", "command-line", func() string { return "user did not supply custom configuration file" }, log.InfoLevel)
 		return map[string]any{}, nil
 	}
 
@@ -335,19 +335,19 @@ func decodeConfigFile(path string, openFileFunc func(path string) (io.ReadCloser
 	r, err := openFileFunc(path)
 
 	if err != nil {
-		lp.Log(fmt.Sprintf("unable to read configuration file '%s': %v", path, err), IoEvent, log.ErrorLevel)
+		lp.Log(func() string { return fmt.Sprintf("unable to read configuration file '%s': %v", path, err) }, IoEvent, log.ErrorLevel)
 		return nil, err
 	}
 	defer func(r io.ReadCloser) {
 		err := r.Close()
 		if err != nil {
-			lp.Log(fmt.Sprintf("unable to close file '%s'", path), IoEvent, log.WarnLevel)
+			lp.Log(func() string { return fmt.Sprintf("unable to close file '%s'", path) }, IoEvent, log.WarnLevel)
 		}
 	}(r)
 
 	target := make(map[string]any)
 	if err = yaml.NewDecoder(r).Decode(target); err != nil {
-		lp.Log(fmt.Sprintf("unable to parse configuration file '%s': %v", path, err), IoEvent, log.ErrorLevel)
+		lp.Log(func() string { return fmt.Sprintf("unable to parse configuration file '%s': %v", path, err) }, IoEvent, log.ErrorLevel)
 		return nil, err
 	}
 

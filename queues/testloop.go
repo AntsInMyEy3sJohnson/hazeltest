@@ -137,11 +137,11 @@ func (l *testLoop[t]) run() {
 			defer numQueuesWg.Done()
 
 			queueName := l.assembleQueueName(i)
-			lp.LogQueueRunnerEvent(fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i), l.tle.runnerName, log.InfoLevel)
+			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("using queue name '%s' in queue goroutine %d", queueName, i) }, l.tle.runnerName, log.InfoLevel)
 			beforeGetQueue := time.Now()
 			q, err := l.tle.hzQueueStore.GetQueue(l.tle.ctx, queueName)
 			if err != nil {
-				lp.Log(fmt.Sprintf("unable to retrieve queue '%s' from hazelcast cluster", queueName), client.HzEvent, log.FatalLevel)
+				lp.Log(func() string { return fmt.Sprintf("unable to retrieve queue '%s' from hazelcast cluster", queueName) }, client.HzEvent, log.FatalLevel)
 			}
 			defer func() {
 				_ = q.Destroy(l.tle.ctx)
@@ -219,14 +219,20 @@ func (l *testLoop[t]) runElementLoop(elements []t, q hazelcastwrapper.Queue, o o
 	numRuns := config.numRuns
 	for i := uint32(0); i < numRuns; i++ {
 		if i > 0 && i%queueOperationLoggingUpdateStep == 0 {
-			lp.LogQueueRunnerEvent(fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber), l.tle.runnerName, log.InfoLevel)
+			lp.LogQueueRunnerEvent(func() string {
+				return fmt.Sprintf("finished %d of %d %s runs for queue %s in queue goroutine %d", i, numRuns, o, queueName, queueNumber)
+			}, l.tle.runnerName, log.InfoLevel)
 		}
 		queueFunction(q, queueName)
 		l.s.sleep(config.sleepBetweenRuns, sleepTimeFunc, "betweenRuns", queueName, l.tle.runnerName, o)
-		lp.LogQueueRunnerEvent(fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber), l.tle.runnerName, log.DebugLevel)
+		lp.LogQueueRunnerEvent(func() string {
+			return fmt.Sprintf("finished %sing one set of %d tweets in queue %s after run %d of %d on queue goroutine %d", o, len(elements), queueName, i, numRuns, queueNumber)
+		}, l.tle.runnerName, log.DebugLevel)
 	}
 
-	lp.LogQueueRunnerEvent(fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber), l.tle.runnerName, log.InfoLevel)
+	lp.LogQueueRunnerEvent(func() string {
+		return fmt.Sprintf("%s test loop done on queue '%s' in queue goroutine %d", o, queueName, queueNumber)
+	}, l.tle.runnerName, log.InfoLevel)
 
 }
 
@@ -239,17 +245,19 @@ func (l *testLoop[t]) putElements(q hazelcastwrapper.Queue, queueName string) {
 		e := elements[i]
 		if remaining, err := q.RemainingCapacity(l.tle.ctx); err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedCapacityChecks)
-			lp.LogQueueRunnerEvent(fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName), l.tle.runnerName, log.WarnLevel)
+			lp.LogQueueRunnerEvent(func() string {
+				return fmt.Sprintf("unable to check remaining capacity for queue with name '%s'", queueName)
+			}, l.tle.runnerName, log.WarnLevel)
 		} else if remaining == 0 {
 			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
-			lp.LogQueueRunnerEvent(fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName), l.tle.runnerName, log.WarnLevel)
+			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName) }, l.tle.runnerName, log.WarnLevel)
 		} else {
 			err := q.Put(l.tle.ctx, e)
 			if err != nil {
 				l.ct.increaseCounter(statusKeyNumFailedPuts)
-				lp.LogQueueRunnerEvent(fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err), l.tle.runnerName, log.WarnLevel)
+				lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err) }, l.tle.runnerName, log.WarnLevel)
 			} else {
-				lp.LogQueueRunnerEvent(fmt.Sprintf("successfully wrote value to queue '%s'", queueName), l.tle.runnerName, log.DebugLevel)
+				lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("successfully wrote value to queue '%s'", queueName) }, l.tle.runnerName, log.DebugLevel)
 			}
 		}
 		if i > 0 && i%putConfig.batchSize == 0 {
@@ -267,12 +275,12 @@ func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 		valueFromQueue, err := q.Poll(l.tle.ctx)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedPolls)
-			lp.LogQueueRunnerEvent(fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err), l.tle.runnerName, log.WarnLevel)
+			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err) }, l.tle.runnerName, log.WarnLevel)
 		} else if valueFromQueue == nil {
 			l.ct.increaseCounter(statusKeyNumNilPolls)
-			lp.LogQueueRunnerEvent(fmt.Sprintf("nothing to poll from queue '%s'", queueName), l.tle.runnerName, log.DebugLevel)
+			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("nothing to poll from queue '%s'", queueName) }, l.tle.runnerName, log.DebugLevel)
 		} else {
-			lp.LogQueueRunnerEvent(fmt.Sprintf("successfully retrieved value from queue '%s'", queueName), l.tle.runnerName, log.DebugLevel)
+			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("successfully retrieved value from queue '%s'", queueName) }, l.tle.runnerName, log.DebugLevel)
 		}
 		if i > 0 && i%pollConfig.batchSize == 0 {
 			l.s.sleep(pollConfig.sleepAfterActionBatch, sleepTimeFunc, "afterActionBatch", queueName, l.tle.runnerName, "poll")
@@ -305,8 +313,10 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, qu
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
-		lp.LogQueueRunnerEvent(fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'",
-			sleepDuration, kind, queueName, o), runnerName, log.DebugLevel)
+		lp.LogQueueRunnerEvent(func() string {
+			return fmt.Sprintf("sleeping for %d milliseconds for kind '%s' on queue '%s' for operation '%s'",
+				sleepDuration, kind, queueName, o)
+		}, runnerName, log.DebugLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
 	}
 

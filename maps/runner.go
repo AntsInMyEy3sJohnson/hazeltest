@@ -556,7 +556,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ID()
-	lp.LogMapRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), "mapTester", log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)) }, "mapTester", log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {
