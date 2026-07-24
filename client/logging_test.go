@@ -374,3 +374,49 @@ func TestAssembleLogProviderInstance(t *testing.T) {
 	}
 
 }
+
+func TestAsInternalLoggingLevel(t *testing.T) {
+
+	t.Log("given functionality to turn a configuration-sourced property representing a log level to an internally usable log level")
+	{
+		t.Log(oneTab + "when a valid log level is provided")
+		{
+			givenToExpected := map[string]zapcore.Level{
+				"DEBUG": zapcore.DebugLevel,
+				"INFO":  zapcore.InfoLevel,
+				"WARN":  zapcore.WarnLevel,
+				"ERROR": zapcore.ErrorLevel,
+			}
+
+			msg := twoTabs + "expected internal log level must be returned"
+			for k, v := range givenToExpected {
+				actual := asInternalLoggingLevel(k)
+
+				if actual == v {
+					t.Log(msg, checkMark, v)
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", actual, v))
+				}
+			}
+		}
+
+		t.Log(oneTab + "when invalid log levels are provided")
+		{
+			invalid := []any{42, "blubb", "Gandalf", false, -1}
+
+			msg := twoTabs + "log level representing invalid log level must be returned"
+			expected := zapcore.InvalidLevel
+			for _, v := range invalid {
+				actual := asInternalLoggingLevel(v)
+
+				if actual == expected {
+					t.Log(msg, checkMark, fmt.Sprintf("%v -> %s", v, expected))
+				} else {
+					t.Fatal(msg, ballotX, fmt.Sprintf("%s != %s", actual, expected))
+				}
+			}
+
+		}
+	}
+
+}
