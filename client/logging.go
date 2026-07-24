@@ -137,7 +137,7 @@ func getEventLevelsByComponent(component string) map[logEventKind]zapcore.Level 
 
 }
 
-func GetLogProviderInstance(clientID uuid.UUID, component string) (*LogProvider, error) {
+func AssembleLogProviderInstance(clientID uuid.UUID, component string) (*LogProvider, error) {
 
 	defer m.Unlock()
 

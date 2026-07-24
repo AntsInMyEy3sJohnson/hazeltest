@@ -77,7 +77,7 @@ var (
 
 func init() {
 	var err error
-	lp, err = GetLogProviderInstance(ID(), loggingComponent)
+	lp, err = AssembleLogProviderInstance(ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

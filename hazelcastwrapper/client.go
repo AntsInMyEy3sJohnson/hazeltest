@@ -35,7 +35,7 @@ type (
 	}
 )
 
-const loggingComponent = "hzclientassembler"
+const loggingComponent = "hzClientAssembler"
 
 func (ch *DefaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
 	ch.hzClient = NewHzClientHelper().Assemble(ctx, clientName, hzCluster, hzMembers)
@@ -59,7 +59,7 @@ func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
 
 func NewHzClientHelper() HzClientAssembler {
 
-	lp, err := client.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err := client.AssembleLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

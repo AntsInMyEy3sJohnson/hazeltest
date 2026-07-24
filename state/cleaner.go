@@ -234,7 +234,7 @@ func init() {
 	register(newQueueCleanerBuilder())
 
 	var err error
-	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)

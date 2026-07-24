@@ -17,7 +17,7 @@ import (
 
 func main() {
 
-	lp, err := client.GetLogProviderInstance(client.ID(), "main")
+	lp, err := client.AssembleLogProviderInstance(client.ID(), "main")
 
 	if err != nil {
 		panic(err)

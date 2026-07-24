@@ -39,7 +39,7 @@ func init() {
 	r = &readiness{false, false, 0}
 
 	var err error
-	lp, err = client.GetLogProviderInstance(client.ID(), loggingComponent)
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
 
 	if err != nil {
 		panic(err)
