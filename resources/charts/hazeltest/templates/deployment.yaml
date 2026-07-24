@@ -37,7 +37,10 @@ spec:
           {{ if .Values.startupArgs -}}
           args: [{{ join "," .Values.startupArgs }}]
           {{ else }}
-          args: [ "-config-file=/data/config/custom-config.yaml" ]
+          args:
+            - "-use-unisocket-client=false"
+            - "-load-config-file=/data/config/custom-load-config.yaml"
+            - "-logging-config-file=/data/config/custom-logging-file.yaml"
           {{ end -}}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
