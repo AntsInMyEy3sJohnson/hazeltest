@@ -3,7 +3,9 @@ package client
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -218,6 +220,7 @@ func TestGetEventLevelsByComponent(t *testing.T) {
 	{
 		t.Log(oneTab + "when log levels struct hasn't been initialized yet")
 		{
+			logLevels = nil
 			levels := getEventLevelsByComponent("mapRunner")
 
 			msg := twoTabs + "retrieved event levels map must be nil"
@@ -270,6 +273,104 @@ func TestGetEventLevelsByComponent(t *testing.T) {
 			}
 
 		}
+	}
+
+}
+
+func TestAssembleLogProviderInstance(t *testing.T) {
+
+	t.Log("given functionality to assemble a log provider instance for a given component")
+	{
+		t.Log(oneTab + "when actors from various components ask for logging providers concurrently")
+		{
+			components := []string{"mapRunner", "queueRunner", "chaosMonkey", "api", "hzClientAssembler"}
+
+			numConcurrentActors := 5 * len(components)
+
+			type assembledLogProviderWithComponent struct {
+				lp        *LogProvider
+				component string
+			}
+
+			lpChan := make(chan *assembledLogProviderWithComponent)
+			errChan := make(chan error)
+
+			var wg sync.WaitGroup
+			for i := 0; i < numConcurrentActors; i++ {
+
+				go func() {
+					defer wg.Done()
+					wg.Add(1)
+
+					randomComponent := components[rand.Intn(len(components))]
+					lpInstanceForComponent, err := AssembleLogProviderInstance(ID(), randomComponent)
+
+					lpChan <- &assembledLogProviderWithComponent{lpInstanceForComponent, randomComponent}
+					errChan <- err
+
+				}()
+
+			}
+
+			msgLogProviderMustBeAssembled := twoTabs + "log provider must be assembled"
+
+			assembledLogProviders := make(map[string]*LogProvider)
+
+			go func() {
+				defer wg.Done()
+				wg.Add(1)
+
+				for i := 0; i < numConcurrentActors; i++ {
+					lpWithComponent := <-lpChan
+
+					currentComponent := lpWithComponent.component
+					if lpWithComponent != nil && currentComponent == lpWithComponent.lp.component {
+						if _, ok := assembledLogProviders[currentComponent]; !ok {
+							assembledLogProviders[currentComponent] = lpWithComponent.lp
+						}
+						t.Log(msgLogProviderMustBeAssembled, checkMark, currentComponent)
+					} else {
+						t.Error(msgLogProviderMustBeAssembled, ballotX, currentComponent)
+						return
+					}
+				}
+			}()
+
+			msgNoErrorMustOccur := twoTabs + "no error must occur"
+
+			go func() {
+
+				for {
+					select {
+					case err := <-errChan:
+						if err != nil {
+							t.Error(msgNoErrorMustOccur, ballotX, err)
+							return
+						}
+					}
+				}
+
+			}()
+
+			wg.Wait()
+
+			close(lpChan)
+			close(errChan)
+
+			t.Log(msgNoErrorMustOccur, checkMark)
+
+			msg := twoTabs + "a log provider must have been assembled for every component"
+
+			for _, c := range components {
+				if _, ok := assembledLogProviders[c]; ok {
+					t.Log(msg, checkMark, c)
+				} else {
+					t.Fatal(msg, ballotX, c)
+				}
+			}
+
+		}
+
 	}
 
 }
