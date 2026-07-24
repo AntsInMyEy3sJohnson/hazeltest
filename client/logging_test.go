@@ -211,3 +211,65 @@ func TestInitLoggingComponents(t *testing.T) {
 	}
 
 }
+
+func TestGetEventLevelsByComponent(t *testing.T) {
+
+	t.Log("given functionality to look up event levels for a component")
+	{
+		t.Log(oneTab + "when log levels struct hasn't been initialized yet")
+		{
+			levels := getEventLevelsByComponent("mapRunner")
+
+			msg := twoTabs + "retrieved event levels map must be nil"
+
+			if levels == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log(oneTab + "when log levels struct has been initialized, but doesn't contain entry for given component")
+		{
+			logLevels = &loggingLevelsConfig{componentsConfig: map[string]*loggingComponentConfig{
+				"mapRunner": {
+					eventLevels: nil,
+				},
+			}}
+
+			levels := getEventLevelsByComponent("queueRunner")
+
+			msg := twoTabs + "retrieved event levels map must be nil"
+
+			if levels == nil {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+		}
+
+		t.Log(oneTab + "when log levels struct has been initialized and contains entry for given component")
+		{
+			component := "mapRunner"
+			logLevels = &loggingLevelsConfig{componentsConfig: map[string]*loggingComponentConfig{
+				component: {
+					eventLevels: map[logEventKind]zapcore.Level{
+						RunnerEvent: zapcore.InfoLevel,
+					},
+				},
+			}}
+
+			levels := getEventLevelsByComponent(component)
+
+			msg := twoTabs + "corresponding entry must be returned"
+
+			if v, ok := levels[RunnerEvent]; ok && v == zapcore.InfoLevel {
+				t.Log(msg, checkMark)
+			} else {
+				t.Fatal(msg, ballotX)
+			}
+
+		}
+	}
+
+}
