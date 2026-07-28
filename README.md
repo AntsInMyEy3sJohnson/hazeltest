@@ -1478,7 +1478,7 @@ explanation of what each one does, so we won't repeat that here. There are two t
 application configuration that aren't described in said file, though, simply because they don't refer to properties
 themselves. Let's take a look!
 
-#### Overwriting The Default Configuration
+#### Overwriting The Default Load Configuration
 
 The [``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml) is baked into the application itself, hence the
 configuration it contains cannot be altered. However, the application can be instructed to source configuration from a
@@ -1488,6 +1488,39 @@ configuration properties internally is "the more explicit one wins", so if you p
 default config file. What this also means is that in the absence of a property in the custom config file, Hazeltest will
 simply use the default. Thus, you only have to specify the properties you want overridden, rather than having to repeat
 the entirety of unchanged configuration.
+
+#### Overwriting The Default Logging Configuration
+
+If you guessed based on the previous paragraph that the application comes packaged with a default logging config just
+like it comes packaged with a default load config -- you'd be correct!
+
+You can find the application's default logging configuration in the form of the [
+``defaultLoggingConfig.yaml`` file](client/defaultLoggingConfig.yaml), although upon inspecting it, you'll notice there'
+s not much going on:
+
+```yaml
+logging:
+  level:
+    root: INFO
+    components: { }
+```
+
+So, the default logging config simply configures the root logging level to be ``INFO``, which is perfectly sufficient
+for most use cases. For all other cases, you can achieve more fine-grained configuration of logging levels by
+configuring the level threshold for each of the various kinds of events a component can print to the logging stream.
+
+This constitutes a bit of a conceptual shift compared to, say, your friendly-neighborhood Java-based application: Here,
+you'd typically define logging levels in terms of classes, packages, or sets of packages, but since the actors within
+Hazeltest identify themselves as "components" in the logging stream and every log message is of a certain kind,
+configuring the log levels in terms of these two abstraction layers is just as effective, but provides this
+effectiveness with greater simplicity and clarity.
+
+The following would be a complete example to configure various log level thresholds for each of the log event kind in
+each of the components presently available in Hazeltest:
+
+```yaml
+
+```
 
 #### Injecting Custom Configuration Via The Helm Chart
 
