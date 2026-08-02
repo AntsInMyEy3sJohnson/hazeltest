@@ -1576,11 +1576,11 @@ every piece of timing information the ``mapRunner`` and ``queueRunner`` componen
 
 Finally, let's take a short look at the relation between default logging config and custom logging config, as it is
 slightly different from the relationship between the default load config and a custom load config: For the latter,
-specifying a custom load
-config file will only overwrite the properties given therein, whereas the ones that are absent will continue to be
-sourced from the default load config. For logging, on the other hand, specifying a custom logging config will mean the
-default logging config is not considered anymore, meaning the overwriting happens on the abstraction layer of the entire
-file rather than individual properties within that file.
+specifying a custom load config file will only overwrite the properties given therein, whereas the ones that are absent
+will continue to be sourced from the default load config. For logging, on the other hand, specifying a custom logging
+config means the default logging config will not be considered anymore. So, in the case of default vs. custom logging
+config, the overwriting happens on the abstraction layer of the entire file rather than individual properties within
+that file.
 
 #### Injecting Custom Configuration Via The Helm Chart
 
