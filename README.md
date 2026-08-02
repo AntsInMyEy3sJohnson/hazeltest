@@ -1495,8 +1495,8 @@ If you guessed based on the previous paragraph that the application comes packag
 like it comes packaged with a default load config -- you'd be correct!
 
 You can find the application's default logging configuration in the form of the [
-``defaultLoggingConfig.yaml`` file](client/defaultLoggingConfig.yaml), although upon inspecting it, you'll notice there'
-s not much going on:
+``defaultLoggingConfig.yaml`` file](client/defaultLoggingConfig.yaml), though upon inspecting it, you'll notice there's
+little going on:
 
 ```yaml
 logging:
@@ -1510,19 +1510,19 @@ for most use cases. For all other cases, you can achieve more fine-grained confi
 configuring the level threshold for each of the various kinds of events a component can print to the logging stream.
 
 This constitutes a bit of a conceptual shift compared to, say, your friendly-neighborhood Java-based application: Here,
-you'd typically define logging levels in terms of classes, packages, or sets of packages, but since the actors within
-Hazeltest identify themselves as "components" in the logging stream and every log message is of a certain kind,
+you'd typically define logging level thresholds in terms of classes, packages, or sets of packages, but since the actors
+within
+Hazeltest identify themselves as "components" in the logging stream and because every log message is of a certain kind,
 configuring the log levels in terms of these two abstraction layers is just as effective, but provides this
 effectiveness with greater simplicity and clarity.
 
 The following is a complete example to configure various log level thresholds for each of the log event kinds in
-each of the components presently available in Hazeltest (configuring every single one with ``INFO`` is redundant due to
-the root level being ``INFO``, so the following merely serves the purpose of highlighting which logging components there
-are, and which logging event kinds each one makes use of):
+each of the components presently available in Hazeltest:
 
 ```yaml
-# Configuring INFO level on every log event kind is redundant, of course, so the following merely serves the purpose of 
-# highlighting which logging components there are, and which logging event kinds each one makes use of:
+# Configuring INFO level on every log event kind is redundant, of course, so the following 
+# merely serves the purpose of highlighting which logging components there are, and which 
+# logging event kinds each one makes use of:
 logging:
   level:
     root: INFO
@@ -1553,12 +1553,12 @@ what kind of tasks each one performs; for example, it would seem intuitively obv
 not log messages of kind ``runnerEvent`` (although nothing happens if you provided, say, ``api.runnerEvent`` anyway --
 doing so would simply have no effect).
 
-While the above is a complete example as it contains all the logging components and their various log event kinds, it is
-not necessarily a very realistic example due to specifying ``INFO`` being redundant if the root level is already
-``INFO``. A more realistic example could be a case where you're investigating, say, network latencies on an OpenShift
-cluster -- in this case, whereas you normally wouldn't care very much about timing events, the given context would
-suddenly make them very relevant, while other event kinds would become uninteresting. Thus, in this case, you could
-configure logging like so:
+While the above contains all the logging components and their various log event kinds and thus constitutes an example
+that could be called _complete_, it is not necessarily an example you'd also call _realistic_ due to specifying ``INFO``
+being redundant if the root level is already ``INFO``. A more realistic example could be a case where you're
+investigating, say, network latencies on an OpenShift cluster -- in this case, whereas you normally wouldn't care very
+much about timing events, the given context would suddenly make them very relevant, while other event kinds would become
+uninteresting. Thus, in this case, you could configure logging like so:
 
 ```yaml
 logging:
@@ -1574,8 +1574,9 @@ logging:
 This would virtually mute all components and their log event kinds (except for ``ERROR``-level messages) while printing
 every piece of timing information the ``mapRunner`` and ``queueRunner`` components come up with.
 
-A final word on the relation between default logging config and custom logging config, as it is slightly different from
-the relationship between the default load config and a custom load config: For the latter, specifying a custom load
+Finally, let's take a short look at the relation between default logging config and custom logging config, as it is
+slightly different from the relationship between the default load config and a custom load config: For the latter,
+specifying a custom load
 config file will only overwrite the properties given therein, whereas the ones that are absent will continue to be
 sourced from the default load config. For logging, on the other hand, specifying a custom logging config will mean the
 default logging config is not considered anymore, meaning the overwriting happens on the abstraction layer of the entire
@@ -1589,8 +1590,9 @@ object will get transformed into a ConfigMap, mounted inside the Hazeltest Pod o
 process from there. In other words, if you use the "official" Hazeltest Helm chart from this repository, just put your
 stuff beneath ``config``, and you're good to go!
 
-If you wish to write your own Helm chart, make sure that the ``-config-file`` argument is passed to the Hazeltest
-process, and that its argument refers to a valid configuration file in the Pod filesystem.
+If you wish to write your own Helm chart and inject custom configuration for load and/or logging, just make sure that
+the ``-load-config-file`` and ``-logging-config-file`` arguments, respectively, get passed to the Hazeltest process and
+that their arguments refer to valid files mounted into the Pod's filesystem.
 
 ### Building Automation On Top Of Hazeltest
 
