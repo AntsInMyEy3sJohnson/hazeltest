@@ -21,7 +21,7 @@ type (
 		run()
 	}
 	sleeper interface {
-		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation)
+		sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o queueAction)
 	}
 	counterTracker interface {
 		init(gatherer status.Gatherer)
@@ -42,7 +42,7 @@ type (
 		elements     []t
 		ctx          context.Context
 	}
-	operation                    string
+	queueAction                  string
 	defaultSleeper               struct{}
 	queueTestLoopCountersTracker struct {
 		counters map[statusKey]int
@@ -60,8 +60,9 @@ const (
 )
 
 const (
-	put  = operation("put")
-	poll = operation("poll")
+	put      queueAction = "put"
+	poll     queueAction = "poll"
+	getQueue queueAction = "getQueue"
 )
 
 const (
@@ -147,7 +148,7 @@ func (l *testLoop[t]) run() {
 				_ = q.Destroy(l.tle.ctx)
 			}()
 
-			lp.LogTimingEvent("getQueue()", queueName, dataStructureKind, time.Since(beforeGetQueue).Milliseconds(), log.InfoLevel)
+			lp.LogTimingEvent(string(getQueue), queueName, dataStructureKind, time.Since(beforeGetQueue).Milliseconds(), log.InfoLevel)
 
 			// TODO Check whether queue should be cleaned prior to starting put and pull operations
 			// --> https://github.com/AntsInMyEy3sJohnson/hazeltest/issues/69
@@ -202,7 +203,7 @@ func assembleInitialOperationStatus(numQueues int, o *operationConfig) map[strin
 
 }
 
-func (l *testLoop[t]) runElementLoop(elements []t, q hazelcastwrapper.Queue, o operation, queueName string, queueNumber int) {
+func (l *testLoop[t]) runElementLoop(elements []t, q hazelcastwrapper.Queue, o queueAction, queueName string, queueNumber int) {
 
 	var config *operationConfig
 	var queueFunction func(queue hazelcastwrapper.Queue, queueName string)
@@ -252,7 +253,9 @@ func (l *testLoop[t]) putElements(q hazelcastwrapper.Queue, queueName string) {
 			l.ct.increaseCounter(statusKeyNumQueueFullEvents)
 			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("no capacity left in queue '%s' -- won't execute put", queueName) }, l.tle.runnerName, log.WarnLevel)
 		} else {
+			beforePut := time.Now()
 			err := q.Put(l.tle.ctx, e)
+			lp.LogTimingEvent(string(put), queueName, dataStructureKind, time.Since(beforePut).Milliseconds(), log.DebugLevel)
 			if err != nil {
 				l.ct.increaseCounter(statusKeyNumFailedPuts)
 				lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("unable to put tweet item into queue '%s': %s", queueName, err) }, l.tle.runnerName, log.WarnLevel)
@@ -272,7 +275,9 @@ func (l *testLoop[t]) pollElements(q hazelcastwrapper.Queue, queueName string) {
 	pollConfig := l.tle.runnerConfig.pollConfig
 
 	for i := 0; i < len(l.tle.elements); i++ {
+		beforePoll := time.Now()
 		valueFromQueue, err := q.Poll(l.tle.ctx)
+		lp.LogTimingEvent(string(poll), queueName, dataStructureKind, time.Since(beforePoll).Milliseconds(), log.DebugLevel)
 		if err != nil {
 			l.ct.increaseCounter(statusKeyNumFailedPolls)
 			lp.LogQueueRunnerEvent(func() string { return fmt.Sprintf("unable to poll tweet from queue '%s': %s", queueName, err) }, l.tle.runnerName, log.WarnLevel)
@@ -309,7 +314,7 @@ func (l *testLoop[t]) assembleQueueName(queueIndex int) string {
 
 }
 
-func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o operation) {
+func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep, kind, queueName, runnerName string, o queueAction) {
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
