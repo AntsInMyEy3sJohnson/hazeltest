@@ -1515,12 +1515,71 @@ Hazeltest identify themselves as "components" in the logging stream and every lo
 configuring the log levels in terms of these two abstraction layers is just as effective, but provides this
 effectiveness with greater simplicity and clarity.
 
-The following would be a complete example to configure various log level thresholds for each of the log event kind in
-each of the components presently available in Hazeltest:
+The following is a complete example to configure various log level thresholds for each of the log event kinds in
+each of the components presently available in Hazeltest (configuring every single one with ``INFO`` is redundant due to
+the root level being ``INFO``, so the following merely serves the purpose of highlighting which logging components there
+are, and which logging event kinds each one makes use of):
 
 ```yaml
-
+# Configuring INFO level on every log event kind is redundant, of course, so the following merely serves the purpose of 
+# highlighting which logging components there are, and which logging event kinds each one makes use of:
+logging:
+  level:
+    root: INFO
+    components:
+      api:
+        apiEvent: INFO
+      chaosMonkey:
+        chaosMonkeyEvent: INFO
+      hzClientAssembler:
+        internalStateEvent: INFO
+        hazelcastEvent: INFO
+      payloadGenerator:
+        payloadGeneratorEvent: INFO
+      mapRunner:
+        runnerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
+        ioEvent: INFO
+      queueRunner:
+        runnerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
+        ioEvent: INFO
 ```
+
+This configuration also acts as a kind of documentation of which logical components the application is made up of, and
+what kind of tasks each one performs; for example, it would seem intuitively obvious that the ``api`` component would
+not log messages of kind ``runnerEvent`` (although nothing happens if you provided, say, ``api.runnerEvent`` anyway --
+doing so would simply have no effect).
+
+While the above is a complete example as it contains all the logging components and their various log event kinds, it is
+not necessarily a very realistic example due to specifying ``INFO`` being redundant if the root level is already
+``INFO``. A more realistic example could be a case where you're investigating, say, network latencies on an OpenShift
+cluster -- in this case, whereas you normally wouldn't care very much about timing events, the given context would
+suddenly make them very relevant, while other event kinds would become uninteresting. Thus, in this case, you could
+configure logging like so:
+
+```yaml
+logging:
+  level:
+    root: ERROR
+    components:
+      mapRunner:
+        timingEvent: DEBUG
+      queueRunner:
+        timingEvent: DEBUG
+```
+
+This would virtually mute all components and their log event kinds (except for ``ERROR``-level messages) while printing
+every piece of timing information the ``mapRunner`` and ``queueRunner`` components come up with.
+
+A final word on the relation between default logging config and custom logging config, as it is slightly different from
+the relationship between the default load config and a custom load config: For the latter, specifying a custom load
+config file will only overwrite the properties given therein, whereas the ones that are absent will continue to be
+sourced from the default load config. For logging, on the other hand, specifying a custom logging config will mean the
+default logging config is not considered anymore, meaning the overwriting happens on the abstraction layer of the entire
+file rather than individual properties within that file.
 
 #### Injecting Custom Configuration Via The Helm Chart
 
