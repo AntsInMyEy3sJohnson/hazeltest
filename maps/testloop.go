@@ -105,6 +105,7 @@ const (
 	insert                mapAction  = "insert"
 	remove                mapAction  = "remove"
 	read                  mapAction  = "read"
+	getMap                mapAction  = "getMap"
 	// Special action introduced to represent cases where
 	// no insert should be executed (e.g. because the action
 	// probability was set to zero percent), but the other actions
@@ -676,7 +677,7 @@ func runWrapper[t any](tle *testLoopExecution[t],
 			defer func() {
 				_ = m.Destroy(tle.ctx)
 			}()
-			lp.LogTimingEvent("getMap()", mapName, dataStructureKind, time.Since(beforeGetMap).Milliseconds(), log.InfoLevel)
+			lp.LogTimingEvent(string(getMap), mapName, dataStructureKind, time.Since(beforeGetMap).Milliseconds(), log.InfoLevel)
 			if tle.runnerConfig.preRunClean.enabled {
 				if stateCleaner == nil || hzService == "" {
 					lp.LogMapRunnerEvent(func() string {
