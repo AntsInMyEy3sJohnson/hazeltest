@@ -3,7 +3,6 @@ package client
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 
 	"github.com/google/uuid"
@@ -282,12 +281,11 @@ func (lp *LogProvider) doLog(msgFunc func() string, eventKind logEventKind, msgL
 		return
 	}
 
-	fieldCaller := zap.String("caller", getCaller())
 	fieldClient := zap.String("client", lp.ClientID.String())
 	fieldComponent := zap.String("component", lp.component)
 	fieldKind := zap.String("eventKind", string(eventKind))
 
-	enrichedFields := append([]zapcore.Field{fieldCaller, fieldClient, fieldComponent, fieldKind}, fields...)
+	enrichedFields := append([]zapcore.Field{fieldClient, fieldComponent, fieldKind}, fields...)
 
 	msg := msgFunc()
 
@@ -315,19 +313,5 @@ func assembleRunnerKindField(runnerKind string) zap.Field {
 func assembleRunnerNameField(runnerName string) zap.Field {
 
 	return zap.String("runnerName", runnerName)
-
-}
-
-func getCaller() string {
-
-	// Skipping three stacks will bring us to the method or function that originally invoked the logging method
-	pc, _, _, ok := runtime.Caller(3)
-
-	if !ok {
-		return "unknown"
-	}
-
-	file, line := runtime.FuncForPC(pc).FileLine(pc)
-	return fmt.Sprintf("%s:%d", file, line)
 
 }
