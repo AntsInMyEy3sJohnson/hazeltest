@@ -1533,6 +1533,10 @@ logging:
         hazelcastEvent: INFO
       payloadGenerator:
         payloadGeneratorEvent: INFO
+      stateCleaner:
+        stateCleanerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
       mapRunner:
         runnerEvent: INFO
         hazelcastEvent: INFO
