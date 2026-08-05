@@ -27,8 +27,6 @@ env:
   # Can be IP addresses or Kubernetes services names
   # Accepts multiple comma-separated values ("service1,service2,service3")
   hzMembers: "hazelcastplatform"
-  # Set this to TRACE if you want to make the people running your IT department's logging platform very upset
-  logLevel: TRACE
 
 features:
   # Only set this to false if no chaos monkey runs with the 'k8sInCluster' hazelcast member access mode
