@@ -4,8 +4,8 @@ image:
   registry: docker.io
   organization: antsinmyey3sjohnson
   repository: hazeltest
-  tag: 0.18.2
-  digest: 998cd9ac9e911405530265d143220a89e40fe789bc1ea0e31a7771a373157f45
+  tag: 0.19.0
+  digest: a6b6ed19cba963070de82344a7b141027a925e8d71a82d0b78303cd3481eb482
   pullPolicy: IfNotPresent
 
 resources:
@@ -17,8 +17,9 @@ resources:
     memory: "150Mi"
 
 startupArgs:
-  - "-config-file=/data/config/custom-config.yaml"
   - "-use-unisocket-client=false"
+  - "-load-config-file=/data/config/custom-load-config.yaml"
+  - "-logging-config-file=/data/config/custom-logging-config.yaml"
 
 env:
   # Name of the Hazelcast cluster to connect to -- usually configured in Hazelcast by means of the "hazelcast.cluster-name" property
@@ -26,8 +27,6 @@ env:
   # Can be IP addresses or Kubernetes services names
   # Accepts multiple comma-separated values ("service1,service2,service3")
   hzMembers: "hazelcastplatform"
-  # Set this to TRACE if you want to make the people running your IT department's logging platform very upset
-  logLevel: TRACE
 
 features:
   # Only set this to false if no chaos monkey runs with the 'k8sInCluster' hazelcast member access mode
@@ -43,8 +42,8 @@ reachability:
     type: ClusterIP
     port: 8080
 
-config:
-  # For documentation on these properties, please refer to <repo root>/client/defaultConfig.yaml
+loadConfig:
+  # For documentation on these properties, please refer to <repo root>/client/defaultLoadConfig.yaml
   chaosMonkeys:
     memberKiller:
       enabled: true
@@ -320,3 +319,10 @@ config:
                 mapFillPercentage: 0.1
                 enableRandomness: true
               actionTowardsBoundaryProbability: 0.9
+
+loggingConfig:
+  logging:
+    level:
+      root: INFO
+      # Please refer to the README file for examples on how to configure logging.
+      components: { }

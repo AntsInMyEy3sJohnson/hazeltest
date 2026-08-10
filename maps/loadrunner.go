@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
 	"hazeltest/loadsupport"
 	"hazeltest/state"
 	"hazeltest/status"
+
+	"github.com/google/uuid"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -100,14 +101,16 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	config, err := populateLoadConfig(mapLoadRunnerKeyPath, mapLoadRunnerMapBaseName, r.assigner)
 	if err != nil {
-		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error()), r.name, log.ErrorLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("aborting launch of map load runner: unable to populate config: %s", err.Error())
+		}, r.name, log.ErrorLevel)
 		return
 	}
 	r.appendState(populateConfigComplete)
 
 	if !config.enabled {
 		// The source field being part of the generated log line can be used to disambiguate queues/loadRunner from maps/loadRunner
-		lp.LogMapRunnerEvent("load runner not enabled -- won't run", r.name, log.InfoLevel)
+		lp.LogMapRunnerEvent(func() string { return "load runner not enabled -- won't run" }, r.name, log.InfoLevel)
 		return
 	}
 	r.appendState(checkEnabledComplete)
@@ -116,7 +119,9 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 
 	l, err := r.providerFunctions.loadElementTestLoop(config)
 	if err != nil {
-		lp.LogMapRunnerEvent(fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error()), r.name, log.ErrorLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return fmt.Sprintf("aborting launch of map load runner: unable to initialize test loop: %s", err.Error())
+		}, r.name, log.ErrorLevel)
 		return
 	}
 	r.l = l
@@ -128,17 +133,17 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 		_ = r.hzClientHandler.Shutdown(ctx)
 	}()
 	r.hzMapStore = r.providerFunctions.mapStore(r.hzClientHandler)
-	lp.LogMapRunnerEvent("initialized hazelcast client", r.name, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return "initialized hazelcast client" }, r.name, log.InfoLevel)
 
 	r.payloadProvider = r.providerFunctions.payloads()
 	if useFixedPayload {
-		lp.LogMapRunnerEvent("usage of fixed-size payloads enabled", r.name, log.TraceLevel)
+		lp.LogMapRunnerEvent(func() string { return "usage of fixed-size payloads enabled" }, r.name, log.DebugLevel)
 		r.payloadProvider.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
 			UseFixedSize: useFixedPayload,
 			FixedSize:    loadsupport.FixedSizePayloadDefinition{SizeBytes: fixedPayloadSizeBytes},
 		})
 	} else if useVariablePayload {
-		lp.LogMapRunnerEvent("usage of variable-size payloads enabled", r.name, log.TraceLevel)
+		lp.LogMapRunnerEvent(func() string { return "usage of variable-size payloads enabled" }, r.name, log.DebugLevel)
 		r.payloadProvider.RegisterPayloadGenerationRequirement(mapLoadRunnerName, loadsupport.PayloadGenerationRequirement{
 			UseVariableSize: useVariablePayload,
 			VariableSize: loadsupport.VariableSizePayloadDefinition{
@@ -148,16 +153,18 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 			},
 		})
 	} else {
-		lp.LogMapRunnerEvent("neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements", r.name, log.ErrorLevel)
+		lp.LogMapRunnerEvent(func() string {
+			return "neither fixed-size nor variable-size load elements have been enabled -- cannot populate load elements"
+		}, r.name, log.ErrorLevel)
 		return
 	}
 
-	lp.LogMapRunnerEvent("registered payload generation requirement", r.name, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return "registered payload generation requirement" }, r.name, log.InfoLevel)
 
 	api.RaiseReady()
 	r.appendState(raiseReadyComplete)
 
-	lp.LogMapRunnerEvent("starting load test loop for maps", r.name, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return "starting load test loop for maps" }, r.name, log.InfoLevel)
 
 	tle := &testLoopExecution[loadElement]{
 		id:                        uuid.New(),
@@ -180,7 +187,7 @@ func (r *loadRunner) runMapTests(ctx context.Context, hzCluster string, hzMember
 	r.l.run()
 	r.appendState(testLoopComplete)
 
-	lp.LogMapRunnerEvent("finished map load test loop", r.name, log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return "finished map load test loop" }, r.name, log.InfoLevel)
 
 }
 

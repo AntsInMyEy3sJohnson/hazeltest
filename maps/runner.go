@@ -3,14 +3,14 @@ package maps
 import (
 	"context"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
-	"hazeltest/logging"
 	"hazeltest/state"
 	"hazeltest/status"
 	"sync"
+
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -104,9 +104,11 @@ const (
 	statusKeyCurrentState statusKey = "currentState"
 )
 
+const loggingComponent = "mapRunner"
+
 var (
 	runners            []runner
-	lp                 *logging.LogProvider
+	lp                 *client.LogProvider
 	newDefaultMapStore newMapStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.MapStore {
 		return &hazelcastwrapper.DefaultMapStore{Client: ch.GetClient()}
 	}
@@ -117,7 +119,13 @@ func register(r runner) {
 }
 
 func init() {
-	lp = logging.GetLogProviderInstance(client.ID())
+
+	var err error
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func populateBatchTestLoopConfig(b runnerConfigBuilder) (*batchTestLoopConfig, error) {
@@ -548,7 +556,7 @@ func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
 func (t *MapTester) TestMaps() {
 
 	clientID := client.ID()
-	lp.LogMapRunnerEvent(fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)), "mapTester", log.InfoLevel)
+	lp.LogMapRunnerEvent(func() string { return fmt.Sprintf("%s: map tester starting %d runner/-s", clientID, len(runners)) }, "mapTester", log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {

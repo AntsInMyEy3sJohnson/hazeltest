@@ -2,13 +2,13 @@ package queues
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
 	"hazeltest/hazelcastwrapper"
-	"hazeltest/logging"
 	"hazeltest/status"
 	"sync"
+
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -67,9 +67,11 @@ const (
 	statusKeyCurrentState statusKey = "currentState"
 )
 
+const loggingComponent = "queueRunner"
+
 var (
 	runners               []runner
-	lp                    *logging.LogProvider
+	lp                    *client.LogProvider
 	initDefaultQueueStore initQueueStoreFunc = func(ch hazelcastwrapper.HzClientHandler) hazelcastwrapper.QueueStore {
 		return &hazelcastwrapper.DefaultQueueStore{Client: ch.GetClient()}
 	}
@@ -80,7 +82,14 @@ func register(r runner) {
 }
 
 func init() {
-	lp = logging.GetLogProviderInstance(client.ID())
+
+	var err error
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func (b runnerConfigBuilder) populateConfig() (*runnerConfig, error) {
@@ -257,7 +266,7 @@ func populateConfig(assigner client.ConfigPropertyAssigner, runnerKeyPath string
 func (t *QueueTester) TestQueues() {
 
 	clientID := client.ID()
-	lp.LogInternalStateInfo(fmt.Sprintf("%s: queue tester starting %d runner/-s", clientID, len(runners)), log.InfoLevel)
+	lp.Log(func() string { return fmt.Sprintf("%s: queue tester starting %d runner/-s", clientID, len(runners)) }, client.RunnerEvent, log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(runners); i++ {

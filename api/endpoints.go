@@ -3,15 +3,18 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"net/http"
 	"strconv"
 	"sync"
+
+	log "go.uber.org/zap/zapcore"
 )
 
-const methodGet = "GET"
+const (
+	methodGet        = "GET"
+	loggingComponent = "api"
+)
 
 type liveness struct {
 	Up bool
@@ -26,7 +29,7 @@ type readiness struct {
 var (
 	l  *liveness
 	r  *readiness
-	lp *logging.LogProvider
+	lp *client.LogProvider
 	m  sync.Mutex
 )
 
@@ -35,7 +38,12 @@ func init() {
 	l = &liveness{true}
 	r = &readiness{false, false, 0}
 
-	lp = logging.GetLogProviderInstance(client.ID())
+	var err error
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
 
 }
 
@@ -50,7 +58,7 @@ func Serve() {
 	http.HandleFunc("/status", statusHandler)
 	err := server.ListenAndServe()
 	if err != nil {
-		lp.LogApiEvent(fmt.Sprintf("unable to serve api on port %d", port), log.ErrorLevel)
+		lp.Log(func() string { return fmt.Sprintf("unable to serve api on port %d", port) }, client.ApiEvent, log.ErrorLevel)
 		return
 	}
 
@@ -65,7 +73,9 @@ func RaiseNotReady() {
 		if !r.atLeastOneActorRegistered {
 			r.atLeastOneActorRegistered = true
 		}
-		lp.LogApiEvent(fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("actor has raised 'not ready', number of non-ready actors now %d", r.numNonReadyActors)
+		}, client.ApiEvent, log.InfoLevel)
 	}
 	m.Unlock()
 
@@ -76,10 +86,12 @@ func RaiseReady() {
 	m.Lock()
 	{
 		r.numNonReadyActors--
-		lp.LogApiEvent(fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors), log.InfoLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("actor has raised readiness, number of non-ready actors now %d", r.numNonReadyActors)
+		}, client.ApiEvent, log.InfoLevel)
 		if r.numNonReadyActors == 0 && r.atLeastOneActorRegistered && !r.Up {
 			r.Up = true
-			lp.LogApiEvent("all actors ready", log.InfoLevel)
+			lp.Log(func() string { return "all actors ready" }, client.ApiEvent, log.InfoLevel)
 		}
 	}
 	m.Unlock()

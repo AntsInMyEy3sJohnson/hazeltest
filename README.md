@@ -1,10 +1,7 @@
 # Hazeltest
 
-_Disclaimer: What you're about to read is not AI-generated, but created by a human being -- one made of flesh and bone,
-one who continuously thrives to aim upward (and sometimes struggles with that), and one who occasionally consumes way
-too much caffeine (the human being in question stopped counting the cups of coffee it drank while writing this article,
-but is pretty certain that number would be beyond staggering.) Also, the human author of the following sections hopes
-you find them useful and informative._
+_Disclaimer: The following was created by using a human brain and human fingers typing on a keyboard, i.e.,
+without the involvement of AI._
 
 Welcome, fellow Hazelcast warrior! Maybe you're taking a look at this repository because you've been facing the
 challenge of load-testing your Hazelcast clusters, and perhaps you've been wondering whether there are tools out there
@@ -72,8 +69,10 @@ it (bonus luck points if the Kubernetes cluster in question has some juice in te
 makes everything so much more interesting!).
 
 > :warning: **Note:** The various Helm charts you're going to install in scope of this section will spawn Pods that
-> require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously -- d'uh).
-> I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6 CPUs
+> require a certain amount of resources (in terms of CPU and memory) on the target Kubernetes cluster (obviously --
+> d'uh).
+> I configured the resource requests and limits such that all workloads are runnable on a single-node cluster with 6
+> CPUs
 > and 20 GBs of RAM, assuming a lightweight Kubernetes flavor such as k3s. However, the workloads' resource requests and
 > limits might not be optimally suited for your environment, so please feel free to adjust as needed in your local clone
 > of this repository.
@@ -257,7 +256,7 @@ you can find an example invocation making use of both the former and the latter 
 
 * ``-config-file``: Allows you to specify a custom configuration file, thus represents the means through which custom
   configuration for load creation behavior can be injected. To build your own configuration, I suggest you take the [
-  ``defaultConfig.yaml``](./client/defaultConfig.yaml) as a starting point and iteratively adjust configuration as
+  ``defaultLoadConfig.yaml``](client/defaultLoadConfig.yaml) as a starting point and iteratively adjust configuration as
   required.
 * ``-use-unisocket-client``: Enables or disables usage of the uni-socket routing mode on the Hazelcast client (also
   known as "single-member routing mode"). The default is the smart-routing (or all-member routing) mode (i.e.,
@@ -464,7 +463,7 @@ as possible (and potentially measure operation times), the Pokédex Runner/Batch
 job!
 
 The following excerpt shows a possible configuration for the Pokédex Runner in combination with the Batch Test Loop (for
-explanations on those properties, please refer to the [`defaultConfig.yaml` file](./client/defaultConfig.yaml)):
+explanations on those properties, please refer to the [`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml)):
 
 ```yaml
 mapTests:
@@ -538,7 +537,8 @@ If you prefer a video over reading the following text, the following video has y
 To offer adjustability of load dimensions 1 and 2, the Load Runner doesn't work on a fixed dataset but creates a random
 string payload according to the desired specifications. Therefore, the Load Runner's configuration comes with some
 additional properties, as the following complete example configuration making use of the Batch Test Loop highlights (
-again, the [`defaultConfig.yaml` file](./client/defaultConfig.yaml) has explanations on all properties in store for
+again, the [`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml) has explanations on all properties in store
+for
 you):
 
 ```yaml
@@ -1100,7 +1100,7 @@ Pokédex Runner in that it does not offer adjustability of load dimensions 1 and
 started with than the Queue Load Runner (whose acquaintance you'll make a bit further down the line).
 
 The following is a sample configuration for the Tweets Runner (please refer to the [
-`defaultConfig.yaml` file](./client/defaultConfig.yaml) for explanations on every property):
+`defaultLoadConfig.yaml` file](client/defaultLoadConfig.yaml) for explanations on every property):
 
 ```yaml
 queueTests:
@@ -1195,7 +1195,7 @@ the release candidate having spawned them exhibits the desired fitness level, an
 production), although it comes at the cost of the Load Runner being a tad more complex to configure.
 
 Consider the following sample configuration (you can find explanations on the additional properties in the [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml)):
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml)):
 
 ```yaml
 queueTests:
@@ -1316,7 +1316,8 @@ that matter has you covered:
 
 On the other hand, if you require only a small configuration to get you started, look no further than the next section.
 
-The following is the default configuration taken from the [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) --
+The following is the default configuration taken from the [
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml) --
 refer to that file, or the aforementioned blog post, for elaborate explanations on all properties:
 
 ```yaml
@@ -1354,7 +1355,8 @@ specification).
 
 #### State Cleaners
 
-In case you have already taken a peek at the application's [``defaultConfig.yaml`` file](./client/defaultConfig.yaml),
+In case you have already taken a peek at the application's [
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml),
 you may have noticed a top-level object called ``stateCleaners``, and perhaps an object called ``performPreRunClean``
 nested within each of the Map Runner's configurations. The naming of these objects indicates they must relate to "
 cleaning" functionality, but what exactly gets cleaned, and why would you want that in the first place?
@@ -1395,7 +1397,7 @@ structures (or destroy them altogether) before any load-creating actor starts do
 In their current iteration, state cleaners are available in two flavors: standalone and runner-related (the latter
 currently only for Map Runners). The following is an example of how to configure standalone cleaners (which are
 available both for maps and for queues), again taken from the application's [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml):
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml):
 
 ```yaml
 stateCleaners:
@@ -1434,7 +1436,7 @@ process when the target Hazelcast cluster contains many (thousands of) data stru
 
 (For a more in-depth explanation of these properties and how they work, please refer to the
 aforementioned [blog post](https://nicokrieg.com/dev-update-the-cleaners.html) or the good ol' [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml).)
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml).)
 
 As mentioned previously, Runner-related state cleaners are available, too, but only for Map Runners as of now. The
 following excerpt contains an example configuration for the Map-Runner-related cleaner, making use of the
@@ -1467,14 +1469,15 @@ convenient to use.
 ### Configuration
 
 Hazeltest sources its default configuration from a file you're probably acquainted with by now; the [
-``defaultConfig.yaml`` file](./client/defaultConfig.yaml). This file contains all properties along with an elaborate
+``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml). This file contains all properties along with an
+elaborate
 explanation of what each one does, so we won't repeat that here. There are two things worth mentioning concerning
 application configuration that aren't described in said file, though, simply because they don't refer to properties
 themselves. Let's take a look!
 
-#### Overwriting The Default Configuration
+#### Overwriting The Default Load Configuration
 
-The [``defaultConfig.yaml`` file](./client/defaultConfig.yaml) is baked into the application itself, hence the
+The [``defaultLoadConfig.yaml`` file](client/defaultLoadConfig.yaml) is baked into the application itself, hence the
 configuration it contains cannot be altered. However, the application can be instructed to source configuration from a
 custom config file using the ``-config-file`` command-line argument. The approach for weighting the priority of
 configuration properties internally is "the more explicit one wins", so if you provided, say,
@@ -1482,6 +1485,103 @@ configuration properties internally is "the more explicit one wins", so if you p
 default config file. What this also means is that in the absence of a property in the custom config file, Hazeltest will
 simply use the default. Thus, you only have to specify the properties you want overridden, rather than having to repeat
 the entirety of unchanged configuration.
+
+#### Overwriting The Default Logging Configuration
+
+If you guessed based on the previous paragraph that the application comes packaged with a default logging config just
+like it comes packaged with a default load config -- you'd be correct!
+
+You can find the application's default logging configuration in the form of the [
+``defaultLoggingConfig.yaml`` file](client/defaultLoggingConfig.yaml), though upon inspecting it, you'll notice there's
+little going on:
+
+```yaml
+logging:
+  level:
+    root: INFO
+    components: { }
+```
+
+So, the default logging config simply configures the root logging level to be ``INFO``, which is perfectly sufficient
+for most use cases. For all other cases, you can achieve more fine-grained configuration of logging levels by
+configuring the level threshold for each of the various kinds of events a component can print to the logging stream.
+
+This constitutes a bit of a conceptual shift compared to, say, your friendly-neighborhood Java-based application: Here,
+you'd typically define logging level thresholds in terms of classes, packages, or sets of packages, but since the actors
+within
+Hazeltest identify themselves as "components" in the logging stream and because every log message is of a certain kind,
+configuring the log levels in terms of these two abstraction layers is just as effective, but provides this
+effectiveness with greater simplicity and clarity.
+
+The following is a complete example to configure various log level thresholds for each of the log event kinds in
+each of the components presently available in Hazeltest:
+
+```yaml
+# Configuring INFO level on every log event kind is redundant, of course, so the following 
+# merely serves the purpose of highlighting which logging components there are, and which 
+# logging event kinds each one makes use of:
+logging:
+  level:
+    root: INFO
+    components:
+      api:
+        apiEvent: INFO
+      chaosMonkey:
+        chaosMonkeyEvent: INFO
+      hzClientAssembler:
+        internalStateEvent: INFO
+        hazelcastEvent: INFO
+      payloadGenerator:
+        payloadGeneratorEvent: INFO
+      stateCleaner:
+        stateCleanerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
+      mapRunner:
+        runnerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
+        ioEvent: INFO
+      queueRunner:
+        runnerEvent: INFO
+        hazelcastEvent: INFO
+        timingEvent: INFO
+        ioEvent: INFO
+```
+
+This configuration also acts as a kind of documentation of which logical components the application is made up of, and
+what kind of tasks each one performs; for example, it would seem intuitively obvious that the ``api`` component would
+not log messages of kind ``runnerEvent`` (although nothing happens if you provided, say, ``api.runnerEvent`` anyway --
+doing so would simply have no effect).
+
+While the above contains all the logging components and their various log event kinds and thus constitutes an example
+that could be called _complete_, it is not necessarily an example you'd also call _realistic_ due to specifying ``INFO``
+being redundant if the root level is already ``INFO``. A more realistic example could be a case where you're
+investigating, say, network latencies on an OpenShift cluster -- in this case, whereas you normally wouldn't care very
+much about timing events, the given context would suddenly make them very relevant, while other event kinds would become
+uninteresting. Thus, in this case, you could configure logging like so:
+
+```yaml
+logging:
+  level:
+    root: ERROR
+    components:
+      mapRunner:
+        timingEvent: DEBUG
+      queueRunner:
+        timingEvent: DEBUG
+```
+
+This would virtually mute all components and their log event kinds (except for ``ERROR``-level messages) while printing
+every piece of timing information the ``mapRunner`` and ``queueRunner`` components come up with.
+
+Finally, let's take a short look at the relation between default logging config and custom logging config, as it is
+slightly different from the relationship between the default load config and a custom load config: For the latter,
+specifying a custom load config file will only overwrite the properties given therein, whereas the ones that are absent
+will continue to be sourced from the default load config. For logging, on the other hand, specifying a custom logging
+config means the default logging config will not be considered anymore. So, in the case of default vs. custom logging
+config, the overwriting happens on the abstraction layer of the entire file rather than individual properties within
+that file.
 
 #### Injecting Custom Configuration Via The Helm Chart
 
@@ -1491,8 +1591,9 @@ object will get transformed into a ConfigMap, mounted inside the Hazeltest Pod o
 process from there. In other words, if you use the "official" Hazeltest Helm chart from this repository, just put your
 stuff beneath ``config``, and you're good to go!
 
-If you wish to write your own Helm chart, make sure that the ``-config-file`` argument is passed to the Hazeltest
-process, and that its argument refers to a valid configuration file in the Pod filesystem.
+If you wish to write your own Helm chart and inject custom configuration for load and/or logging, just make sure that
+the ``-load-config-file`` and ``-logging-config-file`` arguments, respectively, get passed to the Hazeltest process and
+that their arguments refer to valid files mounted into the Pod's filesystem.
 
 ### Building Automation On Top Of Hazeltest
 

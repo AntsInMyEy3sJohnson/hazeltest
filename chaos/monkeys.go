@@ -3,14 +3,14 @@ package chaos
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"hazeltest/api"
 	"hazeltest/client"
-	"hazeltest/logging"
 	"hazeltest/status"
 	"math/rand"
 	"sync"
 	"time"
+
+	log "go.uber.org/zap/zapcore"
 )
 
 const (
@@ -42,9 +42,11 @@ const (
 	statusKeyNumMembersKilled = "numMembersKilled"
 )
 
+const loggingComponent = "chaosMonkey"
+
 var (
 	monkeys []monkey
-	lp      *logging.LogProvider
+	lp      *client.LogProvider
 )
 
 var (
@@ -139,7 +141,13 @@ type (
 )
 
 func init() {
-	lp = logging.GetLogProviderInstance(client.ID())
+	var err error
+	lp, err = client.AssembleLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
+
 	register(&memberKillerMonkey{})
 }
 
@@ -151,7 +159,7 @@ func (s *defaultSleeper) sleep(sc *sleepConfig, sf evaluateTimeToSleep) {
 
 	if sc.enabled {
 		sleepDuration := sf(sc)
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("sleeping for '%d' seconds", sleepDuration), log.TraceLevel)
+		lp.Log(func() string { return fmt.Sprintf("sleeping for '%d' seconds", sleepDuration) }, client.ChaosMonkeyEvent, log.DebugLevel)
 		time.Sleep(time.Duration(sleepDuration) * time.Second)
 	}
 
@@ -192,14 +200,16 @@ func (m *memberKillerMonkey) causeChaos() {
 
 	mc, err := populateMemberKillerMonkeyConfig(m.a)
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("aborting member killer monkey launch: unable to populate config due to error: %s", err.Error()), log.ErrorLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("aborting member killer monkey launch: unable to populate config due to error: %s", err.Error())
+		}, client.ChaosMonkeyEvent, log.ErrorLevel)
 		return
 	}
 	m.appendState(populateConfigComplete)
 	m.g.Gather(status.Update{Key: statusKeyNumRuns, Value: mc.numRuns})
 
 	if !mc.enabled {
-		lp.LogChaosMonkeyEvent("member killer monkey not enabled -- won't run", log.InfoLevel)
+		lp.Log(func() string { return "member killer monkey not enabled -- won't run" }, client.ChaosMonkeyEvent, log.InfoLevel)
 		return
 	}
 	m.notReadyFunc()
@@ -214,11 +224,11 @@ func (m *memberKillerMonkey) causeChaos() {
 	for i := uint32(0); i < mc.numRuns; i++ {
 		m.s.sleep(mc.sleep, sleepTimeFunc)
 		if i > 0 && i%updateStep == 0 {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns), log.InfoLevel)
+			lp.Log(func() string { return fmt.Sprintf("finished %d of %d runs for member killer monkey", i, mc.numRuns) }, client.ChaosMonkeyEvent, log.InfoLevel)
 		}
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey in run %d", i), log.TraceLevel)
+		lp.Log(func() string { return fmt.Sprintf("member killer monkey in run %d", i) }, client.ChaosMonkeyEvent, log.DebugLevel)
 		if monkeyInvocationNecessary(mc.chaosConfig) {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey active in run %d", i), log.TraceLevel)
+			lp.Log(func() string { return fmt.Sprintf("member killer monkey active in run %d", i) }, client.ChaosMonkeyEvent, log.DebugLevel)
 			members, err := m.chooser.choose(mc.accessConfig, mc.selectionConfig)
 			if err != nil {
 				var msg string
@@ -229,7 +239,7 @@ func (m *memberKillerMonkey) causeChaos() {
 				} else {
 					msg = "unable to choose hazelcast members to kill -- will try again in next iteration"
 				}
-				lp.LogChaosMonkeyEvent(msg, log.WarnLevel)
+				lp.Log(func() string { return msg }, client.ChaosMonkeyEvent, log.WarnLevel)
 				continue
 			}
 
@@ -237,12 +247,12 @@ func (m *memberKillerMonkey) causeChaos() {
 			m.processKillIterationResults(m.t, members, mc.terminationConfig, numMembersToKill, killEvents, err)
 
 		} else {
-			lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey inactive in run %d", i), log.InfoLevel)
+			lp.Log(func() string { return fmt.Sprintf("member killer monkey inactive in run %d", i) }, client.ChaosMonkeyEvent, log.InfoLevel)
 		}
 	}
 
 	m.appendState(chaosComplete)
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("member killer monkey done after %d loop/-s", mc.numRuns), log.InfoLevel)
+	lp.Log(func() string { return fmt.Sprintf("member killer monkey done after %d loop/-s", mc.numRuns) }, client.ChaosMonkeyEvent, log.InfoLevel)
 
 }
 
@@ -256,8 +266,10 @@ func (m *memberKillerMonkey) processKillIterationResults(
 ) bool {
 
 	if err != nil {
-		lp.LogChaosMonkeyEvent(fmt.Sprintf("encountered error upon attempt to kill chosen hazelcast members (%s) "+
-			"-- will try again in next iteration: %v", members, err), log.WarnLevel)
+		lp.Log(func() string {
+			return fmt.Sprintf("encountered error upon attempt to kill chosen hazelcast members (%s) "+
+				"-- will try again in next iteration: %v", members, err)
+		}, client.ChaosMonkeyEvent, log.WarnLevel)
 		if killEvents != nil {
 			close(killEvents)
 		}
@@ -275,19 +287,19 @@ loop:
 		case success := <-killEvents:
 			numKillInvocationsInRun++
 			if success {
-				lp.LogChaosMonkeyEvent("received success message on members killed channel -- updating kill count", log.TraceLevel)
+				lp.Log(func() string { return "received success message on members killed channel -- updating kill count" }, client.ChaosMonkeyEvent, log.DebugLevel)
 				m.updateNumMembersKilled(uint32(1))
 			}
 		// Additional way out of the loop in case killer isn't able to send event into channel
 		case <-t.after(maxDelay):
-			lp.LogChaosMonkeyEvent("encountered timeout when waiting for member killed events", log.WarnLevel)
+			lp.Log(func() string { return "encountered timeout when waiting for member killed events" }, client.ChaosMonkeyEvent, log.WarnLevel)
 			timeoutOccurred = true
 			break loop
 		}
 	}
 	if numKillInvocationsInRun == numMembersToKill {
 		// If all killer goroutines have sent events, we know it's safe to close the channel
-		lp.LogChaosMonkeyEvent("closing members killed channel", log.TraceLevel)
+		lp.Log(func() string { return "closing members killed channel" }, client.ChaosMonkeyEvent, log.DebugLevel)
 		close(killEvents)
 	}
 
@@ -654,7 +666,7 @@ func (b monkeyConfigBuilder) populateMemberAccessConfig(a client.ConfigPropertyA
 func RunMonkeys() {
 
 	clientID := client.ID()
-	lp.LogChaosMonkeyEvent(fmt.Sprintf("%s: starting %d chaos monkey/-s", clientID, len(monkeys)), log.InfoLevel)
+	lp.Log(func() string { return fmt.Sprintf("%s: starting %d chaos monkey/-s", clientID, len(monkeys)) }, client.ChaosMonkeyEvent, log.InfoLevel)
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(monkeys); i++ {

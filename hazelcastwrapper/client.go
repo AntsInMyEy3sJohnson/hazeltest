@@ -3,11 +3,11 @@ package hazelcastwrapper
 import (
 	"context"
 	"fmt"
+	"hazeltest/client"
+
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
-	log "github.com/sirupsen/logrus"
-	"hazeltest/client"
-	"hazeltest/logging"
+	log "go.uber.org/zap/zapcore"
 )
 
 type (
@@ -31,9 +31,11 @@ type (
 	}
 	HzClientAssembler struct {
 		clientID uuid.UUID
-		lp       *logging.LogProvider
+		lp       *client.LogProvider
 	}
 )
+
+const loggingComponent = "hzClientAssembler"
 
 func (ch *DefaultHzClientHandler) InitHazelcastClient(ctx context.Context, clientName string, hzCluster string, hzMembers []string) {
 	ch.hzClient = NewHzClientHelper().Assemble(ctx, clientName, hzCluster, hzMembers)
@@ -56,7 +58,14 @@ func (ch *DefaultHzClientHandler) GetClient() *hazelcast.Client {
 }
 
 func NewHzClientHelper() HzClientAssembler {
-	return HzClientAssembler{client.ID(), logging.GetLogProviderInstance(client.ID())}
+
+	lp, err := client.AssembleLogProviderInstance(client.ID(), loggingComponent)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return HzClientAssembler{client.ID(), lp}
 }
 
 func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCluster string, hzMembers []string) *hazelcast.Client {
@@ -67,15 +76,14 @@ func (h HzClientAssembler) Assemble(ctx context.Context, clientName string, hzCl
 
 	hzConfig.Cluster.Unisocket = client.RetrieveArgValue(client.ArgUseUniSocketClient).(bool)
 
-	h.lp.LogInternalStateInfo(fmt.Sprintf("hazelcast client config: %+v", hzConfig), log.InfoLevel)
+	h.lp.Log(func() string { return fmt.Sprintf("hazelcast client config: %+v", hzConfig) }, client.InternalStateEvent, log.InfoLevel)
 
 	hzConfig.Cluster.Network.SetAddresses(hzMembers...)
 
 	hzClient, err := hazelcast.StartNewClientWithConfig(ctx, *hzConfig)
 
 	if err != nil {
-		// Causes log.Exit(1), which in turn calls os.Exit(1)
-		h.lp.LogHzEvent(fmt.Sprintf("unable to initialize hazelcast client: %s", err), log.FatalLevel)
+		h.lp.Log(func() string { return fmt.Sprintf("unable to initialize hazelcast client: %s", err) }, client.HzEvent, log.FatalLevel)
 	}
 
 	return hzClient
