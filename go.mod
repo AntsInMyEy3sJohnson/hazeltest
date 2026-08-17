@@ -5,7 +5,6 @@ go 1.26.0
 require (
 	github.com/google/uuid v1.6.0
 	github.com/hazelcast/hazelcast-go-client v1.6.0
-	github.com/sirupsen/logrus v1.9.4
 	go.uber.org/zap v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.36.3
